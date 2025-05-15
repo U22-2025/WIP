@@ -62,7 +62,7 @@ class WeatherServer:
         first_byte = data[0]
         version = (first_byte >> 4) & 0x0F
         req_type = (first_byte >> 3) & 0x01
-        time_field = first_byte & 0x07
+        day = first_byte & 0x07
         
         # 1byte: flags(5) + ip_version(3)
         second_byte = data[1]
@@ -82,8 +82,8 @@ class WeatherServer:
         packet_id = struct.unpack('!H', data[2:4])[0]
 
         # 16byte: region (latitude 8byte + longitude 8byte)
-        latitude = struct.unpack('!Q', data[4:12])[0]
-        longitude = struct.unpack('!Q', data[12:20])[0]
+        latitude = struct.unpack('!Q', data[4:12])[0] / 1e7 # 1e7 is used to convert to degrees
+        longitude = struct.unpack('!Q', data[12:20])[0] / 1e7 
 
         # 8byte: timestamp
         timestamp = struct.unpack('!Q', data[20:28])[0]
@@ -109,7 +109,7 @@ class WeatherServer:
         return {
             'version': version,
             'type': req_type,
-            'time_field': time_field,
+            'day': day,
             'flags': flags,
             'ip_version': ip_version,
             'packet_id': packet_id,
@@ -136,7 +136,7 @@ class WeatherServer:
         )
 
         # 1byte: version(4) + type(1) + time(3)
-        first_byte = ((self.VERSION & 0x0F) << 4) | ((self.RESPONSE_TYPE & 0x01) << 3) | (request['time_field'] & 0x07)
+        first_byte = ((self.VERSION & 0x0F) << 4) | ((self.RESPONSE_TYPE & 0x01) << 3) | (request['day'] & 0x07)
         # 1byte: flags(5) + ip_version(3)
         second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
         # 2byte: packet_id
@@ -170,6 +170,10 @@ class WeatherServer:
                 # Measure request parsing time
                 parse_start = time.time()
                 request = self.parse_request(data)
+
+                # パケット内の不正な情報をチェック
+                check_request(request)
+
                 parse_time = time.time() - parse_start
                 self._debug_print_request(data, request)
                 
@@ -196,6 +200,17 @@ class WeatherServer:
                 print(f"Error processing request: {e}")
                 continue
 
+    def check_request(dict:request):
+        
+        if !( request.version == 1 & request.type == 0 ):
+            print("バージョンまたはタイプが不正です")
+            return False
+        if  all(v == 0 for v in request['flags'].values()):
+            print("全てのフラグが0です")
+            return False
+        return True
+
 if __name__ == "__main__":
     server = WeatherServer(debug=True)
     server.run()
+
