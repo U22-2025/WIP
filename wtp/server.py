@@ -58,78 +58,104 @@ class WeatherServer:
         
     def parse_request(self, data):
         """Parse incoming request data"""
-        # First byte: Version (4 bits) + Type (1 bit) + Reserved (3 bits)
-        version_type = data[0]
-        version = (version_type >> 4) & 0x0F
-        req_type = (version_type >> 3) & 0x01
+        # 1byte: version(4) + type(1) + time(3)
+        first_byte = data[0]
+        version = (first_byte >> 4) & 0x0F
+        req_type = (first_byte >> 3) & 0x01
+        time_field = first_byte & 0x07
         
-        # Region ID (2 bytes)
-        region_id = struct.unpack('!H', data[1:3])[0]
+        # 1byte: flags(5) + ip_version(3)
+        second_byte = data[1]
+        flags_value = (second_byte >> 3) & 0x1F
+        ip_version = second_byte & 0x07
+
+        # フラグをビットごとに分割
+        flags = {
+            'weather': (flags_value >> 4) & 0x01,
+            'temperature': (flags_value >> 3) & 0x01,
+            'precipitation': (flags_value >> 2) & 0x01,
+            'alert': (flags_value >> 1) & 0x01,
+            'disaster': flags_value & 0x01,
+        }
+
+        # 2byte: packet_id
+        packet_id = struct.unpack('!H', data[2:4])[0]
+
+        # 16byte: region (latitude 8byte + longitude 8byte)
+        latitude = struct.unpack('!Q', data[4:12])[0]
+        longitude = struct.unpack('!Q', data[12:20])[0]
+
+        # 8byte: timestamp
+        timestamp = struct.unpack('!Q', data[20:28])[0]
+
+        # 2byte: weather code
+        weather_code = struct.unpack('!H', data[28:30])[0]
+
+        # 3byte: temperature (current, max, min)
+        temp_bytes = data[30:33]
+        temperature = {
+            'current': struct.unpack('b', temp_bytes[0:1])[0],
+            'max': struct.unpack('b', temp_bytes[1:2])[0],
+            'min': struct.unpack('b', temp_bytes[2:3])[0]
+        }
+
+        # 1byte: precipitation(5bit) + reserved(3bit)
+        prec_and_reserved = data[33]
+        precipitation = (prec_and_reserved >> 3) & 0x1F
+        reserved = prec_and_reserved & 0x07
         
-        # Timestamp (8 bytes)
-        timestamp = struct.unpack('!Q', data[3:11])[0]
-        
-        # Flags (1 byte)
-        flags = data[11]
-        weather_flag = (flags >> 4) & 0x01
-        temp_flag = (flags >> 3) & 0x01
-        rain_prob_flag = (flags >> 2) & 0x01
-        warning_flag = (flags >> 1) & 0x01
-        disaster_flag = flags & 0x01
-        
+        # 拡張フィールドはdata[34:]以降
+
         return {
             'version': version,
             'type': req_type,
-            'region_id': region_id,
+            'time_field': time_field,
+            'flags': flags,
+            'ip_version': ip_version,
+            'packet_id': packet_id,
+            'latitude': latitude,
+            'longitude': longitude,
             'timestamp': timestamp,
-            'flags': {
-                'weather': weather_flag,
-                'temperature': temp_flag,
-                'rain_probability': rain_prob_flag,
-                'warning': warning_flag,
-                'disaster': disaster_flag
-            }
+            'weather_code': weather_code,
+            'temperature': temperature,
+            'precipitation': precipitation,
+            'reserved': reserved,
+            'extension': data[34:]
         }
-        
+
     def create_response(self, request):
-        """Create response packet with dummy data"""
-        # Create response header
-        header = bytearray()
-        
-        # Version and Type
-        version_type = (self.VERSION << 4) | (self.RESPONSE_TYPE << 3)
-        header.append(version_type)
-        
-        # Region ID
-        header.extend(struct.pack('!H', request['region_id']))
-        
-        # Current timestamp
-        current_time = int(time.time())
-        header.extend(struct.pack('!Q', current_time))
-        
-        # Weather data based on flags (using dummy values)
-        data = bytearray()
-        if request['flags']['weather']:
-            weather_code = 1  # 1 = sunny
-            data.append(weather_code)
-            
-        if request['flags']['temperature']:
-            temp = 25  # 25 degrees
-            data.extend(struct.pack('!h', temp))
-            
-        if request['flags']['rain_probability']:
-            prob = 30  # 30% chance of rain
-            data.append(prob)
-            
-        if request['flags']['warning']:
-            warning_code = 0  # 0 = no warning
-            data.append(warning_code)
-            
-        if request['flags']['disaster']:
-            disaster_code = 0  # 0 = no disaster
-            data.append(disaster_code)
-            
-        return header + data
+
+        # flagsを5ビットにまとめる
+        flags = request['flags']
+            flags_value = (
+            ((flags.get('weather', 0) & 0x01) << 4) |
+            ((flags.get('temperature', 0) & 0x01) << 3) |
+            ((flags.get('precipitation', 0) & 0x01) << 2) |
+            ((flags.get('alert', 0) & 0x01) << 1) |
+            (flags.get('disaster', 0) & 0x01)
+        )
+
+        # 1byte: version(4) + type(1) + time(3)
+        first_byte = ((self.VERSION & 0x0F) << 4) | ((self.RESPONSE_TYPE & 0x01) << 3) | (request['time_field'] & 0x07)
+        # 1byte: flags(5) + ip_version(3)
+        second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
+        # 2byte: packet_id
+        packet_id = struct.pack('!H', request['packet_id'])
+        # 8byte: latitude, 8byte: longitude
+        latitude = struct.pack('!Q', request['latitude'])
+        longitude = struct.pack('!Q', request['longitude'])
+        # 8byte: current timestamp
+        timestamp = struct.pack('!Q', int(time.time()))
+        # 2byte: weather code (例: 晴れ=1)
+        weather_code = struct.pack('!H', 1)
+        # 3byte: temperature (例: 25, 30, 20)
+        temp_bytes = struct.pack('bbb', 25, 30, 20)
+        # 1byte: precipitation(5bit=6=30%) + reserved(3bit=0)
+        precipitation = (6 << 3) | 0
+        prec_byte = struct.pack('B', precipitation)
+        # 拡張フィールドなし
+
+        return bytes([first_byte, second_byte]) + packet_id + latitude + longitude + timestamp + weather_code + temp_bytes + prec_byte
         
     def run(self):
         """Start the weather server"""
