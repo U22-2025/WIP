@@ -3,7 +3,7 @@ import struct
 import time
 
 class WeatherClient:
-    def __init__(self, host='localhost', port=12345, debug=False):
+    def __init__(self, host='localhost', port=4110, debug=False):
         self.host = host
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
