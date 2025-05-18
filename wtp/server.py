@@ -8,10 +8,8 @@ from datetime import datetime
 import threading
 
 class WeatherServer:
-    URL = "https://www.jma.go.jp/bosai/forecast/data/forecast/150000.json"
-    OUTPUT_FILE = r"C:\Users\pijon\Downloads\test.json"
+    OUTPUT_FILE = r"C:\Users\pijon\Downloads\test.json" # 取得したデータの保存用ファイルを指定
     last_report_time = None  # グローバル変数として宣言
-
 
     def __init__(self, host='localhost', port=4110, debug=False):
         self.host = host
@@ -211,7 +209,6 @@ class WeatherServer:
                 continue
     
     def check_request(request : dict):
-        
         if ( request.version != 1 & request.type != 0 ):
             print("バージョンまたはタイプが不正です")
             return False
@@ -219,6 +216,7 @@ class WeatherServer:
             print("全てのフラグが0です")
             return False
         return True
+    
 def load_last_report_time():
     global last_report_time
     try:
@@ -228,150 +226,148 @@ def load_last_report_time():
     except Exception:
         last_report_time = None
 
-def fetch_and_save_weather():
+# 複数のエリアコードを指定して、天気データをまとめて取得する。
+def all_fetches_done():
+    # CSVファイルで、扱う地域の地域コードをまとめておき、
+    # それを読み込んで配列化。引数として渡し、天気データを取得する。
+    fetch_and_save_weather(["150000", "270000"])  # 新潟、大阪
+
+
+def fetch_and_save_weather(area_codes):
     global last_report_time
-    print("関数が呼び出されました。")
+    print("関数が呼び出されました。") #debug
+    output = {
+        "データ報告時刻": None,
+    }
     try:
-        response = requests.get(WeatherServer.URL)
-        response.raise_for_status()
-        data = response.json()
+        latest_report_time = None
+        for area_code in area_codes:
+            URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
+            response = requests.get(URL)
+            response.raise_for_status()
+            data = response.json()
 
-        report_time = data[0]["reportDatetime"]
-        # 既に保存済みの時刻と同じなら中断
-        if last_report_time == report_time:
-            print("データ報告時刻が同じなので書き込みをスキップします。")
-            return
+            report_time = data[0]["reportDatetime"]
+            # 最も遅いreportDatetimeを保持
+            if latest_report_time is None or report_time > latest_report_time:
+                latest_report_time = report_time
 
-        weather_areas = data[0]["timeSeries"][0]["areas"]
-        pop_areas = data[0]["timeSeries"][1]["areas"]
-        temp_areas = data[0]["timeSeries"][2]["areas"]
+        # for文が終わった後に、last_report_timeと比較
+        if last_report_time is not None and latest_report_time is not None:
+            if last_report_time >= latest_report_time:
+                print("前回取得時刻と同じか新しいため、処理を終了します。")
+                return
 
-        # 1週間分の日付数
-        week_days = 7
+        # 採用するデータ報告時刻をセット
+        output["データ報告時刻"] = latest_report_time
+        last_report_time = latest_report_time
 
-        # timeDefinesから日付ごとに12:00に近いindexを選択
-        time_defines = data[0]["timeSeries"][0]["timeDefines"]
-        date_to_indices = {}
-        for idx, t in enumerate(time_defines):
-            date = t[:10]
-            if date not in date_to_indices:
-                # 日付が初めて出てきた場合、空のリストを作成
-                # 日付をキーとして、indexをリストに追加していく
-                date_to_indices[date] = [] 
-            date_to_indices[date].append(idx)
+        # ここから下はデータ取得・保存処理
+        for area_code in area_codes:
+            URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
+            response = requests.get(URL)
+            response.raise_for_status()
+            data = response.json()
 
-        # 12:00に近いindexを選ぶ
-        selected_indices = []
-        removed_indices = []
-        for date, indices in date_to_indices.items():
-            if len(indices) == 1:
-                selected_indices.append(indices[0])
-            else:
-                # 12:00に近いindexを選択
-                min_diff = float('inf')
-                sel_idx = indices[0]
-                for idx in indices:
-                    hour = int(time_defines[idx][11:13])
-                    diff = abs(hour - 12)
-                    if diff < min_diff:
-                        min_diff = diff
-                        sel_idx = idx
-                selected_indices.append(sel_idx)
-                # 除外するindexを保存
-                for idx in indices:
-                    if idx != sel_idx:
-                        removed_indices.append(idx)
+            weather_areas = data[0]["timeSeries"][0]["areas"]
+            pop_areas = data[0]["timeSeries"][1]["areas"]
 
-        output = {
-            "データ報告時刻": report_time,
-        }
+            week_days = 7
+            time_defines = data[0]["timeSeries"][0]["timeDefines"]
+            date_to_indices = {}
+            for idx, t in enumerate(time_defines):
+                date = t[:10]
+                if date not in date_to_indices:
+                    date_to_indices[date] = []
+                date_to_indices[date].append(idx)
 
-        for area in weather_areas:
-            area_name = area["area"].get("name", "")
-            area_code = area["area"].get("code")
-            weather_codes = area.get("weatherCodes", [])
+            selected_indices = []
+            removed_indices = []
+            for date, indices in date_to_indices.items():
+                if len(indices) == 1:
+                    selected_indices.append(indices[0])
+                else:
+                    min_diff = float('inf')
+                    sel_idx = indices[0]
+                    for idx in indices:
+                        hour = int(time_defines[idx][11:13])
+                        diff = abs(hour - 12)
+                        if diff < min_diff:
+                            min_diff = diff
+                            sel_idx = idx
+                    selected_indices.append(sel_idx)
+                    for idx in indices:
+                        if idx != sel_idx:
+                            removed_indices.append(idx)
 
-            # 除外indexを取り除く
-            weather_codes = [code for i, code in enumerate(weather_codes) if i not in removed_indices]
+            for area in weather_areas:
+                area_name = area["area"].get("name", "")
+                code = area["area"].get("code")
+                weather_codes = area.get("weatherCodes", [])
+                weather_codes = [code_ for i, code_ in enumerate(weather_codes) if i not in removed_indices]
 
-            # 降水確率をarea_codeで紐付けて取得
-            pop = []
-            for p in pop_areas:
-                if p.get("area", {}).get("code") == area_code:
-                    pop = p.get("pops", [])
-                    # 除外indexを取り除く
-                    pop = [v for i, v in enumerate(pop) if i not in removed_indices]
-                    break
-
-            # 気温データの補完処理
-            temps = []
-            # tempAverageからmin/maxの平均値を取得
-            temp_avg = None
-            temps_max = []
-            if len(data) > 1:
-                # tempAverage
-                temp_avg_areas = data[1].get("tempAverage", {}).get("areas", [])
-                for avg_area in temp_avg_areas:
-                    try:
-                        min_val_str = avg_area.get("min", "")
-                        max_val_str = avg_area.get("max", "")
-                        if min_val_str != "" and max_val_str != "":
-                            min_val = float(min_val_str)
-                            max_val = float(max_val_str)
-                            temp_avg = int((min_val + max_val) / 2)
-                        else:
-                            temp_avg = ""
-                    except Exception:
-                        temp_avg = ""
-                    break
-
-                # tempsMax
-                if "timeSeries" in data[1] and len(data[1]["timeSeries"]) > 1:
-                    temps_max_areas = data[1]["timeSeries"][1].get("areas", [])
-                    for tmax_area in temps_max_areas:
-                        temps_max = tmax_area.get("tempsMax", [])
+                pop = []
+                for p in pop_areas:
+                    if p.get("area", {}).get("code") == code:
+                        pop = p.get("pops", [])
+                        pop = [v for i, v in enumerate(pop) if i not in removed_indices]
                         break
 
-            # temps配列の作成
-            temps = []
-            if temp_avg is not None and temp_avg != "":
-                temps.append(str(temp_avg))
-            else:
-                temps.append("")
-            # tempsMaxの後ろ6つを追加
-            temps += temps_max[-6:] if temps_max else [""] * 6
-            temps = temps[:7]  # 念のため7つに制限
+                temps = []
+                temp_avg = None
+                temps_max = []
+                if len(data) > 1:
+                    temp_avg_areas = data[1].get("tempAverage", {}).get("areas", [])
+                    for avg_area in temp_avg_areas:
+                        try:
+                            min_val_str = avg_area.get("min", "")
+                            max_val_str = avg_area.get("max", "")
+                            if min_val_str != "" and max_val_str != "":
+                                min_val = int(float(min_val_str))
+                                max_val = int(float(max_val_str))
+                                temp_avg = int((min_val + max_val) / 2)
+                            else:
+                                temp_avg = ""
+                        except Exception:
+                            temp_avg = ""
+                        break
 
-            # 不足分を補完
-            # 例: 3日分しかなければ、4日目以降をdata[1]から補完
-            if len(weather_codes) < week_days or len(pop) < week_days:
-                # data[1]のtimeSeries[0]から該当エリアのデータを探す
-                if len(data) > 1 and "timeSeries" in data[1]:
-                    ts = data[1]["timeSeries"]
-                    for sub_area in ts[0]["areas"]:
-                        
-                        # area内のcodeと地域コードの先頭2文字が一致するかを確認
-                        if sub_area["area"]["code"][:2] == area_code[:2]: 
-                            # weatherCodes補完
-                            if len(weather_codes) < week_days:
-                                add_codes = sub_area.get("weatherCodes", [])
-                                weather_codes += add_codes[len(weather_codes):week_days]
-                            # pops補完
-                            if len(pop) < week_days:
-                                add_pops = sub_area.get("pops", [])
-                                pop += add_pops[len(pop):week_days]
+                    if "timeSeries" in data[1] and len(data[1]["timeSeries"]) > 1:
+                        temps_max_areas = data[1]["timeSeries"][1].get("areas", [])
+                        for tmax_area in temps_max_areas:
+                            temps_max = tmax_area.get("tempsMax", [])
                             break
 
-            output[area_code] = {
-                "地方名": area_name,
-                "天気": weather_codes,
-                "気温": temps,
-                "降水確率": pop,
-                "注意報・警報": [],
-                "災害情報": []
-            }
+                temps = []
+                if temp_avg is not None and temp_avg != "":
+                    temps.append(str(temp_avg))
+                else:
+                    temps.append("")
+                temps += temps_max[-6:] if temps_max else [""] * 6
+                temps = temps[:7]
 
-        # JSONファイルに保存
+                if len(weather_codes) < week_days or len(pop) < week_days:
+                    if len(data) > 1 and "timeSeries" in data[1]:
+                        ts = data[1]["timeSeries"]
+                        for sub_area in ts[0]["areas"]:
+                            if sub_area["area"]["code"][:2] == code[:2]:
+                                if len(weather_codes) < week_days:
+                                    add_codes = sub_area.get("weatherCodes", [])
+                                    weather_codes += add_codes[len(weather_codes):week_days]
+                                if len(pop) < week_days:
+                                    add_pops = sub_area.get("pops", [])
+                                    pop += add_pops[len(pop):week_days]
+                                break
+
+                output[code] = {
+                    "地方名": area_name,
+                    "天気": weather_codes,
+                    "気温": temps,
+                    "降水確率": pop,
+                    "注意報・警報": [],
+                    "災害情報": []
+                }
+
         with open(WeatherServer.OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
 
@@ -380,13 +376,14 @@ def fetch_and_save_weather():
     except Exception as e:
         print(f"エラー: {e}")
         
-load_last_report_time()
+
 if __name__ == "__main__":
     server = WeatherServer(debug=True)
-    
+    load_last_report_time()
+
     threading.Thread(target=server.run, daemon=True).start()
-    schedule.every(10).minutes.do(fetch_and_save_weather)
-    fetch_and_save_weather()
+    schedule.every(10).minutes.do(all_fetches_done)
+    all_fetches_done()
     while True:
         schedule.run_pending()
         time.sleep(3600)
