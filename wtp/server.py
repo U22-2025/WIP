@@ -6,9 +6,10 @@ import json
 import schedule
 from datetime import datetime
 import threading
+import csv
 
 class WeatherServer:
-    OUTPUT_FILE = r"C:\Users\pijon\Downloads\test.json" # 取得したデータの保存用ファイルを指定
+    OUTPUT_FILE = r"WTP\wtp\resources\test.json" # 取得したデータの保存用ファイルを指定
     last_report_time = None  # グローバル変数として宣言
 
     def __init__(self, host='localhost', port=4110, debug=False):
@@ -208,14 +209,14 @@ class WeatherServer:
                 print(f"Error processing request: {e}")
                 continue
     
-    def check_request(request : dict):
-        if ( request.version != 1 & request.type != 0 ):
-            print("バージョンまたはタイプが不正です")
-            return False
-        if  all(v == 0 for v in request['flags'].values()) :
-            print("全てのフラグが0です")
-            return False
-        return True
+def check_request(request : dict):
+    if ( request.version != 1 & request.type != 0 ):
+        print("バージョンまたはタイプが不正です")
+        return False
+    if  all(v == 0 for v in request['flags'].values()) :
+        print("全てのフラグが0です")
+        return False
+    return True
     
 def load_last_report_time():
     global last_report_time
@@ -226,11 +227,24 @@ def load_last_report_time():
     except Exception:
         last_report_time = None
 
+
+def get_pref_codes_from_csv(csv_path):
+    codes = []
+    with open(csv_path, encoding="utf-8") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            # 1列目に都道府県コードがある場合
+            if row and row[0]:
+                codes.append(row[0])
+    return codes
+
+
 # 複数のエリアコードを指定して、天気データをまとめて取得する。
 def all_fetches_done():
     # CSVファイルで、扱う地域の地域コードをまとめておき、
     # それを読み込んで配列化。引数として渡し、天気データを取得する。
-    fetch_and_save_weather(["150000", "270000"])  # 新潟、大阪
+    codes = get_pref_codes_from_csv("WTP\wtp\resources\prefecture.csv")  # CSVファイル名を指定
+    fetch_and_save_weather(codes)
 
 
 def fetch_and_save_weather(area_codes):
