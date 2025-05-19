@@ -189,6 +189,8 @@ class Format:
             for field, (start, length) in self._BIT_FIELDS.items():
                 value = getattr(self, field)
                 # 値の範囲を確認
+                if isinstance(value, float):
+                    value = int(value)
                 max_val = (1 << length) - 1
                 if value > max_val:
                     raise BitFieldError(
@@ -349,7 +351,7 @@ class Response(Format):
                 setattr(self, field, value)
                 
             # ex_fieldを設定（残りのビット）
-            ex_field_start = max(start + length for start, length in self._EXTENDED_BIT_FIELDS.items())
+            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
             self.ex_field = self.extract_rest_bits(bitstr, ex_field_start)
         except Exception as e:
             raise BitFieldError(f"拡張ビット列の解析中にエラーが発生しました: {e}")
@@ -368,6 +370,8 @@ class Response(Format):
             # 拡張フィールドを設定
             for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
                 value = getattr(self, field)
+                if isinstance(value, float):
+                    value = int(value)
                 max_val = (1 << length) - 1
                 if value > max_val:
                     raise BitFieldError(
@@ -376,7 +380,7 @@ class Response(Format):
                 bitstr |= (value & max_val) << start
                 
             # ex_fieldを設定
-            ex_field_start = max(start + length for start, length in self._EXTENDED_BIT_FIELDS.items())
+            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
             bitstr |= self.ex_field << ex_field_start
             
             return bitstr
@@ -467,6 +471,8 @@ class ResolverRequest(Format):
             # 拡張フィールドを設定
             for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
                 value = getattr(self, field)
+                if isinstance(value, float):
+                    value = int(value)
                 max_val = (1 << length) - 1
                 bitstr |= (value & max_val) << start
                 
@@ -545,7 +551,7 @@ class ResolverResponse(Format):
                 setattr(self, field, value)
                 
             # ex_fieldを設定（残りのビット）
-            ex_field_start = max(start + length for start, length in self._EXTENDED_BIT_FIELDS.items())
+            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
             self.ex_field = self.extract_rest_bits(bitstr, ex_field_start)
         except Exception as e:
             raise BitFieldError(f"拡張ビット列の解析中にエラーが発生しました: {e}")
@@ -564,11 +570,13 @@ class ResolverResponse(Format):
             # 拡張フィールドを設定
             for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
                 value = getattr(self, field)
+                if isinstance(value, float):
+                    value = int(value)
                 max_val = (1 << length) - 1
                 bitstr |= (value & max_val) << start
                 
             # ex_fieldを設定
-            ex_field_start = max(start + length for start, length in self._EXTENDED_BIT_FIELDS.items())
+            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
             bitstr |= self.ex_field << ex_field_start
             
             return bitstr
@@ -591,43 +599,52 @@ class ResolverResponse(Format):
 
 # 使用例
 if __name__ == "__main__":
-    # 基本的な使用方法
-    req = Request(version=1, packet_ID=123, type=2, weather_flag=1, timestamp=123456789)
-    print(f"リクエスト: {req}")
+    from uuid import uuid4
+    from datetime import datetime
+    latitude = 35.6895
+    longitude = 139.6917
+    req = ResolverRequest(version=1, packet_ID=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude*(10**6), latitude=latitude*(10**6), ex_field=0)
+    print(f"{req}")
+    print(f"{req.to_bits()}")
+    res = ResolverResponse(bitstr = req.to_bits())
+    print(f"{res}")
+    # # 基本的な使用方法
+    # req = Request(version=1, packet_ID=123, type=2, weather_flag=1, timestamp=123456789)
+    # print(f"リクエスト: {req}")
     
-    # ビット列への変換とその逆変換
-    bitstr = req.to_bits()
-    print(f"ビット列: {bitstr:b}")
+    # # ビット列への変換とその逆変換
+    # bitstr = req.to_bits()
+    # print(f"ビット列: {bitstr:b}")
     
-    req2 = Request(bitstr=bitstr)
-    print(f"復元されたリクエスト: {req2}")
+    # req2 = Request(bitstr=bitstr)
+    # print(f"復元されたリクエスト: {req2}")
     
-    # バイト列への変換とその逆変換
-    bytes_data = req.to_bytes()
-    print(f"バイト列: {bytes_data.hex()}")
+    # # バイト列への変換とその逆変換
+    # bytes_data = req.to_bytes()
+    # print(f"バイト列: {bytes_data.hex()}")
     
-    req3 = Request.from_bytes(bytes_data)
-    print(f"バイト列から復元: {req3}")
+    # req3 = Request.from_bytes(bytes_data)
+    # print(f"バイト列から復元: {req3}")
     
-    # 辞書形式での取得
-    print(f"辞書形式: {req.as_dict()}")
+    # # 辞書形式での取得
+    # print(f"辞書形式: {req.as_dict()}")
     
-    # レスポンスの作成
-    res = Response(
-        version=1, 
-        packet_ID=123, 
-        type=2, 
-        weather_flag=1, 
-        timestamp=123456789,
-        weather_code=1001,
-        temperature=25,
-        pops=80
-    )
-    print(f"レスポンス: {res}")
+    # # レスポンスの作成
+    # res = Response(
+    #     version=1, 
+    #     packet_ID=123, 
+    #     type=2, 
+    #     weather_flag=1, 
+    #     timestamp=123456789,
+    #     weather_code=1001,
+    #     temperature=25,
+    #     pops=80
+    # )
+    # print(f"レスポンス: {res}")
     
-    # エラー処理のデモ
-    try:
-        # 範囲外の値
-        invalid_req = Request(version=20)  # version は 4ビットなので最大は 15
-    except BitFieldError as e:
-        print(f"エラー捕捉: {e}")
+    # # エラー処理のデモ
+    # try:
+    #     # 範囲外の値
+    #     invalid_req = Request(version=20)  # version は 4ビットなので最大は 15
+    # except BitFieldError as e:
+    #     print(f"エラー捕捉: {e}")
