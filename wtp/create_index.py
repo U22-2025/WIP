@@ -1,10 +1,10 @@
 import psycopg2
-
+import config
 def create_spatial_index():
     # Database configuration
     DB_NAME = "weather_forecast_map"
-    DB_USER = ""
-    DB_PASSWORD = ""
+    DB_USER = config.DB_USERNAME
+    DB_PASSWORD = config.DB_PASSWORD
     DB_HOST = "localhost"
     DB_PORT = "5432"
     

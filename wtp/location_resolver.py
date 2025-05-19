@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2 import pool
 import time
 from collections import OrderedDict
+import config
 
 class LRUCache:
     def __init__(self, maxsize=1000):
@@ -29,8 +30,8 @@ class LocationResolver:
     def __init__(self, host='localhost', port=4109, debug=False, max_cache_size=1000):
         # Database configuration
         self.DB_NAME = "weather_forecast_map"
-        self.DB_USER = ""
-        self.DB_PASSWORD = ""
+        self.DB_USER = config.DB_USERNAME
+        self.DB_PASSWORD = config.DB_PASSWORD
         self.DB_HOST = "localhost"
         self.DB_PORT = "5432"
         
