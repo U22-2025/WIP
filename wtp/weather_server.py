@@ -8,7 +8,10 @@ from datetime import datetime
 import threading
 import csv
 
+import packet_format
+
 class WeatherServer:
+    json_data = None
     OUTPUT_FILE = r"wtp\resources\test.json" # 取得したデータの保存用ファイルを指定
     last_report_time = None  # グローバル変数として宣言
 
@@ -180,6 +183,7 @@ def all_fetches_done():
 
 def fetch_and_save_weather(area_codes):
     global last_report_time
+    global json_data
     print("関数が呼び出されました。") # debug
     output = {
         "データ報告時刻": None,
@@ -316,10 +320,78 @@ def fetch_and_save_weather(area_codes):
         with open(WeatherServer.OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
 
+        # 変数に保持
+        global json_data
+        json_data = output
+
         print(f"[{datetime.now()}] 天気データを保存しました。")
 
     except Exception as e:
         print(f"エラー: {e}")
+
+    ## れすぽんすを作成する必要がある。
+    def create_response(self, request):
+        response = packet_format.Response(
+            version=self.VERSION,
+            type=self.RESPONSE_TYPE, 
+            region_id=request['region_id'],
+            day = request.get('day', 0),
+            timestamp=int(time.time()),
+            flags={
+                'weather': request['flags'].get('weather', 0),
+                'temperature': request['flags'].get('temperature', 0),
+                'pops': request['flags'].get('pops', 0),
+                'alert': request['flags'].get('alert', 0),
+                'disaster': request['flags'].get('disaster', 0),
+                'ex_field': request['flags'].get('ex_field', 0)
+            },
+            weather_code= 0,  # Example weather code
+            temperature= 0,  # Example temperatures
+            precipitation= 6,  # Example precipitation
+        )
+        # region_idから該当エリアのデータを取得
+        region_id = request['region_id']
+        region_info = None
+        if json_data and str(region_id) in json_data:
+            region_info = json_data[str(region_id)]
+        else:
+            region_info = {
+            "天気": [],
+            "気温": [],
+            "降水確率": [],
+            "注意報・警報": [],
+            "災害情報": []
+            }
+
+        # 必要なデータを抽出し、responseにセット
+        if response.flags.get('weather', 0) == 1:
+            weather_list = region_info.get('天気', [0]*7)
+            if len(weather_list) > response.day:
+                response.weather_code = weather_list[response.day]
+            else:
+                response.weather_code = weather_list[-1] if weather_list else 0
+
+        if response.flags.get('temperature', 0) == 1:
+            temp_list = region_info.get('気温', [0]*7)
+            if len(temp_list) > response.day:
+                response.temperature = temp_list[response.day]
+            else:
+                response.temperature = temp_list[-1] if temp_list else 0
+
+        if response.flags.get('pops', 0) == 1:
+            pops_list = region_info.get('降水確率', [0]*7)
+            if len(pops_list) > response.day:
+                response.precipitation = pops_list[response.day]
+            else:
+                response.precipitation = pops_list[-1] if pops_list else 0
+
+        if response.flags.get('alert', 0) == 1:
+            alert_list = region_info.get('注意報・警報', [])
+            response.alert = alert_list
+
+        if response.flags.get('disaster', 0) == 1:
+            disaster_list = region_info.get('災害情報', [])
+            response.disaster = disaster_list
         
 
 if __name__ == "__main__":
@@ -331,5 +403,5 @@ if __name__ == "__main__":
     all_fetches_done()
     while True:
         schedule.run_pending()
-        time.sleep(3600)
+        time.sleep(30)
 
