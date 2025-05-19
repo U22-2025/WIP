@@ -1,7 +1,7 @@
 import psycopg2
 
 # 仮の接続情報（必要に応じて書き換えてください）
-DB_NAME = "weather_map"
+DB_NAME = "weather_forecast_map"
 DB_USER = "username"
 DB_PASSWORD = "password"
 DB_HOST = "localhost"
@@ -13,11 +13,14 @@ latitude = 35.6895
 
 # 接続して地方名を取得する関数
 def get_district_name(longitude, latitude):
+    conn = None
+    cursor = None
+
     try:
         conn = psycopg2.connect(
             dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
+            user="bababa",
+            password="ncc",
             host=DB_HOST,
             port=DB_PORT
         )
