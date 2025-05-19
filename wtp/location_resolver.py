@@ -5,6 +5,7 @@ from psycopg2 import pool
 import time
 from collections import OrderedDict
 import config
+from wtp import packet_format
 
 class LRUCache:
     def __init__(self, maxsize=1000):
@@ -35,6 +36,9 @@ class LocationResolver:
         self.DB_HOST = "localhost"
         self.DB_PORT = "5432"
         
+        resolver_response = packet_format.resolver_request()
+        
+
         try:
             # Initialize connection pool
             self.connection_pool = psycopg2.pool.SimpleConnectionPool(
