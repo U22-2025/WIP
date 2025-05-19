@@ -21,8 +21,8 @@ class WeatherServer:
         
         # Protocol constants
         self.VERSION = 1  # 4 bits
-        self.REQUEST_TYPE = 0
-        self.RESPONSE_TYPE = 1
+        self.REQUEST_TYPE = 2
+        self.RESPONSE_TYPE = 3
         
     def _hex_dump(self, data):
         """Create a hex dump of binary data"""
@@ -67,69 +67,58 @@ class WeatherServer:
         
     def parse_request(self, data):
         """Parse incoming request data"""
-        # 1byte: version(4) + type(1) + time(3)
+        # Byte 0: version (3) + packet_id (5)
         first_byte = data[0]
         version = (first_byte >> 4) & 0x0F
-        req_type = (first_byte >> 3) & 0x01
-        day = first_byte & 0x07
-        
-        # 1byte: flags(5) + ip_version(3)
-        second_byte = data[1]
-        flags_value = (second_byte >> 3) & 0x1F
-        ip_version = second_byte & 0x07
+        packet_id_high = first_byte & 0x0F
 
-        # フラグをビットごとに分割
+        # Byte 1: packet_id (8)
+        second_byte = data[1]
+        packet_id = (packet_id_high << 8) | second_byte
+
+        # Byte 2: type (4) + flags (4)
+        third_byte = data[2]
+        req_type = (third_byte >> 5) & 0x07
+        flags_value = third_byte & 0x1F
+
         flags = {
             'weather': (flags_value >> 4) & 0x01,
             'temperature': (flags_value >> 3) & 0x01,
-            'precipitation': (flags_value >> 2) & 0x01,
+            'pops': (flags_value >> 2) & 0x01,
             'alert': (flags_value >> 1) & 0x01,
             'disaster': flags_value & 0x01,
         }
 
-        # 2byte: packet_id
-        packet_id = struct.unpack('!H', data[2:4])[0]
-
-        # 16byte: region (latitude 8byte + longitude 8byte)
-        latitude = struct.unpack('!Q', data[4:12])[0] / 1e7 # 1e7 is used to convert to degrees
-        longitude = struct.unpack('!Q', data[12:20])[0] / 1e7 
-
-        # 8byte: timestamp
-        timestamp = struct.unpack('!Q', data[20:28])[0]
-
-        # 2byte: weather code
-        weather_code = struct.unpack('!H', data[28:30])[0]
-
-        # 3byte: temperature (current, max, min)
-        temp_bytes = data[30:33]
-        temperature = {
-            'current': struct.unpack('b', temp_bytes[0:1])[0],
-            'max': struct.unpack('b', temp_bytes[1:2])[0],
-            'min': struct.unpack('b', temp_bytes[2:3])[0]
+        # Byte 3: time_specified (1) + reserved (7)
+        fourth_byte = data[3]
+        flags += {
+            'use_plus_field': (fourth_byte >> 7) & 0x01
         }
+        time_specified = (fourth_byte >> 4) & 0x07
+        reserved = fourth_byte & 0x0F
 
-        # 1byte: precipitation(5bit) + reserved(3bit)
-        prec_and_reserved = data[33]
-        precipitation = (prec_and_reserved >> 3) & 0x1F
-        reserved = prec_and_reserved & 0x07
-        
-        # 拡張フィールドはdata[34:]以降
+        # Bytes 4-11: timestamp (8 bytes)
+        timestamp = struct.unpack('!Q', data[4:12])[0]
+
+        # Bytes 12-13: region code (2 bytes)
+        fifth_byte = data[14]
+        region_bit = data [12:14] + (fifth_byte >> 4) & 0x0F
+        region_code = struct.unpack('!H', region_bit )[0]
+
+        # Bytes 14-17: checksum (4 bytes)
+        checksum_bit = fifth_byte & 0x0F + data[15:18]
+        checksum = struct.unpack('!I', checksum_bit)[0]
 
         return {
             'version': version,
-            'type': req_type,
-            'day': day,
-            'flags': flags,
-            'ip_version': ip_version,
             'packet_id': packet_id,
-            'latitude': latitude,
-            'longitude': longitude,
-            'timestamp': timestamp,
-            'weather_code': weather_code,
-            'temperature': temperature,
-            'precipitation': precipitation,
+            'type': req_type,
+            'flags': flags,
+            'day' : time_specified,
             'reserved': reserved,
-            'extension': data[34:]
+            'timestamp': timestamp,
+            'area_code': region_code,
+            'checksum': checksum
         }
 
     def create_response(self, request):
@@ -137,22 +126,20 @@ class WeatherServer:
         # flagsを5ビットにまとめる
         flags = request['flags']
         flags_value = (
-        ((flags.get('weather', 0) & 0x01) << 4) |
-        ((flags.get('temperature', 0) & 0x01) << 3) |
-        ((flags.get('precipitation', 0) & 0x01) << 2) |
-        ((flags.get('alert', 0) & 0x01) << 1) |
-        (flags.get('disaster', 0) & 0x01)
+        ((flags.get('weather', 0) & 0x01) << 5) |
+        ((flags.get('temperature', 0) & 0x01) << 4) |
+        ((flags.get('pops', 0) & 0x01) << 3) |
+        ((flags.get('alert', 0) & 0x01) << 2) |
+        ((flags.get('disaster', 0) & 0x01) << 1) |
+        ((flags.get('use_plus_field', 0) & 0x01) << 0)
         )
 
         # 1byte: version(4) + type(1) + time(3)
-        first_byte = ((self.VERSION & 0x0F) << 4) | ((self.RESPONSE_TYPE & 0x01) << 3) | (request['day'] & 0x07)
+        first_byte = ((self.VERSION & 0x0F) << 4) | (request['day'] & 0x07)
         # 1byte: flags(5) + ip_version(3)
         second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
         # 2byte: packet_id
         packet_id = struct.pack('!H', request['packet_id'])
-        # 8byte: latitude, 8byte: longitude
-        latitude = struct.pack('!Q', request['latitude'])
-        longitude = struct.pack('!Q', request['longitude'])
         # 8byte: current timestamp
         timestamp = struct.pack('!Q', int(time.time()))
         # 2byte: weather code (例: 晴れ=1)
@@ -164,7 +151,7 @@ class WeatherServer:
         prec_byte = struct.pack('B', precipitation)
         # 拡張フィールドなし
 
-        return bytes([first_byte, second_byte]) + packet_id + latitude + longitude + timestamp + weather_code + temp_bytes + prec_byte
+        return bytes([first_byte, second_byte]) + packet_id + timestamp + weather_code + temp_bytes + prec_byte
         
     def run(self):
         """Start the weather server"""
@@ -249,7 +236,7 @@ def all_fetches_done():
 
 def fetch_and_save_weather(area_codes):
     global last_report_time
-    print("関数が呼び出されました。") #debug
+    print("関数が呼び出されました。") # debug
     output = {
         "データ報告時刻": None,
     }
