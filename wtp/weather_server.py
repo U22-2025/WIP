@@ -9,7 +9,7 @@ import threading
 import csv
 
 class WeatherServer:
-    OUTPUT_FILE = r"WTP\wtp\resources\test.json" # 取得したデータの保存用ファイルを指定
+    OUTPUT_FILE = r"wtp\resources\test.json" # 取得したデータの保存用ファイルを指定
     last_report_time = None  # グローバル変数として宣言
 
     def __init__(self, host='localhost', port=4110, debug=False):
@@ -65,62 +65,6 @@ class WeatherServer:
         print(self._hex_dump(response))
         print("============================\n")
         
-    def parse_request(self, data):
-        """Parse incoming request data"""
-        # Byte 0: version (3) + packet_id (5)
-        first_byte = data[0]
-        version = (first_byte >> 4) & 0x0F
-        packet_id_high = first_byte & 0x0F
-
-        # Byte 1: packet_id (8)
-        second_byte = data[1]
-        packet_id = (packet_id_high << 8) | second_byte
-
-        # Byte 2: type (4) + flags (4)
-        third_byte = data[2]
-        req_type = (third_byte >> 5) & 0x07
-        flags_value = third_byte & 0x1F
-
-        flags = {
-            'weather': (flags_value >> 4) & 0x01,
-            'temperature': (flags_value >> 3) & 0x01,
-            'pops': (flags_value >> 2) & 0x01,
-            'alert': (flags_value >> 1) & 0x01,
-            'disaster': flags_value & 0x01,
-        }
-
-        # Byte 3: time_specified (1) + reserved (7)
-        fourth_byte = data[3]
-        flags += {
-            'use_plus_field': (fourth_byte >> 7) & 0x01
-        }
-        time_specified = (fourth_byte >> 4) & 0x07
-        reserved = fourth_byte & 0x0F
-
-        # Bytes 4-11: timestamp (8 bytes)
-        timestamp = struct.unpack('!Q', data[4:12])[0]
-
-        # Bytes 12-13: region code (2 bytes)
-        fifth_byte = data[14]
-        region_bit = data [12:14] + (fifth_byte >> 4) & 0x0F
-        region_code = struct.unpack('!H', region_bit )[0]
-
-        # Bytes 14-17: checksum (4 bytes)
-        checksum_bit = fifth_byte & 0x0F + data[15:18]
-        checksum = struct.unpack('!I', checksum_bit)[0]
-
-        return {
-            'version': version,
-            'packet_id': packet_id,
-            'type': req_type,
-            'flags': flags,
-            'day' : time_specified,
-            'reserved': reserved,
-            'timestamp': timestamp,
-            'area_code': region_code,
-            'checksum': checksum
-        }
-
     def create_response(self, request):
 
         # flagsを5ビットにまとめる
@@ -230,7 +174,7 @@ def get_pref_codes_from_csv(csv_path):
 def all_fetches_done():
     # CSVファイルで、扱う地域の地域コードをまとめておき、
     # それを読み込んで配列化。引数として渡し、天気データを取得する。
-    codes = get_pref_codes_from_csv("WTP\wtp\resources\prefecture.csv")  # CSVファイル名を指定
+    codes = get_pref_codes_from_csv(r"wtp\resources\prefecture.csv")  # CSVファイル名を指定
     fetch_and_save_weather(codes)
 
 

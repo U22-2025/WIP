@@ -25,7 +25,7 @@ class Format:
     def extract_rest_bits(self, bitstr: int, start: int) -> int:
         return bitstr >> start
 
-    def common_bit_fetch(self, bitstr: int):
+    def common_bits_fetch(self, bitstr: int):
         self.version = self.extract_bits(bitstr, 0, 4)
         self.packet_ID = self.extract_bits(bitstr, 4, 12)
         self.type = self.extract_bits(bitstr, 16, 3)
@@ -41,6 +41,27 @@ class Format:
         self.area_code = self.extract_bits(bitstr, 96, 20)
         self.checksum = self.extract_bits(bitstr, 116, 12)
 
+    def set_common_bits( self, version: int, packet_ID: int, type: int,
+                         weather_flag: int, temperature_flag: int,
+                         pops_flag: int, alert_flag: int, disaster_flag: int,
+                         ex_flag: int, day: int, reserved: int,
+                         timestamp: int, area_code: int, checksum: int):
+        
+        self.version = version
+        self.packet_ID = packet_ID
+        self.type = type
+        self.weather_flag = weather_flag
+        self.temperature_flag = temperature_flag
+        self.pops_flag = pops_flag
+        self.alert_flag = alert_flag
+        self.disaster_flag = disaster_flag
+        self.ex_flag = ex_flag
+        self.day = day
+        self.reserved = reserved
+        self.timestamp = timestamp
+        self.area_code = area_code
+        self.checksum = checksum
+
 
 class Request(Format):
     def __init__(self):
@@ -49,6 +70,18 @@ class Request(Format):
     def bits_fetch(self, bitstr: int):
         self.common_bit_fetch(bitstr)
         # timestamp などは既に common_bit_fetch で設定済みなので再設定不要です
+
+    def set_packet(self, version: int, packet_ID: int, type: int,
+                     weather_flag: int, temperature_flag: int,
+                     pops_flag: int, alert_flag: int, disaster_flag: int,
+                     ex_flag: int, day: int, reserved: int,
+                     timestamp: int, area_code: int, checksum: int):
+        self.set_common_bits(version, packet_ID, type,
+                             weather_flag, temperature_flag,
+                             pops_flag, alert_flag, disaster_flag,
+                             ex_flag, day, reserved,
+                             timestamp, area_code, checksum)
+
 
 
 class Response(Format):
@@ -66,6 +99,23 @@ class Response(Format):
         self.pops = self.extract_bits(bitstr, 40, 8)
         self.ex_field = self.extract_rest_bits(bitstr, 48)
 
+    def set_packet(self, version: int, packet_ID: int, type: int,
+                     weather_flag: int, temperature_flag: int,
+                     pops_flag: int, alert_flag: int, disaster_flag: int,
+                     ex_flag: int, day: int, reserved: int,
+                     timestamp: int, area_code: int, checksum: int,
+                     weather_code: int, temperature: int,
+                     pops: int, ex_field: int):
+        self.set_common_bits(version, packet_ID, type,
+                             weather_flag, temperature_flag,
+                             pops_flag, alert_flag, disaster_flag,
+                             ex_flag, day, reserved,
+                             timestamp, area_code, checksum)
+        self.weather_code = weather_code
+        self.temperature = temperature
+        self.pops = pops
+        self.ex_field = ex_field
+
 
 class ResolverRequest(Format):
     def __init__(self):
@@ -77,6 +127,20 @@ class ResolverRequest(Format):
         self.common_bit_fetch(bitstr)
         self.longitude = self.extract_bits(bitstr, 16, 64)
         self.latitude = self.extract_bits(bitstr, 80, 64)
+
+    def set_packet(self, version: int, packet_ID: int, type: int,
+                     weather_flag: int, temperature_flag: int,
+                     pops_flag: int, alert_flag: int, disaster_flag: int,
+                     ex_flag: int, day: int, reserved: int,
+                     timestamp: int, area_code: int, checksum: int,
+                     longitude: int, latitude: int):
+        self.set_common_bits(version, packet_ID, type,
+                             weather_flag, temperature_flag,
+                             pops_flag, alert_flag, disaster_flag,
+                             ex_flag, day, reserved,
+                             timestamp, area_code, checksum)
+        self.longitude = longitude
+        self.latitude = latitude
 
 
 class ResolverResponse(Format):
@@ -91,3 +155,18 @@ class ResolverResponse(Format):
         self.longitude = self.extract_bits(bitstr, 16, 64)
         self.latitude = self.extract_bits(bitstr, 80, 64)
         self.ex_field = self.extract_rest_bits(bitstr, 144)
+
+    def set_packet(self, version: int, packet_ID: int, type: int,
+                     weather_flag: int, temperature_flag: int,
+                     pops_flag: int, alert_flag: int, disaster_flag: int,
+                     ex_flag: int, day: int, reserved: int,
+                     timestamp: int, area_code: int, checksum: int,
+                     longitude: int, latitude: int, ex_field: int):
+        self.set_common_bits(version, packet_ID, type,
+                             weather_flag, temperature_flag,
+                             pops_flag, alert_flag, disaster_flag,
+                             ex_flag, day, reserved,
+                             timestamp, area_code, checksum)
+        self.longitude = longitude
+        self.latitude = latitude
+        self.ex_field = ex_field
