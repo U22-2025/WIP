@@ -249,7 +249,8 @@ class LocationResolver:
             try:
                 # Receive request
                 data, addr = self.sock.recvfrom(1024)
-                print(f"Received request from {addr}")
+                if self.debug:
+                    print(f"Received request from {addr}")
                 
                 # Start measuring processing time
                 start_time = time.time()
@@ -292,8 +293,7 @@ class LocationResolver:
                     print(f"Response send time: {send_time*1000:.2f}ms")
                     print(f"Total processing time: {total_processing_time*1000:.2f}ms")
                     print("========================\n")
-                
-                print(f"Sent response to {addr}")
+                    print(f"Sent response to {addr}")
                 
             except Exception as e:
                 print(f"Error processing request: {e}")
@@ -305,5 +305,5 @@ class LocationResolver:
             self.connection_pool.closeall()
 
 if __name__ == "__main__":
-    server = LocationResolver(debug=True, max_cache_size=1000)
+    server = LocationResolver(debug=False, max_cache_size=1000)
     server.run()

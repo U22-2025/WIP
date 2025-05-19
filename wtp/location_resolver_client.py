@@ -148,7 +148,7 @@ def generate_random_japan_coordinates():
     
     return latitude, longitude
 
-def main():
+def performance_test():
     """Performance test with random coordinates in Japan"""
     # テストパラメータ
     num_requests = 100  # リクエスト回数
@@ -183,6 +183,24 @@ def main():
         else:
             print("No successful requests to analyze")
 
+    finally:
+        client.close()
+
+def main():
+    """Send a single location request with coordinates"""
+    # 東京の座標を使用
+    latitude = 35.6895
+    longitude = 139.6917
+    
+    client = LocationResolverClient(debug=False)  # デバッグ出力を有効化
+    try:
+        result, total_time = client.get_location_info(latitude, longitude)
+        if result:
+            print(f"\nLocation request completed in {total_time*1000:.2f}ms")
+            print(f"Region Code: {result['region_code']}")
+            print(f"Weather Server IP: {result['weather_server_ip']}")
+        else:
+            print("Location request failed")
     finally:
         client.close()
 
