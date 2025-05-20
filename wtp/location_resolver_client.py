@@ -3,6 +3,10 @@ import struct
 import ipaddress
 import time
 import random
+from packet_format import *
+from packet_id_12bit import PacketIDGenerator12Bit
+from datetime import datetime
+PIDG = PacketIDGenerator12Bit()
 
 class LocationResolverClient:
     def __init__(self, host='localhost', port=4109, debug=False):
@@ -18,21 +22,21 @@ class LocationResolverClient:
         ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
         return f"Hex: {hex_str}\nASCII: {ascii_str}"
 
-    def _debug_print_request(self, data, latitude, longitude):
+    def _debug_print_request(self, data):
         """Print debug information for request packet"""
         if not self.debug:
             return
 
         print("\n=== SENDING REQUEST PACKET ===")
-        print(f"Total Length: {len(data)} bytes")
+        print(f"Total Length: {len(data.to_bytes())} bytes")
         print("\nCoordinates:")
-        print(f"Latitude: {latitude}")
-        print(f"Longitude: {longitude}")
+        print(f"Latitude: {data.latitude}")
+        print(f"Longitude: {data.longitude}")
         print("\nRaw Packet:")
-        print(self._hex_dump(data))
+        print(self._hex_dump(data.to_bytes()))
         print("===========================\n")
 
-    def _debug_print_response(self, data, region_code, weather_server_ip):
+    def _debug_print_response(self, data, region_code, weather_server_ip=None):
         """Print debug information for response packet"""
         if not self.debug:
             return
@@ -40,47 +44,27 @@ class LocationResolverClient:
         print("\n=== RECEIVED RESPONSE PACKET ===")
         print(f"Total Length: {len(data)} bytes")
         print(f"Region Code: {region_code}")
-        print(f"Weather Server IP: {weather_server_ip}")
+        # print(f"Weather Server IP: {weather_server_ip}")
         print("\nRaw Packet:")
         print(self._hex_dump(data))
         print("============================\n")
 
-    def create_request(self, latitude, longitude):
-        """Create binary request packet with coordinates"""
-        # Pack latitude and longitude as 64-bit doubles
-        return struct.pack('!dd', latitude, longitude)
-
-    def parse_response(self, data):
-        """Parse response packet containing region code and weather server IP"""
-        if len(data) != 8:  # 64 bits = 8 bytes
-            raise ValueError("Invalid response length")
-
-        # Extract region code (4 bytes)
-        region_code = struct.unpack('!I', data[0:4])[0]
-
-        # Extract IP address (4 bytes)
-        ip_bytes = data[4:8]
-        weather_server_ip = str(ipaddress.IPv4Address(ip_bytes))
-
-        return {
-            'region_code': region_code,
-            'weather_server_ip': weather_server_ip
-        }
+    
 
     def get_location_info(self, latitude, longitude):
-        """Send coordinates and get location information"""
-        try:
+        # """Send coordinates and get location information"""
+        # try:
             start_time = time.time()
 
             # Create request packet
             request_start = time.time()
-            request = self.create_request(latitude, longitude)
+            request = ResolverRequest(version=1, packet_ID=PIDG.next_id(), type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
             request_time = time.time() - request_start
-            self._debug_print_request(request, latitude, longitude)
+            self._debug_print_request(request)
 
             # Send request and receive response
             network_start = time.time()
-            self.sock.sendto(request, (self.server_host, self.server_port))
+            self.sock.sendto(request.to_bytes(), (self.server_host, self.server_port))
             if self.debug:
                 print(f"Sent request to {self.server_host}:{self.server_port}")
 
@@ -91,12 +75,11 @@ class LocationResolverClient:
 
             # Parse response
             parse_start = time.time()
-            response = self.parse_response(data)
+            response = ResolverResponse.from_bytes(data)
             parse_time = time.time() - parse_start
             self._debug_print_response(
                 data,
-                response['region_code'],
-                response['weather_server_ip']
+                response.area_code
             )
 
             total_time = time.time() - start_time
@@ -111,9 +94,9 @@ class LocationResolverClient:
 
             return response, total_time
 
-        except Exception as e:
-            print(f"Error communicating with location resolver: {e}")
-            return None, 0
+        # except Exception as e:
+        #     print(f"Error communicating with location resolver: {e}")
+        #     return None, 0
 
     def close(self):
         """Close the socket"""
@@ -152,7 +135,7 @@ def performance_test():
     """Performance test with random coordinates in Japan"""
     # テストパラメータ
     num_requests = 100  # リクエスト回数
-    client = LocationResolverClient(debug=False)  # デバッグ出力は無効化
+    client = LocationResolverClient(debug=True)  # デバッグ出力は無効化
     processing_times = []
 
     try:
@@ -197,8 +180,8 @@ def main():
         result, total_time = client.get_location_info(latitude, longitude)
         if result:
             print(f"\nLocation request completed in {total_time*1000:.2f}ms")
-            print(f"Region Code: {result['region_code']}")
-            print(f"Weather Server IP: {result['weather_server_ip']}")
+            print(f"Region Code: {result.area_code}")
+            # print(f"Weather Server IP: {result['weather_server_ip']}")
         else:
             print("Location request failed")
     finally:
