@@ -218,6 +218,7 @@ class LocationResolver:
                 
                 if self.debug:
                     print("\n=== TIMING INFORMATION ===")
+                    print(f"Request receive time: {(parse_start - start_time)*1000:.2f}ms")
                     print(f"Request parsing time: {parse_time*1000:.2f}ms")
                     print(f"Database query time: {db_time*1000:.2f}ms")
                     print(f"Response creation time: {response_time*1000:.2f}ms")
