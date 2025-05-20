@@ -437,7 +437,15 @@ class ResolverRequest(Format):
         # 拡張フィールドをキーワード引数から設定
         for field in ['longitude', 'latitude']:
             if field in kwargs:
-                setattr(self, field, kwargs[field])
+                value = kwargs[field]
+                # 座標値を10^6倍して整数に変換
+                if field == 'longitude' or field == 'latitude':
+                    if isinstance(value, float):
+                        # 浮動小数点の座標値を10^6倍して整数に変換
+                         value = int(value * (10**6))
+                    # 整数の場合はそのまま使用（すでに変換済みと想定）
+                
+                setattr(self, field, value)
 
     def from_bits(self, bitstr: int) -> None:
         """
@@ -452,7 +460,15 @@ class ResolverRequest(Format):
         try:
             # 拡張フィールドを設定
             for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                value = self.extract_bits(bitstr, start, length)
+                # value = self.extract_bits(bitstr, start, length)
+                raw_value = self.extract_bits(bitstr, start, length)
+                # 座標値の場合、10^6で割って元の浮動小数点数に戻す
+                if field == 'longitude' or field == 'latitude':
+                    # 整数値を浮動小数点数に変換（10^6で割る）
+                    value = raw_value / (10**6)
+                else:
+                    # 座標以外のフィールドはそのまま
+                    value = raw_value
                 setattr(self, field, value)
         except Exception as e:
             raise BitFieldError(f"拡張ビット列の解析中にエラーが発生しました: {e}")
@@ -532,7 +548,16 @@ class ResolverResponse(Format):
         # 拡張フィールドをキーワード引数から設定
         for field in ['longitude', 'latitude', 'ex_field']:
             if field in kwargs:
-                setattr(self, field, kwargs[field])
+                value = kwargs[field]
+                # 座標値を10^6倍して整数に変換
+                if field == 'longitude' or field == 'latitude':
+                    if isinstance(value, float):
+                        # 浮動小数点の座標値を10^6倍して整数に変換
+                         value = int(value * (10**6))
+                    # 整数の場合はそのまま使用（すでに変換済みと想定）
+                
+                setattr(self, field, value)
+
 
     def from_bits(self, bitstr: int) -> None:
         """
@@ -547,7 +572,16 @@ class ResolverResponse(Format):
         try:
             # 拡張フィールドを設定
             for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                value = self.extract_bits(bitstr, start, length)
+                # value = self.extract_bits(bitstr, start, length)
+                raw_value = self.extract_bits(bitstr, start, length)
+                
+                # 座標値の場合、10^6で割って元の浮動小数点数に戻す
+                if field == 'longitude' or field == 'latitude':
+                    # 整数値を浮動小数点数に変換（10^6で割る）
+                    value = raw_value / (10**6)
+                else:
+                    # 座標以外のフィールドはそのまま
+                    value = raw_value
                 setattr(self, field, value)
                 
             # ex_fieldを設定（残りのビット）
@@ -603,7 +637,7 @@ if __name__ == "__main__":
     from datetime import datetime
     latitude = 35.6895
     longitude = 139.6917
-    req = ResolverRequest(version=1, packet_ID=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude*(10**6), latitude=latitude*(10**6), ex_field=0)
+    req = ResolverRequest(version=1, packet_ID=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
     print(f"{req}")
     print(f"{req.to_bits()}")
     res = ResolverResponse(bitstr = req.to_bits())
