@@ -5,7 +5,7 @@ from psycopg2 import pool
 import time
 from collections import OrderedDict
 import config
-from wtp import packet_format
+from packet_format import *
 
 class LRUCache:
     def __init__(self, maxsize=1000):
@@ -35,8 +35,7 @@ class LocationResolver:
         self.DB_PASSWORD = config.DB_PASSWORD
         self.DB_HOST = "localhost"
         self.DB_PORT = "5432"
-        
-        resolver_response = packet_format.resolver_request()
+
         
 
         try:
@@ -91,8 +90,8 @@ class LocationResolver:
         print("\n=== RECEIVED REQUEST PACKET ===")
         print(f"Total Length: {len(data)} bytes")
         print("\nCoordinates:")
-        print(f"Latitude: {parsed['latitude']}")
-        print(f"Longitude: {parsed['longitude']}")
+        print(f"Latitude: {parsed.latitude}")
+        print(f"Longitude: {parsed.longitude}")
         print("\nRaw Packet:")
         print(self._hex_dump(data))
         print("===========================\n")
@@ -110,19 +109,6 @@ class LocationResolver:
         print(self._hex_dump(response))
         print("============================\n")
 
-    def parse_request(self, data):
-        """Parse incoming coordinate data"""
-        if len(data) != 16:  # 128 bits = 16 bytes
-            raise ValueError("Invalid request length")
-            
-        # Parse latitude and longitude (64 bits each)
-        latitude = struct.unpack('!d', data[0:8])[0]
-        longitude = struct.unpack('!d', data[8:16])[0]
-        
-        return {
-            'latitude': latitude,
-            'longitude': longitude
-        }
         
     def get_district_code(self, longitude, latitude):
         """Query database for district code with caching"""
@@ -218,24 +204,24 @@ class LocationResolver:
                 
                 # Parse request
                 parse_start = time.time()
-                request = self.parse_request(data)
+                request = ResolverRequest.from_bytes(data)
                 parse_time = time.time() - parse_start
                 self._debug_print_request(data, request)
                 
                 # Get region code from database
                 db_start = time.time()
                 region_code = self.get_district_code(
-                    request['longitude'],
-                    request['latitude']
+                    request.longitude,
+                    request.latitude
                 )
                 db_time = time.time() - db_start
                 
                 # Create response
                 response_start = time.time()
                 try:
-                    response = self.create_response(int(region_code))
+                    response = self.create_response(request,int(region_code))
                 except:
-                    response = self.create_response(0)
+                    response = self.create_response(request,0)
                 response_time = time.time() - response_start
                 self._debug_print_response(response, region_code)
                 
@@ -248,6 +234,7 @@ class LocationResolver:
                 
                 if self.debug:
                     print("\n=== TIMING INFORMATION ===")
+                    print(f"Request receive time: {(parse_start - start_time)*1000:.2f}ms")
                     print(f"Request parsing time: {parse_time*1000:.2f}ms")
                     print(f"Database query time: {db_time*1000:.2f}ms")
                     print(f"Response creation time: {response_time*1000:.2f}ms")
@@ -266,5 +253,5 @@ class LocationResolver:
             self.connection_pool.closeall()
 
 if __name__ == "__main__":
-    server = LocationResolver(debug=False, max_cache_size=1000)
+    server = LocationResolver(debug=True, max_cache_size=1000)
     server.run()
