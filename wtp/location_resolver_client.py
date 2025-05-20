@@ -87,6 +87,7 @@ class LocationResolverClient:
             if self.debug:
                 print("\n=== TIMING INFORMATION ===")
                 print(f"Request creation time: {request_time*1000:.2f}ms")
+                print(f"Request send time: {(network_start - request_start)*1000:.2f}ms")
                 print(f"Network round-trip time: {network_time*1000:.2f}ms")
                 print(f"Response parsing time: {parse_time*1000:.2f}ms")
                 print(f"Total processing time: {total_time*1000:.2f}ms")
@@ -134,7 +135,7 @@ def generate_random_japan_coordinates():
 def performance_test():
     """Performance test with random coordinates in Japan"""
     # テストパラメータ
-    num_requests = 100  # リクエスト回数
+    num_requests = 100000  # リクエスト回数
     client = LocationResolverClient(debug=True)  # デバッグ出力は無効化
     processing_times = []
 
@@ -175,7 +176,7 @@ def main():
     latitude = 35.6895
     longitude = 139.6917
     
-    client = LocationResolverClient(debug=False)  # デバッグ出力を有効化
+    client = LocationResolverClient(debug=True)  # デバッグ出力を有効化
     try:
         result, total_time = client.get_location_info(latitude, longitude)
         if result:
