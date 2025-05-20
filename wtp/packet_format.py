@@ -18,7 +18,7 @@ class Format:
     
     ビットフィールド構造:
     - version:          1-4bit   (4ビット)
-    - packet_ID:        5-16bit  (12ビット)
+    - packet_id:        5-16bit  (12ビット)
     - type:             17-19bit (3ビット)
     - weather_flag:     20bit    (1ビット)
     - temperature_flag: 21bit    (1ビット)
@@ -36,7 +36,7 @@ class Format:
     # ビットフィールド定義 (位置, 長さ)
     _BIT_FIELDS = {
         'version': (0, 4),
-        'packet_ID': (4, 12),
+        'packet_id': (4, 12),
         'type': (16, 3),
         'weather_flag': (19, 1),
         'temperature_flag': (20, 1),
@@ -54,7 +54,7 @@ class Format:
     # フィールドの有効範囲
     _FIELD_RANGES = {
         'version': (0, (1 << 4) - 1),
-        'packet_ID': (0, (1 << 12) - 1),
+        'packet_id': (0, (1 << 12) - 1),
         'type': (0, (1 << 3) - 1),
         'weather_flag': (0, 1),
         'temperature_flag': (0, 1),
@@ -78,7 +78,7 @@ class Format:
         """
         # フィールドの初期化
         self.version = 0
-        self.packet_ID = 0
+        self.packet_id = 0
         self.type = 0
         self.weather_flag = 0
         self.temperature_flag = 0
@@ -91,6 +91,8 @@ class Format:
         self.timestamp = 0
         self.area_code = 0
         self.checksum = 0
+        self.next_server_ip = 0
+
         
         # 'bitstr'が提供された場合はそれを解析
         if 'bitstr' in kwargs:
@@ -210,7 +212,20 @@ class Format:
         """
         bitstr = self.to_bits()
         # 必要なバイト数を計算（128ビット = 16バイト）
-        num_bytes = (max(bit_pos + bit_len for bit_pos, bit_len in self._BIT_FIELDS.values()) + 7) // 8
+        # 基本ビットフィールドの最大位置を計算
+        max_pos = max(bit_pos + bit_len for bit_pos, bit_len in self._BIT_FIELDS.values())
+        
+        # 拡張ビットフィールドがある場合はそれも考慮
+        extended_fields = getattr(self, '_EXTENDED_BIT_FIELDS', {})
+        if extended_fields:
+            extended_max = max(bit_pos + bit_len for bit_pos, bit_len in extended_fields.values())
+            max_pos = max(max_pos, extended_max)
+            
+        # バイト数に変換（8ビット = 1バイト）
+        num_bytes = (max_pos + 7) // 8
+        
+        # 少なくとも32バイト確保（256ビット）
+        num_bytes = max(num_bytes, 32)
         return bitstr.to_bytes(num_bytes, byteorder='big')
         
     @classmethod
@@ -637,48 +652,8 @@ if __name__ == "__main__":
     from datetime import datetime
     latitude = 35.6895
     longitude = 139.6917
-    req = ResolverRequest(version=1, packet_ID=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
+    req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
     print(f"{req}")
     print(f"{req.to_bits()}")
     res = ResolverResponse(bitstr = req.to_bits())
     print(f"{res}")
-    # # 基本的な使用方法
-    # req = Request(version=1, packet_ID=123, type=2, weather_flag=1, timestamp=123456789)
-    # print(f"リクエスト: {req}")
-    
-    # # ビット列への変換とその逆変換
-    # bitstr = req.to_bits()
-    # print(f"ビット列: {bitstr:b}")
-    
-    # req2 = Request(bitstr=bitstr)
-    # print(f"復元されたリクエスト: {req2}")
-    
-    # # バイト列への変換とその逆変換
-    # bytes_data = req.to_bytes()
-    # print(f"バイト列: {bytes_data.hex()}")
-    
-    # req3 = Request.from_bytes(bytes_data)
-    # print(f"バイト列から復元: {req3}")
-    
-    # # 辞書形式での取得
-    # print(f"辞書形式: {req.as_dict()}")
-    
-    # # レスポンスの作成
-    # res = Response(
-    #     version=1, 
-    #     packet_ID=123, 
-    #     type=2, 
-    #     weather_flag=1, 
-    #     timestamp=123456789,
-    #     weather_code=1001,
-    #     temperature=25,
-    #     pops=80
-    # )
-    # print(f"レスポンス: {res}")
-    
-    # # エラー処理のデモ
-    # try:
-    #     # 範囲外の値
-    #     invalid_req = Request(version=20)  # version は 4ビットなので最大は 15
-    # except BitFieldError as e:
-    #     print(f"エラー捕捉: {e}")
