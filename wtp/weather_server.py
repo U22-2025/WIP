@@ -68,37 +68,37 @@ class WeatherServer:
         print(self._hex_dump(response))
         print("============================\n")
         
-    def create_response(self, request):
+    # def create_response(self, request):
 
-        # flagsを5ビットにまとめる
-        flags = request['flags']
-        flags_value = (
-        ((flags.get('weather', 0) & 0x01) << 5) |
-        ((flags.get('temperature', 0) & 0x01) << 4) |
-        ((flags.get('pops', 0) & 0x01) << 3) |
-        ((flags.get('alert', 0) & 0x01) << 2) |
-        ((flags.get('disaster', 0) & 0x01) << 1) |
-        ((flags.get('use_plus_field', 0) & 0x01) << 0)
-        )
+    #     # flagsを5ビットにまとめる
+    #     flags = request['flags']
+    #     flags_value = (
+    #     ((flags.get('weather', 0) & 0x01) << 5) |
+    #     ((flags.get('temperature', 0) & 0x01) << 4) |
+    #     ((flags.get('pops', 0) & 0x01) << 3) |
+    #     ((flags.get('alert', 0) & 0x01) << 2) |
+    #     ((flags.get('disaster', 0) & 0x01) << 1) |
+    #     ((flags.get('use_plus_field', 0) & 0x01) << 0)
+    #     )
 
-        # 1byte: version(4) + type(1) + time(3)
-        first_byte = ((self.VERSION & 0x0F) << 4) | (request['day'] & 0x07)
-        # 1byte: flags(5) + ip_version(3)
-        second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
-        # 2byte: packet_id
-        packet_id = struct.pack('!H', request['packet_id'])
-        # 8byte: current timestamp
-        timestamp = struct.pack('!Q', int(time.time()))
-        # 2byte: weather code (例: 晴れ=1)
-        weather_code = struct.pack('!H', 1)
-        # 3byte: temperature (例: 25, 30, 20)
-        temp_bytes = struct.pack('bbb', 25, 30, 20)
-        # 1byte: precipitation(5bit=6=30%) + reserved(3bit=0)
-        precipitation = (6 << 3) | 0
-        prec_byte = struct.pack('B', precipitation)
-        # 拡張フィールドなし
+    #     # 1byte: version(4) + type(1) + time(3)
+    #     first_byte = ((self.VERSION & 0x0F) << 4) | (request['day'] & 0x07)
+    #     # 1byte: flags(5) + ip_version(3)
+    #     second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
+    #     # 2byte: packet_id
+    #     packet_id = struct.pack('!H', request['packet_id'])
+    #     # 8byte: current timestamp
+    #     timestamp = struct.pack('!Q', int(time.time()))
+    #     # 2byte: weather code (例: 晴れ=1)
+    #     weather_code = struct.pack('!H', 1)
+    #     # 3byte: temperature (例: 25, 30, 20)
+    #     temp_bytes = struct.pack('bbb', 25, 30, 20)
+    #     # 1byte: precipitation(5bit=6=30%) + reserved(3bit=0)
+    #     precipitation = (6 << 3) | 0
+    #     prec_byte = struct.pack('B', precipitation)
+    #     # 拡張フィールドなし
 
-        return bytes([first_byte, second_byte]) + packet_id + timestamp + weather_code + temp_bytes + prec_byte
+    #     return bytes([first_byte, second_byte]) + packet_id + timestamp + weather_code + temp_bytes + prec_byte
         
     def run(self):
         """Start the weather server"""
@@ -329,7 +329,7 @@ def fetch_and_save_weather(area_codes):
     except Exception as e:
         print(f"エラー: {e}")
 
-    ## れすぽんすを作成する必要がある。
+    ## レスポンスを作成する
     def create_response(self, request):
         response = packet_format.Response(
             version=self.VERSION,

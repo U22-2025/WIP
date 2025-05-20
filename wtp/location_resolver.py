@@ -169,21 +169,38 @@ class LocationResolver:
                 cursor.close()
                 self.connection_pool.putconn(conn)
 
-    def create_response(self, region_code):
-        """Create binary response packet"""
-        if region_code is None:
-            region_code = 0  # Default value for unknown regions
+    # def create_response(self, region_code):
+    #     """Create binary response packet"""
+    #     if region_code is None:
+    #         region_code = 0  # Default value for unknown regions
             
-        # Convert region code to 4-byte integer
-        region_bytes = struct.pack('!I', region_code)
+    #     # Convert region code to 4-byte integer
+    #     region_bytes = struct.pack('!I', region_code)
         
-        # Convert IP address to bytes (4 bytes)
-        ip_parts = [int(part) for part in self.weather_server_ip.split('.')]
-        ip_bytes = bytes(ip_parts)
+    #     # Convert IP address to bytes (4 bytes)
+    #     ip_parts = [int(part) for part in self.weather_server_ip.split('.')]
+    #     ip_bytes = bytes(ip_parts)
         
-        # Combine region code and IP address
-        return region_bytes + ip_bytes
+    #     # Combine region code and IP address
+    #     return region_bytes + ip_bytes
     
+    ## レスポンスを作成する
+    def create_response(self, request):
+        response = packet_format.Response(
+            version=self.VERSION,
+            packet_id=request['packet_id'],
+            type=self.RESPONSE_TYPE,
+            ex_flag = 1,
+
+            timestamp=int(time.time()), 
+            
+            longitude=request['longitude'],
+            latitude=request['latitude'],
+            # ex_field = 
+        )
+
+        # response.region_id = 
+        # response.checksum = 
 
     def run(self):
         """Start the location resolver server"""
