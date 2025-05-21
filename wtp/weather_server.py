@@ -250,6 +250,7 @@ def fetch_and_save_weather(area_codes):
                             removed_indices.append(idx)
 
             for area in weather_areas:
+                parent_code = area_code[:2]+'0000'
                 area_name = area["area"].get("name", "")
                 code = area["area"].get("code")
                 weather_codes = area.get("weatherCodes", [])
@@ -309,6 +310,7 @@ def fetch_and_save_weather(area_codes):
                                 break
 
                 output[code] = {
+                    "親コード": parent_code,
                     "地方名": area_name,
                     "天気": weather_codes,
                     "気温": temps,
@@ -317,8 +319,14 @@ def fetch_and_save_weather(area_codes):
                     "災害情報": []
                 }
 
-        with open(WeatherServer.OUTPUT_FILE, "w", encoding="utf-8") as f:
-            json.dump(output, f, ensure_ascii=False, indent=2)
+
+        ## redisDBに書き出す処理
+        import redis
+        r = redis.Redis(host='localhost', port=6379, db=0)
+        r.set('weather_data', json.dumps(output))
+
+        # with open(WeatherServer.OUTPUT_FILE, "w", encoding="utf-8") as f:
+        #     json.dump(output, f, ensure_ascii=False, indent=2)
 
         # 変数に保持
         global json_data
