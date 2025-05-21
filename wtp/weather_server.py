@@ -177,145 +177,123 @@ def get_pref_codes_from_csv(csv_path):
 def all_fetches_done():
     # CSVファイルで、扱う地域の地域コードをまとめておき、
     # それを読み込んで配列化。引数として渡し、天気データを取得する。
-    codes = get_pref_codes_from_csv(r"wtp\resources\prefecture.csv")  # CSVファイル名を指定
-    fetch_and_save_weather(codes)
+    # codes = get_pref_codes_from_csv(r"wtp\resources\prefecture.csv")  # CSVファイル名を指定
+    fetch_and_save_weather("010000")
 
 
-def fetch_and_save_weather(area_codes):
+def fetch_and_save_weather(area_code):
     global last_report_time
     global json_data
     print("関数が呼び出されました。") # debug
     output = {
-        "データ報告時刻": None,
+        "updated_at": None,
     }
     try:
-        latest_report_time = None
-        for area_code in area_codes:
-            URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
-            response = requests.get(URL)
-            response.raise_for_status()
-            data = response.json()
-
-            report_time = data[0]["reportDatetime"]
-            # 最も遅いreportDatetimeを保持
-            if latest_report_time is None or report_time > latest_report_time:
-                latest_report_time = report_time
-
-        # for文が終わった後に、last_report_timeと比較
-        if last_report_time is not None and latest_report_time is not None:
-            if last_report_time >= latest_report_time:
-                print("前回取得時刻と同じか新しいため、処理を終了します。")
-                return
-
-        # 採用するデータ報告時刻をセット
-        output["データ報告時刻"] = latest_report_time
-        last_report_time = latest_report_time
-
         # ここから下はデータ取得・保存処理
-        for area_code in area_codes:
-            URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
-            response = requests.get(URL)
-            response.raise_for_status()
-            data = response.json()
+        URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
+        response = requests.get(URL)
+        response.raise_for_status()
+        data = response.json()
 
-            weather_areas = data[0]["timeSeries"][0]["areas"]
-            pop_areas = data[0]["timeSeries"][1]["areas"]
+        output["updated_at"] = data[0]["reportdateTime"]
+        weather_areas = data[0]["timeSeries"][0]["areas"]
+        pop_areas = data[0]["timeSeries"][1]["areas"]
 
-            week_days = 7
-            time_defines = data[0]["timeSeries"][0]["timeDefines"]
-            date_to_indices = {}
-            for idx, t in enumerate(time_defines):
-                date = t[:10]
-                if date not in date_to_indices:
-                    date_to_indices[date] = []
-                date_to_indices[date].append(idx)
+        week_days = 7
+        time_defines = data[0]["timeSeries"][0]["timeDefines"]
+        date_to_indices = {}
+        for idx, t in enumerate(time_defines):
+            date = t[:10]
+            if date not in date_to_indices:
+                date_to_indices[date] = []
+            date_to_indices[date].append(idx)
 
-            selected_indices = []
-            removed_indices = []
-            for date, indices in date_to_indices.items():
-                if len(indices) == 1:
-                    selected_indices.append(indices[0])
-                else:
-                    min_diff = float('inf')
-                    sel_idx = indices[0]
-                    for idx in indices:
-                        hour = int(time_defines[idx][11:13])
-                        diff = abs(hour - 12)
-                        if diff < min_diff:
-                            min_diff = diff
-                            sel_idx = idx
-                    selected_indices.append(sel_idx)
-                    for idx in indices:
-                        if idx != sel_idx:
-                            removed_indices.append(idx)
+        selected_indices = []
+        removed_indices = []
+        for date, indices in date_to_indices.items():
+            if len(indices) == 1:
+                selected_indices.append(indices[0])
+            else:
+                min_diff = float('inf')
+                sel_idx = indices[0]
+                for idx in indices:
+                    hour = int(time_defines[idx][11:13])
+                    diff = abs(hour - 12)
+                    if diff < min_diff:
+                        min_diff = diff
+                        sel_idx = idx
+                selected_indices.append(sel_idx)
+                for idx in indices:
+                    if idx != sel_idx:
+                        removed_indices.append(idx)
 
-            for area in weather_areas:
-                area_name = area["area"].get("name", "")
-                code = area["area"].get("code")
-                weather_codes = area.get("weatherCodes", [])
-                weather_codes = [code_ for i, code_ in enumerate(weather_codes) if i not in removed_indices]
+        for area in weather_areas:
+            area_name = area["area"].get("name", "")
+            code = area["area"].get("code")
+            weather_codes = area.get("weatherCodes", [])
+            weather_codes = [code_ for i, code_ in enumerate(weather_codes) if i not in removed_indices]
 
-                pop = []
-                for p in pop_areas:
-                    if p.get("area", {}).get("code") == code:
-                        pop = p.get("pops", [])
-                        pop = [v for i, v in enumerate(pop) if i not in removed_indices]
-                        break
+            pop = []
+            for p in pop_areas:
+                if p.get("area", {}).get("code") == code:
+                    pop = p.get("pops", [])
+                    pop = [v for i, v in enumerate(pop) if i not in removed_indices]
+                    break
 
-                temps = []
-                temp_avg = None
-                temps_max = []
-                if len(data) > 1:
-                    temp_avg_areas = data[1].get("tempAverage", {}).get("areas", [])
-                    for avg_area in temp_avg_areas:
-                        try:
-                            min_val_str = avg_area.get("min", "")
-                            max_val_str = avg_area.get("max", "")
-                            if min_val_str != "" and max_val_str != "":
-                                min_val = int(float(min_val_str))
-                                max_val = int(float(max_val_str))
-                                temp_avg = int((min_val + max_val) / 2)
-                            else:
-                                temp_avg = ""
-                        except Exception:
+            temps = []
+            temp_avg = None
+            temps_max = []
+            if len(data) > 1:
+                temp_avg_areas = data[1].get("tempAverage", {}).get("areas", [])
+                for avg_area in temp_avg_areas:
+                    try:
+                        min_val_str = avg_area.get("min", "")
+                        max_val_str = avg_area.get("max", "")
+                        if min_val_str != "" and max_val_str != "":
+                            min_val = int(float(min_val_str))
+                            max_val = int(float(max_val_str))
+                            temp_avg = int((min_val + max_val) / 2)
+                        else:
                             temp_avg = ""
+                    except Exception:
+                        temp_avg = ""
+                    break
+
+                if "timeSeries" in data[1] and len(data[1]["timeSeries"]) > 1:
+                    temps_max_areas = data[1]["timeSeries"][1].get("areas", [])
+                    for tmax_area in temps_max_areas:
+                        temps_max = tmax_area.get("tempsMax", [])
                         break
 
-                    if "timeSeries" in data[1] and len(data[1]["timeSeries"]) > 1:
-                        temps_max_areas = data[1]["timeSeries"][1].get("areas", [])
-                        for tmax_area in temps_max_areas:
-                            temps_max = tmax_area.get("tempsMax", [])
+            temps = []
+            if temp_avg is not None and temp_avg != "":
+                temps.append(str(temp_avg))
+            else:
+                temps.append("")
+            temps += temps_max[-6:] if temps_max else [""] * 6
+            temps = temps[:7]
+
+            if len(weather_codes) < week_days or len(pop) < week_days:
+                if len(data) > 1 and "timeSeries" in data[1]:
+                    ts = data[1]["timeSeries"]
+                    for sub_area in ts[0]["areas"]:
+                        if sub_area["area"]["code"][:2] == code[:2]:
+                            if len(weather_codes) < week_days:
+                                add_codes = sub_area.get("weatherCodes", [])
+                                weather_codes += add_codes[len(weather_codes):week_days]
+                            if len(pop) < week_days:
+                                add_pops = sub_area.get("pops", [])
+                                pop += add_pops[len(pop):week_days]
                             break
 
-                temps = []
-                if temp_avg is not None and temp_avg != "":
-                    temps.append(str(temp_avg))
-                else:
-                    temps.append("")
-                temps += temps_max[-6:] if temps_max else [""] * 6
-                temps = temps[:7]
-
-                if len(weather_codes) < week_days or len(pop) < week_days:
-                    if len(data) > 1 and "timeSeries" in data[1]:
-                        ts = data[1]["timeSeries"]
-                        for sub_area in ts[0]["areas"]:
-                            if sub_area["area"]["code"][:2] == code[:2]:
-                                if len(weather_codes) < week_days:
-                                    add_codes = sub_area.get("weatherCodes", [])
-                                    weather_codes += add_codes[len(weather_codes):week_days]
-                                if len(pop) < week_days:
-                                    add_pops = sub_area.get("pops", [])
-                                    pop += add_pops[len(pop):week_days]
-                                break
-
-                output[code] = {
-                    "地方名": area_name,
-                    "天気": weather_codes,
-                    "気温": temps,
-                    "降水確率": pop,
-                    "注意報・警報": [],
-                    "災害情報": []
-                }
+            output[code] = {
+                "地方名": area_name,
+                "天気": weather_codes,
+                "気温": temps,
+                "降水確率": pop,
+                "注意報・警報": [],
+                "災害情報": []
+            }
 
         with open(WeatherServer.OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
