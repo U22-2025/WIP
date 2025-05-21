@@ -254,6 +254,47 @@ def run_concurrent_test(api_name, worker_func, results, num_requests, num_thread
     
     create_api_performance_plots(successful_df, num_threads, total_time, api_name)
 
+def concurrent_api_test_jma(num_requests=100, num_threads=5):
+    """気象庁APIの同時実行パフォーマンステスト"""
+    results = []
+    results_lock = threading.Lock()
+    
+    def worker(thread_id):
+        thread_results = []
+        area_codes = ['100000', '150000']  # 気象庁APIのエリアコード
+        
+        for i in range(num_requests // num_threads):
+            area_code = random.choice(area_codes)
+            url = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
+            
+            start_time = time.time()
+            try:
+                response = requests.get(url)
+                success = response.status_code == 200
+                if success:
+                    response.json()
+            except Exception as e:
+                print(f"Error in thread {thread_id}: {e}")
+                success = False
+            end_time = time.time()
+            
+            thread_results.append({
+                'thread_id': thread_id,
+                'request_number': i + 1,
+                'area_code': area_code,
+                'processing_time': end_time - start_time,
+                'success': success
+            })
+            
+            if (i + 1) % 5 == 0:
+                print(f"Thread {thread_id}: Completed {i + 1}/{num_requests // num_threads} requests")
+            time.sleep(0.1)
+        
+        with results_lock:
+            results.extend(thread_results)
+    
+    run_concurrent_test("JMA", worker, results, num_requests, num_threads)
+
 if __name__ == "__main__":
     # 外部APIなので少なめのリクエスト数とスレッド数で実行
     num_requests = 50  # 各APIに対して50リクエスト
@@ -263,3 +304,4 @@ if __name__ == "__main__":
     concurrent_api_test_open_meteo(num_requests, num_threads)
     concurrent_api_test_wttr(num_requests, num_threads)
     concurrent_api_test_met_no(num_requests, num_threads)
+    concurrent_api_test_jma(num_requests, num_threads)
