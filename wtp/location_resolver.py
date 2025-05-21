@@ -6,6 +6,7 @@ import time
 from collections import OrderedDict
 import config
 from packet_format import *
+from wtp import packet_format
 
 class LRUCache:
     def __init__(self, maxsize=1000):
@@ -155,22 +156,27 @@ class LocationResolver:
                 cursor.close()
                 self.connection_pool.putconn(conn)
 
-    def create_response(self, req, region_code):
-        """Create binary response packet"""
-        if region_code is None:
-            region_code = 0  # Default value for unknown regions
+    ## レスポンスを作成する
+    def create_response(self, request):
+        response = packet_format.Response(
+            version=self.VERSION,
+            packet_id=request['packet_id'],
+            type=self.RESPONSE_TYPE,
+            ex_flag = 1,
+
+            timestamp=int(time.time()), 
             
-        # Convert region code to 4-byte integer
-        
-        req.area_code = region_code
-        
-        # Convert IP address to bytes (4 bytes)
-        # ip_parts = [int(part) for part in self.weather_server_ip.split('.')]
-        # ip_bytes = bytes(ip_parts)
-        
-        # Combine region code and IP address
-        return req.to_bytes()
-    
+            longitude=request['longitude'],
+            latitude=request['latitude'],
+            # ex_field = 
+        )
+        if request.region_id == 0:
+            a=0
+            # 送信元IPから地域コードを取得し、request.region_idに格納
+            # request.region_id = 
+        # response.region_id = request.region_id
+        response.checksum = 0 
+        return response.to_bytes()
 
     def run(self):
         """Start the location resolver server"""

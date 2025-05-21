@@ -68,37 +68,37 @@ class WeatherServer:
         print(self._hex_dump(response))
         print("============================\n")
         
-    def create_response(self, request):
+    # def create_response(self, request):
 
-        # flagsを5ビットにまとめる
-        flags = request['flags']
-        flags_value = (
-        ((flags.get('weather', 0) & 0x01) << 5) |
-        ((flags.get('temperature', 0) & 0x01) << 4) |
-        ((flags.get('pops', 0) & 0x01) << 3) |
-        ((flags.get('alert', 0) & 0x01) << 2) |
-        ((flags.get('disaster', 0) & 0x01) << 1) |
-        ((flags.get('use_plus_field', 0) & 0x01) << 0)
-        )
+    #     # flagsを5ビットにまとめる
+    #     flags = request['flags']
+    #     flags_value = (
+    #     ((flags.get('weather', 0) & 0x01) << 5) |
+    #     ((flags.get('temperature', 0) & 0x01) << 4) |
+    #     ((flags.get('pops', 0) & 0x01) << 3) |
+    #     ((flags.get('alert', 0) & 0x01) << 2) |
+    #     ((flags.get('disaster', 0) & 0x01) << 1) |
+    #     ((flags.get('use_plus_field', 0) & 0x01) << 0)
+    #     )
 
-        # 1byte: version(4) + type(1) + time(3)
-        first_byte = ((self.VERSION & 0x0F) << 4) | (request['day'] & 0x07)
-        # 1byte: flags(5) + ip_version(3)
-        second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
-        # 2byte: packet_id
-        packet_id = struct.pack('!H', request['packet_id'])
-        # 8byte: current timestamp
-        timestamp = struct.pack('!Q', int(time.time()))
-        # 2byte: weather code (例: 晴れ=1)
-        weather_code = struct.pack('!H', 1)
-        # 3byte: temperature (例: 25, 30, 20)
-        temp_bytes = struct.pack('bbb', 25, 30, 20)
-        # 1byte: precipitation(5bit=6=30%) + reserved(3bit=0)
-        precipitation = (6 << 3) | 0
-        prec_byte = struct.pack('B', precipitation)
-        # 拡張フィールドなし
+    #     # 1byte: version(4) + type(1) + time(3)
+    #     first_byte = ((self.VERSION & 0x0F) << 4) | (request['day'] & 0x07)
+    #     # 1byte: flags(5) + ip_version(3)
+    #     second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
+    #     # 2byte: packet_id
+    #     packet_id = struct.pack('!H', request['packet_id'])
+    #     # 8byte: current timestamp
+    #     timestamp = struct.pack('!Q', int(time.time()))
+    #     # 2byte: weather code (例: 晴れ=1)
+    #     weather_code = struct.pack('!H', 1)
+    #     # 3byte: temperature (例: 25, 30, 20)
+    #     temp_bytes = struct.pack('bbb', 25, 30, 20)
+    #     # 1byte: precipitation(5bit=6=30%) + reserved(3bit=0)
+    #     precipitation = (6 << 3) | 0
+    #     prec_byte = struct.pack('B', precipitation)
+    #     # 拡張フィールドなし
 
-        return bytes([first_byte, second_byte]) + packet_id + timestamp + weather_code + temp_bytes + prec_byte
+    #     return bytes([first_byte, second_byte]) + packet_id + timestamp + weather_code + temp_bytes + prec_byte
         
     def run(self):
         """Start the weather server"""
@@ -227,11 +227,12 @@ def fetch_and_save_weather(area_code):
                     if idx != sel_idx:
                         removed_indices.append(idx)
 
-        for area in weather_areas:
-            area_name = area["area"].get("name", "")
-            code = area["area"].get("code")
-            weather_codes = area.get("weatherCodes", [])
-            weather_codes = [code_ for i, code_ in enumerate(weather_codes) if i not in removed_indices]
+            for area in weather_areas:
+                parent_code = area_code[:2]+'0000'
+                area_name = area["area"].get("name", "")
+                code = area["area"].get("code")
+                weather_codes = area.get("weatherCodes", [])
+                weather_codes = [code_ for i, code_ in enumerate(weather_codes) if i not in removed_indices]
 
             pop = []
             for p in pop_areas:
@@ -286,17 +287,23 @@ def fetch_and_save_weather(area_code):
                                 pop += add_pops[len(pop):week_days]
                             break
 
-            output[code] = {
-                "地方名": area_name,
-                "天気": weather_codes,
-                "気温": temps,
-                "降水確率": pop,
-                "注意報・警報": [],
-                "災害情報": []
-            }
+                output[code] = {
+                    "地方名": area_name,
+                    "天気": weather_codes,
+                    "気温": temps,
+                    "降水確率": pop,
+                    "注意報・警報": [],
+                    "災害情報": []
+                }
 
-        with open(WeatherServer.OUTPUT_FILE, "w", encoding="utf-8") as f:
-            json.dump(output, f, ensure_ascii=False, indent=2)
+
+        ## redisDBに書き出す処理
+        import redis
+        r = redis.Redis(host='localhost', port=6379, db=0)
+        r.set('weather_data', json.dumps(output))
+
+        # with open(WeatherServer.OUTPUT_FILE, "w", encoding="utf-8") as f:
+        #     json.dump(output, f, ensure_ascii=False, indent=2)
 
         # 変数に保持
         global json_data
@@ -307,7 +314,7 @@ def fetch_and_save_weather(area_code):
     except Exception as e:
         print(f"エラー: {e}")
 
-    ## れすぽんすを作成する必要がある。
+    ## レスポンスを作成する
     def create_response(self, request):
         response = packet_format.Response(
             version=self.VERSION,
