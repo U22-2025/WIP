@@ -706,12 +706,12 @@ def fetch_ex_field(self, bitstr: int, total_bits: int = None) -> None:
 
 # 使用例
 if __name__ == "__main__":
-    from uuid import uuid4
-    from datetime import datetime
-    latitude = 35.6895
-    longitude = 139.6917
-    req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
-    print(f"{req}")
-    print(f"{req.to_bits()}")
-    res = ResolverResponse(bitstr = req.to_bits())
-    print(f"{res}")
+    # from uuid import uuid4
+    # from datetime import datetime
+    # latitude = 35.6895
+    # longitude = 139.6917
+    # req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
+    # print(f"{req}")
+    # print(f"{req.to_bits()}")
+    # res = ResolverResponse(bitstr = req.to_bits())
+    # print(f"{res}")
