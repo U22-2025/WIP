@@ -539,6 +539,7 @@ class ResolverResponse(Format):
     _EXTENDED_BIT_FIELDS = {
         'longitude': (128, 64),
         'latitude': (192, 64),
+        'ex_field': (256),
     }
     
     def __init__(self, **kwargs):
@@ -551,7 +552,7 @@ class ResolverResponse(Format):
         # 拡張フィールドの初期化
         self.longitude = 0
         self.latitude = 0
-        self.ex_field = 0
+        self.ex_field = [] #辞書型
         
         # 親クラスの初期化
         super().__init__(**kwargs)
@@ -644,16 +645,72 @@ class ResolverResponse(Format):
         for field in list(self._EXTENDED_BIT_FIELDS.keys()) + ['ex_field']:
             result[field] = getattr(self, field)
         return result
-
+def fetch_ex_field(self, bitstr: int, total_bits: int = None) -> None:
+    """
+    拡張フィールド (ex_field) のデータを解析します。
+    
+    ビット列は次のフォーマットとなっています：
+    ・先頭16ビット：バイト数を示す（10進数と仮定しています）
+    ・次の8ビット：キー
+    ・その後 (バイト数 * 8) ビット分：値
+    これらのレコードが連続していると想定し、全レコードを解析します。
+    
+    Args:
+    bitstr: 解析対象のビット列（整数として与えられる）
+    total_bits: ビット列全体の長さ。送信ビット列が固定長で先頭の0が有意な場合、この値を指定してください。
+                省略時は bitstr.bit_length() を利用します。
+    """
+    result = {}
+    current_pos = 0
+    # total_bitsが指定されなければ、bit_length()で判定（注意：先頭の0は含まれない）
+    if total_bits is None:
+        total_bits = bitstr.bit_length()
+        
+    print(f"入力ビット列: {bin(bitstr)}")
+    print(f"ビット長: {total_bits}")
+    
+    # レコードのヘッダはそれぞれ16+8=24ビット必要なため、その分が残っているか確認
+    while current_pos + 24 <= total_bits:
+        # 先頭16ビットからバイト数を取得（ここではBCD変換の必要がなければそのまま整数として扱う）
+        length_field = self.extract_bits(bitstr, current_pos, 16)
+        # もし、length_fieldがBCDでエンコードされている場合は以下のように変換してください：
+        #   bytes_length = self.bcd_to_int(length_field, 4)
+        # 今回はそのままバイナリ値と仮定します。
+        bytes_length = length_field  
+        bits_length = bytes_length * 8
+        print(f"位置 {current_pos}: バイト数={bytes_length}, ビット数={bits_length}")
+        current_pos += 16
+        
+        # 次の8ビットをキーとして抽出
+        key = self.extract_bits(bitstr, current_pos, 8)
+        print(f"位置 {current_pos}: キー={key}")
+        current_pos += 8
+        
+        # 指定されたデータビットが全体に足りなければ処理終了
+        if current_pos + bits_length > total_bits:
+            print(f"残りのビットが不足しています: 必要={bits_length}, 残り={total_bits - current_pos}")
+            break
+        
+        # バイト数で指定された長さ分のデータを値として抽出
+        value = self.extract_bits(bitstr, current_pos, bits_length)
+        print(f"位置 {current_pos}: 値={value} (長さ={bits_length}ビット)")
+        current_pos += bits_length
+        
+        # 結果を辞書に登録
+        result[key] = value
+        print(f"登録: key={key}, value={value}")
+    
+    print(f"解析完了: {result}")
+    self.ex_field = result
 
 # 使用例
 if __name__ == "__main__":
-    from uuid import uuid4
-    from datetime import datetime
-    latitude = 35.6895
-    longitude = 139.6917
-    req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
-    print(f"{req}")
-    print(f"{req.to_bits()}")
-    res = ResolverResponse(bitstr = req.to_bits())
-    print(f"{res}")
+    # from uuid import uuid4
+    # from datetime import datetime
+    # latitude = 35.6895
+    # longitude = 139.6917
+    # req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
+    # print(f"{req}")
+    # print(f"{req.to_bits()}")
+    # res = ResolverResponse(bitstr = req.to_bits())
+    # print(f"{res}")
