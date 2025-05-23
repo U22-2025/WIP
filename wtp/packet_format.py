@@ -91,7 +91,8 @@ class Format:
         self.timestamp = 0
         self.area_code = 0
         self.checksum = 0
-        self.next_server_ip = 0
+        self.ex_field = {}
+        #self.next_server_ip = 0
 
         
         # 'bitstr'が提供された場合はそれを解析
@@ -284,7 +285,6 @@ class Response(Format):
     - weather_code:   129-144bit (16ビット)
     - temperature:    145-152bit (8ビット)
     - pops:           153-160bit (8ビット)
-    - ex_field:       161-ビット
     """
     
     # 拡張ビットフィールド定義 (位置, 長さ)
@@ -312,7 +312,6 @@ class Response(Format):
         self.weather_code = 0
         self.temperature = 0
         self.pops = 0
-        self.ex_field = 0
         
         # 親クラスの初期化
         super().__init__(**kwargs)
@@ -706,12 +705,12 @@ def fetch_ex_field(self, bitstr: int, total_bits: int = None) -> None:
 
 # 使用例
 if __name__ == "__main__":
-    # from uuid import uuid4
-    # from datetime import datetime
-    # latitude = 35.6895
-    # longitude = 139.6917
-    # req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
-    # print(f"{req}")
-    # print(f"{req.to_bits()}")
-    # res = ResolverResponse(bitstr = req.to_bits())
-    # print(f"{res}")
+    from uuid import uuid4
+    from datetime import datetime
+    latitude = 35.6895
+    longitude = 139.6917
+    req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
+    print(f"{req}")
+    print(f"{req.to_bits()}")
+    res = ResolverResponse(bitstr = req.to_bits())
+    print(f"{res}")
