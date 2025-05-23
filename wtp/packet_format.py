@@ -92,49 +92,65 @@ class Format:
     }
 
     _EXTENDED_FIELD_MAPPING_STR = {
-        'alert_flag': 1,
-        'disaster_flag': 17,
+        'alert': 1,
+        'disaster': 17,
         'latitude': 65,
         'longitude': 66,
         'source_ip': 128,
     }
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, version=0, packet_id=0, type=0, weather_flag=0, temperature_flag=0, 
+                 pops_flag=0, alert_flag=0, disaster_flag=0, ex_flag=0, day=0, reserved=0, 
+                 timestamp=0, area_code=0, checksum=0, ex_field=None, bitstr=None):
         """
         共通フィールドの初期化
         
         Args:
-            **kwargs: 各フィールドの初期値または'bitstr'からの変換
+            version: バージョン番号
+            packet_id: パケットID
+            type: パケットタイプ
+            weather_flag: 天気フラグ
+            temperature_flag: 気温フラグ
+            pops_flag: 降水確率フラグ
+            alert_flag: 警報フラグ
+            disaster_flag: 災害フラグ
+            ex_flag: 拡張フラグ
+            day: 日数
+            reserved: 予約領域
+            timestamp: タイムスタンプ
+            area_code: エリアコード
+            checksum: チェックサム
+            ex_field: 拡張フィールド辞書
+            bitstr: ビット列からの変換用
         """
         # フィールドの初期化
-        self.version = 0
-        self.packet_id = 0
-        self.type = 0
-        self.weather_flag = 0
-        self.temperature_flag = 0
-        self.pops_flag = 0
-        self.alert_flag = 0
-        self.disaster_flag = 0
-        self.ex_flag = 0
-        self.day = 0
-        self.reserved = 0
-        self.timestamp = 0
-        self.area_code = 0
-        self.checksum = 0
-        self.ex_field = {}
+        self.version = version
+        self.packet_id = packet_id
+        self.type = type
+        self.weather_flag = weather_flag
+        self.temperature_flag = temperature_flag
+        self.pops_flag = pops_flag
+        self.alert_flag = alert_flag
+        self.disaster_flag = disaster_flag
+        self.ex_flag = ex_flag
+        self.day = day
+        self.reserved = reserved
+        self.timestamp = timestamp
+        self.area_code = area_code
+        self.checksum = checksum
+        self.ex_field = {} if ex_field is None else ex_field
         #self.next_server_ip = 0
 
         
         # 'bitstr'が提供された場合はそれを解析
-        if 'bitstr' in kwargs:
-            self.from_bits(kwargs['bitstr'])
-            # bitstrが処理されたので、それ以外のキーワード引数は無視
+        if bitstr is not None:
+            self.from_bits(bitstr)
             return
             
-        # 各フィールドをキーワード引数から設定
-        for field, (_, _) in self._BIT_FIELDS.items():
-            if field in kwargs:
-                self._set_validated_field(field, kwargs[field])
+        # 各フィールドの値を検証
+        for field in self._BIT_FIELDS.keys():
+            value = getattr(self, field)
+            self._set_validated_field(field, value)
 
     def _set_validated_field(self, field: str, value: int) -> None:
         """
@@ -255,21 +271,33 @@ class Format:
             バイト列表現
         """
         bitstr = self.to_bits()
-        # 必要なバイト数を計算（128ビット = 16バイト）
-        # 基本ビットフィールドの最大位置を計算
-        max_pos = max(bit_pos + bit_len for bit_pos, bit_len in self._BIT_FIELDS.values())
         
-        # 拡張ビットフィールドがある場合はそれも考慮
-        extended_fields = getattr(self, '_EXTENDED_BIT_FIELDS', {})
-        if extended_fields:
-            extended_max = max(bit_pos + bit_len for bit_pos, bit_len in extended_fields.values())
-            max_pos = max(max_pos, extended_max)
+        # ビット長を計算
+        bit_length = bitstr.bit_length()
+        
+        # 必要なバイト数を計算（8で割って切り上げ）
+        # 最低でも32バイト（256ビット）を確保
+        num_bytes = max((bit_length + 7) // 8, 32)
+        
+        # 拡張フィールドがある場合は追加のバイトを確保
+        if hasattr(self, 'ex_field') and self.ex_field and self.ex_flag == 1:
+            # 拡張フィールドごとに必要なバイト数を追加
+            for value in self.ex_field.values():
+                if isinstance(value, list):
+                    # リストの場合、各要素の文字列表現のバイト数を加算
+                    for item in value:
+                        num_bytes += len(str(item).encode('utf-8'))
+                elif isinstance(value, str):
+                    # 文字列の場合、UTF-8エンコードのバイト数を加算
+                    num_bytes += len(value.encode('utf-8'))
+                elif isinstance(value, (int, float)):
+                    # 数値の場合、ビット長から必要なバイト数を計算
+                    val_bits = int(value) if isinstance(value, float) else value
+                    num_bytes += (val_bits.bit_length() + 7) // 8
             
-        # バイト数に変換（8ビット = 1バイト）
-        num_bytes = (max_pos + 7) // 8
+            # ヘッダー用の追加バイト（各拡張フィールドに16+8ビットのヘッダーが必要）
+            num_bytes += len(self.ex_field) * 3  # (16+8)/8 = 3 bytes per header
         
-        # 少なくとも32バイト確保（256ビット）
-        num_bytes = max(num_bytes, 32)
         return bitstr.to_bytes(num_bytes, byteorder='big')
         
     @classmethod
@@ -315,8 +343,8 @@ class Format:
         拡張フィールド (ex_field) のデータを解析します。
         
         ビット列は次のフォーマットとなっています：
-        ・先頭16ビット：バイト数を示す（10進数と仮定しています）
-        ・次の8ビット：キー
+        ・先頭10ビット：バイト数を示す
+        ・次の6ビット：キー
         ・その後 (バイト数 * 8) ビット分：値
         これらのレコードが連続していると想定し、全レコードを解析します。
         
@@ -327,42 +355,69 @@ class Format:
         """
         result = []
         current_pos = 0
-        if total_bits == -1:
-            total_bits = bitstr.bit_length()
-            
+        # 入力ビット列の情報を表示
         print(f"入力ビット列: {bin(bitstr)}")
-        print(f"ビット長: {total_bits}")
         
-        # レコードのヘッダはそれぞれ16+8=24ビット必要なため、その分が残っているか確認
-        while current_pos + 24 <= total_bits:
-            # 先頭16ビットからバイト数を取得（ここではBCD変換の必要がなければそのまま整数として扱う）
-            length_field = self.extract_bits(bitstr, current_pos, 16)
-            # もし、length_fieldがBCDでエンコードされている場合は以下のように変換してください：
-            #   bytes_length = self.bcd_to_int(length_field, 4)
-            # 今回はそのままバイナリ値と仮定します。
-            bytes_length = length_field  
+        # 拡張フィールドの開始位置を計算
+        ex_field_start = max(pos + size for field, (pos, size) in self._BIT_FIELDS.items())
+        
+        # 拡張フィールドのビット列を取得
+        ex_field_bits = self.extract_rest_bits(bitstr, ex_field_start)
+        
+        # ビット長を計算（最低でも16ビット必要）
+        if total_bits == -1:
+            total_bits = ex_field_bits.bit_length()
+        
+        # 拡張フィールドの処理
+        while current_pos < total_bits and ex_field_bits != 0:
+            # 残りのビット数が16ビット未満なら終了
+            if total_bits - current_pos < 16:
+                break
+                
+            # ヘッダーを取得（16ビット）
+            header = self.extract_bits(bitstr, current_pos, 16)
+            
+            # ヘッダーから長さとキーを抽出
+            key = (header >> 10) & 0x3F    # 上位6ビットがキー
+            bytes_length = header & 0x3FF  # 下位10ビットが長さ
+            
             bits_length = bytes_length * 8
             print(f"位置 {current_pos}: バイト数={bytes_length}, ビット数={bits_length}")
-            current_pos += 16
-            
-            # 次の8ビットをキーとして抽出
-            key = self.extract_bits(bitstr, current_pos, 8)
             print(f"位置 {current_pos}: キー={key}")
-            current_pos += 8
             
-            # 指定されたデータビットが全体に足りなければ処理終了
-            if current_pos + bits_length > total_bits:
-                print(f"残りのビットが不足しています: 必要={bits_length}, 残り={total_bits - current_pos}")
+            # 必要なビット数を計算
+            required_bits = 16 + bits_length  # ヘッダー + データ
+            
+            # 残りのビット数が足りなければ終了
+            if current_pos + required_bits > total_bits:
+                print(f"残りのビットが不足しています: 必要={required_bits}, 残り={total_bits - current_pos}")
                 break
             
-            # バイト数で指定された長さ分のデータを値として抽出
-            value = self.extract_bits(bitstr, current_pos, bits_length)
+            # 値を取得（ヘッダーの後ろから）
+            value_bits = self.extract_bits(bitstr, current_pos + 16, bits_length)
+            
+            # バイト列に変換して文字列にデコード
+            try:
+                value_bytes = value_bits.to_bytes(bytes_length, byteorder='big')
+                if key in [1, 17]:  # alert, disaster
+                    value = value_bytes.decode('utf-8')
+                elif key in [65, 66]:  # latitude, longitude
+                    value = int.from_bytes(value_bytes, byteorder='big')
+                elif key == 128:  # source_ip
+                    value = value_bytes.decode('utf-8')
+                else:
+                    value = value_bits
+            except UnicodeDecodeError:
+                value = value_bits
+                
             print(f"位置 {current_pos}: 値={value} (長さ={bits_length}ビット)")
-            current_pos += bits_length
+            current_pos += 16 + bits_length  # ヘッダー + データ長
             
             # 結果を辞書に登録
-            result.append({self._get_extended_field_key(key):value})
-            print(f"登録: key={key}, value={value}")
+            field_key = self._get_extended_field_key(key)
+            if field_key:
+                result.append({field_key: value})
+                print(f"登録: key={key}, value={value}")
         
         self.ex_field = self._extended_field_to_dict(result)
     def _dict_to_ex_field_bits(self, ex_field_dict: dict) -> int:
@@ -384,31 +439,48 @@ class Format:
             if isinstance(key, str):
                 key_int = self._get_extended_field_key_from_str(key)
                 if key_int is None:
-                    continue  # マッピングにないキーはスキップ
+                    print(f"警告: キー '{key}' は拡張フィールドマッピングにありません")
+                    continue
             else:
                 key_int = key
                 
-            # 値をビット列に変換
-            value_bits = value
-            if not isinstance(value_bits, int):
-                # 整数でない場合は変換（例：浮動小数点数を整数に）
-                value_bits = int(value)
-                
-            # バイト数を計算（8の倍数にする）
-            value_bit_length = value_bits.bit_length()
-            bytes_needed = (value_bit_length + 7) // 8
+            # 値をバイト列に変換
+            if isinstance(value, list):
+                # リストの場合、最初の要素を文字列として使用
+                if not value:
+                    continue
+                value_str = str(value[0])
+                value_bytes = value_str.encode('utf-8')
+            elif isinstance(value, str):
+                value_bytes = value.encode('utf-8')
+            elif isinstance(value, (int, float)):
+                value = int(value) if isinstance(value, float) else value
+                value_bytes = value.to_bytes((value.bit_length() + 7) // 8 or 1, byteorder='big')
+            else:
+                print(f"警告: 値の型 {type(value)} は拡張フィールドでサポートされていません")
+                continue
+
+            # バイト数とビット長を計算
+            bytes_needed = len(value_bytes)
             bits_length = bytes_needed * 8
             
-            # ヘッダー（16ビットのバイト数 + 8ビットのキー）
-            header = (bytes_needed << 8) | key_int
-            header_bits = header << current_pos
-            result_bits |= header_bits
-            current_pos += 24  # 16 + 8 ビット
+            # バイト列をビット列に変換
+            value_bits = int.from_bytes(value_bytes, byteorder='big')
             
-            # 値
-            value_field = value_bits << current_pos
-            result_bits |= value_field
-            current_pos += bits_length
+            # 現在のフィールドのビット列を構築
+            field_bits = 0
+            
+            # ヘッダー（6ビットのキー + 10ビットのバイト数）を配置
+            header = ((key_int & 0x3F) << 10) | (bytes_needed & 0x3FF)
+            result_bits |= (header << current_pos)
+            
+            # 値を配置（ヘッダーの後ろに）
+            result_bits |= (value_bits << (current_pos + 16))
+            
+            # 位置を更新（ヘッダー + データ長）
+            current_pos += 16 + bits_length
+            
+            print(f"エンコード: キー={key_int}, バイト数={bytes_needed}, 値={value_bits:x}")
         
         return result_bits
 
@@ -450,6 +522,41 @@ class Request(Format):
     拡張フィールド:
     - ex_field:       129- (可変長)
     """
+    
+    def __init__(self, *, version=0, packet_id=0, type=0, weather_flag=0, temperature_flag=0, 
+                 pops_flag=0, alert_flag=0, disaster_flag=0, ex_flag=0, day=0, reserved=0, 
+                 timestamp=0, area_code=0, checksum=0, ex_field=None, bitstr=None):
+        """
+        リクエストパケットの初期化
+        
+        Args:
+            version: バージョン番号
+            packet_id: パケットID
+            type: パケットタイプ
+            weather_flag: 天気フラグ
+            temperature_flag: 気温フラグ
+            pops_flag: 降水確率フラグ
+            alert_flag: 警報フラグ
+            disaster_flag: 災害フラグ
+            ex_flag: 拡張フラグ
+            day: 日数
+            reserved: 予約領域
+            timestamp: タイムスタンプ
+            area_code: エリアコード
+            checksum: チェックサム
+            ex_field: 拡張フィールド辞書
+            bitstr: ビット列からの変換用
+        """
+        # 親クラスの初期化
+        super().__init__(version=version, packet_id=packet_id, type=type, weather_flag=weather_flag,
+                         temperature_flag=temperature_flag, pops_flag=pops_flag, alert_flag=alert_flag,
+                         disaster_flag=disaster_flag, ex_flag=ex_flag, day=day, reserved=reserved,
+                         timestamp=timestamp, area_code=area_code, checksum=checksum, 
+                         ex_field=ex_field, bitstr=bitstr)
+        
+        # bitstrが既に処理されていれば終了
+        if bitstr is not None:
+            return
     def from_bits(self, bitstr: int) -> None:
         # 親クラスのフィールドを設定
         super().from_bits(bitstr)
@@ -506,33 +613,54 @@ class Response(Format):
         'pops': (0, (1 << 8) - 1),
     }
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, version=0, packet_id=0, type=0, weather_flag=0, temperature_flag=0, 
+                 pops_flag=0, alert_flag=0, disaster_flag=0, ex_flag=0, day=0, reserved=0, 
+                 timestamp=0, area_code=0, checksum=0, ex_field=None, bitstr=None,
+                 weather_code=0, temperature=0, pops=0):
         """
         レスポンスパケットの初期化
         
         Args:
-            **kwargs: 各フィールドの初期値または'bitstr'からの変換
+            version: バージョン番号
+            packet_id: パケットID
+            type: パケットタイプ
+            weather_flag: 天気フラグ
+            temperature_flag: 気温フラグ
+            pops_flag: 降水確率フラグ
+            alert_flag: 警報フラグ
+            disaster_flag: 災害フラグ
+            ex_flag: 拡張フラグ
+            day: 日数
+            reserved: 予約領域
+            timestamp: タイムスタンプ
+            area_code: エリアコード
+            checksum: チェックサム
+            ex_field: 拡張フィールド辞書
+            bitstr: ビット列からの変換用
+            weather_code: 天気コード
+            temperature: 気温
+            pops: 降水確率
         """
         # 拡張フィールドの初期化
-        self.weather_code = 0
-        self.temperature = 0
-        self.pops = 0
+        self.weather_code = weather_code
+        self.temperature = temperature
+        self.pops = pops
         
         # 親クラスの初期化
-        super().__init__(**kwargs)
+        super().__init__(version=version, packet_id=packet_id, type=type, weather_flag=weather_flag,
+                         temperature_flag=temperature_flag, pops_flag=pops_flag, alert_flag=alert_flag,
+                         disaster_flag=disaster_flag, ex_flag=ex_flag, day=day, reserved=reserved,
+                         timestamp=timestamp, area_code=area_code, checksum=checksum,
+                         ex_field=ex_field, bitstr=bitstr)
         
         # bitstrが既に処理されていれば終了
-        if 'bitstr' in kwargs:
+        if bitstr is not None:
             return
             
-        # 拡張フィールドをキーワード引数から設定
-        for field, (_, _) in self._EXTENDED_BIT_FIELDS.items():
-            if field in kwargs:
-                self._set_validated_extended_field(field, kwargs[field])
-                
-        # ex_fieldを設定
-        if 'ex_field' in kwargs:
-            self.ex_field = kwargs['ex_field']
+        # 拡張フィールドの値を検証
+        for field in self._EXTENDED_BIT_FIELDS.keys():
+            value = getattr(self, field)
+            self._set_validated_extended_field(field, value)
 
     def _set_validated_extended_field(self, field: str, value: int) -> None:
         """
@@ -622,8 +750,26 @@ if __name__ == "__main__":
     from datetime import datetime
     latitude = 35.6895
     longitude = 139.6917
-    req = Request(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), ex_flag=1, ex_field={'alert':["津波警報"]})
-    print(f"{req}")
-    print(f"{req.to_bytes()}")
-    res = Response.from_bytes(req.to_bytes())
-    print(f"{res}")
+    req = Request(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), ex_flag=1, 
+                  ex_field={'alert':["津波警報"],
+                            "disaster":["土砂崩れ"],
+                            "latitude":latitude,
+                            "longitude":longitude,
+                            "source_ip":"127.0.0.1"
+                            })
+    print(f"リクエスト: {req.__dict__}")
+    print(f"バイト列: {req.to_bytes()}")
+    req1 = Request.from_bytes(req.to_bytes())
+    print(f"復元したリクエスト: {req1.__dict__}")
+
+
+    res = Response(version=1, packet_id=1, type=1, weather_flag=0, timestamp=int(datetime.now().timestamp()), ex_flag=1, ex_field={'alert':["津波警報"],
+                            "disaster":["土砂崩れ"],
+                            "latitude":latitude,
+                            "longitude":longitude,
+                            "source_ip":"127.0.0.1"
+                            })
+    print(f"レスポンス: {res.__dict__}")
+    print(f"バイト列: {res.to_bytes()}")
+    res1 = Response.from_bytes(res.to_bytes())
+    print(f"復元したレスポンス: {res1.__dict__}")
