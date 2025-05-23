@@ -91,7 +91,8 @@ class Format:
         self.timestamp = 0
         self.area_code = 0
         self.checksum = 0
-        self.next_server_ip = 0
+        self.ex_field = {}
+        #self.next_server_ip = 0
 
         
         # 'bitstr'が提供された場合はそれを解析
@@ -284,7 +285,6 @@ class Response(Format):
     - weather_code:   129-144bit (16ビット)
     - temperature:    145-152bit (8ビット)
     - pops:           153-160bit (8ビット)
-    - ex_field:       161-ビット
     """
     
     # 拡張ビットフィールド定義 (位置, 長さ)
@@ -312,7 +312,6 @@ class Response(Format):
         self.weather_code = 0
         self.temperature = 0
         self.pops = 0
-        self.ex_field = 0
         
         # 親クラスの初期化
         super().__init__(**kwargs)
@@ -539,7 +538,7 @@ class ResolverResponse(Format):
     _EXTENDED_BIT_FIELDS = {
         'longitude': (128, 64),
         'latitude': (192, 64),
-        'ex_field': (256),
+        'ex_field': (256,None),
     }
     
     def __init__(self, **kwargs):
@@ -588,21 +587,22 @@ class ResolverResponse(Format):
         try:
             # 拡張フィールドを設定
             for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                # value = self.extract_bits(bitstr, start, length)
-                raw_value = self.extract_bits(bitstr, start, length)
-                
-                # 座標値の場合、10^6で割って元の浮動小数点数に戻す
-                if field == 'longitude' or field == 'latitude':
-                    # 整数値を浮動小数点数に変換（10^6で割る）
-                    value = raw_value / (10**6)
-                else:
-                    # 座標以外のフィールドはそのまま
-                    value = raw_value
-                setattr(self, field, value)
-                
-            # ex_fieldを設定（残りのビット）
-            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
-            self.ex_field = self.extract_rest_bits(bitstr, ex_field_start)
+                if field == 'ex_field':
+                    # ex_fieldは残りのビット全体を取得して別途処理
+                    ex_field_start = start
+                    ex_field_data = self.extract_rest_bits(bitstr, ex_field_start)
+                    # ex_fieldデータを解析
+                    self.fetch_ex_field(ex_field_data)
+                elif length is not None:
+                    # その他のフィールドは従来通り処理
+                    raw_value = self.extract_bits(bitstr, start, length)
+                    
+                    # 座標値の場合、10^6で割って元の浮動小数点数に戻す
+                    if field == 'longitude' or field == 'latitude':
+                        value = raw_value / (10**6)
+                    else:
+                        value = raw_value
+                    setattr(self, field, value)
         except Exception as e:
             raise BitFieldError(f"拡張ビット列の解析中にエラーが発生しました: {e}")
 
@@ -705,12 +705,12 @@ def fetch_ex_field(self, bitstr: int, total_bits: int = None) -> None:
 
 # 使用例
 if __name__ == "__main__":
-    # from uuid import uuid4
-    # from datetime import datetime
-    # latitude = 35.6895
-    # longitude = 139.6917
-    # req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
-    # print(f"{req}")
-    # print(f"{req.to_bits()}")
-    # res = ResolverResponse(bitstr = req.to_bits())
-    # print(f"{res}")
+    from uuid import uuid4
+    from datetime import datetime
+    latitude = 35.6895
+    longitude = 139.6917
+    req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
+    print(f"{req}")
+    print(f"{req.to_bits()}")
+    res = ResolverResponse(bitstr = req.to_bits())
+    print(f"{res}")
