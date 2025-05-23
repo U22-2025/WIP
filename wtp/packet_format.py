@@ -69,6 +69,36 @@ class Format:
         'checksum': (0, (1 << 12) - 1),
     }
 
+
+    # 拡張フィールドのヘッダー
+    _EXTENDED_HEADER = {
+        'length': (0, 10),
+        'key': (10, 6),
+    }
+
+    # 拡張フィールドのヘッダーの有効範囲
+    _EXTENDED_HEADER_RANGES = {
+        'length': (0, (1 << 10) - 1),
+        'key': (0, (1 << 6) - 1),
+    }
+
+    # 拡張フィールドのキーと値のマッピング
+    _EXTENDED_FIELD_MAPPING_INT = {
+        1: 'alert',
+        17: 'disaster',
+        65: 'latitude',
+        66: 'longitude',
+        128: 'source_ip',
+    }
+
+    _EXTENDED_FIELD_MAPPING_STR = {
+        'alert_flag': 1,
+        'disaster_flag': 17,
+        'latitude': 65,
+        'longitude': 66,
+        'source_ip': 128,
+    }
+
     def __init__(self, **kwargs):
         """
         共通フィールドの初期化
@@ -147,6 +177,19 @@ class Format:
             
         mask = (1 << length) - 1
         return (bitstr >> start) & mask
+    @staticmethod
+    def extract_rest_bits(bitstr: int, start: int) -> int:
+        """
+        指定したビット列(bitstr)から、startビット目（0始まり）以降の全てのビットを取り出す
+        
+        Args:
+            bitstr: 元のビット列
+            start: 開始位置（0始まり）
+            
+        Returns:
+            取り出されたビット値
+        """
+        return bitstr >> start
 
     @staticmethod
     def extract_rest_bits(bitstr: int, start: int) -> int:
@@ -267,14 +310,175 @@ class Format:
             フィールド名と値の辞書
         """
         return {field: getattr(self, field) for field in self._BIT_FIELDS}
+    def fetch_ex_field(self, bitstr: int, total_bits: int = -1) -> None:
+        """
+        拡張フィールド (ex_field) のデータを解析します。
+        
+        ビット列は次のフォーマットとなっています：
+        ・先頭16ビット：バイト数を示す（10進数と仮定しています）
+        ・次の8ビット：キー
+        ・その後 (バイト数 * 8) ビット分：値
+        これらのレコードが連続していると想定し、全レコードを解析します。
+        
+        Args:
+        bitstr: 解析対象のビット列（整数として与えられる）
+        total_bits: ビット列全体の長さ。送信ビット列が固定長で先頭の0が有意な場合、この値を指定してください。
+                    省略時は bitstr.bit_length() を利用します。
+        """
+        result = []
+        current_pos = 0
+        if total_bits == -1:
+            total_bits = bitstr.bit_length()
+            
+        print(f"入力ビット列: {bin(bitstr)}")
+        print(f"ビット長: {total_bits}")
+        
+        # レコードのヘッダはそれぞれ16+8=24ビット必要なため、その分が残っているか確認
+        while current_pos + 24 <= total_bits:
+            # 先頭16ビットからバイト数を取得（ここではBCD変換の必要がなければそのまま整数として扱う）
+            length_field = self.extract_bits(bitstr, current_pos, 16)
+            # もし、length_fieldがBCDでエンコードされている場合は以下のように変換してください：
+            #   bytes_length = self.bcd_to_int(length_field, 4)
+            # 今回はそのままバイナリ値と仮定します。
+            bytes_length = length_field  
+            bits_length = bytes_length * 8
+            print(f"位置 {current_pos}: バイト数={bytes_length}, ビット数={bits_length}")
+            current_pos += 16
+            
+            # 次の8ビットをキーとして抽出
+            key = self.extract_bits(bitstr, current_pos, 8)
+            print(f"位置 {current_pos}: キー={key}")
+            current_pos += 8
+            
+            # 指定されたデータビットが全体に足りなければ処理終了
+            if current_pos + bits_length > total_bits:
+                print(f"残りのビットが不足しています: 必要={bits_length}, 残り={total_bits - current_pos}")
+                break
+            
+            # バイト数で指定された長さ分のデータを値として抽出
+            value = self.extract_bits(bitstr, current_pos, bits_length)
+            print(f"位置 {current_pos}: 値={value} (長さ={bits_length}ビット)")
+            current_pos += bits_length
+            
+            # 結果を辞書に登録
+            result.append({self._get_extended_field_key(key):value})
+            print(f"登録: key={key}, value={value}")
+        
+        self.ex_field = self._extended_field_to_dict(result)
+    def _dict_to_ex_field_bits(self, ex_field_dict: dict) -> int:
+        """
+        ex_field辞書をビット列に変換する
+        
+        Args:
+            ex_field_dict: 変換する辞書
+            
+        Returns:
+            ビット列表現
+        """
+        result_bits = 0
+        current_pos = 0
+        
+        # 辞書の各項目をビット列に変換
+        for key, value in ex_field_dict.items():
+            # キーを整数に変換
+            if isinstance(key, str):
+                key_int = self._get_extended_field_key_from_str(key)
+                if key_int is None:
+                    continue  # マッピングにないキーはスキップ
+            else:
+                key_int = key
+                
+            # 値をビット列に変換
+            value_bits = value
+            if not isinstance(value_bits, int):
+                # 整数でない場合は変換（例：浮動小数点数を整数に）
+                value_bits = int(value)
+                
+            # バイト数を計算（8の倍数にする）
+            value_bit_length = value_bits.bit_length()
+            bytes_needed = (value_bit_length + 7) // 8
+            bits_length = bytes_needed * 8
+            
+            # ヘッダー（16ビットのバイト数 + 8ビットのキー）
+            header = (bytes_needed << 8) | key_int
+            header_bits = header << current_pos
+            result_bits |= header_bits
+            current_pos += 24  # 16 + 8 ビット
+            
+            # 値
+            value_field = value_bits << current_pos
+            result_bits |= value_field
+            current_pos += bits_length
+        
+        return result_bits
+
+    def _extended_field_to_dict(self, extended_field: list) -> dict:
+        """
+        拡張フィールドを辞書に変換する
+        """
+        result = {}
+        for item in extended_field:
+            key = list(item.keys())[0]
+            value = item[key]
+            if key in ["alert", "disaster"]:
+                if key not in result:
+                    result[key] = [value]
+                else:
+                    result[key].append(value)
+            else:
+                result[key] = value
+        return result
+        
+    def _get_extended_field_key(self, key: int) -> str:
+        """
+        拡張フィールドのキーを文字列に変換する
+        """
+        return self._EXTENDED_FIELD_MAPPING_INT.get(key,None)
+    
+    def _get_extended_field_key_from_str(self, key: str) -> int:
+        """
+        拡張フィールドのキーを整数に変換する
+        """
+        return self._EXTENDED_FIELD_MAPPING_STR.get(key,None)
 
 
 class Request(Format):
     """
     リクエストパケット
-    基本フォーマットのみを使用します
+    
+
+    拡張フィールド:
+    - ex_field:       129- (可変長)
     """
-    pass
+    def from_bits(self, bitstr: int) -> None:
+        # 親クラスのフィールドを設定
+        super().from_bits(bitstr)
+        
+        # ex_flagが設定されていれば拡張フィールドを解析
+        if self.ex_flag == 1:
+            # 基本フィールドの後に続く拡張フィールドを解析
+            ex_field_start = max(pos + size for field, (pos, size) in self._BIT_FIELDS.items())
+            ex_field_bits = self.extract_rest_bits(bitstr, ex_field_start)
+            self.fetch_ex_field(ex_field_bits)
+    def to_bits(self) -> int:
+        """
+        全フィールドをビット列に変換する
+        
+        Returns:
+            ビット列表現
+        """
+        try:
+            # 親クラスのビット列を取得
+            bitstr = super().to_bits()
+            
+            # ex_fieldを設定（辞書から適切なビット列を生成）
+            if self.ex_flag == 1 and self.ex_field:
+                ex_field_start = max(pos + size for field, (pos, size) in self._BIT_FIELDS.items())
+                ex_field_bits = self._dict_to_ex_field_bits(self.ex_field)
+                bitstr |= ex_field_bits << ex_field_start
+            return bitstr
+        except Exception as e:
+            raise BitFieldError(f"拡張ビット列への変換中にエラーが発生しました: {e}")
 
 
 class Response(Format):
@@ -285,6 +489,7 @@ class Response(Format):
     - weather_code:   129-144bit (16ビット)
     - temperature:    145-152bit (8ビット)
     - pops:           153-160bit (8ビット)
+    - ex_field:       161- (可変長)
     """
     
     # 拡張ビットフィールド定義 (位置, 長さ)
@@ -349,26 +554,20 @@ class Response(Format):
         setattr(self, field, value)
 
     def from_bits(self, bitstr: int) -> None:
-        """
-        ビット列から全フィールドを設定する
-        
-        Args:
-            bitstr: 解析するビット列
-        """
         # 親クラスのフィールドを設定
         super().from_bits(bitstr)
         
-        try:
-            # 拡張フィールドを設定
-            for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                value = self.extract_bits(bitstr, start, length)
-                setattr(self, field, value)
-                
-            # ex_fieldを設定（残りのビット）
-            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
-            self.ex_field = self.extract_rest_bits(bitstr, ex_field_start)
-        except Exception as e:
-            raise BitFieldError(f"拡張ビット列の解析中にエラーが発生しました: {e}")
+        # 拡張ビットフィールドを設定
+        for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
+            value = self.extract_bits(bitstr, start, length)
+            setattr(self, field, value)
+        
+        # ex_flagが設定されていれば可変長拡張フィールドを解析
+        if self.ex_flag == 1:
+            # 固定拡張フィールドの後に続く可変長拡張フィールドを解析
+            ex_field_start = max(pos + size for field, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
+            ex_field_bits = self.extract_rest_bits(bitstr, ex_field_start)
+            self.fetch_ex_field(ex_field_bits)
 
     def to_bits(self) -> int:
         """
@@ -393,9 +592,11 @@ class Response(Format):
                     )
                 bitstr |= (value & max_val) << start
                 
-            # ex_fieldを設定
-            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
-            bitstr |= self.ex_field << ex_field_start
+            # ex_fieldを設定（辞書から適切なビット列を生成）
+            if self.ex_flag == 1 and self.ex_field:
+                ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
+                ex_field_bits = self._dict_to_ex_field_bits(self.ex_field)
+                bitstr |= ex_field_bits << ex_field_start
             
             return bitstr
         except Exception as e:
@@ -414,294 +615,6 @@ class Response(Format):
             result[field] = getattr(self, field)
         return result
 
-
-class ResolverRequest(Format):
-    """
-    リゾルバリクエストパケット
-    
-    拡張フィールド:
-    - longitude: 129-192bit (64ビット)
-    - latitude:  193-256bit (64ビット)
-    """
-    
-    # 拡張ビットフィールド定義 (位置, 長さ)
-    _EXTENDED_BIT_FIELDS = {
-        'longitude': (128, 64),
-        'latitude': (192, 64),
-    }
-    
-    def __init__(self, **kwargs):
-        """
-        リゾルバリクエストパケットの初期化
-        
-        Args:
-            **kwargs: 各フィールドの初期値または'bitstr'からの変換
-        """
-        # 拡張フィールドの初期化
-        self.longitude = 0
-        self.latitude = 0
-        
-        # 親クラスの初期化
-        super().__init__(**kwargs)
-        
-        # bitstrが既に処理されていれば終了
-        if 'bitstr' in kwargs:
-            return
-            
-        # 拡張フィールドをキーワード引数から設定
-        for field in ['longitude', 'latitude']:
-            if field in kwargs:
-                value = kwargs[field]
-                # 座標値を10^6倍して整数に変換
-                if field == 'longitude' or field == 'latitude':
-                    if isinstance(value, float):
-                        # 浮動小数点の座標値を10^6倍して整数に変換
-                         value = int(value * (10**6))
-                    # 整数の場合はそのまま使用（すでに変換済みと想定）
-                
-                setattr(self, field, value)
-
-    def from_bits(self, bitstr: int) -> None:
-        """
-        ビット列から全フィールドを設定する
-        
-        Args:
-            bitstr: 解析するビット列
-        """
-        # 親クラスのフィールドを設定
-        super().from_bits(bitstr)
-        
-        try:
-            # 拡張フィールドを設定
-            for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                # value = self.extract_bits(bitstr, start, length)
-                raw_value = self.extract_bits(bitstr, start, length)
-                # 座標値の場合、10^6で割って元の浮動小数点数に戻す
-                if field == 'longitude' or field == 'latitude':
-                    # 整数値を浮動小数点数に変換（10^6で割る）
-                    value = raw_value / (10**6)
-                else:
-                    # 座標以外のフィールドはそのまま
-                    value = raw_value
-                setattr(self, field, value)
-        except Exception as e:
-            raise BitFieldError(f"拡張ビット列の解析中にエラーが発生しました: {e}")
-
-    def to_bits(self) -> int:
-        """
-        全フィールドをビット列に変換する
-        
-        Returns:
-            ビット列表現
-        """
-        try:
-            # 親クラスのビット列を取得
-            bitstr = super().to_bits()
-            
-            # 拡張フィールドを設定
-            for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                value = getattr(self, field)
-                if isinstance(value, float):
-                    value = int(value)
-                max_val = (1 << length) - 1
-                bitstr |= (value & max_val) << start
-                
-            return bitstr
-        except Exception as e:
-            raise BitFieldError(f"拡張ビット列への変換中にエラーが発生しました: {e}")
-            
-    def as_dict(self) -> Dict[str, Any]:
-        """
-        全フィールドを辞書形式で返す
-        
-        Returns:
-            フィールド名と値の辞書
-        """
-        result = super().as_dict()
-        # 拡張フィールドを追加
-        for field in self._EXTENDED_BIT_FIELDS:
-            result[field] = getattr(self, field)
-        return result
-
-
-class ResolverResponse(Format):
-    """
-    リゾルバレスポンスパケット
-    
-    拡張フィールド:
-    - longitude: 129-192bit (64ビット)
-    - latitude:  193-256bit (64ビット)
-    - ex_field:  257-ビット
-    """
-    
-    # 拡張ビットフィールド定義 (位置, 長さ)
-    _EXTENDED_BIT_FIELDS = {
-        'longitude': (128, 64),
-        'latitude': (192, 64),
-        'ex_field': (256,None),
-    }
-    
-    def __init__(self, **kwargs):
-        """
-        リゾルバレスポンスパケットの初期化
-        
-        Args:
-            **kwargs: 各フィールドの初期値または'bitstr'からの変換
-        """
-        # 拡張フィールドの初期化
-        self.longitude = 0
-        self.latitude = 0
-        self.ex_field = [] #辞書型
-        
-        # 親クラスの初期化
-        super().__init__(**kwargs)
-        
-        # bitstrが既に処理されていれば終了
-        if 'bitstr' in kwargs:
-            return
-            
-        # 拡張フィールドをキーワード引数から設定
-        for field in ['longitude', 'latitude', 'ex_field']:
-            if field in kwargs:
-                value = kwargs[field]
-                # 座標値を10^6倍して整数に変換
-                if field == 'longitude' or field == 'latitude':
-                    if isinstance(value, float):
-                        # 浮動小数点の座標値を10^6倍して整数に変換
-                         value = int(value * (10**6))
-                    # 整数の場合はそのまま使用（すでに変換済みと想定）
-                
-                setattr(self, field, value)
-
-
-    def from_bits(self, bitstr: int) -> None:
-        """
-        ビット列から全フィールドを設定する
-        
-        Args:
-            bitstr: 解析するビット列
-        """
-        # 親クラスのフィールドを設定
-        super().from_bits(bitstr)
-        
-        try:
-            # 拡張フィールドを設定
-            for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                if field == 'ex_field':
-                    # ex_fieldは残りのビット全体を取得して別途処理
-                    ex_field_start = start
-                    ex_field_data = self.extract_rest_bits(bitstr, ex_field_start)
-                    # ex_fieldデータを解析
-                    self.fetch_ex_field(ex_field_data)
-                elif length is not None:
-                    # その他のフィールドは従来通り処理
-                    raw_value = self.extract_bits(bitstr, start, length)
-                    
-                    # 座標値の場合、10^6で割って元の浮動小数点数に戻す
-                    if field == 'longitude' or field == 'latitude':
-                        value = raw_value / (10**6)
-                    else:
-                        value = raw_value
-                    setattr(self, field, value)
-        except Exception as e:
-            raise BitFieldError(f"拡張ビット列の解析中にエラーが発生しました: {e}")
-
-    def to_bits(self) -> int:
-        """
-        全フィールドをビット列に変換する
-        
-        Returns:
-            ビット列表現
-        """
-        try:
-            # 親クラスのビット列を取得
-            bitstr = super().to_bits()
-            
-            # 拡張フィールドを設定
-            for field, (start, length) in self._EXTENDED_BIT_FIELDS.items():
-                value = getattr(self, field)
-                if isinstance(value, float):
-                    value = int(value)
-                max_val = (1 << length) - 1
-                bitstr |= (value & max_val) << start
-                
-            # ex_fieldを設定
-            ex_field_start = max(pos + size for _, (pos, size) in self._EXTENDED_BIT_FIELDS.items())
-            bitstr |= self.ex_field << ex_field_start
-            
-            return bitstr
-        except Exception as e:
-            raise BitFieldError(f"拡張ビット列への変換中にエラーが発生しました: {e}")
-            
-    def as_dict(self) -> Dict[str, Any]:
-        """
-        全フィールドを辞書形式で返す
-        
-        Returns:
-            フィールド名と値の辞書
-        """
-        result = super().as_dict()
-        # 拡張フィールドを追加
-        for field in list(self._EXTENDED_BIT_FIELDS.keys()) + ['ex_field']:
-            result[field] = getattr(self, field)
-        return result
-def fetch_ex_field(self, bitstr: int, total_bits: int = None) -> None:
-    """
-    拡張フィールド (ex_field) のデータを解析します。
-    
-    ビット列は次のフォーマットとなっています：
-    ・先頭16ビット：バイト数を示す（10進数と仮定しています）
-    ・次の8ビット：キー
-    ・その後 (バイト数 * 8) ビット分：値
-    これらのレコードが連続していると想定し、全レコードを解析します。
-    
-    Args:
-    bitstr: 解析対象のビット列（整数として与えられる）
-    total_bits: ビット列全体の長さ。送信ビット列が固定長で先頭の0が有意な場合、この値を指定してください。
-                省略時は bitstr.bit_length() を利用します。
-    """
-    result = {}
-    current_pos = 0
-    # total_bitsが指定されなければ、bit_length()で判定（注意：先頭の0は含まれない）
-    if total_bits is None:
-        total_bits = bitstr.bit_length()
-        
-    print(f"入力ビット列: {bin(bitstr)}")
-    print(f"ビット長: {total_bits}")
-    
-    # レコードのヘッダはそれぞれ16+8=24ビット必要なため、その分が残っているか確認
-    while current_pos + 24 <= total_bits:
-        # 先頭16ビットからバイト数を取得（ここではBCD変換の必要がなければそのまま整数として扱う）
-        length_field = self.extract_bits(bitstr, current_pos, 16)
-        # もし、length_fieldがBCDでエンコードされている場合は以下のように変換してください：
-        #   bytes_length = self.bcd_to_int(length_field, 4)
-        # 今回はそのままバイナリ値と仮定します。
-        bytes_length = length_field  
-        bits_length = bytes_length * 8
-        print(f"位置 {current_pos}: バイト数={bytes_length}, ビット数={bits_length}")
-        current_pos += 16
-        
-        # 次の8ビットをキーとして抽出
-        key = self.extract_bits(bitstr, current_pos, 8)
-        print(f"位置 {current_pos}: キー={key}")
-        current_pos += 8
-        
-        # 指定されたデータビットが全体に足りなければ処理終了
-        if current_pos + bits_length > total_bits:
-            print(f"残りのビットが不足しています: 必要={bits_length}, 残り={total_bits - current_pos}")
-            break
-        
-        # バイト数で指定された長さ分のデータを値として抽出
-        value = self.extract_bits(bitstr, current_pos, bits_length)
-        print(f"位置 {current_pos}: 値={value} (長さ={bits_length}ビット)")
-        current_pos += bits_length
-        
-        # 結果を辞書に登録
-        result[key] = value
-        print(f"登録: key={key}, value={value}")
-    
-    print(f"解析完了: {result}")
-    self.ex_field = result
 
 # 使用例
 if __name__ == "__main__":
@@ -709,8 +622,8 @@ if __name__ == "__main__":
     from datetime import datetime
     latitude = 35.6895
     longitude = 139.6917
-    req = ResolverRequest(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
+    req = Request(version=1, packet_id=1, type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), ex_flag=1, ex_field={'alert':["津波警報"]})
     print(f"{req}")
-    print(f"{req.to_bits()}")
-    res = ResolverResponse(bitstr = req.to_bits())
+    print(f"{req.to_bytes()}")
+    res = Response.from_bytes(req.to_bytes())
     print(f"{res}")
