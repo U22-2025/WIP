@@ -1,0 +1,3077 @@
+{
+  "summary": {
+    "total_tests": 23,
+    "total_successes": 22,
+    "success_rate": 95.65217391304348,
+    "test_categories": {
+      "quick_validation": {
+        "success_count": 6,
+        "total_count": 6,
+        "success_rate": 100.0
+      },
+      "comprehensive_analysis": {
+        "success_count": 5,
+        "total_count": 5,
+        "success_rate": 100.0
+      },
+      "stress_test": {
+        "success_count": 3,
+        "total_count": 4,
+        "success_rate": 75.0
+      },
+      "regression_test": {
+        "success_count": 8,
+        "total_count": 8,
+        "success_rate": 100.0
+      }
+    }
+  },
+  "detailed_results": {
+    "quick_validation": {
+      "test_cases": [
+        {
+          "test_case": {
+            "alert": [
+              "津波警報"
+            ]
+          },
+          "success": true
+        },
+        {
+          "test_case": {
+            "disaster": [
+              "土砂崩れ"
+            ]
+          },
+          "success": true
+        },
+        {
+          "test_case": {
+            "latitude": 35.6895
+          },
+          "success": true
+        },
+        {
+          "test_case": {
+            "longitude": 139.6917
+          },
+          "success": true
+        },
+        {
+          "test_case": {
+            "source_ip": "192.168.1.1"
+          },
+          "success": true
+        },
+        {
+          "test_case": {
+            "alert": [
+              "津波警報"
+            ],
+            "latitude": 35.6895,
+            "longitude": 139.6917,
+            "source_ip": "192.168.1.1"
+          },
+          "success": true
+        }
+      ],
+      "success_count": 6,
+      "total_count": 6
+    },
+    "comprehensive_analysis": {
+      "detailed_results": [
+        {
+          "field": "alert",
+          "value": [
+            "津波警報"
+          ],
+          "success": true
+        },
+        {
+          "field": "disaster",
+          "value": [
+            "土砂崩れ"
+          ],
+          "success": true
+        },
+        {
+          "field": "latitude",
+          "value": 35.6895,
+          "success": true
+        },
+        {
+          "field": "longitude",
+          "value": 139.6917,
+          "success": true
+        },
+        {
+          "field": "source_ip",
+          "value": "192.168.1.1",
+          "success": true
+        }
+      ],
+      "success_count": 5,
+      "total_count": 5
+    },
+    "performance_analysis": {
+      "test_results": [
+        {
+          "test_size": 100,
+          "encoding": {
+            "total_count": 100,
+            "success_count": 100,
+            "error_count": 0,
+            "min_time": 7.819999882485718e-05,
+            "max_time": 0.00017039999875123613,
+            "avg_time": 0.00011763400008931058,
+            "median_time": 0.00011635000009846408,
+            "total_time": 0.011763400008931058,
+            "std_dev": 1.8465458900833407e-05
+          },
+          "decoding": {
+            "total_count": 100,
+            "success_count": 100,
+            "error_count": 0,
+            "min_time": 8.860000161803328e-05,
+            "max_time": 0.0004521999981079716,
+            "avg_time": 0.00011975400018854999,
+            "median_time": 0.0001126000024669338,
+            "total_time": 0.011975400018854998,
+            "std_dev": 3.986161758894345e-05
+          },
+          "roundtrip": {
+            "total_count": 100,
+            "success_count": 100,
+            "error_count": 0,
+            "data_integrity_errors": 0,
+            "min_time": 0.00016289999985019676,
+            "max_time": 0.0007317000017792452,
+            "avg_time": 0.00024056099991867085,
+            "median_time": 0.00023129999863158446,
+            "total_time": 0.024056099991867086,
+            "std_dev": 6.30708339841301e-05
+          },
+          "memory": {
+            "initial_memory_mb": 20.62890625,
+            "peak_memory_mb": 20.671875,
+            "final_memory_mb": 20.671875,
+            "memory_increase_mb": 0.04296875,
+            "memory_per_packet_kb": 0.44
+          },
+          "concurrent": {
+            "thread_count": 4,
+            "total_operations": 50,
+            "total_time": 0.013117500002408633,
+            "avg_time_per_operation": 0.00024373999985982664,
+            "operations_per_second": 3811.701924209568,
+            "errors": [],
+            "thread_results": {
+              "0": {
+                "count": 12,
+                "avg_time": 0.0002577666667396746,
+                "total_time": 0.003093200000876095
+              },
+              "1": {
+                "count": 12,
+                "avg_time": 0.00023200000062691592,
+                "total_time": 0.002784000007522991
+              },
+              "2": {
+                "count": 12,
+                "avg_time": 0.0002199166656282614,
+                "total_time": 0.0026389999875391368
+              },
+              "3": {
+                "count": 14,
+                "avg_time": 0.0002621999997895078,
+                "total_time": 0.003670799997053109
+              }
+            }
+          }
+        },
+        {
+          "test_size": 500,
+          "encoding": {
+            "total_count": 500,
+            "success_count": 500,
+            "error_count": 0,
+            "min_time": 7.60000002628658e-05,
+            "max_time": 0.00022449999960372224,
+            "avg_time": 0.00011970379996637349,
+            "median_time": 0.0001187999987450894,
+            "total_time": 0.05985189998318674,
+            "std_dev": 1.9896052711188113e-05
+          },
+          "decoding": {
+            "total_count": 500,
+            "success_count": 500,
+            "error_count": 0,
+            "min_time": 8.759999764151871e-05,
+            "max_time": 0.0003139000000373926,
+            "avg_time": 0.00011608359994716011,
+            "median_time": 0.00011425000047893263,
+            "total_time": 0.058041799973580055,
+            "std_dev": 1.7411633542115487e-05
+          },
+          "roundtrip": {
+            "total_count": 100,
+            "success_count": 100,
+            "error_count": 0,
+            "data_integrity_errors": 0,
+            "min_time": 0.00017320000188192353,
+            "max_time": 0.0005367999983718619,
+            "avg_time": 0.0002523810001730453,
+            "median_time": 0.00023895000049378723,
+            "total_time": 0.025238100017304532,
+            "std_dev": 5.6469290071067885e-05
+          },
+          "memory": {
+            "initial_memory_mb": 21.08984375,
+            "peak_memory_mb": 21.12109375,
+            "final_memory_mb": 21.12109375,
+            "memory_increase_mb": 0.03125,
+            "memory_per_packet_kb": 0.32
+          },
+          "concurrent": {
+            "thread_count": 4,
+            "total_operations": 50,
+            "total_time": 0.013387599999987287,
+            "avg_time_per_operation": 0.0002468740001495462,
+            "operations_per_second": 3734.799366581574,
+            "errors": [],
+            "thread_results": {
+              "0": {
+                "count": 12,
+                "avg_time": 0.0002248249996531134,
+                "total_time": 0.0026978999958373606
+              },
+              "1": {
+                "count": 12,
+                "avg_time": 0.0002846250011619607,
+                "total_time": 0.0034155000139435288
+              },
+              "2": {
+                "count": 12,
+                "avg_time": 0.00023947499964075783,
+                "total_time": 0.002873699995689094
+              },
+              "3": {
+                "count": 14,
+                "avg_time": 0.0002397571430005233,
+                "total_time": 0.003356600002007326
+              }
+            }
+          }
+        }
+      ],
+      "summary": {
+        "test_count": 2,
+        "encoding_performance": {
+          "avg_time": 0.00011866890002784203,
+          "min_time": 0.00011763400008931058,
+          "max_time": 0.00011970379996637349
+        },
+        "decoding_performance": {
+          "avg_time": 0.00011791880006785504,
+          "min_time": 0.00011608359994716011,
+          "max_time": 0.00011975400018854999
+        },
+        "roundtrip_performance": {}
+      }
+    },
+    "stress_test": {
+      "results": [
+        {
+          "test_type": "large_data",
+          "success": false,
+          "error": null
+        },
+        {
+          "test_type": "extreme_values_0",
+          "test_case": {
+            "latitude": 90.0,
+            "longitude": 180.0
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "test_type": "extreme_values_1",
+          "test_case": {
+            "latitude": -90.0,
+            "longitude": -180.0
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "test_type": "extreme_values_2",
+          "test_case": {
+            "latitude": 0.0,
+            "longitude": 0.0
+          },
+          "success": true,
+          "error": null
+        }
+      ],
+      "success_count": 3,
+      "total_count": 4
+    },
+    "regression_test": {
+      "results": [
+        {
+          "case_id": 0,
+          "test_case": {
+            "latitude": 35.6895
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "case_id": 1,
+          "test_case": {
+            "longitude": 139.6917
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "case_id": 2,
+          "test_case": {
+            "source_ip": "192.168.1.1"
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "case_id": 3,
+          "test_case": {
+            "latitude": 35.6895,
+            "longitude": 139.6917
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "case_id": 4,
+          "test_case": {
+            "alert": [
+              "津波警報"
+            ],
+            "source_ip": "192.168.1.1"
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "case_id": 5,
+          "test_case": {
+            "latitude": 0.0,
+            "longitude": 0.0
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "case_id": 6,
+          "test_case": {
+            "latitude": 90.0,
+            "longitude": 180.0
+          },
+          "success": true,
+          "error": null
+        },
+        {
+          "case_id": 7,
+          "test_case": {
+            "latitude": -90.0,
+            "longitude": -180.0
+          },
+          "success": true,
+          "error": null
+        }
+      ],
+      "success_count": 8,
+      "total_count": 8
+    }
+  },
+  "recommendations": [
+    "quick_validation: 成功率100% - 良好な状態",
+    "comprehensive_analysis: 成功率100% - 良好な状態",
+    "stress_test: 成功率75.0% - 失敗ケースの詳細調査が必要",
+    "regression_test: 成功率100% - 良好な状態",
+    "エラー: 1件のエラーが記録されています - 詳細調査が必要"
+  ],
+  "debug_logs": {
+    "comprehensive": [
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.878287"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'alert': ['津波警報']}",
+        "timestamp": "2025-05-26T22:36:35.878287"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'alert': ['津波警報']}",
+        "timestamp": "2025-05-26T22:36:35.878287"
+      },
+      {
+        "level": "INFO",
+        "message": "--- alert = ['津波警報'] ---",
+        "timestamp": "2025-05-26T22:36:35.878287"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 1",
+        "timestamp": "2025-05-26T22:36:35.878287"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 47 bytes",
+        "timestamp": "2025-05-26T22:36:35.878287"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'alert': ['津波警報']}",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "alert: ✅",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'disaster': ['土砂崩れ']}",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'disaster': ['土砂崩れ']}",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "--- disaster = ['土砂崩れ'] ---",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 2",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 47 bytes",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'disaster': ['土砂崩れ']}",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "disaster: ✅",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.879288"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:35.880288"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:35.880288"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 35.6895 ---",
+        "timestamp": "2025-05-26T22:36:35.880288"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:35.880288"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 36 bytes",
+        "timestamp": "2025-05-26T22:36:35.880288"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:35.880288"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 139.6917 ---",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 36 bytes",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:35.881288"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "--- source_ip = 192.168.1.1 ---",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 40",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 46 bytes",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "source_ip: ✅",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'alert': ['津波警報'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.882288"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'alert': ['津波警報'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "--- alert = ['津波警報'] ---",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 1",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 35.6895 ---",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 139.6917 ---",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "--- source_ip = 192.168.1.1 ---",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 40",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 92 bytes",
+        "timestamp": "2025-05-26T22:36:35.883289"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'alert': ['津波警報'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "alert: ✅",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "source_ip: ✅",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "=== フィールド定数検証 ===",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "ALERT = 1",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "DISASTER = 2",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "LATITUDE = 33",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "LONGITUDE = 34",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "SOURCE_IP = 40",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "STRING_LIST_FIELDS = {1, 2}",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "COORDINATE_FIELDS = {33, 34}",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "STRING_FIELDS = {40}",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "LATITUDE_MIN = -90.0",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "LATITUDE_MAX = 90.0",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "LONGITUDE_MIN = -180.0",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "LONGITUDE_MAX = 180.0",
+        "timestamp": "2025-05-26T22:36:35.884288"
+      },
+      {
+        "level": "INFO",
+        "message": "COORDINATE_SCALE = 1000000",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "ALERT(1)は6ビット範囲内: OK",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "DISASTER(2)は6ビット範囲内: OK",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "LATITUDE(33)は6ビット範囲内: OK",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "LONGITUDE(34)は6ビット範囲内: OK",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "SOURCE_IP(40)は6ビット範囲内: OK",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "=== alert フィールドエンコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "入力値: ['津波警報'] (型: <class 'list'>)",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'alert': ['津波警報']}",
+        "timestamp": "2025-05-26T22:36:35.885792"
+      },
+      {
+        "level": "INFO",
+        "message": "キー整数値: 1",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エンコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "その他の値型: <class 'list'>",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "必要バイト数: 16",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b10000000001 (1025)",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト長部分: 0b10000000000 (1024)",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "キー部分: 0b1 (1)",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b1011011001001111110011010110100101001011110011010110011101000101110100010101101101001101110010110100000101100010010011101011101 (121166926460532223031309921698213603165)",
+        "timestamp": "2025-05-26T22:36:35.886797"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット長: 127",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット: 0b10110110010011111100110101101001010010111100110101100111010001011101000101011011010011011100101101000001011000100100111010111010000010000000001",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット長: 143",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "期待ビット長: 144",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "実際ビット長: 143",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 47 bytes",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列(hex): 0000000000000000000000000000000000e6b4a5e6b3a2e8ada6e5a0b1030154b0000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "=== alert フィールドデコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.887797"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列: 0000000000000000000000000000000000e6b4a5e6b3a2e8ada6e5a0b1030154b0000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列: 0b111001101011010010100101111001101011001110100010111010001010110110100110111001011010000010110001000000110000000101010100101100000000000000000000000000000000000000000000000000000100100110010110000000101101001000000001000000000000000000010001",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列長: 240",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'alert': ['津波警報']}",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "--- デコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "基本フィールド終了位置: 128",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット: 0b1110011010110100101001011110011010110011101000101110100010101101101001101110010110100000101100010000001100000001",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット長: 112",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "総ビット数: 376",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールド総ビット数: 248",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b1100000001 (769)",
+        "timestamp": "2025-05-26T22:36:35.888797"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出バイト長: 12",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出キー: 1",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "キーから復元したフィールド名: alert",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "必要ビット数: 112",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "利用可能ビット数: 248",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b111001101011010010100101111001101011001110100010111010001010110110100110111001011010000010110001",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "値バイト列: b'\\xe6\\xb4\\xa5\\xe6\\xb3\\xa2\\xe8\\xad\\xa6\\xe5\\xa0\\xb1'",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "文字列復元: '津波警報'",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "期待値: ['津波警報']",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "復元値: ['津波警報']",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "検証結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "=== disaster フィールドエンコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "入力値: ['土砂崩れ'] (型: <class 'list'>)",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'disaster': ['土砂崩れ']}",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "キー整数値: 2",
+        "timestamp": "2025-05-26T22:36:35.889800"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エンコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "その他の値型: <class 'list'>",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "必要バイト数: 16",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b10000000010 (1026)",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト長部分: 0b10000000000 (1024)",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "キー部分: 0b10 (2)",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b1011011001001111110010110011100100111111110011110100000100000101110010110110100101010011110001110000010100011000010011101011101 (121166904274790927588713755672931215197)",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット長: 127",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット: 0b10110110010011111100101100111001001111111100111101000001000001011100101101101001010100111100011100000101000110000100111010111010000010000000010",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット長: 143",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "期待ビット長: 144",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "実際ビット長: 143",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 47 bytes",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列(hex): 0000000000000000000000000000000000e59c9fe7a082e5b4a9e3828c03025d90000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "=== disaster フィールドデコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.890796"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列: 0000000000000000000000000000000000e59c9fe7a082e5b4a9e3828c03025d90000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列: 0b111001011001110010011111111001111010000010000010111001011011010010101001111000111000001010001100000000110000001001011101100100000000000000000000000000000000000000000000000000000100100110010110000000101101001000000001000000000000000000010001",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列長: 240",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'disaster': ['土砂崩れ']}",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "--- デコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "基本フィールド終了位置: 128",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット: 0b1110010110011100100111111110011110100000100000101110010110110100101010011110001110000010100011000000001100000010",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット長: 112",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "総ビット数: 376",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールド総ビット数: 248",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b1100000010 (770)",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出バイト長: 12",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出キー: 2",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "キーから復元したフィールド名: disaster",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "必要ビット数: 112",
+        "timestamp": "2025-05-26T22:36:35.891796"
+      },
+      {
+        "level": "INFO",
+        "message": "利用可能ビット数: 248",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b111001011001110010011111111001111010000010000010111001011011010010101001111000111000001010001100",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "値バイト列: b'\\xe5\\x9c\\x9f\\xe7\\xa0\\x82\\xe5\\xb4\\xa9\\xe3\\x82\\x8c'",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "文字列復元: '土砂崩れ'",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "期待値: ['土砂崩れ']",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "復元値: ['土砂崩れ']",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "検証結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "=== latitude フィールドエンコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "入力値: 35.6895 (型: <class 'float'>)",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:35.892796"
+      },
+      {
+        "level": "INFO",
+        "message": "キー整数値: 33",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エンコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "座標値: 35.6895",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "緯度範囲チェック: True",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "整数変換: 35.6895 * 1000000 = 35689500",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "32ビット範囲チェック: True",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "4バイト符号付き整数: b'\\x02 \\x94\\x1c'",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "必要バイト数: 4",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b100100001 (289)",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト長部分: 0b100000000 (256)",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "キー部分: 0b100001 (33)",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b10001000001001010000011100 (35689500)",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット長: 26",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット: 0b100010000010010100000111000000000100100001",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット長: 42",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "期待ビット長: 48",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "実際ビット長: 42",
+        "timestamp": "2025-05-26T22:36:35.893796"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 36 bytes",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列(hex): 00000000000000000000000000000220941c0121d460000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "=== latitude フィールドデコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列: 00000000000000000000000000000220941c0121d460000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列: 0b10001000001001010000011100000000010010000111010100011000000000000000000000000000000000000000000000000000000100100110010110000000101101001000000001000000000000000000010001",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列長: 170",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "--- デコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "基本フィールド終了位置: 128",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット: 0b100010000010010100000111000000000100100001",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット長: 42",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "総ビット数: 288",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールド総ビット数: 160",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b100100001 (289)",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出バイト長: 4",
+        "timestamp": "2025-05-26T22:36:35.894797"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出キー: 33",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "キーから復元したフィールド名: latitude",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "必要ビット数: 48",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "利用可能ビット数: 160",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b10001000001001010000011100",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "値バイト列: b'\\x02 \\x94\\x1c'",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "座標復元: 35689500 / 1000000 = 35.6895",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "期待値: 35.6895",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "復元値: 35.6895",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "誤差: 0.0",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "検証結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.895797"
+      },
+      {
+        "level": "INFO",
+        "message": "=== longitude フィールドエンコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "入力値: 139.6917 (型: <class 'float'>)",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "キー整数値: 34",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エンコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "座標値: 139.6917",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "経度範囲チェック: True",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "整数変換: 139.6917 * 1000000 = 139691700",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "32ビット範囲チェック: True",
+        "timestamp": "2025-05-26T22:36:35.896968"
+      },
+      {
+        "level": "INFO",
+        "message": "4バイト符号付き整数: b'\\x08S\\x86\\xb4'",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "必要バイト数: 4",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b100100010 (290)",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト長部分: 0b100000000 (256)",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "キー部分: 0b100010 (34)",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b1000010100111000011010110100 (139691700)",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット長: 28",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット: 0b10000101001110000110101101000000000100100010",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット長: 44",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "期待ビット長: 48",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "実際ビット長: 44",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 36 bytes",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列(hex): 0000000000000000000000000000085386b40122c820000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "=== longitude フィールドデコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列: 0000000000000000000000000000085386b40122c820000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.898039"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列: 0b1000010100111000011010110100000000010010001011001000001000000000000000000000000000000000000000000000000000000100100110010110000000101101001000000001000000000000000000010001",
+        "timestamp": "2025-05-26T22:36:35.899042"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列長: 172",
+        "timestamp": "2025-05-26T22:36:35.899042"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:35.899042"
+      },
+      {
+        "level": "INFO",
+        "message": "--- デコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.899042"
+      },
+      {
+        "level": "INFO",
+        "message": "基本フィールド終了位置: 128",
+        "timestamp": "2025-05-26T22:36:35.899042"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット: 0b10000101001110000110101101000000000100100010",
+        "timestamp": "2025-05-26T22:36:35.899042"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット長: 44",
+        "timestamp": "2025-05-26T22:36:35.899042"
+      },
+      {
+        "level": "INFO",
+        "message": "総ビット数: 288",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールド総ビット数: 160",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b100100010 (290)",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出バイト長: 4",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出キー: 34",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "キーから復元したフィールド名: longitude",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "必要ビット数: 48",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "利用可能ビット数: 160",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b1000010100111000011010110100",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "値バイト列: b'\\x08S\\x86\\xb4'",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "座標復元: 139691700 / 1000000 = 139.6917",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "期待値: 139.6917",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "復元値: 139.6917",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "誤差: 0.0",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "検証結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "=== source_ip フィールドエンコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.900042"
+      },
+      {
+        "level": "INFO",
+        "message": "入力値: 192.168.1.1 (型: <class 'str'>)",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "キー整数値: 40",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エンコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "文字列エンコード: '192.168.1.1' -> b'192.168.1.1'",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "必要バイト数: 11",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b1011101000 (744)",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト長部分: 0b1011000000 (704)",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "キー部分: 0b101000 (40)",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b11000100111001001100100010111000110001001101100011100000101110001100010010111000110001 (59507465716345299339914801)",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット長: 86",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット: 0b110001001110010011001000101110001100010011011000111000001011100011000100101110001100010000001011101000",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "レコードビット長: 102",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "期待ビット長: 104",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "実際ビット長: 102",
+        "timestamp": "2025-05-26T22:36:35.901044"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 46 bytes",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列(hex): 00000000000000000000000000000000003139322e3136382e312e3102e8b290000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "=== source_ip フィールドデコードデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列: 00000000000000000000000000000000003139322e3136382e312e3102e8b290000000000000499602d201000011",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列: 0b11000100111001001100100010111000110001001101100011100000101110001100010010111000110001000000101110100010110010100100000000000000000000000000000000000000000000000000000100100110010110000000101101001000000001000000000000000000010001",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "ビット列長: 230",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "--- デコード処理詳細 ---",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "基本フィールド終了位置: 128",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット: 0b110001001110010011001000101110001100010011011000111000001011100011000100101110001100010000001011101000",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールドビット長: 102",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "総ビット数: 368",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "拡張フィールド総ビット数: 240",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "ヘッダー: 0b1011101000 (744)",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出バイト長: 11",
+        "timestamp": "2025-05-26T22:36:35.902043"
+      },
+      {
+        "level": "INFO",
+        "message": "抽出キー: 40",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "キーから復元したフィールド名: source_ip",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "必要ビット数: 104",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "利用可能ビット数: 240",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "値ビット: 0b11000100111001001100100010111000110001001101100011100000101110001100010010111000110001",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "値バイト列: b'192.168.1.1'",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "文字列復元: '192.168.1.1'",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "期待値: 192.168.1.1",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "復元値: 192.168.1.1",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "検証結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "=== エッジケーステスト ===",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 1: {'latitude': 90.0, 'longitude': 180.0} ---",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 90.0 ---",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 180.0 ---",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:35.903042"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 1 結果: ✅",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 2: {'latitude': -90.0, 'longitude': -180.0} ---",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = -90.0 ---",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = -180.0 ---",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:35.904043"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 2 結果: ✅",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 3: {'latitude': 0.0, 'longitude': 0.0} ---",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 0.0 ---",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:35.905042"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 0.0 ---",
+        "timestamp": "2025-05-26T22:36:35.906042"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:35.906042"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:35.906042"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:35.906042"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.906042"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.906042"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.906042"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 3 結果: ✅",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 4: {'source_ip': '0.0.0.0'} ---",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'source_ip': '0.0.0.0'}",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'source_ip': '0.0.0.0'}",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "--- source_ip = 0.0.0.0 ---",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 40",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 42 bytes",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'source_ip': '0.0.0.0'}",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "source_ip: ✅",
+        "timestamp": "2025-05-26T22:36:35.907104"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.908200"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 4 結果: ✅",
+        "timestamp": "2025-05-26T22:36:35.908200"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 5: {'source_ip': '255.255.255.255'} ---",
+        "timestamp": "2025-05-26T22:36:35.908200"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.908200"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'source_ip': '255.255.255.255'}",
+        "timestamp": "2025-05-26T22:36:35.908200"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'source_ip': '255.255.255.255'}",
+        "timestamp": "2025-05-26T22:36:35.908529"
+      },
+      {
+        "level": "INFO",
+        "message": "--- source_ip = 255.255.255.255 ---",
+        "timestamp": "2025-05-26T22:36:35.908529"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 40",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 51 bytes",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'source_ip': '255.255.255.255'}",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "source_ip: ✅",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 5 結果: ✅",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 6: {'alert': ['']} ---",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'alert': ['']}",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'alert': ['']}",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "--- alert = [''] ---",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 1",
+        "timestamp": "2025-05-26T22:36:35.908783"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 35 bytes",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {}",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "alert: ❌ (フィールドなし)",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ❌ 失敗",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 6 結果: ❌",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 7: {'alert': ['非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ']} ---",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'alert': ['非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ']}",
+        "timestamp": "2025-05-26T22:36:35.909791"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'alert': ['非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ']}",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "--- alert = ['非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ'] ---",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 1",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 741 bytes",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'alert': ['非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ']}",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "alert: ✅",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 7 結果: ✅",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "--- エッジケース 8: {'alert': ['津波警報', '大雨警報'], 'disaster': ['洪水', '土砂崩れ'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'} ---",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:35.910790"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'alert': ['津波警報', '大雨警報'], 'disaster': ['洪水', '土砂崩れ'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.911790"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'alert': ['津波警報', '大雨警報'], 'disaster': ['洪水', '土砂崩れ'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.911790"
+      },
+      {
+        "level": "INFO",
+        "message": "--- alert = ['津波警報', '大雨警報'] ---",
+        "timestamp": "2025-05-26T22:36:35.911790"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 1",
+        "timestamp": "2025-05-26T22:36:35.911790"
+      },
+      {
+        "level": "INFO",
+        "message": "--- disaster = ['洪水', '土砂崩れ'] ---",
+        "timestamp": "2025-05-26T22:36:35.911790"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 2",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 35.6895 ---",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 139.6917 ---",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "--- source_ip = 192.168.1.1 ---",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 40",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 137 bytes",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'alert': ['津波警報', '大雨警報'], 'disaster': ['洪水', '土砂崩れ'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "alert: ✅",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "disaster: ✅",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.912790"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:35.913790"
+      },
+      {
+        "level": "INFO",
+        "message": "source_ip: ✅",
+        "timestamp": "2025-05-26T22:36:35.913790"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:35.913790"
+      },
+      {
+        "level": "INFO",
+        "message": "エッジケース 8 結果: ✅",
+        "timestamp": "2025-05-26T22:36:35.913790"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.259223"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'alert': ['非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ非常に長い警報メッセージ'], 'disaster': ['長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報長い災害情報'], 'latitude': 35.6895, 'longitude': 139.6917, 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:36.259223"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 90.0 ---",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 180.0 ---",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = -90.0 ---",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = -180.0 ---",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:36.264223"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 0.0 ---",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 0.0 ---",
+        "timestamp": "2025-05-26T22:36:36.265727"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 35.6895 ---",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 36 bytes",
+        "timestamp": "2025-05-26T22:36:36.266745"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 35.6895}",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 139.6917 ---",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 36 bytes",
+        "timestamp": "2025-05-26T22:36:36.267731"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- source_ip = 192.168.1.1 ---",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 40",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 46 bytes",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "source_ip: ✅",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 35.6895, 'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:36.268731"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 35.6895, 'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 35.6895 ---",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 139.6917 ---",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 35.6895, 'longitude': 139.6917}",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.269731"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'alert': ['津波警報'], 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'alert': ['津波警報'], 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- alert = ['津波警報'] ---",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 1",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- source_ip = 192.168.1.1 ---",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 40",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 72 bytes",
+        "timestamp": "2025-05-26T22:36:36.270731"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'alert': ['津波警報'], 'source_ip': '192.168.1.1'}",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "alert: ✅",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "source_ip: ✅",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 0.0 ---",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 0.0 ---",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 0.0, 'longitude': 0.0}",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.271731"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = 90.0 ---",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = 180.0 ---",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': 90.0, 'longitude': 180.0}",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.272837"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "=== 複数フィールド組み合わせデバッグ ===",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "テストデータ: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "作成されたex_field: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "--- latitude = -90.0 ---",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 33",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "--- longitude = -180.0 ---",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "キー: 34",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "バイト列長: 40 bytes",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "復元されたex_field: {'latitude': -90.0, 'longitude': -180.0}",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "latitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "longitude: ✅",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      },
+      {
+        "level": "INFO",
+        "message": "全体結果: ✅ 成功",
+        "timestamp": "2025-05-26T22:36:36.273845"
+      }
+    ],
+    "errors": [
+      {
+        "message": "複数フィールドテスト中にエラー: チェックサム再計算中にエラー: キー 'alert' の処理中にエラー: 値が大きすぎます: 1800 バイト",
+        "exception": "チェックサム再計算中にエラー: キー 'alert' の処理中にエラー: 値が大きすぎます: 1800 バイト",
+        "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\extended_field_mixin.py\", line 212, in _dict_to_ex_field_bits\n    raise BitFieldError(f\"値が大きすぎます: {bytes_needed} バイト\")\nwtp.packet.exceptions.BitFieldError: 値が大きすぎます: 1800 バイト\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\format_base.py\", line 188, in _recalculate_checksum\n    bitstr = self.to_bits()\n             ^^^^^^^^^^^^^^\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\format_extended.py\", line 96, in to_bits\n    ex_field_bits = self._dict_to_ex_field_bits(self.ex_field)\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\extended_field_mixin.py\", line 227, in _dict_to_ex_field_bits\n    raise BitFieldError(f\"キー '{key}' の処理中にエラー: {e}\")\nwtp.packet.exceptions.BitFieldError: キー 'alert' の処理中にエラー: 値が大きすぎます: 1800 バイト\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\debug_tools\\core\\comprehensive_debug_tool.py\", line 310, in debug_multiple_fields\n    packet = Format(\n             ^^^^^^^\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\format_extended.py\", line 33, in __init__\n    super().__init__(**kwargs)\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\format_base.py\", line 142, in __init__\n    self._set_validated_field(field, value)\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\format_base.py\", line 178, in _set_validated_field\n    self._recalculate_checksum()\n  File \"C:\\Users\\szk27\\OneDrive\\デスクトップ\\WTP\\WTP\\wtp\\packet\\format_base.py\", line 202, in _recalculate_checksum\n    raise BitFieldError(f\"チェックサム再計算中にエラー: {e}\")\nwtp.packet.exceptions.BitFieldError: チェックサム再計算中にエラー: キー 'alert' の処理中にエラー: 値が大きすぎます: 1800 バイト\n",
+        "timestamp": "2025-05-26T22:36:36.263239"
+      }
+    ]
+  }
+}
