@@ -325,7 +325,6 @@ def redis_get_data(key):
 
 
 if __name__ == "__main__":
-    print(redis_get_data("150000"))
-    # output = get_data(area_codes, debug=True, save_to_redis=True)
-    # with open("wtp/resources/test.json", "w", encoding="utf-8") as f:
-    #     json.dump(output, f, ensure_ascii=False, indent=2)
+    output = get_data(area_codes, debug=True, save_to_redis=True)
+    with open("wtp/resources/test.json", "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
