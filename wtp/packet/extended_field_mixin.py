@@ -12,12 +12,12 @@ class ExtendedFieldType:
     DISASTER = 2
     LATITUDE = 33
     LONGITUDE = 34
-    SOURCE_IP = 40
+    SOURCE = 40
     
     # フィールドタイプ分類
     STRING_LIST_FIELDS = {ALERT, DISASTER}
     COORDINATE_FIELDS = {LATITUDE, LONGITUDE}
-    STRING_FIELDS = {SOURCE_IP}
+    STRING_FIELDS = {SOURCE}
     
     # 座標値の範囲制限
     LATITUDE_MIN = -90.0
@@ -54,7 +54,7 @@ class ExtendedFieldMixin:
         ExtendedFieldType.DISASTER: 'disaster',
         ExtendedFieldType.LATITUDE: 'latitude',
         ExtendedFieldType.LONGITUDE: 'longitude',
-        ExtendedFieldType.SOURCE_IP: 'source_ip',
+        ExtendedFieldType.SOURCE: 'source',
     }
 
     EXTENDED_FIELD_MAPPING_STR = {
@@ -62,7 +62,7 @@ class ExtendedFieldMixin:
         'disaster': ExtendedFieldType.DISASTER,
         'latitude': ExtendedFieldType.LATITUDE,
         'longitude': ExtendedFieldType.LONGITUDE,
-        'source_ip': ExtendedFieldType.SOURCE_IP,
+        'source': ExtendedFieldType.SOURCE,
     }
 
     def fetch_ex_field(self, bitstr: int, total_bits: Optional[int] = None) -> None:
@@ -113,7 +113,7 @@ class ExtendedFieldMixin:
                 
                 try:
                     value_bytes = value_bits.to_bytes(bytes_length, byteorder='big')
-                    if key in ExtendedFieldType.STRING_LIST_FIELDS or key == ExtendedFieldType.SOURCE_IP:
+                    if key in ExtendedFieldType.STRING_LIST_FIELDS or key == ExtendedFieldType.SOURCE:
                         # 文字列の末尾の余分な文字を削除
                         value = value_bytes.decode('utf-8').rstrip('\x00#')
                     elif key in ExtendedFieldType.COORDINATE_FIELDS:

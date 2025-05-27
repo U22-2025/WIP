@@ -7,8 +7,11 @@ import schedule
 from datetime import datetime
 import threading
 import csv
+import location_resolver
 
-import packet_format
+from packet import response_fixed
+domain = "google.com"
+wtp_port = 4110
 
 class WeatherServer:
     json_data = None
@@ -67,38 +70,22 @@ class WeatherServer:
         print("\nRaw Packet:")
         print(self._hex_dump(response))
         print("============================\n")
+
+    def determine_packet_type(data_bytes):
+        # バイト列をビット列（整数）に変換
+        bitstr = int.from_bytes(data_bytes, byteorder='big')
         
-    # def create_response(self, request):
-
-    #     # flagsを5ビットにまとめる
-    #     flags = request['flags']
-    #     flags_value = (
-    #     ((flags.get('weather', 0) & 0x01) << 5) |
-    #     ((flags.get('temperature', 0) & 0x01) << 4) |
-    #     ((flags.get('pops', 0) & 0x01) << 3) |
-    #     ((flags.get('alert', 0) & 0x01) << 2) |
-    #     ((flags.get('disaster', 0) & 0x01) << 1) |
-    #     ((flags.get('use_plus_field', 0) & 0x01) << 0)
-    #     )
-
-    #     # 1byte: version(4) + type(1) + time(3)
-    #     first_byte = ((self.VERSION & 0x0F) << 4) | (request['day'] & 0x07)
-    #     # 1byte: flags(5) + ip_version(3)
-    #     second_byte = ((flags_value & 0x1F) << 3) | (request['ip_version'] & 0x07)
-    #     # 2byte: packet_id
-    #     packet_id = struct.pack('!H', request['packet_id'])
-    #     # 8byte: current timestamp
-    #     timestamp = struct.pack('!Q', int(time.time()))
-    #     # 2byte: weather code (例: 晴れ=1)
-    #     weather_code = struct.pack('!H', 1)
-    #     # 3byte: temperature (例: 25, 30, 20)
-    #     temp_bytes = struct.pack('bbb', 25, 30, 20)
-    #     # 1byte: precipitation(5bit=6=30%) + reserved(3bit=0)
-    #     precipitation = (6 << 3) | 0
-    #     prec_byte = struct.pack('B', precipitation)
-    #     # 拡張フィールドなし
-
-    #     return bytes([first_byte, second_byte]) + packet_id + timestamp + weather_code + temp_bytes + prec_byte
+        # 17-19ビット目を抽出（0から数えて16-18ビット目）
+        # FormatBaseクラスのFIELD_POSITIONの'type'の値を使用
+        type_position = 16  # 0から数えた場合の位置
+        type_length = 3     # 長さ
+        
+        # ビットマスクを作成して抽出
+        mask = ((1 << type_length) - 1) << type_position
+        packet_type = (bitstr & mask) >> type_position
+        
+        return packet_type
+        
         
     def run(self):
         """Start the weather server"""
@@ -110,24 +97,46 @@ class WeatherServer:
                 data, addr = self.sock.recvfrom(1024)
                 print(f"Received request from {addr}")
                 
+                type = self.determine_packet_type(data) # 1:request / 2:response
                 # Measure request parsing time
                 parse_start = time.time()
-                request = self.parse_request(data)
+                
+                # 受信パケットがresponseだった場合、
+                # 送信元アドレスを書き換えて転送し、終了
+                if type == 2:
+                    response = response_fixed.Response.from_bytes(data)
+                    response.timestamp = int(time.time())
 
-                # パケット内の不正な情報をチェック
-                #check_request(request)
+                    addr = response.ex_field['source']
+                    self.sock.sendto(response, addr)
+                    return
+
+                # 以下、リクエストパケット
+                request = self.parse_request(data)
+                request.timestamp = int(time.time())
+                request.ex_field['source'] = addr
+
+                # region_idが指定されていない場合
+                if request['region_id'] == 0 :
+                    locate_resolve_flag = True
+                    addr = ["localhost",4109] 
+                    self.sock.sendto(request, addr) # location_resolverに転送する
+                    return
+                
+                import common
+                # 以下、redisDBを持つサーバへ問い合わせる処理
+                addr[0] = common.resolve_dns(domain)
+                addr[1] = wtp_port
+                self.sock.sendto(request,addr)
 
                 parse_time = time.time() - parse_start
                 self._debug_print_request(data, request)
                 
                 # Measure response creation time
                 response_start = time.time()
-                response = self.create_response(request)
                 response_time = time.time() - response_start
                 self._debug_print_response(response, request)
                 
-                # Send response and calculate total time
-                self.sock.sendto(response, addr)
                 total_time = time.time() - start_time
                 
                 if self.debug:
@@ -142,15 +151,6 @@ class WeatherServer:
             except Exception as e:
                 print(f"Error processing request: {e}")
                 continue
-    
-def check_request(request : dict):
-    if ( request.version != 1 & request.type != 0 ):
-        print("バージョンまたはタイプが不正です")
-        return False
-    if  all(v == 0 for v in request['flags'].values()) :
-        print("全てのフラグが0です")
-        return False
-    return True
     
 def load_last_report_time():
     global last_report_time
@@ -313,70 +313,6 @@ def fetch_and_save_weather(area_code):
 
     except Exception as e:
         print(f"エラー: {e}")
-
-    ## レスポンスを作成する
-    def create_response(self, request):
-        response = packet_format.Response(
-            version=self.VERSION,
-            type=self.RESPONSE_TYPE, 
-            region_id=request['region_id'],
-            day = request.get('day', 0),
-            timestamp=int(time.time()),
-            flags={
-                'weather': request['flags'].get('weather', 0),
-                'temperature': request['flags'].get('temperature', 0),
-                'pops': request['flags'].get('pops', 0),
-                'alert': request['flags'].get('alert', 0),
-                'disaster': request['flags'].get('disaster', 0),
-                'ex_field': request['flags'].get('ex_field', 0)
-            },
-            weather_code= 0,  # Example weather code
-            temperature= 0,  # Example temperatures
-            precipitation= 6,  # Example precipitation
-        )
-        # region_idから該当エリアのデータを取得
-        region_id = request['region_id']
-        region_info = None
-        if json_data and str(region_id) in json_data:
-            region_info = json_data[str(region_id)]
-        else:
-            region_info = {
-            "天気": [],
-            "気温": [],
-            "降水確率": [],
-            "注意報・警報": [],
-            "災害情報": []
-            }
-
-        # 必要なデータを抽出し、responseにセット
-        if response.flags.get('weather', 0) == 1:
-            weather_list = region_info.get('天気', [0]*7)
-            if len(weather_list) > response.day:
-                response.weather_code = weather_list[response.day]
-            else:
-                response.weather_code = weather_list[-1] if weather_list else 0
-
-        if response.flags.get('temperature', 0) == 1:
-            temp_list = region_info.get('気温', [0]*7)
-            if len(temp_list) > response.day:
-                response.temperature = temp_list[response.day]
-            else:
-                response.temperature = temp_list[-1] if temp_list else 0
-
-        if response.flags.get('pops', 0) == 1:
-            pops_list = region_info.get('降水確率', [0]*7)
-            if len(pops_list) > response.day:
-                response.precipitation = pops_list[response.day]
-            else:
-                response.precipitation = pops_list[-1] if pops_list else 0
-
-        if response.flags.get('alert', 0) == 1:
-            alert_list = region_info.get('注意報・警報', [])
-            response.alert = alert_list
-
-        if response.flags.get('disaster', 0) == 1:
-            disaster_list = region_info.get('災害情報', [])
-            response.disaster = disaster_list
         
 
 if __name__ == "__main__":

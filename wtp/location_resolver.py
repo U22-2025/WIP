@@ -5,7 +5,7 @@ from psycopg2 import pool
 import time
 from collections import OrderedDict
 import config
-from packet import Request, Response
+from packet import Response
 
 class LRUCache:
     def __init__(self, maxsize=1000):
@@ -35,9 +35,6 @@ class LocationResolver:
         self.DB_PASSWORD = config.DB_PASSWORD
         self.DB_HOST = "localhost"
         self.DB_PORT = "5432"
-        self.VERSION = 1
-
-        
 
         try:
             # Initialize connection pool
@@ -91,8 +88,8 @@ class LocationResolver:
         print("\n=== RECEIVED REQUEST PACKET ===")
         print(f"Total Length: {len(data)} bytes")
         print("\nCoordinates:")
-        print(f"{parsed.ex_field}")
-        # print(f"Longitude: {parsed.longitude}")
+        print(f"Latitude: {parsed.latitude}")
+        print(f"Longitude: {parsed.longitude}")
         print("\nRaw Packet:")
         print(self._hex_dump(data))
         print("===========================\n")
@@ -157,15 +154,29 @@ class LocationResolver:
                 self.connection_pool.putconn(conn)
 
     ## レスポンスを作成する
-    def create_response(self, request,area_code):
-        response = Response(
-            version = self.VERSION,
-            packet_id = request.packet_id,
-            type = 1,
-            ex_flag = 0,
-            timestamp = int(time.time()), 
-            area_code = area_code
+    def create_response(self, request):
+        response = Response.Response(
+            version=self.VERSION,
+            packet_id=request['packet_id'],
+            type=self.RESPONSE_TYPE,
+            ex_flag = 1,
+
+            timestamp=int(time.time())
         )
+        longitude=request.ex_field.get('longitude')
+        latitude=request.ex_field.get('latitude')
+        if longitude == 0 & latitude == 0 :
+            # 座標解決サーバに来た座標が空のパケットを破棄
+            return
+            
+        # 送信元IPから地域コードを取得し、request.region_idに格納
+        response.region_id = self.get_district_code(
+            longitude,
+            latitude
+        )
+        # response.region_id = request.region_id
+        response.checksum = 0 
+        response.ex_field('source_ip') = request.ex_field.get('source_ip')
         return response.to_bytes()
 
     def run(self):
@@ -184,28 +195,23 @@ class LocationResolver:
                 
                 # Parse request
                 parse_start = time.time()
-                request = Request.from_bytes(data)
+                request = LocationResolver.from_bytes(data)
                 parse_time = time.time() - parse_start
                 self._debug_print_request(data, request)
                 
-                if (request.ex_flag == 1 and request.ex_field.get("latitude") and request.ex_field.get("longitude")) is False:
-                    return
                 # Get region code from database
                 db_start = time.time()
-                region_code = self.get_district_code(
-                    request.ex_field.get("longitude"),
-                    request.ex_field.get("latitude"),
-                )
+
                 db_time = time.time() - db_start
                 
                 # Create response
                 response_start = time.time()
                 try:
-                    response = self.create_response(request,int(region_code))
+                    response = self.create_response(self,request)
                 except:
-                    response = self.create_response(request,0)
+                    response = self.create_response(self,request)
                 response_time = time.time() - response_start
-                self._debug_print_response(response, region_code)
+                self._debug_print_response(response)
                 
                 # Send response and calculate total processing time
                 send_start = time.time()

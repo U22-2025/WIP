@@ -8,6 +8,9 @@ import threading
 import concurrent.futures
 import sys
 import os
+from packet import response_fixed
+import redis
+import time
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -227,7 +230,70 @@ class QueryGenerator:
         print("Server shutdown complete.")
 
 
+    ## レスポンスを作成する
+    def create_response(self, request):
+        region_id = request['region_id']
+        day = request.get('day',0)
+        response = response_fixed.Response(
+            version=self.VERSION,
+            type=self.RESPONSE_TYPE, 
+            region_id=region_id,
+            day = day,
+            timestamp=int(time.time()),
+            flags={
+                'weather': request['flags'].get('weather', 0),
+                'temperature': request['flags'].get('temperature', 0),
+                'pops': request['flags'].get('pops', 0),
+                'alert': request['flags'].get('alert', 0),
+                'disaster': request['flags'].get('disaster', 0),
+                'ex_field': request['flags'].get('ex_field', 0)
+            }
+        )
+
+        r = redis.Redis(host='localhost', port=6379, db=0)
+        region_info = r.get(str(region_id))
+            
+        if region_info is None:
+            region_info = {
+            "天気": [],
+            "気温": [],
+            "降水確率": [],
+            "注意報・警報": [],
+            "災害情報": []
+            }
+
+        # 必要なデータを抽出し、responseにセット
+        if response.flags.get('weather', 0) == 1:
+            weather_list = region_info.get('天気', [0]*7)
+            if len(weather_list) > day:
+                response.weather_code = weather_list[day]
+            else:
+                response.weather_code = weather_list[-1] if weather_list else 0
+
+        if response.flags.get('temperature', 0) == 1:
+            temp_list = region_info.get('気温', [0]*7)
+            if len(temp_list) > day:
+                response.temperature = temp_list[day]
+            else:
+                response.temperature = temp_list[-1] if temp_list else 0
+
+        if response.flags.get('pops', 0) == 1:
+            pops_list = region_info.get('降水確率', [0]*7)
+            if len(pops_list) > day:
+                response.precipitation = pops_list[day]
+            else:
+                response.precipitation = pops_list[-1] if pops_list else 0
+
+        if response.flags.get('alert', 0) == 1:
+            alert_list = region_info.get('注意報・警報', [])
+            response.alert = alert_list
+
+        if response.flags.get('disaster', 0) == 1:
+            disaster_list = region_info.get('災害情報', [])
+            response.disaster = disaster_list
+
 if __name__ == "__main__":
     # 使用例：デバッグモードで起動
     server = QueryGenerator(debug=True)
     server.run()
+
