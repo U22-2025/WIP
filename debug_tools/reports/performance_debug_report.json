@@ -1,0 +1,166 @@
+{
+  "test_results": [
+    {
+      "test_size": 100,
+      "encoding": {
+        "total_count": 100,
+        "success_count": 100,
+        "error_count": 0,
+        "min_time": 7.819999882485718e-05,
+        "max_time": 0.00017039999875123613,
+        "avg_time": 0.00011763400008931058,
+        "median_time": 0.00011635000009846408,
+        "total_time": 0.011763400008931058,
+        "std_dev": 1.8465458900833407e-05
+      },
+      "decoding": {
+        "total_count": 100,
+        "success_count": 100,
+        "error_count": 0,
+        "min_time": 8.860000161803328e-05,
+        "max_time": 0.0004521999981079716,
+        "avg_time": 0.00011975400018854999,
+        "median_time": 0.0001126000024669338,
+        "total_time": 0.011975400018854998,
+        "std_dev": 3.986161758894345e-05
+      },
+      "roundtrip": {
+        "total_count": 100,
+        "success_count": 100,
+        "error_count": 0,
+        "data_integrity_errors": 0,
+        "min_time": 0.00016289999985019676,
+        "max_time": 0.0007317000017792452,
+        "avg_time": 0.00024056099991867085,
+        "median_time": 0.00023129999863158446,
+        "total_time": 0.024056099991867086,
+        "std_dev": 6.30708339841301e-05
+      },
+      "memory": {
+        "initial_memory_mb": 20.62890625,
+        "peak_memory_mb": 20.671875,
+        "final_memory_mb": 20.671875,
+        "memory_increase_mb": 0.04296875,
+        "memory_per_packet_kb": 0.44
+      },
+      "concurrent": {
+        "thread_count": 4,
+        "total_operations": 50,
+        "total_time": 0.013117500002408633,
+        "avg_time_per_operation": 0.00024373999985982664,
+        "operations_per_second": 3811.701924209568,
+        "errors": [],
+        "thread_results": {
+          "0": {
+            "count": 12,
+            "avg_time": 0.0002577666667396746,
+            "total_time": 0.003093200000876095
+          },
+          "1": {
+            "count": 12,
+            "avg_time": 0.00023200000062691592,
+            "total_time": 0.002784000007522991
+          },
+          "2": {
+            "count": 12,
+            "avg_time": 0.0002199166656282614,
+            "total_time": 0.0026389999875391368
+          },
+          "3": {
+            "count": 14,
+            "avg_time": 0.0002621999997895078,
+            "total_time": 0.003670799997053109
+          }
+        }
+      }
+    },
+    {
+      "test_size": 500,
+      "encoding": {
+        "total_count": 500,
+        "success_count": 500,
+        "error_count": 0,
+        "min_time": 7.60000002628658e-05,
+        "max_time": 0.00022449999960372224,
+        "avg_time": 0.00011970379996637349,
+        "median_time": 0.0001187999987450894,
+        "total_time": 0.05985189998318674,
+        "std_dev": 1.9896052711188113e-05
+      },
+      "decoding": {
+        "total_count": 500,
+        "success_count": 500,
+        "error_count": 0,
+        "min_time": 8.759999764151871e-05,
+        "max_time": 0.0003139000000373926,
+        "avg_time": 0.00011608359994716011,
+        "median_time": 0.00011425000047893263,
+        "total_time": 0.058041799973580055,
+        "std_dev": 1.7411633542115487e-05
+      },
+      "roundtrip": {
+        "total_count": 100,
+        "success_count": 100,
+        "error_count": 0,
+        "data_integrity_errors": 0,
+        "min_time": 0.00017320000188192353,
+        "max_time": 0.0005367999983718619,
+        "avg_time": 0.0002523810001730453,
+        "median_time": 0.00023895000049378723,
+        "total_time": 0.025238100017304532,
+        "std_dev": 5.6469290071067885e-05
+      },
+      "memory": {
+        "initial_memory_mb": 21.08984375,
+        "peak_memory_mb": 21.12109375,
+        "final_memory_mb": 21.12109375,
+        "memory_increase_mb": 0.03125,
+        "memory_per_packet_kb": 0.32
+      },
+      "concurrent": {
+        "thread_count": 4,
+        "total_operations": 50,
+        "total_time": 0.013387599999987287,
+        "avg_time_per_operation": 0.0002468740001495462,
+        "operations_per_second": 3734.799366581574,
+        "errors": [],
+        "thread_results": {
+          "0": {
+            "count": 12,
+            "avg_time": 0.0002248249996531134,
+            "total_time": 0.0026978999958373606
+          },
+          "1": {
+            "count": 12,
+            "avg_time": 0.0002846250011619607,
+            "total_time": 0.0034155000139435288
+          },
+          "2": {
+            "count": 12,
+            "avg_time": 0.00023947499964075783,
+            "total_time": 0.002873699995689094
+          },
+          "3": {
+            "count": 14,
+            "avg_time": 0.0002397571430005233,
+            "total_time": 0.003356600002007326
+          }
+        }
+      }
+    }
+  ],
+  "summary": {
+    "test_count": 2,
+    "encoding_performance": {
+      "avg_time": 0.00011866890002784203,
+      "min_time": 0.00011763400008931058,
+      "max_time": 0.00011970379996637349
+    },
+    "decoding_performance": {
+      "avg_time": 0.00011791880006785504,
+      "min_time": 0.00011608359994716011,
+      "max_time": 0.00011975400018854999
+    },
+    "roundtrip_performance": {}
+  }
+}

@@ -3,10 +3,13 @@ import struct
 import ipaddress
 import time
 import random
-from packet_format import *
+from packet import Request, Response
 from packet_id_12bit import PacketIDGenerator12Bit
 from datetime import datetime
 PIDG = PacketIDGenerator12Bit()
+
+
+
 
 class LocationResolverClient:
     def __init__(self, host='localhost', port=4109, debug=False):
@@ -15,6 +18,7 @@ class LocationResolverClient:
         self.server_port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.debug = debug
+        self.VERSION = 1
 
     def _hex_dump(self, data):
         """Create a hex dump of binary data"""
@@ -30,8 +34,8 @@ class LocationResolverClient:
         print("\n=== SENDING REQUEST PACKET ===")
         print(f"Total Length: {len(data.to_bytes())} bytes")
         print("\nCoordinates:")
-        print(f"Latitude: {data.latitude}")
-        print(f"Longitude: {data.longitude}")
+        print(f"Latitude: {data.ex_field['latitude']}")
+        print(f"Longitude: {data.ex_field['longitude']}")
         print("\nRaw Packet:")
         print(self._hex_dump(data.to_bytes()))
         print("===========================\n")
@@ -58,7 +62,16 @@ class LocationResolverClient:
 
             # Create request packet
             request_start = time.time()
-            request = ResolverRequest(version=1, packet_ID=PIDG.next_id(), type=0, weather_flag=0, timestamp=int(datetime.now().timestamp()), longitude=longitude, latitude=latitude, ex_field=0)
+            request = Request(
+                version=self.VERSION, 
+                packet_id=PIDG.next_id(), 
+                type=0, 
+                timestamp=int(datetime.now().timestamp()), 
+                ex_field={
+                    "latitude": latitude, 
+                    "longitude": longitude
+                }, 
+                ex_flag=1)
             request_time = time.time() - request_start
             self._debug_print_request(request)
 
@@ -75,7 +88,7 @@ class LocationResolverClient:
 
             # Parse response
             parse_start = time.time()
-            response = ResolverResponse.from_bytes(data)
+            response = Response.from_bytes(data)
             parse_time = time.time() - parse_start
             self._debug_print_response(
                 data,
@@ -103,72 +116,7 @@ class LocationResolverClient:
         """Close the socket"""
         self.sock.close()
 
-def generate_random_japan_coordinates():
-    """Generate random coordinates within Japan's main islands"""
-    # Define regions for Japan's main islands
-    regions = [
-        # Honshu (本州) - divided into multiple parts for better coverage
-        {'lat': (34.5, 37.5), 'lon': (134.0, 137.0)},  # 中部
-        {'lat': (36.0, 38.5), 'lon': (137.0, 140.0)},  # 関東
-        {'lat': (38.5, 40.5), 'lon': (140.0, 141.5)},  # 東北南部
-        {'lat': (40.5, 41.5), 'lon': (141.0, 142.0)},  # 東北北部
-        
-        # Hokkaido (北海道)
-        {'lat': (41.5, 45.0), 'lon': (141.5, 145.5)},
-        
-        # Kyushu (九州)
-        {'lat': (31.5, 33.5), 'lon': (130.0, 132.0)},
-        
-        # Shikoku (四国)
-        {'lat': (32.5, 34.5), 'lon': (132.5, 134.5)},
-    ]
-    
-    # Randomly select a region
-    region = random.choice(regions)
-    
-    # Generate coordinates within the selected region
-    latitude = random.uniform(region['lat'][0], region['lat'][1])
-    longitude = random.uniform(region['lon'][0], region['lon'][1])
-    
-    return latitude, longitude
 
-def performance_test():
-    """Performance test with random coordinates in Japan"""
-    # テストパラメータ
-    num_requests = 100000  # リクエスト回数
-    client = LocationResolverClient(debug=True)  # デバッグ出力は無効化
-    processing_times = []
-
-    try:
-        print(f"Sending {num_requests} requests with random coordinates in Japan...")
-        
-        for i in range(num_requests):
-            latitude, longitude = generate_random_japan_coordinates()
-            result, total_time = client.get_location_info(latitude, longitude)
-            
-            if result:
-                processing_times.append(total_time)
-                print(f"Request {i+1}/{num_requests}: {total_time*1000:.2f}ms")
-                print(result)
-            else:
-                print(f"Request {i+1}/{num_requests}: Failed")
-
-        # 統計情報の計算と表示
-        if processing_times:
-            avg_time = sum(processing_times) / len(processing_times)
-            min_time = min(processing_times)
-            max_time = max(processing_times)
-            
-            print("\nPerformance Statistics:")
-            print(f"Average processing time: {avg_time*1000:.2f}ms")
-            print(f"Minimum processing time: {min_time*1000:.2f}ms")
-            print(f"Maximum processing time: {max_time*1000:.2f}ms")
-            print(f"Successful requests: {len(processing_times)}/{num_requests}")
-        else:
-            print("No successful requests to analyze")
-
-    finally:
-        client.close()
 
 def main():
     """Send a single location request with coordinates"""
