@@ -1,0 +1,37 @@
+name: Claude PR Assistant Debug
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug trigger
+        run: |
+          echo "Workflow triggered!"
+          echo "Event: ${{ github.event_name }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Contains @claude: ${{ contains(github.event.comment.body, '@claude') }}"
+  
+  claude-action:
+    if: contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Simple response
+        run: echo "Claude would respond here"
+        
+      # 実際のClaude actionはコメントアウトして段階的にテスト
+      # - name: Run Claude Code Action
+      #   uses: anthropics/claude-code-action@beta
+      #   with:
+      #     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      #     timeout_minutes: "60"
