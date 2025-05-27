@@ -81,7 +81,7 @@ class FormatBase:
         day: int = 0,
         reserved: int = 0,
         timestamp: int = 0,
-        area_code: int = 0,
+        area_code: Union[int, str] = 0,
         checksum: int = 0,
         # ビット列
         bitstr: Optional[int] = None
@@ -146,19 +146,32 @@ class FormatBase:
         except Exception as e:
             raise BitFieldError("パケットの初期化中にエラー: {}".format(e))
 
-    def _set_validated_field(self, field: str, value: Union[int, float]) -> None:
+    def _set_validated_field(self, field: str, value: Union[int, float, str]) -> None:
         """
         フィールド値を検証して設定する
         
         Args:
             field: 設定するフィールド名
-            value: 設定する値（整数または浮動小数点）
+            value: 設定する値（整数、浮動小数点、または文字列）
             
         Raises:
             BitFieldError: 値が有効範囲外の場合、または不正な型の場合
         """
-        if not isinstance(value, (int, float)):
-            raise BitFieldError(f"フィールド '{field}' の値は数値である必要があります。受け取った型: {type(value)}")
+        # area_codeフィールドの特別な処理
+        if field == 'area_code':
+            if isinstance(value, str):
+                try:
+                    value = int(value)
+                except ValueError:
+                    raise BitFieldError(f"エリアコード '{value}' は有効な数値ではありません")
+            elif isinstance(value, (int, float)):
+                value = int(value)
+            else:
+                raise BitFieldError(f"エリアコードは文字列または数値である必要があります。受け取った型: {type(value)}")
+        else:
+            # 他のフィールドは数値のみ
+            if not isinstance(value, (int, float)):
+                raise BitFieldError(f"フィールド '{field}' の値は数値である必要があります。受け取った型: {type(value)}")
             
         # 浮動小数点数を整数に変換
         if isinstance(value, float):
@@ -299,12 +312,31 @@ class FormatBase:
         self._set_validated_field('timestamp', value)
     
     @property
-    def area_code(self) -> int:
-        return getattr(self, '_area_code', 0)
+    def area_code(self) -> str:
+        """エリアコードを6桁の文字列として返す"""
+        area_code_int = getattr(self, '_area_code', 0)
+        return f"{area_code_int:06d}"
     
     @area_code.setter
-    def area_code(self, value: Union[int, float]) -> None:
-        self._set_validated_field('area_code', value)
+    def area_code(self, value: Union[int, str]) -> None:
+        """エリアコードを設定する（数値または文字列を受け取り、内部では数値として保存）"""
+        if isinstance(value, str):
+            # 文字列の場合は数値に変換
+            try:
+                area_code_int = int(value)
+            except ValueError:
+                raise BitFieldError(f"エリアコード '{value}' は有効な数値ではありません")
+        elif isinstance(value, (int, float)):
+            area_code_int = int(value)
+        else:
+            raise BitFieldError(f"エリアコードは文字列または数値である必要があります。受け取った型: {type(value)}")
+        
+        # 20ビットの範囲チェック
+        if not (0 <= area_code_int <= 1048575):  # 2^20 - 1
+            raise BitFieldError(f"エリアコード {area_code_int} が20ビットの範囲（0-1048575）を超えています")
+        
+        # 内部では数値として保存（パケット化のため）
+        self._set_validated_field('area_code', area_code_int)
     
     @property
     def checksum(self) -> int:
@@ -338,10 +370,23 @@ class FormatBase:
         try:
             bitstr = 0
             for field, (start, length) in self._BIT_FIELDS.items():
-                value = getattr(self, field)
+                # area_codeフィールドの特別な処理
+                if field == 'area_code':
+                    # 内部の数値を直接取得
+                    value = getattr(self, f'_{field}', 0)
+                else:
+                    value = getattr(self, field)
+                
                 # 値の範囲を確認
                 if isinstance(value, float):
                     value = int(value)
+                elif isinstance(value, str):
+                    # 文字列の場合は数値に変換
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        raise BitFieldError(f"フィールド '{field}' の文字列値 '{value}' を数値に変換できません")
+                
                 max_val = (1 << length) - 1
                 if value > max_val:
                     raise BitFieldError(
