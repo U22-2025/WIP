@@ -33,7 +33,7 @@ class Response(FormatBase, ExtendedFieldMixin):
         - disaster: 災害情報 (文字列のリスト)
         - latitude: 緯度 (数値)
         - longitude: 経度 (数値)
-        - source_ip: 送信元IPアドレス (文字列)
+        - source: 送信元IPアドレス (文字列)
     """
     
     # 固定長拡張フィールドの長さ定義
