@@ -73,7 +73,7 @@ import xml.etree.ElementTree as ET
 import json
 from collections import defaultdict
 
-def get_disaster_info( url_list:str) -> Optional[str]:
+def get_alert_info( url_list:str) -> Optional[str]:
     # 名前空間の定義
     ns = {
         'jmx': 'http://xml.kishou.go.jp/jmaxml1/',
@@ -134,7 +134,7 @@ def get_report_time(root,ns):
         report_hour = ""
     return report_hour
 
-def get_disasterXML_list():
+def get_alert_list():
     xml_data =fetch_xml("https://www.data.jma.go.jp/developer/xml/feed/extra.xml")
     # 名前空間を定義
     ns = {'atom': 'http://www.w3.org/2005/Atom'}
@@ -149,5 +149,10 @@ def get_disasterXML_list():
     print(entry_ids)
     return entry_ids
 
-URL_list = get_disasterXML_list()
-get_disaster_info ( URL_list )
+
+def get_disaster_info():
+    
+    return
+
+URL_list = get_alert_list()
+get_alert_info ( URL_list )
