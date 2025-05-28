@@ -136,31 +136,26 @@ class WeatherServer(BaseServer):
         if request.temperature_flag == 1:
             temp_list = region_info.get('気温', [])
             if temp_list:
-                # 最高気温、最低気温、平均気温を設定
+                # 平均気温を取得
                 try:
                     if len(temp_list) > request.day and temp_list[request.day]:
-                        temp_value = int(temp_list[request.day])
-                        response.temperature_max = temp_value
-                        response.temperature_min = temp_value - 5  # 仮の値
-                        response.temperature_avg = temp_value - 2  # 仮の値
+                        temp_value = int(temp_list[request.day]) + 100
+                        response.temperature = temp_value
                     else:
-                        response.temperature_max = 25
-                        response.temperature_min = 20
-                        response.temperature_avg = 22
+                        response.temperature = 0
                 except (ValueError, TypeError, IndexError):
-                    response.temperature_max = 25
-                    response.temperature_min = 20
-                    response.temperature_avg = 22
+                    response.temperature = 0
+
         
         if request.pops_flag == 1:
             pops_list = region_info.get('降水確率', [])
             if pops_list and len(pops_list) > request.day:
                 try:
-                    response.precipitation = int(pops_list[request.day])
+                    response.pops = int(pops_list[request.day])
                 except (ValueError, TypeError):
-                    response.precipitation = 0
+                    response.pops = 0
             else:
-                response.precipitation = 0
+                response.pops = 0
         
         # 拡張フィールドの処理
         if request.ex_flag == 1 and hasattr(request, 'ex_field'):
@@ -274,7 +269,6 @@ class WeatherServer(BaseServer):
     
     def fetch_and_save_weather(self, area_code):
         """天気データを取得して保存"""
-        print("関数が呼び出されました。")  # debug
         output = {
             "updated_at": None,
         }
@@ -318,8 +312,8 @@ class WeatherServer(BaseServer):
                         if idx != sel_idx:
                             removed_indices.append(idx)
             
+            parent_code = area_code
             for area in weather_areas:
-                parent_code = area_code[:2]+'0000'
                 area_name = area["area"].get("name", "")
                 code = area["area"].get("code")
                 weather_codes = area.get("weatherCodes", [])
@@ -379,6 +373,7 @@ class WeatherServer(BaseServer):
                                 break
                 
                 output[code] = {
+                    "親コード":parent_code,
                     "地方名": area_name,
                     "天気": weather_codes,
                     "気温": temps,
