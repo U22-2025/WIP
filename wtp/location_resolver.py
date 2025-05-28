@@ -154,7 +154,7 @@ class LocationResolver:
                 self.connection_pool.putconn(conn)
 
     ## レスポンスを作成する
-    def create_response(self, request):
+    def create_response(self, request, area_code):
         response = Response.Response(
             version=self.VERSION,
             packet_id=request['packet_id'],
@@ -171,11 +171,6 @@ class LocationResolver:
             # 座標解決サーバに来た座標が空のパケットを破棄
             return
             
-        # 送信元IPから地域コードを取得し、response.region_idに格納
-        response.area_code = self.get_district_code(
-            longitude,
-            latitude
-        )
         # 緯度経度をex_fieldから削除
         response.ex_field.pop('longitude', None)
         response.ex_field.pop('latitude', None)
@@ -208,11 +203,14 @@ class LocationResolver:
                 db_start = time.time()
 
                 db_time = time.time() - db_start
-                
+                area_code = self.get_district_code( # 送信元IPから地域コードを取得し、response.region_idに格納 
+                    request.longitude,
+                    request.latitude
+                )
                 # Create response
                 response_start = time.time()
                 try:
-                    response = self.create_response(self,request)
+                    response = self.create_response(self,request, area_code)
                 except:
                     response = self.create_response(self,request)
                 response_time = time.time() - response_start
