@@ -7,6 +7,7 @@ import concurrent.futures
 import sys
 import os
 import threading
+import time
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -166,20 +167,6 @@ class QueryGenerator(BaseServer):
         print("===========================\n")
     
     def run(self):
-        """気象データサーバーを開始（基底クラスのrun()を利用）"""
-        if self.debug:
-            print(f"Redis: {self.config.redis_host}:{self.config.redis_port}")
-        
-        # 基底クラスのrun()を呼び出す（並列処理は基底クラスで実装済み）
-        super().run()
-    
-    def _cleanup(self):
-        """派生クラス固有のクリーンアップ処理（オーバーライド）"""
-        # 基底クラスでスレッドプールのシャットダウンは処理されるため、
-        # 追加のクリーンアップ処理は不要
-        super().handle_request(data, addr)
-    
-    def run(self):
         """気象データサーバーを並列処理で開始（オーバーライド）"""
         print(f"Weather data server running on {self.host}:{self.port}")
         print(f"Parallel processing enabled with {self.config.max_workers} worker threads")
@@ -222,7 +209,6 @@ class QueryGenerator(BaseServer):
 
 
 if __name__ == "__main__":
-    import time
     # 使用例：デバッグモードで起動
     server = QueryGenerator(debug=True)
     server.run()
