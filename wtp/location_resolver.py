@@ -1,13 +1,36 @@
+"""
+位置解決サーバー - リファクタリング版
+基底クラスを継承した実装
+"""
+
 import socket
 import struct
 import psycopg2
 from psycopg2 import pool
 import time
 from collections import OrderedDict
-import config
-from packet import Request, Response
+import sys
+import os
+
+# パスを追加して直接実行にも対応
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    # モジュールとして使用される場合
+    from .base_server import BaseServer
+    from .config import DB_USERNAME, DB_PASSWORD
+    from .packet import Request, Response
+except ImportError:
+    # 直接実行される場合
+    from base_server import BaseServer
+    import config
+    from packet import Request, Response
+
 
 class LRUCache:
+    """LRU（Least Recently Used）キャッシュの実装"""
+    
     def __init__(self, maxsize=1000):
         self.cache = OrderedDict()
         self.maxsize = maxsize
@@ -27,23 +50,54 @@ class LRUCache:
     def __contains__(self, key):
         return key in self.cache
 
-class LocationResolver:
-    def __init__(self, host='localhost', port=4109, debug=False, max_cache_size=1000):
+
+class LocationResolver(BaseServer):
+    """位置解決サーバーのメインクラス（基底クラス継承版）"""
+    
+    def __init__(self, host='localhost', port=4109, debug=False, max_workers=None, max_cache_size=1000):
+        """
+        初期化
+        
+        Args:
+            host: サーバーホスト
+            port: サーバーポート
+            debug: デバッグモードフラグ
+            max_workers: スレッドプールのワーカー数（Noneの場合はCPU数*2）
+            max_cache_size: キャッシュの最大サイズ
+        """
         # Database configuration
         self.DB_NAME = "weather_forecast_map"
-        self.DB_USER = config.DB_USERNAME
-        self.DB_PASSWORD = config.DB_PASSWORD
+        try:
+            self.DB_USER = config.DB_USERNAME
+            self.DB_PASSWORD = config.DB_PASSWORD
+        except AttributeError:
+            # configモジュールが異なる形式の場合
+            self.DB_USER = getattr(config, 'DB_USER', 'postgres')
+            self.DB_PASSWORD = getattr(config, 'DB_PASS', 'password')
+        
         self.DB_HOST = "localhost"
         self.DB_PORT = "5432"
-        self.VERSION = 1
-
         
-
+        # 基底クラスの初期化（max_workersも渡す）
+        super().__init__(host, port, debug, max_workers)
+        
+        # サーバー名を設定
+        self.server_name = "LocationResolver"
+        
+        # データベース接続とキャッシュの初期化
+        self._init_database()
+        self._init_cache(max_cache_size)
+        
+        # Weather server configuration
+        self.weather_server_ip = "127.0.0.1"  # Default to localhost
+    
+    def _init_database(self):
+        """データベース接続プールを初期化"""
         try:
             # Initialize connection pool
             self.connection_pool = psycopg2.pool.SimpleConnectionPool(
                 1,  # minimum number of connections
-                10, # maximum number of connections
+                10,  # maximum number of connections
                 dbname=self.DB_NAME,
                 user=self.DB_USER,
                 password=self.DB_PASSWORD,
@@ -58,61 +112,95 @@ class LocationResolver:
             cursor.close()
             self.connection_pool.putconn(conn)
             
+            if self.debug:
+                print(f"Successfully connected to database {self.DB_NAME}")
+            
         except (Exception, psycopg2.Error) as error:
             print(f"Error connecting to PostgreSQL database: {error}")
             if hasattr(self, 'connection_pool'):
                 self.connection_pool.closeall()
             raise SystemExit(1)
-            
-        # Initialize cache
+    
+    def _init_cache(self, max_cache_size):
+        """キャッシュを初期化"""
         self.cache = LRUCache(maxsize=max_cache_size)
+        if self.debug:
+            print(f"Initialized LRU cache with max size: {max_cache_size}")
+    
+    def parse_request(self, data):
+        """
+        リクエストデータをパース
         
-        # Server configuration
-        self.host = host
-        self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((self.host, self.port))
-        self.debug = debug
-        
-        # Weather server configuration
-        self.weather_server_ip = "127.0.0.1"  # Default to localhost
-        
-    def _hex_dump(self, data):
-        """Create a hex dump of binary data"""
-        hex_str = ' '.join(f'{b:02x}' for b in data)
-        ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
-        return f"Hex: {hex_str}\nASCII: {ascii_str}"
-        
-    def _debug_print_request(self, data, parsed):
-        """Print debug information for request packet"""
-        if not self.debug:
-            return
+        Args:
+            data: 受信したバイナリデータ
             
-        print("\n=== RECEIVED REQUEST PACKET ===")
-        print(f"Total Length: {len(data)} bytes")
-        print("\nCoordinates:")
-        print(f"{parsed.ex_field}")
-        # print(f"Longitude: {parsed.longitude}")
-        print("\nRaw Packet:")
-        print(self._hex_dump(data))
-        print("===========================\n")
+        Returns:
+            Request: パースされたリクエスト
+        """
+        return Request.from_bytes(data)
+    
+    def validate_request(self, request):
+        """
+        リクエストの妥当性をチェック
         
-    def _debug_print_response(self, response, region_code):
-        """Print debug information for response packet"""
-        if not self.debug:
-            return
+        Args:
+            request: リクエストオブジェクト
             
-        print("\n=== SENDING RESPONSE PACKET ===")
-        print(f"Total Length: {len(response)} bytes")
-        print(f"Region Code: {region_code}")
-        print(f"Weather Server IP: {self.weather_server_ip}")
-        print("\nRaw Packet:")
-        print(self._hex_dump(response))
-        print("============================\n")
-
+        Returns:
+            tuple: (is_valid, error_message)
+        """
+        # 拡張フィールドが必要
+        if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
+            return False, "Extended field is required"
         
+        # 緯度経度が必要
+        if not hasattr(request, 'ex_field') or not request.ex_field:
+            return False, "Extended field is empty"
+        
+        if not request.ex_field.get("latitude") or not request.ex_field.get("longitude"):
+            return False, "Latitude and longitude are required"
+        
+        return True, None
+    
+    def create_response(self, request):
+        """
+        レスポンスを作成
+        
+        Args:
+            request: リクエストオブジェクト
+            
+        Returns:
+            レスポンスのバイナリデータ
+        """
+        # 位置情報から地域コードを取得
+        area_code = self.get_district_code(
+            request.ex_field.get("longitude"),
+            request.ex_field.get("latitude")
+        )
+        
+        # レスポンスを作成
+        response = Response(
+            version=self.VERSION,
+            packet_id=request.packet_id,
+            type=1,
+            ex_flag=0,
+            timestamp=int(time.time()),
+            area_code=int(area_code) if area_code else 0
+        )
+        
+        return response.to_bytes()
+    
     def get_district_code(self, longitude, latitude):
-        """Query database for district code with caching"""
+        """
+        緯度経度から地域コードを取得（キャッシュ機能付き）
+        
+        Args:
+            longitude: 経度
+            latitude: 緯度
+            
+        Returns:
+            地域コード（文字列）またはNone
+        """
         # Create cache key
         cache_key = f"{longitude},{latitude}"
         
@@ -121,7 +209,7 @@ class LocationResolver:
             if self.debug:
                 print("Cache hit!")
             return self.cache[cache_key]
-            
+        
         conn = None
         try:
             # Get connection from pool
@@ -138,101 +226,95 @@ class LocationResolver:
             """
             cursor.execute(query)
             result = cursor.fetchone()
-
+            
             district_code = result[0] if result else None
             
             # Store in cache
             self.cache[cache_key] = district_code
             
+            if self.debug:
+                print(f"Query result for ({longitude}, {latitude}): {district_code}")
+            
             return district_code
-
+            
         except Exception as e:
             print(f"Database error: {e}")
             return None
-
+            
         finally:
             if conn:
                 # Return connection to pool
                 cursor.close()
                 self.connection_pool.putconn(conn)
-
-    ## レスポンスを作成する
-    def create_response(self, request,area_code):
-        response = Response(
-            version = self.VERSION,
-            packet_id = request.packet_id,
-            type = 1,
-            ex_flag = 0,
-            timestamp = int(time.time()), 
-            area_code = area_code
-        )
-        return response.to_bytes()
-
-    def run(self):
-        """Start the location resolver server"""
-        print(f"Location resolver running on {self.host}:{self.port}")
+    
+    def _debug_print_request(self, data, parsed):
+        """リクエストのデバッグ情報を出力（オーバーライド）"""
+        if not self.debug:
+            return
+            
+        print("\n=== RECEIVED REQUEST PACKET ===")
+        print(f"Total Length: {len(data)} bytes")
+        print("\nCoordinates:")
+        if hasattr(parsed, 'ex_field') and parsed.ex_field:
+            print(f"Latitude: {parsed.ex_field.get('latitude')}")
+            print(f"Longitude: {parsed.ex_field.get('longitude')}")
+        else:
+            print("No coordinates in request")
+        print("\nRaw Packet:")
+        print(self._hex_dump(data))
+        print("===========================\n")
+    
+    def _debug_print_response(self, response, request=None):
+        """レスポンスのデバッグ情報を出力（オーバーライド）"""
+        if not self.debug:
+            return
+            
+        print("\n=== SENDING RESPONSE PACKET ===")
+        print(f"Total Length: {len(response)} bytes")
         
-        while True:
-            try:
-                # Receive request
-                data, addr = self.sock.recvfrom(1024)
-                if self.debug:
-                    print(f"Received request from {addr}")
-                
-                # Start measuring processing time
-                start_time = time.time()
-                
-                # Parse request
-                parse_start = time.time()
-                request = Request.from_bytes(data)
-                parse_time = time.time() - parse_start
-                self._debug_print_request(data, request)
-                
-                if (request.ex_flag == 1 and request.ex_field.get("latitude") and request.ex_field.get("longitude")) is False:
-                    return
-                # Get region code from database
-                db_start = time.time()
-                region_code = self.get_district_code(
-                    request.ex_field.get("longitude"),
-                    request.ex_field.get("latitude"),
-                )
-                db_time = time.time() - db_start
-                
-                # Create response
-                response_start = time.time()
-                try:
-                    response = self.create_response(request,int(region_code))
-                except:
-                    response = self.create_response(request,0)
-                response_time = time.time() - response_start
-                self._debug_print_response(response, region_code)
-                
-                # Send response and calculate total processing time
-                send_start = time.time()
-                self.sock.sendto(response, addr)
-                send_time = time.time() - send_start
-                
-                total_processing_time = time.time() - start_time
-                
-                if self.debug:
-                    print("\n=== TIMING INFORMATION ===")
-                    print(f"Request receive time: {(parse_start - start_time)*1000:.2f}ms")
-                    print(f"Request parsing time: {parse_time*1000:.2f}ms")
-                    print(f"Database query time: {db_time*1000:.2f}ms")
-                    print(f"Response creation time: {response_time*1000:.2f}ms")
-                    print(f"Response send time: {send_time*1000:.2f}ms")
-                    print(f"Total processing time: {total_processing_time*1000:.2f}ms")
-                    print("========================\n")
-                    print(f"Sent response to {addr}")
-                
-            except Exception as e:
-                print(f"Error processing request: {e}")
-                continue
-
-    def __del__(self):
-        """Cleanup connection pool on deletion"""
+        # レスポンスから地域コードを抽出（デバッグ用）
+        if len(response) >= 12:
+            area_code = struct.unpack('!I', response[8:12])[0]
+            print(f"Area Code: {area_code}")
+        
+        print(f"Weather Server IP: {self.weather_server_ip}")
+        print("\nRaw Packet:")
+        print(self._hex_dump(response))
+        print("============================\n")
+    
+    def _print_timing_info(self, addr, timing_info):
+        """タイミング情報を出力（オーバーライド）"""
+        # 基底クラスの処理に加えて、データベースクエリ時間も出力
+        print(f"\n=== TIMING INFORMATION for {addr} ===")
+        print(f"Request parsing time: {timing_info.get('parse', 0)*1000:.2f}ms")
+        
+        # データベースクエリ時間は response creation に含まれる
+        response_time = timing_info.get('response', 0)
+        print(f"Database query + Response creation time: {response_time*1000:.2f}ms")
+        
+        print(f"Response send time: {timing_info.get('send', 0)*1000:.2f}ms")
+        print(f"Total processing time: {timing_info.get('total', 0)*1000:.2f}ms")
+        print("================================\n")
+    
+    def print_statistics(self):
+        """統計情報を出力（オーバーライド）"""
+        # 基底クラスの統計情報
+        super().print_statistics()
+        
+        # キャッシュの統計情報を追加
+        if hasattr(self, 'cache'):
+            print(f"\n=== CACHE STATISTICS ===")
+            print(f"Cache size: {len(self.cache.cache)}/{self.cache.maxsize}")
+            print("========================\n")
+    
+    def _cleanup(self):
+        """派生クラス固有のクリーンアップ処理（オーバーライド）"""
+        # データベース接続プールをクローズ
         if hasattr(self, 'connection_pool'):
+            print("Closing database connection pool...")
             self.connection_pool.closeall()
+            print("Database connections closed.")
+
 
 if __name__ == "__main__":
     server = LocationResolver(debug=True, max_cache_size=1000)

@@ -1,13 +1,12 @@
 """
 気象データサーバー - リファクタリング版
-責任分離とコードの簡潔性を重視した実装
+基底クラスを継承した実装
 """
 
-import socket
-import threading
 import concurrent.futures
 import sys
 import os
+import threading
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -15,6 +14,7 @@ if __name__ == "__main__":
 
 try:
     # モジュールとして使用される場合
+    from .base_server import BaseServer
     from .query_generator_modules.config_manager import ConfigManager
     from .query_generator_modules.weather_data_manager import WeatherDataManager
     from .query_generator_modules.response_builder import ResponseBuilder
@@ -23,6 +23,7 @@ try:
     from packet import Request
 except ImportError:
     # 直接実行される場合
+    from base_server import BaseServer
     from query_generator_modules.config_manager import ConfigManager
     from query_generator_modules.weather_data_manager import WeatherDataManager
     from query_generator_modules.response_builder import ResponseBuilder
@@ -35,8 +36,8 @@ except ImportError:
         from packet import Request
 
 
-class QueryGenerator:
-    """気象データサーバーのメインクラス"""
+class QueryGenerator(BaseServer):
+    """気象データサーバーのメインクラス（基底クラス継承版）"""
     
     def __init__(self, host=None, port=None, debug=None, max_workers=None):
         """
@@ -64,13 +65,21 @@ class QueryGenerator:
         # 設定の妥当性チェック
         self.config.validate_config()
         
+        # 基底クラスの初期化（max_workersも渡す）
+        super().__init__(
+            host=self.config.server_host,
+            port=self.config.server_port,
+            debug=self.config.debug,
+            max_workers=self.config.max_workers
+        )
+        
+        # サーバー名を設定
+        self.server_name = "QueryGenerator"
+        
         # 各コンポーネントの初期化
         self._init_components()
         
-        # ネットワークの初期化
-        self._init_network()
-        
-        if self.config.debug:
+        if self.debug:
             print(f"QueryGenerator initialized:")
             print(self.config)
     
@@ -80,18 +89,9 @@ class QueryGenerator:
         self.weather_manager = WeatherDataManager(self.config)
         self.response_builder = ResponseBuilder(self.config)
         
-        # スレッドプールの初期化
-        self.thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.config.max_workers,
-            thread_name_prefix=ThreadConstants.THREAD_NAME_PREFIX
-        )
+        # 基底クラスのスレッドプールを使用するため、独自のスレッドプールは不要
     
-    def _init_network(self):
-        """ネットワークソケットを初期化"""
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((self.config.server_host, self.config.server_port))
-    
-    def _parse_request(self, data):
+    def parse_request(self, data):
         """
         リクエストデータをパース
         
@@ -103,7 +103,7 @@ class QueryGenerator:
         """
         return Request.from_bytes(data)
     
-    def _validate_request(self, request):
+    def validate_request(self, request):
         """
         リクエストの妥当性をチェック
         
@@ -114,85 +114,81 @@ class QueryGenerator:
             tuple: (is_valid, error_message)
         """
         return self.response_builder.validate_request(request)
-
-    def handle_request(self, data, addr):
+    
+    def create_response(self, request):
         """
-        個別のリクエストを処理する（並列実行用）
+        レスポンスを作成
         
         Args:
-            data: 受信したバイナリデータ
-            addr: 送信元アドレス
+            request: リクエストオブジェクト
+            
+        Returns:
+            レスポンスのバイナリデータ
         """
-        timer = PerformanceTimer()
-        timer.start()
+        # 気象データを取得
+        weather_data = self.weather_manager.get_weather_data(
+            area_code=request.area_code,
+            weather_flag=request.weather_flag,
+            temperature_flag=request.temperature_flag,
+            pops_flag=request.pops_flag,
+            alert_flag=request.alert_flag,
+            disaster_flag=request.disaster_flag,
+            day=request.day
+        )
         
-        try:
-            self.debug_helper.print_thread_info("Processing request", addr)
+        # レスポンスを作成
+        response = self.response_builder.create_response(
+            request, request.area_code, weather_data
+        )
+        
+        return response
+    
+    def _debug_print_request(self, data, parsed):
+        """リクエストのデバッグ情報を出力（オーバーライド）"""
+        if not self.debug:
+            return
             
-            # リクエストをパース
-            timer.mark("parse_start")
-            request = self._parse_request(data)
-            timer.mark("parse_end")
-            self.debug_helper.print_request_debug(data, request)
-            
-            # リクエストの妥当性をチェック
-            is_valid, error_msg = self._validate_request(request)
-            if not is_valid:
-                self.debug_helper.print_error(error_msg, addr)
-                return
-            
-            # 気象データを取得
-            timer.mark("db_start")
-            weather_data = self.weather_manager.get_weather_data(
-                area_code=request.area_code,
-                weather_flag=request.weather_flag,
-                temperature_flag=request.temperature_flag,
-                pops_flag=request.pops_flag,
-                alert_flag=request.alert_flag,
-                disaster_flag=request.disaster_flag,
-                day=request.day
-            )
-            timer.mark("db_end")
-            
-            # レスポンスを作成
-            timer.mark("response_start")
-            response = self.response_builder.create_response(
-                request, request.area_code, weather_data
-            )
-            timer.mark("response_end")
-            self.debug_helper.print_response_debug(response)
-            
-            # レスポンスを送信
-            timer.mark("send_start")
-            self.sock.sendto(response, addr)
-            timer.mark("send_end")
-            
-            # タイミング情報を出力
-            if self.config.debug:
-                timing_data = {
-                    "Request parsing": timer.get_timing("parse_end") - timer.get_timing("parse_start"),
-                    "Database query": timer.get_timing("db_end") - timer.get_timing("db_start"),
-                    "Response creation": timer.get_timing("response_end") - timer.get_timing("response_start"),
-                    "Response send": timer.get_timing("send_end") - timer.get_timing("send_start"),
-                    "Total processing": timer.get_timing("send_end")
-                }
-                self.debug_helper.print_timing_info(
-                    threading.current_thread().name, addr, timing_data
-                )
-            
-            self.debug_helper.print_thread_info("Sent response", addr)
-            
-        except Exception as e:
-            self.debug_helper.print_error("Error processing request", addr, e)
-
+        print("\n=== RECEIVED REQUEST PACKET ===")
+        print(f"Total Length: {len(data)} bytes")
+        print("\nHeader:")
+        print(f"Version: {parsed.version}")
+        print(f"Type: {parsed.type}")
+        print(f"Area Code: {parsed.area_code}")
+        print(f"Day: {parsed.day}")
+        print("\nFlags:")
+        print(f"Weather: {parsed.weather_flag}")
+        print(f"Temperature: {parsed.temperature_flag}")
+        print(f"PoPs: {parsed.pops_flag}")
+        print(f"Alert: {parsed.alert_flag}")
+        print(f"Disaster: {parsed.disaster_flag}")
+        print("\nRaw Packet:")
+        print(self._hex_dump(data))
+        print("===========================\n")
+    
     def run(self):
-        """気象データサーバーを並列処理で開始"""
-        print(f"Weather data server running on {self.config.server_host}:{self.config.server_port}")
+        """気象データサーバーを開始（基底クラスのrun()を利用）"""
+        if self.debug:
+            print(f"Redis: {self.config.redis_host}:{self.config.redis_port}")
+        
+        # 基底クラスのrun()を呼び出す（並列処理は基底クラスで実装済み）
+        super().run()
+    
+    def _cleanup(self):
+        """派生クラス固有のクリーンアップ処理（オーバーライド）"""
+        # 基底クラスでスレッドプールのシャットダウンは処理されるため、
+        # 追加のクリーンアップ処理は不要
+        super().handle_request(data, addr)
+    
+    def run(self):
+        """気象データサーバーを並列処理で開始（オーバーライド）"""
+        print(f"Weather data server running on {self.host}:{self.port}")
         print(f"Parallel processing enabled with {self.config.max_workers} worker threads")
         
-        if self.config.debug:
+        if self.debug:
             print(f"Debug mode enabled")
             print(f"Redis: {self.config.redis_host}:{self.config.redis_port}")
+        
+        self.start_time = time.time()
         
         try:
             while True:
@@ -205,7 +201,7 @@ class QueryGenerator:
                     )
                     
                     # スレッドプールにリクエスト処理を投入
-                    self.thread_pool.submit(self.handle_request, data, addr)
+                    self.thread_pool.submit(self.handle_request_parallel, data, addr)
                     
                 except Exception as e:
                     print(f"Error receiving request: {e}")
@@ -218,16 +214,15 @@ class QueryGenerator:
             print(f"Fatal error in main loop: {e}")
             self.shutdown()
     
-    def shutdown(self):
-        """サーバーを適切にシャットダウン"""
+    def _cleanup(self):
+        """派生クラス固有のクリーンアップ処理（オーバーライド）"""
         print("Shutting down thread pool...")
         self.thread_pool.shutdown(wait=True)
-        print("Closing socket...")
-        self.sock.close()
-        print("Server shutdown complete.")
+        print("Thread pool shutdown complete.")
 
 
 if __name__ == "__main__":
+    import time
     # 使用例：デバッグモードで起動
     server = QueryGenerator(debug=True)
     server.run()
