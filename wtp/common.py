@@ -17,12 +17,3 @@ def calc_checksum12(data: bytes) -> int:
 # チェックサムの検証メソッド
 def verify_checksum12(data_with_checksum: bytes) -> bool:
     return calc_checksum12(data_with_checksum) == 0
-
-import dns.resolver
-def resolve_dns(domain:str):
-    resolver = dns.resolver.Resolver()
-    answers = resolver.resolve(domain, 'a')
-    if not answers:
-        # aレコードが取得できなかったらaaaaレコードを要求
-        answers = resolver.resolve(domain, 'aaaa')
-    return answers[0]

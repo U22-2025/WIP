@@ -10,8 +10,6 @@ import csv
 import location_resolver
 
 from packet import response_fixed
-domain = "google.com"
-wtp_port = 4110
 
 class WeatherServer:
     json_data = None
@@ -118,15 +116,15 @@ class WeatherServer:
 
                 # region_idが指定されていない場合
                 if request['region_id'] == 0 :
-                    locate_resolve_flag = True
                     addr = ["localhost",4109] 
                     self.sock.sendto(request, addr) # location_resolverに転送する
                     return
                 
-                import common
                 # 以下、redisDBを持つサーバへ問い合わせる処理
-                addr[0] = common.resolve_dns(domain)
-                addr[1] = wtp_port
+                query_resolve_host = 'localhost'
+                query_resolve_port = 4110
+                addr[0] = query_resolve_host
+                addr[1] = query_resolve_port
                 self.sock.sendto(request,addr)
 
                 parse_time = time.time() - parse_start

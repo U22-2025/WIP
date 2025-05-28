@@ -5,7 +5,7 @@ from psycopg2 import pool
 import time
 from collections import OrderedDict
 import config
-from packet import Response
+from packet import Request, Response
 
 class LRUCache:
     def __init__(self, maxsize=1000):
@@ -159,7 +159,9 @@ class LocationResolver:
             version=self.VERSION,
             packet_id=request['packet_id'],
             type=self.RESPONSE_TYPE,
+            
             ex_flag = 1,
+            ex_field = request.ex_field,
 
             timestamp=int(time.time())
         )
@@ -169,14 +171,17 @@ class LocationResolver:
             # 座標解決サーバに来た座標が空のパケットを破棄
             return
             
-        # 送信元IPから地域コードを取得し、request.region_idに格納
-        response.region_id = self.get_district_code(
+        # 送信元IPから地域コードを取得し、response.region_idに格納
+        response.area_code = self.get_district_code(
             longitude,
             latitude
         )
+        # 緯度経度をex_fieldから削除
+        response.ex_field.pop('longitude', None)
+        response.ex_field.pop('latitude', None)
+
         # response.region_id = request.region_id
         response.checksum = 0 
-        response.ex_field('source_ip') = request.ex_field.get('source_ip')
         return response.to_bytes()
 
     def run(self):
@@ -195,7 +200,7 @@ class LocationResolver:
                 
                 # Parse request
                 parse_start = time.time()
-                request = LocationResolver.from_bytes(data)
+                request = Request.from_bytes(data)
                 parse_time = time.time() - parse_start
                 self._debug_print_request(data, request)
                 
