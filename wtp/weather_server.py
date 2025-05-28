@@ -115,7 +115,7 @@ class WeatherServer:
                 request.ex_field['source'] = addr
 
                 # region_idが指定されていない場合
-                if request['region_id'] == 0 :
+                if request.area_code == 0 :
                     addr = ["localhost",4109] 
                     self.sock.sendto(request, addr) # location_resolverに転送する
                     return

@@ -232,12 +232,11 @@ class QueryGenerator:
 
     ## レスポンスを作成する
     def create_response(self, request):
-        region_id = request['region_id']
         day = request.get('day',0)
         response = response_fixed.Response(
             version=self.VERSION,
             type=self.RESPONSE_TYPE, 
-            region_id=region_id,
+            area_code = request.area_code,
             day = day,
             timestamp=int(time.time()),
             flags={
@@ -251,7 +250,7 @@ class QueryGenerator:
         )
 
         r = redis.Redis(host='localhost', port=6379, db=0)
-        region_info = r.get(str(region_id))
+        region_info = r.get(str(response.area_code))
             
         if region_info is None:
             region_info = {
