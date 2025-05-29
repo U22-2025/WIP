@@ -4,6 +4,7 @@
 """
 
 import os
+from dotenv import load_dotenv
 from .weather_constants import NetworkConstants, RedisConstants, ThreadConstants
 
 
@@ -12,6 +13,8 @@ class ConfigManager:
     
     def __init__(self):
         """設定を初期化"""
+        # 環境変数を読み込む
+        load_dotenv()
         self._load_config()
     
     def _load_config(self):
@@ -19,7 +22,7 @@ class ConfigManager:
         
         # サーバー設定
         self.server_host = os.getenv('WTP_HOST', NetworkConstants.DEFAULT_HOST)
-        self.server_port = int(os.getenv('WTP_PORT', NetworkConstants.DEFAULT_PORT))
+        self.server_port = int(os.getenv('QUERY_GENERATOR_PORT', NetworkConstants.DEFAULT_PORT))
         
         # Redis設定
         self.redis_host = os.getenv('REDIS_HOST', RedisConstants.DEFAULT_HOST)
@@ -30,7 +33,7 @@ class ConfigManager:
         self.max_workers = int(os.getenv('WTP_MAX_WORKERS', ThreadConstants.DEFAULT_MAX_WORKERS))
         
         # ネットワーク設定
-        self.udp_buffer_size = NetworkConstants.UDP_BUFFER_SIZE
+        self.udp_buffer_size = int(os.getenv('UDP_BUFFER_SIZE', NetworkConstants.UDP_BUFFER_SIZE))
         self.socket_timeout = NetworkConstants.SOCKET_TIMEOUT
         self.socket_connect_timeout = NetworkConstants.SOCKET_CONNECT_TIMEOUT
         
@@ -38,7 +41,7 @@ class ConfigManager:
         self.debug = os.getenv('WTP_DEBUG', 'false').lower() == 'true'
         
         # バージョン
-        self.version = int(os.getenv('WTP_VERSION', '1'))
+        self.version = int(os.getenv('PROTOCOL_VERSION', '1'))
     
     def get_redis_pool_config(self):
         """Redis接続プール設定を取得"""

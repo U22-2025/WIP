@@ -21,7 +21,7 @@ try:
     from .query_generator_modules.response_builder import ResponseBuilder
     from .query_generator_modules.debug_helper import DebugHelper, PerformanceTimer
     from .query_generator_modules.weather_constants import ThreadConstants
-    from packet import Request
+    from .packet import Request, Response, BitFieldError
 except ImportError:
     # 直接実行される場合
     from base_server import BaseServer
@@ -30,11 +30,7 @@ except ImportError:
     from query_generator_modules.response_builder import ResponseBuilder
     from query_generator_modules.debug_helper import DebugHelper, PerformanceTimer
     from query_generator_modules.weather_constants import ThreadConstants
-    # packetモジュールのインポート
-    try:
-        from wtp.packet import Request
-    except ImportError:
-        from packet import Request
+    from packet import Request, Response, BitFieldError
 
 
 class QueryGenerator(BaseServer):
@@ -89,8 +85,6 @@ class QueryGenerator(BaseServer):
         self.debug_helper = DebugHelper(self.config.debug)
         self.weather_manager = WeatherDataManager(self.config)
         self.response_builder = ResponseBuilder(self.config)
-        
-        # 基底クラスのスレッドプールを使用するため、独自のスレッドプールは不要
     
     def parse_request(self, data):
         """
@@ -114,7 +108,20 @@ class QueryGenerator(BaseServer):
         Returns:
             tuple: (is_valid, error_message)
         """
-        return self.response_builder.validate_request(request)
+        # バージョンとタイプのチェック
+        if request.version != self.version or request.type != 2:
+            return False, "Invalid version or type"
+        
+        # 地域コードのチェック
+        if not request.area_code or request.area_code == "000000":
+            return False, "Invalid area code"
+        
+        # フラグのチェック（少なくとも1つは必要）
+        if not any([request.weather_flag, request.temperature_flag, 
+                   request.pops_flag, request.alert_flag, request.disaster_flag]):
+            return False, "No data flags set"
+        
+        return True, None
     
     def create_response(self, request):
         """
@@ -126,6 +133,22 @@ class QueryGenerator(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
+        # レスポンスオブジェクトを作成
+        response = Response(
+            version=self.version,
+            packet_id=request.packet_id,
+            type=3,  # Response type (Type 3 for weather data response)
+            area_code=request.area_code,
+            day=request.day,
+            timestamp=int(time.time()),
+            weather_flag=request.weather_flag,
+            temperature_flag=request.temperature_flag,
+            pops_flag=request.pops_flag,
+            alert_flag=request.alert_flag,
+            disaster_flag=request.disaster_flag,
+            ex_flag=request.ex_flag
+        )
+        
         # 気象データを取得
         weather_data = self.weather_manager.get_weather_data(
             area_code=request.area_code,
@@ -137,12 +160,50 @@ class QueryGenerator(BaseServer):
             day=request.day
         )
         
-        # レスポンスを作成
-        response = self.response_builder.create_response(
-            request, request.area_code, weather_data
-        )
+        # 気象データをレスポンスに設定
+        if weather_data:
+            if request.weather_flag and 'weather' in weather_data:
+                # 文字列を整数に変換（リストの場合は最初の要素）
+                weather_value = weather_data['weather']
+                if isinstance(weather_value, list):
+                    response.weather_code = int(weather_value[0]) if weather_value else 0
+                else:
+                    response.weather_code = int(weather_value) if weather_value else 0
+            
+            if request.temperature_flag and 'temperature' in weather_data:
+                # 文字列を整数に変換（リストの場合は最初の要素）
+                temp_data = weather_data['temperature']
+                if isinstance(temp_data, list):
+                    actual_temp = int(temp_data[0]) if temp_data else 25
+                else:
+                    actual_temp = int(temp_data) if temp_data else 25
+                # パケットフォーマットに合わせて変換（実際の温度 + 100）
+                response.temperature = actual_temp + 100
+            
+            if request.pops_flag and 'precipitation' in weather_data:
+                # 文字列を整数に変換（リストの場合は最初の要素）
+                pops_value = weather_data['precipitation']
+                if isinstance(pops_value, list):
+                    response.pops = int(pops_value[0]) if pops_value else 0
+                else:
+                    response.pops = int(pops_value) if pops_value else 0
+            
+            # 拡張フィールドの処理
+            if request.ex_flag:
+                response.ex_field = {}
+                
+                # sourceを引き継ぐ
+                if hasattr(request, 'ex_field') and request.ex_field and 'source' in request.ex_field:
+                    response.ex_field['source'] = request.ex_field['source']
+                
+                # alert/disasterを追加
+                if request.alert_flag and 'warnings' in weather_data:
+                    response.ex_field['alert'] = weather_data['warnings']
+                
+                if request.disaster_flag and 'disaster_info' in weather_data:
+                    response.ex_field['disaster'] = weather_data['disaster_info']
         
-        return response
+        return response.to_bytes()
     
     def _debug_print_request(self, data, parsed):
         """リクエストのデバッグ情報を出力（オーバーライド）"""
@@ -166,49 +227,42 @@ class QueryGenerator(BaseServer):
         print(self._hex_dump(data))
         print("===========================\n")
     
-    def run(self):
-        """気象データサーバーを並列処理で開始（オーバーライド）"""
-        print(f"Weather data server running on {self.host}:{self.port}")
-        print(f"Parallel processing enabled with {self.config.max_workers} worker threads")
+    def _debug_print_response(self, response, request=None):
+        """レスポンスのデバッグ情報を出力（オーバーライド）"""
+        if not self.debug:
+            return
+            
+        print("\n=== SENDING RESPONSE PACKET ===")
+        print(f"Total Length: {len(response)} bytes")
         
-        if self.debug:
-            print(f"Debug mode enabled")
-            print(f"Redis: {self.config.redis_host}:{self.config.redis_port}")
-        
-        self.start_time = time.time()
-        
+        # レスポンスオブジェクトの詳細情報を表示
         try:
-            while True:
-                try:
-                    # リクエストを受信
-                    data, addr = self.sock.recvfrom(self.config.udp_buffer_size)
-                    
-                    self.debug_helper.print_info(
-                        f"Main thread: Received request from {addr}, submitting to worker pool"
-                    )
-                    
-                    # スレッドプールにリクエスト処理を投入
-                    self.thread_pool.submit(self.handle_request_parallel, data, addr)
-                    
-                except Exception as e:
-                    print(f"Error receiving request: {e}")
-                    continue
-                    
-        except KeyboardInterrupt:
-            print("\nShutting down server...")
-            self.shutdown()
-        except Exception as e:
-            print(f"Fatal error in main loop: {e}")
-            self.shutdown()
+            resp_obj = Response.from_bytes(response)
+            print("\nResponse Data:")
+            if resp_obj.weather_flag:
+                print(f"Weather Code: {resp_obj.weather_code}")
+            if resp_obj.temperature_flag:
+                actual_temp = resp_obj.temperature - 100
+                print(f"Temperature: {resp_obj.temperature} ({actual_temp}℃)")
+            if resp_obj.pops_flag:
+                print(f"Precipitation: {resp_obj.pops}%")
+            if resp_obj.ex_field:
+                print(f"Extended Fields: {resp_obj.ex_field}")
+        except:
+            pass
+        
+        print("\nRaw Packet:")
+        print(self._hex_dump(response))
+        print("============================\n")
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理（オーバーライド）"""
-        print("Shutting down thread pool...")
-        self.thread_pool.shutdown(wait=True)
-        print("Thread pool shutdown complete.")
+        # WeatherDataManagerのクリーンアップ
+        if hasattr(self, 'weather_manager'):
+            self.weather_manager.close()
 
 
 if __name__ == "__main__":
     # 使用例：デバッグモードで起動
-    server = QueryGenerator(debug=True)
+    server = QueryGenerator(host = "0.0.0.0", port = 4111, debug=True)
     server.run()

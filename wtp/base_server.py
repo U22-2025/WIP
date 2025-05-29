@@ -7,7 +7,9 @@ import socket
 import time
 import threading
 import concurrent.futures
+import os
 from abc import ABC, abstractmethod
+from dotenv import load_dotenv
 
 
 class BaseServer(ABC):
@@ -23,13 +25,16 @@ class BaseServer(ABC):
             debug: デバッグモードフラグ
             max_workers: スレッドプールのワーカー数（Noneの場合はCPU数*2）
         """
+        # 環境変数を読み込む
+        load_dotenv()
+        
         self.host = host
         self.port = port
         self.debug = debug
         
         # サーバー情報（派生クラスでオーバーライド可能）
         self.server_name = self.__class__.__name__
-        self.version = 1
+        self.version = int(os.getenv('PROTOCOL_VERSION', 1))
         
         # 並列処理設定
         self.max_workers = max_workers
@@ -240,6 +245,30 @@ class BaseServer(ABC):
             print(f"Thread pool workers: {self.max_workers}")
             print("=================================\n")
     
+    def send_udp_packet(self, data, host, port):
+        """
+        メインソケットを使用してUDPパケットを送信
+        
+        Args:
+            data: 送信するバイナリデータ
+            host: 送信先ホスト
+            port: 送信先ポート
+            
+        Returns:
+            int: 送信したバイト数
+        """
+        try:
+            bytes_sent = self.sock.sendto(data, (host, port))
+            if self.debug:
+                print(f"[{self.server_name}] Sent {bytes_sent} bytes to {host}:{port} from port {self.port}")
+            return bytes_sent
+        except Exception as e:
+            print(f"[{self.server_name}] Error sending packet to {host}:{port}: {e}")
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+            raise
+    
     def run(self):
         """サーバーを開始（並列処理対応）"""
         print(f"{self.server_name} running on {self.host}:{self.port}")
@@ -249,11 +278,14 @@ class BaseServer(ABC):
         
         self.start_time = time.time()
         
+        # バッファサイズを環境変数から取得
+        buffer_size = int(os.getenv('UDP_BUFFER_SIZE', 4096))
+        
         try:
             while True:
                 try:
                     # リクエストを受信
-                    data, addr = self.sock.recvfrom(4096)  # バッファサイズは派生クラスで調整可能
+                    data, addr = self.sock.recvfrom(buffer_size)
                     
                     if self.debug:
                         print(f"\n[Main] Received request from {addr}, submitting to worker pool")
@@ -264,6 +296,17 @@ class BaseServer(ABC):
                 except socket.timeout:
                     # タイムアウトは正常な動作
                     continue
+                except socket.error as e:
+                    # Windows特有のエラー処理
+                    if hasattr(e, 'winerror') and e.winerror == 10054:
+                        # WSAECONNRESET - クライアントが接続を切断
+                        # UDPでは正常な動作なので無視
+                        if self.debug:
+                            print(f"[Main] Client disconnected (ignored): {e}")
+                        continue
+                    else:
+                        print(f"[Main] Socket error: {e}")
+                        continue
                 except Exception as e:
                     print(f"[Main] Error receiving request: {e}")
                     continue
