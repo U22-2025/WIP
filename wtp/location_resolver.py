@@ -11,6 +11,7 @@ import time
 from collections import OrderedDict
 import sys
 import os
+from dotenv import load_dotenv
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -19,13 +20,11 @@ if __name__ == "__main__":
 try:
     # モジュールとして使用される場合
     from .base_server import BaseServer
-    from .config import DB_USERNAME, DB_PASSWORD
-    from .packet import Request, Response
+    from .packet import Request, Response, BitFieldError
 except ImportError:
     # 直接実行される場合
     from base_server import BaseServer
-    import config
-    from packet import Request, Response
+    from packet import Request, Response, BitFieldError
 
 
 class LRUCache:
@@ -54,29 +53,32 @@ class LRUCache:
 class LocationResolver(BaseServer):
     """位置解決サーバーのメインクラス（基底クラス継承版）"""
     
-    def __init__(self, host='localhost', port=4109, debug=False, max_workers=None, max_cache_size=1000):
+    def __init__(self, host='localhost', port=None, debug=False, max_workers=None, max_cache_size=None):
         """
         初期化
         
         Args:
             host: サーバーホスト
-            port: サーバーポート
+            port: サーバーポート（Noneの場合は環境変数から取得）
             debug: デバッグモードフラグ
             max_workers: スレッドプールのワーカー数（Noneの場合はCPU数*2）
-            max_cache_size: キャッシュの最大サイズ
+            max_cache_size: キャッシュの最大サイズ（Noneの場合は環境変数から取得）
         """
-        # Database configuration
-        self.DB_NAME = "weather_forecast_map"
-        try:
-            self.DB_USER = config.DB_USERNAME
-            self.DB_PASSWORD = config.DB_PASSWORD
-        except AttributeError:
-            # configモジュールが異なる形式の場合
-            self.DB_USER = getattr(config, 'DB_USER', 'postgres')
-            self.DB_PASSWORD = getattr(config, 'DB_PASS', 'password')
+        # 環境変数を読み込む
+        load_dotenv()
         
-        self.DB_HOST = "localhost"
-        self.DB_PORT = "5432"
+        # ポートとキャッシュサイズを環境変数から取得
+        if port is None:
+            port = int(os.getenv('LOCATION_RESOLVER_PORT', 4109))
+        if max_cache_size is None:
+            max_cache_size = int(os.getenv('MAX_CACHE_SIZE', 1000))
+        
+        # Database configuration from environment
+        self.DB_NAME = os.getenv('DB_NAME', 'weather_forecast_map')
+        self.DB_USER = os.getenv('DB_USERNAME', 'postgres')
+        self.DB_PASSWORD = os.getenv('DB_PASSWORD', 'password')
+        self.DB_HOST = os.getenv('DB_HOST', 'localhost')
+        self.DB_PORT = os.getenv('DB_PORT', '5432')
         
         # 基底クラスの初期化（max_workersも渡す）
         super().__init__(host, port, debug, max_workers)
@@ -180,13 +182,19 @@ class LocationResolver(BaseServer):
         
         # レスポンスを作成
         response = Response(
-            version=self.VERSION,
+            version=self.version,
             packet_id=request.packet_id,
-            type=1,
-            ex_flag=0,
+            type=1,  # Response type
+            ex_flag=1,
             timestamp=int(time.time()),
             area_code=int(area_code) if area_code else 0
         )
+        
+        # sourceのみを引き継ぐ（座標は破棄）
+        if hasattr(request, 'ex_field') and request.ex_field and 'source' in request.ex_field:
+            response.ex_field = {'source': request.ex_field['source']}
+        else:
+            response.ex_field = {}
         
         return response.to_bytes()
     
@@ -254,6 +262,10 @@ class LocationResolver(BaseServer):
             
         print("\n=== RECEIVED REQUEST PACKET ===")
         print(f"Total Length: {len(data)} bytes")
+        print("\nHeader:")
+        print(f"Version: {parsed.version}")
+        print(f"Type: {parsed.type}")
+        print(f"Packet ID: {parsed.packet_id}")
         print("\nCoordinates:")
         if hasattr(parsed, 'ex_field') and parsed.ex_field:
             print(f"Latitude: {parsed.ex_field.get('latitude')}")
@@ -273,9 +285,11 @@ class LocationResolver(BaseServer):
         print(f"Total Length: {len(response)} bytes")
         
         # レスポンスから地域コードを抽出（デバッグ用）
-        if len(response) >= 12:
-            area_code = struct.unpack('!I', response[8:12])[0]
-            print(f"Area Code: {area_code}")
+        try:
+            resp_obj = Response.from_bytes(response)
+            print(f"Area Code: {resp_obj.area_code}")
+        except:
+            pass
         
         print(f"Weather Server IP: {self.weather_server_ip}")
         print("\nRaw Packet:")
@@ -317,5 +331,5 @@ class LocationResolver(BaseServer):
 
 
 if __name__ == "__main__":
-    server = LocationResolver(debug=True, max_cache_size=1000)
+    server = LocationResolver(host = "0.0.0.0", port=4109, debug=True)
     server.run()
