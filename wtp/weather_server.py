@@ -203,13 +203,13 @@ class WeatherServer(BaseServer):
                 type=2,  # タイプを2に変更
                 # TODO: 元のType 0リクエストのフラグ情報を保持して使用すべき
                 # 現在は一時的にデフォルト値を使用
-                weather_flag=1,  # デフォルトで有効
-                temperature_flag=1,  # デフォルトで有効
-                pops_flag=1,  # デフォルトで有効
-                alert_flag=0,  # デフォルトで無効
-                disaster_flag=0,  # デフォルトで無効
+                weather_flag=response.weather_flag,  # リクエストから引き継ぐ
+                temperature_flag=response.temperature_flag,  # リクエストから引き継ぐ
+                pops_flag=response.pops_flag,  # リクエストから引き継ぐ
+                alert_flag=response.alert_flag,  # リクエストから引き継ぐ
+                disaster_flag=response.disaster_flag,  # リクエストから引き継ぐ
                 ex_flag=1,  # ex_flagを1に設定
-                day=0,  # デフォルトで今日
+                day=response.day,  # リクエストから引き継ぐ
                 timestamp=int(datetime.now().timestamp()),  # タイムスタンプを更新
                 area_code=response.area_code,
                 ex_field=response.ex_field if hasattr(response, 'ex_field') else {}  # ex_fieldを引き継ぎ
