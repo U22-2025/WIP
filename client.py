@@ -1,4 +1,8 @@
-from WTP_Client import WeatherClient
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from common.clients.weather_client import WeatherClient
 import time
 
 """メイン関数 - 使用例"""
