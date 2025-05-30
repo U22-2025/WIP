@@ -16,73 +16,6 @@ db_list = [
 
 r = redis.Redis(host='localhost', port=6379, db=0)
 
-area_codes = [
-    '011000', 
-    '012000', 
-    '013000', 
-    # '014030', 
-    '014100', 
-    '015000', 
-    '016000', 
-    '017000', 
-    '020000', 
-    '030000', 
-    '040000', 
-    '050000', 
-    '060000', 
-    '070000', 
-    '080000', 
-    '090000', 
-    '100000', 
-    '110000', 
-    '120000', 
-    '130000', 
-    '140000', 
-    '150000', 
-    '160000', 
-    '170000', 
-    '180000', 
-    '190000', 
-    '200000', 
-    '210000', 
-    '220000', 
-    '230000', 
-    '240000', 
-    '250000', 
-    '260000', 
-    '270000', 
-    '280000', 
-    '290000', 
-    '300000', 
-    '310000', 
-    '320000', 
-    '330000', 
-    '340000', 
-    '350000', 
-    '360000', 
-    '370000', 
-    '380000', 
-    '390000', 
-    '400000', 
-    '410000', 
-    '420000', 
-    '430000', 
-    '440000', 
-    '450000', 
-    # '460040', 
-    '460100', 
-    '471000', 
-    '472000', 
-    '473000', 
-    '474000'
-]
-def get_area_codes():
-    url = "https://www.jma.go.jp/bosai/common/const/area.json"
-    response = requests.get(url)
-    response.raise_for_status()
-    data = response.json()
-    return data["offices"].keys()
-
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {}
     output_lock = threading.Lock()
@@ -125,9 +58,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             weather_areas = data[0]["timeSeries"][0]["areas"]
             pop_areas = data[0]["timeSeries"][1]["areas"]
             updated_at = data[0]["reportDatetime"]
-            
-            week_days = 7
             time_defines = data[0]["timeSeries"][0]["timeDefines"]
+
+            week_days = 7
             date_to_indices = {}
             for idx, t in enumerate(time_defines):
                 date = t[:10]
@@ -162,7 +95,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 print(f"エリアコード {area_code} の除外インデックス: {removed_indices}")
             
             for area in weather_areas:
-                parent_code = area_code[:2]+'0000'
+                parent_code = area_code
                 area_name = area["area"].get("name", "")
                 code = area["area"].get("code")
                 weather_codes = area.get("weatherCodes", [])
@@ -275,6 +208,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             pipe = r.pipeline()
             for code, data in output.items():
                 pipe.json().set(f"weather:{code}", ".", data)
+                print(data)
             pipe.execute()
             
             if debug:
@@ -325,5 +259,8 @@ def redis_get_data(key):
 
 
 if __name__ == "__main__":
+    area_codes = []
+    with open("wtp/data/area_codes.json", "r", encoding="utf-8") as f:
+        area_codes = list(json.load(f).keys())
     # Redisにのみ保存（test.jsonへの保存を削除）
     get_data(area_codes, debug=True, save_to_redis=True)
