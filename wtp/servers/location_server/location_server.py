@@ -13,16 +13,16 @@ from dotenv import load_dotenv
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 try:
     # モジュールとして使用される場合
-    from .base_server import BaseServer
-    from .packet import Request, Response, BitFieldError
+    from ..base_server import BaseServer
+    from ...packet import Request, Response, BitFieldError
 except ImportError:
     # 直接実行される場合
-    from base_server import BaseServer
-    from packet import Request, Response, BitFieldError
+    from wtp.servers.base_server import BaseServer
+    from wtp.packet import Request, Response, BitFieldError
 
 
 class LRUCache:

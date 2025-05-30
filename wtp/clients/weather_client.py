@@ -9,11 +9,19 @@ import sys
 import os
 from datetime import datetime
 
-# パスを追加
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# パスを追加（新しい構造に対応）
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from wtp.packet import Request, Response
-from wtp.packet_id_generator import PacketIDGenerator12Bit
+# 新しい構造に合わせたimport
+try:
+    # モジュールとして使用される場合
+    from ..packet import Request, Response
+    from .utils.packet_id_generator import PacketIDGenerator12Bit
+except ImportError:
+    # 直接実行される場合
+    from wtp.packet import Request, Response
+    from wtp.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 
 PIDG = PacketIDGenerator12Bit()
 

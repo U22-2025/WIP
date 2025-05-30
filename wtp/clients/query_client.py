@@ -3,7 +3,14 @@ import struct
 import time
 import threading
 import concurrent.futures
-from packet import Request, Response
+
+# 新しい構造に合わせたimport
+try:
+    # モジュールとして使用される場合
+    from ..packet import Request, Response
+except ImportError:
+    # 直接実行される場合
+    from wtp.packet import Request, Response
 
 class QueryClient:
     def __init__(self, host='localhost', port=4111, debug=False):
