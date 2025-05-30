@@ -325,6 +325,5 @@ def redis_get_data(key):
 
 
 if __name__ == "__main__":
-    output = get_data(area_codes, debug=True, save_to_redis=True)
-    with open("wtp/resources/test.json", "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    # Redisにのみ保存（test.jsonへの保存を削除）
+    get_data(area_codes, debug=True, save_to_redis=True)

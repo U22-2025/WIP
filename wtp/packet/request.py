@@ -71,7 +71,15 @@ class Request(FormatBase, ExtendedFieldMixin):
             # ex_flagが設定されていれば拡張フィールドを解析
             if self.ex_flag == 1:
                 ex_field_bits = extract_rest_bits(bitstr, self.VARIABLE_FIELD_START)
-                self.fetch_ex_field(ex_field_bits)
+                if ex_field_bits:
+                    # 総ビット長を計算（_total_bitsが設定されていれば使用）
+                    ex_field_total_bits = getattr(self, '_total_bits', None)
+                    if ex_field_total_bits:
+                        ex_field_total_bits = ex_field_total_bits - self.VARIABLE_FIELD_START
+                        self.fetch_ex_field(ex_field_bits, ex_field_total_bits)
+                    else:
+                        # _total_bitsが設定されていない場合はビット長から推定
+                        self.fetch_ex_field(ex_field_bits)
                 
         except BitFieldError:
             raise

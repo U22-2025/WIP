@@ -3,9 +3,16 @@ import struct
 import time
 import threading
 import concurrent.futures
-from packet import Request, Response
 
-class QueryGeneratorClient:
+# 新しい構造に合わせたimport
+try:
+    # モジュールとして使用される場合
+    from ..packet import Request, Response
+except ImportError:
+    # 直接実行される場合
+    from wtp.packet import Request, Response
+
+class QueryClient:
     def __init__(self, host='localhost', port=4111, debug=False):
         self.host = host
         self.port = port
@@ -310,10 +317,10 @@ class QueryGeneratorClient:
 
 def main():
     """テスト用のメイン関数"""
-    print("QueryGenerator Client Test")
+    print("Query Client Test")
     print("=" * 50)
     
-    client = QueryGeneratorClient(debug=True)
+    client = QueryClient(debug=True)
     
     # 単一リクエストのテスト
     print("\n1. Single Request Test")
