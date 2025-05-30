@@ -1,5 +1,5 @@
 """
-パケットフォーマットの拡張フィールド処理
+パケットフォーマットの拡張フィールド処理（修正版）
 拡張フィールドの構造を定義し、ビット操作のユーティリティを提供します
 """
 from typing import Optional, Dict, Any
@@ -150,15 +150,37 @@ class FormatExtended(FormatBase, ExtendedFieldMixin):
                     except (ValueError, TypeError) as e:
                         raise BitFieldError(f"拡張フィールドの値の変換に失敗: {e}")
             
-            # チェックサム計算用のバイト列を生成
-            data_for_checksum = bitstr.to_bytes(num_bytes, byteorder='big')
+            # 必要なバイト数を計算
+            required_bytes = (bitstr.bit_length() + 7) // 8
+            
+            # リトルエンディアンでバイト列に変換
+            if required_bytes > 0:
+                bytes_data = bitstr.to_bytes(required_bytes, byteorder='little')
+            else:
+                bytes_data = b''
+            
+            # 最低必要バイト数にパディング（右側を0で埋める）
+            if len(bytes_data) < num_bytes:
+                bytes_data = bytes_data + b'\x00' * (num_bytes - len(bytes_data))
             
             # チェックサムを計算して設定
-            self.checksum = self.calc_checksum12(data_for_checksum)
+            self.checksum = self.calc_checksum12(bytes_data)
             
             # 最終的なビット列を生成（チェックサムを含む）
             final_bitstr = self.to_bits()
-            return final_bitstr.to_bytes(num_bytes, byteorder='big')
+            
+            # 最終的なバイト列を生成
+            final_required_bytes = (final_bitstr.bit_length() + 7) // 8
+            if final_required_bytes > 0:
+                final_bytes = final_bitstr.to_bytes(final_required_bytes, byteorder='little')
+            else:
+                final_bytes = b''
+            
+            # 最低必要バイト数にパディング
+            if len(final_bytes) < num_bytes:
+                final_bytes = final_bytes + b'\x00' * (num_bytes - len(final_bytes))
+            
+            return final_bytes
             
         except Exception as e:
             # エラー時は元のチェックサムを復元

@@ -1,5 +1,5 @@
 """
-レスポンスパケット
+レスポンスパケット（修正版）
 """
 from typing import Optional, Dict, Any
 from .exceptions import BitFieldError
@@ -132,8 +132,9 @@ class Response(FormatBase, ExtendedFieldMixin):
     def ex_field(self, value: Dict[str, Any]) -> None:
         """拡張フィールドの設定時にチェックサムを再計算"""
         self._ex_field = value.copy() if value else {}
-        # 拡張フィールドが更新された場合、チェックサムを再計算
-        if hasattr(self, '_auto_checksum') and self._auto_checksum:
+        # from_bits処理中でない場合のみチェックサムを再計算
+        # （from_bits中は_in_from_bitsフラグで判定）
+        if hasattr(self, '_auto_checksum') and self._auto_checksum and not getattr(self, '_in_from_bits', False):
             self._recalculate_checksum()
 
     def _set_validated_extended_field(self, field: str, value: int) -> None:
@@ -166,6 +167,8 @@ class Response(FormatBase, ExtendedFieldMixin):
             BitFieldError: ビット列の解析中にエラーが発生した場合
         """
         try:
+            # from_bits処理中フラグを設定
+            self._in_from_bits = True
             # 親クラスのフィールドを設定
             super().from_bits(bitstr)
             
@@ -187,12 +190,23 @@ class Response(FormatBase, ExtendedFieldMixin):
             if self.ex_flag == 1:
                 ex_field_bits = extract_rest_bits(bitstr, self.VARIABLE_FIELD_START)
                 if ex_field_bits:
-                    self.fetch_ex_field(ex_field_bits)
+                    # 総ビット長を計算（_total_bitsが設定されていれば使用）
+                    # 総ビット長を計算（_total_bitsが設定されている場合）
+                    ex_field_total_bits = getattr(self, '_total_bits', None)
+                    if ex_field_total_bits:
+                        ex_field_total_bits = ex_field_total_bits - self.VARIABLE_FIELD_START
+                        self.fetch_ex_field(ex_field_bits, ex_field_total_bits)
+                    else:
+                        # _total_bitsが設定されていない場合はビット長から推定
+                        self.fetch_ex_field(ex_field_bits)
                 
         except BitFieldError:
             raise
         except Exception as e:
             raise BitFieldError("ビット列の解析中にエラー: {}".format(e))
+        finally:
+            # from_bits処理中フラグをクリア
+            self._in_from_bits = False
 
     def to_bits(self) -> int:
         """
@@ -272,15 +286,37 @@ class Response(FormatBase, ExtendedFieldMixin):
                     except (ValueError, TypeError) as e:
                         raise BitFieldError(f"拡張フィールドの値の変換に失敗: {e}")
             
-            # チェックサム計算用のバイト列を生成
-            data_for_checksum = bitstr.to_bytes(num_bytes, byteorder='big')
+            # 必要なバイト数を計算
+            required_bytes = (bitstr.bit_length() + 7) // 8
+            
+            # リトルエンディアンでバイト列に変換
+            if required_bytes > 0:
+                bytes_data = bitstr.to_bytes(required_bytes, byteorder='little')
+            else:
+                bytes_data = b''
+            
+            # 最低必要バイト数にパディング（右側を0で埋める）
+            if len(bytes_data) < num_bytes:
+                bytes_data = bytes_data + b'\x00' * (num_bytes - len(bytes_data))
             
             # チェックサムを計算して設定
-            self.checksum = self.calc_checksum12(data_for_checksum)
+            self.checksum = self.calc_checksum12(bytes_data)
             
             # 最終的なビット列を生成（チェックサムを含む）
             final_bitstr = self.to_bits()
-            return final_bitstr.to_bytes(num_bytes, byteorder='big')
+            
+            # 最終的なバイト列を生成
+            final_required_bytes = (final_bitstr.bit_length() + 7) // 8
+            if final_required_bytes > 0:
+                final_bytes = final_bitstr.to_bytes(final_required_bytes, byteorder='little')
+            else:
+                final_bytes = b''
+            
+            # 最低必要バイト数にパディング
+            if len(final_bytes) < num_bytes:
+                final_bytes = final_bytes + b'\x00' * (num_bytes - len(final_bytes))
+            
+            return final_bytes
             
         except Exception as e:
             # エラー時は元のチェックサムを復元

@@ -1,5 +1,5 @@
 """
-パケットフォーマットの基底クラス
+パケットフォーマットの基底クラス（修正版）
 共通ヘッダー部分の構造を定義し、ビット操作の基本機能を提供します
 """
 from typing import Optional, Union, Dict, Any
@@ -200,14 +200,21 @@ class FormatBase:
             self._checksum = 0
             bitstr = self.to_bits()
             
-            # 基本バイト数を計算（最低32バイト = 256ビット）
-            num_bytes = max((bitstr.bit_length() + 7) // 8, 32)
+            # 必要なバイト数を計算
+            required_bytes = (bitstr.bit_length() + 7) // 8
             
-            # チェックサム計算用のバイト列を生成
-            data_for_checksum = bitstr.to_bytes(num_bytes, byteorder='big')
+            # リトルエンディアンでバイト列に変換
+            if required_bytes > 0:
+                bytes_data = bitstr.to_bytes(required_bytes, byteorder='little')
+            else:
+                bytes_data = b''
+            
+            # 最低32バイトにパディング（右側を0で埋める）
+            if len(bytes_data) < 32:
+                bytes_data = bytes_data + b'\x00' * (32 - len(bytes_data))
             
             # チェックサムを計算して設定
-            self._checksum = self.calc_checksum12(data_for_checksum)
+            self._checksum = self.calc_checksum12(bytes_data)
             
         except Exception as e:
             # エラー時は元のチェックサムを復元
@@ -417,18 +424,37 @@ class FormatBase:
             self.checksum = 0
             bitstr = self.to_bits()
             
-            # 基本バイト数を計算（最低32バイト = 256ビット）
-            num_bytes = max((bitstr.bit_length() + 7) // 8, 32)
+            # 必要なバイト数を計算
+            required_bytes = (bitstr.bit_length() + 7) // 8
             
-            # チェックサム計算用のバイト列を生成
-            data_for_checksum = bitstr.to_bytes(num_bytes, byteorder='big')
+            # リトルエンディアンでバイト列に変換
+            if required_bytes > 0:
+                bytes_data = bitstr.to_bytes(required_bytes, byteorder='little')
+            else:
+                bytes_data = b''
+            
+            # 最低32バイトにパディング（右側を0で埋める）
+            if len(bytes_data) < 32:
+                bytes_data = bytes_data + b'\x00' * (32 - len(bytes_data))
             
             # チェックサムを計算して設定
-            self.checksum = self.calc_checksum12(data_for_checksum)
+            self.checksum = self.calc_checksum12(bytes_data)
             
             # 最終的なビット列を生成（チェックサムを含む）
             final_bitstr = self.to_bits()
-            return final_bitstr.to_bytes(num_bytes, byteorder='big')
+            
+            # 最終的なバイト列を生成
+            final_required_bytes = (final_bitstr.bit_length() + 7) // 8
+            if final_required_bytes > 0:
+                final_bytes = final_bitstr.to_bytes(final_required_bytes, byteorder='little')
+            else:
+                final_bytes = b''
+            
+            # 最低32バイトにパディング
+            if len(final_bytes) < 32:
+                final_bytes = final_bytes + b'\x00' * (32 - len(final_bytes))
+            
+            return final_bytes
             
         except Exception as e:
             # エラー時は元のチェックサムを復元
@@ -446,23 +472,17 @@ class FormatBase:
         Returns:
             生成されたインスタンス
         """
-        bitstr = int.from_bytes(data, byteorder='big')
-        instance = cls(bitstr=bitstr)
+        # リトルエンディアンからビット列に変換
+        bitstr = int.from_bytes(data, byteorder='little')
         
-        # 拡張フィールドがある場合、正確なビット長で再解析
-        if hasattr(instance, 'ex_flag') and instance.ex_flag == 1:
-            # バイト列の長さから正確なビット長を計算
-            total_bits = len(data) * 8
-            ex_field_start = max(pos + size for field, (pos, size) in instance._BIT_FIELDS.items())
-            
-            if total_bits > ex_field_start:
-                from .bit_utils import extract_rest_bits
-                ex_field_bits = extract_rest_bits(bitstr, ex_field_start)
-                ex_field_total_bits = total_bits - ex_field_start
-                
-                # 拡張フィールドを正確なビット長で再解析
-                if hasattr(instance, 'fetch_ex_field'):
-                    instance.fetch_ex_field(ex_field_bits, ex_field_total_bits)
+        # インスタンスを作成（bitstrは渡さない）
+        instance = cls()
+        
+        # パケット全体のビット長を保存
+        instance._total_bits = len(data) * 8
+        
+        # from_bitsを手動で呼び出す（_total_bitsが設定された後）
+        instance.from_bits(bitstr)
         
         return instance
         
@@ -517,8 +537,8 @@ class FormatBase:
             チェックサムが正しければTrue
         """
         try:
-            # データからビット列を復元
-            bitstr = int.from_bytes(data_with_checksum, byteorder='big')
+            # データからビット列を復元（リトルエンディアン）
+            bitstr = int.from_bytes(data_with_checksum, byteorder='little')
             
             # チェックサム部分を抽出
             checksum_start, checksum_length = self._BIT_FIELDS['checksum']
@@ -528,8 +548,8 @@ class FormatBase:
             checksum_mask = ((1 << checksum_length) - 1) << checksum_start
             bitstr_without_checksum = bitstr & ~checksum_mask
             
-            # チェックサム部分を0にしたバイト列を生成
-            data_without_checksum = bitstr_without_checksum.to_bytes(len(data_with_checksum), byteorder='big')
+            # チェックサム部分を0にしたバイト列を生成（リトルエンディアン）
+            data_without_checksum = bitstr_without_checksum.to_bytes(len(data_with_checksum), byteorder='little')
             
             # チェックサムを計算
             calculated_checksum = self.calc_checksum12(data_without_checksum)
