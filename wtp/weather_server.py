@@ -3,7 +3,6 @@
 他のサーバーへリクエストを転送し、レスポンスを返す
 """
 
-import socket
 import time
 import sys
 import os
@@ -19,14 +18,14 @@ try:
     # モジュールとして使用される場合
     from .base_server import BaseServer
     from .packet import Request, Response, BitFieldError
-    from .location_resolver_client import LocationResolverClient
-    from .query_generator_client import QueryGeneratorClient
+    from .location_client import LocationClient
+    from .query_client import QueryClient
 except ImportError:
     # 直接実行される場合
     from base_server import BaseServer
     from packet import Request, Response, BitFieldError
-    from location_resolver_client import LocationResolverClient
-    from query_generator_client import QueryGeneratorClient
+    from location_client import LocationClient
+    from query_client import QueryClient
 
 
 class WeatherServer(BaseServer):
@@ -67,12 +66,12 @@ class WeatherServer(BaseServer):
             print(f"  Query Generator: {self.query_generator_host}:{self.query_generator_port}")
         
         # クライアントの初期化
-        self.location_client = LocationResolverClient(
+        self.location_client = LocationClient(
             host=self.location_resolver_host,
             port=self.location_resolver_port,
             debug=self.debug
         )
-        self.query_client = QueryGeneratorClient(
+        self.query_client = QueryClient(
             host=self.query_generator_host,
             port=self.query_generator_port,
             debug=self.debug
@@ -202,13 +201,15 @@ class WeatherServer(BaseServer):
                 version=response.version,
                 packet_id=response.packet_id,
                 type=2,  # タイプを2に変更
-                weather_flag=response.weather_flag,
-                temperature_flag=response.temperature_flag,
-                pops_flag=response.pops_flag,
-                alert_flag=response.alert_flag,
-                disaster_flag=response.disaster_flag,
+                # TODO: 元のType 0リクエストのフラグ情報を保持して使用すべき
+                # 現在は一時的にデフォルト値を使用
+                weather_flag=1,  # デフォルトで有効
+                temperature_flag=1,  # デフォルトで有効
+                pops_flag=1,  # デフォルトで有効
+                alert_flag=0,  # デフォルトで無効
+                disaster_flag=0,  # デフォルトで無効
                 ex_flag=1,  # ex_flagを1に設定
-                day=response.day,
+                day=0,  # デフォルトで今日
                 timestamp=int(datetime.now().timestamp()),  # タイムスタンプを更新
                 area_code=response.area_code,
                 ex_field=response.ex_field if hasattr(response, 'ex_field') else {}  # ex_fieldを引き継ぎ
