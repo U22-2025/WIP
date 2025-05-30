@@ -13,13 +13,15 @@ from pathlib import Path
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    # 共通ライブラリのパスも追加
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 
 # モジュールとして使用される場合
 from ..base_server import BaseServer
-from ...packet import Request, Response, BitFieldError
-from ...clients.location_client import LocationClient
-from ...clients.query_client import QueryClient
+from common.packet import Request, Response, BitFieldError
+from common.clients.location_client import LocationClient
+from common.clients.query_client import QueryClient
 from ...utils.config_loader import ConfigLoader
 
 

@@ -4,7 +4,12 @@
 """
 
 import time
-from ....packet import Response
+import sys
+import os
+# プロジェクトルートをパスに追加
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))))
+
+from common.packet import Response
 
 
 class ResponseBuilder:

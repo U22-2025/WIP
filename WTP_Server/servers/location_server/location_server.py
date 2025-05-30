@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
 # モジュールとして使用される場合
 from ..base_server import BaseServer
-from ...packet import Request, Response, BitFieldError
+from common.packet import Request, Response, BitFieldError
 from ...utils.config_loader import ConfigLoader
 
 

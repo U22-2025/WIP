@@ -20,7 +20,7 @@ from .modules.weather_data_manager import WeatherDataManager
 from .modules.response_builder import ResponseBuilder
 from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
-from ...packet import Request, Response, BitFieldError
+from common.packet import Request, Response, BitFieldError
 from ...utils.config_loader import ConfigLoader
 
 
