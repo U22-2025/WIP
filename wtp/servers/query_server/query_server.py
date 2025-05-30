@@ -10,26 +10,26 @@ import time
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 try:
     # モジュールとして使用される場合
-    from .base_server import BaseServer
-    from .query_generator_modules.config_manager import ConfigManager
-    from .query_generator_modules.weather_data_manager import WeatherDataManager
-    from .query_generator_modules.response_builder import ResponseBuilder
-    from .query_generator_modules.debug_helper import DebugHelper, PerformanceTimer
-    from .query_generator_modules.weather_constants import ThreadConstants
-    from .packet import Request, Response, BitFieldError
+    from ..base_server import BaseServer
+    from .modules.config_manager import ConfigManager
+    from .modules.weather_data_manager import WeatherDataManager
+    from .modules.response_builder import ResponseBuilder
+    from .modules.debug_helper import DebugHelper, PerformanceTimer
+    from .modules.weather_constants import ThreadConstants
+    from ...packet import Request, Response, BitFieldError
 except ImportError:
     # 直接実行される場合
-    from base_server import BaseServer
-    from query_generator_modules.config_manager import ConfigManager
-    from query_generator_modules.weather_data_manager import WeatherDataManager
-    from query_generator_modules.response_builder import ResponseBuilder
-    from query_generator_modules.debug_helper import DebugHelper, PerformanceTimer
-    from query_generator_modules.weather_constants import ThreadConstants
-    from packet import Request, Response, BitFieldError
+    from wtp.servers.base_server import BaseServer
+    from wtp.servers.query_server.modules.config_manager import ConfigManager
+    from wtp.servers.query_server.modules.weather_data_manager import WeatherDataManager
+    from wtp.servers.query_server.modules.response_builder import ResponseBuilder
+    from wtp.servers.query_server.modules.debug_helper import DebugHelper, PerformanceTimer
+    from wtp.servers.query_server.modules.weather_constants import ThreadConstants
+    from wtp.packet import Request, Response, BitFieldError
 
 
 class QueryServer(BaseServer):

@@ -3,12 +3,19 @@ import struct
 import ipaddress
 import time
 import random
-from packet import Request, Response
-from packet_id_generator import PacketIDGenerator12Bit
 from datetime import datetime
+
+# 新しい構造に合わせたimport
+try:
+    # モジュールとして使用される場合
+    from ..packet import Request, Response
+    from .utils.packet_id_generator import PacketIDGenerator12Bit
+except ImportError:
+    # 直接実行される場合
+    from wtp.packet import Request, Response
+    from wtp.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+
 PIDG = PacketIDGenerator12Bit()
-
-
 
 
 class LocationClient:
