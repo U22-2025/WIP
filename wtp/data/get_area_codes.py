@@ -19,11 +19,9 @@ def fetch_json() -> dict:
 
 import json
 
-def get_offices_codes():
+def get_offices_codes(area_json: dict):
     """area.jsonからofficesのキーを取得してグローバル変数に格納"""
     try:
-        # area.jsonをURLから取得
-        global area_json
         if not area_json:
             print("エリアコードJSONの取得に失敗したため、処理を中止します")
             offices_codes = []
@@ -86,7 +84,7 @@ def map_area_code_to_children(offices_code: str, result: dict) -> None:
 
 area_json = fetch_json()
 result = {}
-offices_codes = get_offices_codes()
+offices_codes = get_offices_codes(area_json)
 for code in offices_codes:
     map_area_code_to_children(code,result)
 

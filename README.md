@@ -206,14 +206,24 @@ python -m wtp.clients.query_client
 
 ### 天気コード
 気象庁の天気コードに準拠（`weather_code.json`参照）
-```json
-{
-  "100": "晴れ",
-  "101": "晴れ時々曇り",
-  "200": "曇り",
-  "300": "雨"
-}
-```
+
+#### 主要な天気コード
+| コード | 天気 |
+|--------|------|
+| 100 | 晴れ |
+| 101 | 晴れ 時々 くもり |
+| 200 | くもり |
+| 201 | くもり 時々 晴 |
+| 300 | 雨 |
+| 301 | 雨 時々 晴れ |
+| 400 | 雪 |
+| 401 | 雪 時々 晴れ |
+
+#### 詳細な天気コード
+- **100番台**: 晴れ系（100-181）
+- **200番台**: くもり系（200-281）
+- **300番台**: 雨系（300-371）
+- **400番台**: 雪系（400-427）
 
 ### 地域コード
 気象庁の地域コード体系を使用
@@ -221,25 +231,59 @@ python -m wtp.clients.query_client
 - 上位桁で地方、下位桁で詳細地域を表現
 - 例: "130010" = 東京都東京地方
 
+#### 主要地域コード例
+| コード | 地域 |
+|--------|------|
+| 011000 | 北海道 石狩地方 |
+| 040010 | 宮城県 東部 |
+| 130010 | 東京都 東京地方 |
+| 140010 | 神奈川県 東部 |
+| 270000 | 大阪府 |
+| 400010 | 福岡県 福岡地方 |
+
 ### 気温データ
 - 8ビット2の補数表現
 - +100オフセット（0℃ = 100, -10℃ = 90, 30℃ = 130）
 - 範囲: -128℃ ～ +127℃
+
+### 注意報・警報データ
+拡張フィールドで配信される災害情報：
+- **注意報**: 大雨注意報、強風注意報、雷注意報など
+- **警報**: 大雨警報、暴風警報、大雪警報など
+- **特別警報**: 大雨特別警報、暴風特別警報など
+
+### 災害情報データ
+- **地震情報**: 震度、震源地、マグニチュード
+- **津波情報**: 津波警報、津波注意報
+- **火山情報**: 噴火警報、噴火予報
 
 ## 開発・デバッグ
 
 ### デバッグツール
 プロジェクトには包括的なデバッグツールが含まれています：
 
+#### 統合デバッグスイート
 ```bash
-# 統合デバッグツール
-python debug_tools/core/integrated_debug_suite.py
+# フルテスト実行（推奨）
+python debug_tools/core/integrated_debug_suite.py --mode full
 
+# クイック検証のみ
+python debug_tools/core/integrated_debug_suite.py --mode quick
+
+# パフォーマンステストをスキップ
+python debug_tools/core/integrated_debug_suite.py --mode full --no-performance
+```
+
+#### 個別デバッグツール
+```bash
 # パフォーマンス分析
 python debug_tools/performance/performance_debug_tool.py
 
 # 個別フィールドデバッグ
 python debug_tools/individual/debug_extended_field.py
+
+# エンコード・デコード詳細追跡
+python debug_tools/individual/debug_encoding_step_by_step.py
 ```
 
 ### テスト実行
@@ -270,39 +314,212 @@ client = WeatherClient(debug=True)
 ### 最適化ポイント
 - Redis キャッシュによる高速データアクセス
 - バイナリ形式による効率的なデータ転送
+- 分散アーキテクチャによる負荷分散
+- 座標解決結果のキャッシュ
+
+### パフォーマンス測定
+```bash
+# 統合パフォーマンステスト
+python debug_tools/performance/performance_debug_tool.py
+
+# 外部API比較テスト
+python test/api_test.py
+```
 
 ## API比較
 
 外部気象APIとの性能比較（`test/api_test.py`で測定可能）：
-- Open-Meteo API
-- wttr.in API
-- met.no API
-- 気象庁API
+
+### 対象API
+- **Open-Meteo API**: 無料の気象データAPI
+- **wttr.in API**: シンプルな天気情報API
+- **met.no API**: ノルウェー気象研究所のAPI
+- **気象庁API**: 日本の公式気象データAPI
+
+### 比較項目
+- レスポンス時間
+- スループット
+- データサイズ
+- 同時接続性能
+- 成功率
+
+### WTPの優位性
+- **軽量**: 48バイトの小さなパケットサイズ
+- **高速**: 平均100ms以下のレスポンス時間
+- **効率**: バイナリ形式による効率的なデータ転送
+- **拡張性**: 災害情報・警報データの統合配信
+
+## セキュリティ
+
+### 実装済み機能
+- **チェックサム**: パケット誤り検出
+- **タイムスタンプ**: リプレイ攻撃対策
+- **パケットID**: 重複パケット検出
+
+### 推奨セキュリティ対策
+- ファイアウォールによるアクセス制御
+- VPNによる通信暗号化
+- レート制限によるDoS攻撃対策
+
+## 拡張機能
+
+### Wiresharkプロトコル解析
+```bash
+# Wiresharkでのパケット解析用Luaスクリプト
+# wireshark.luaをWiresharkのプラグインディレクトリに配置
+```
+
+### 自動データ更新
+```bash
+# 気象データの定期更新スクリプト
+python wtp/scripts/update_weather_data.py
+```
+
+### キャッシュ管理
+- Redis による高速キャッシュ
+- 地域コードキャッシュ（`cache/area_cache.json`）
+- 気象データキャッシュ（TTL: 1時間）
+
+## トラブルシューティング
+
+### よくある問題
+
+#### 1. 接続エラー
+```bash
+# サーバが起動しているか確認
+netstat -an | grep 4110
+
+# ファイアウォール設定確認
+# Windows: Windows Defender ファイアウォール
+# Linux: iptables -L
+```
+
+#### 2. パケット解析エラー
+```bash
+# デバッグモードでパケット内容確認
+python -m wtp.clients.weather_client
+```
+
+#### 3. パフォーマンス問題
+```bash
+# パフォーマンス詳細分析
+python debug_tools/performance/performance_debug_tool.py
+```
+
+### ログレベル
+- `[INFO]`: 一般的な情報
+- `[ERROR]`: エラー情報
+- `[PERF]`: パフォーマンス関連
+- `[DEBUG]`: デバッグ情報
+
+## 技術仕様詳細
+
+### プロトコルスタック
+```
++------------------+
+| WTP Application  |
++------------------+
+| UDP              |
++------------------+
+| IP               |
++------------------+
+| Ethernet         |
++------------------+
+```
+
+### データフロー
+1. **クライアント**: 座標またはエリアコードでリクエスト
+2. **Weather Server**: リクエストを適切なサーバに転送
+3. **Location Server**: 座標を地域コードに変換
+4. **Query Server**: 気象庁データを取得・処理
+5. **レスポンス**: 気象データをクライアントに返送
+
+### エラーハンドリング
+- **タイムアウト**: 10秒でタイムアウト
+- **チェックサムエラー**: パケット破棄
+- **不正フォーマット**: エラーレスポンス
+- **サーバエラー**: 適切なエラーコード返送
 
 ## ライセンス
 
 このプロジェクトはMITライセンスの下で公開されています。
 
+```
+MIT License
+
+Copyright (c) 2025 WTP Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## 貢献
 
+### 貢献方法
 1. このリポジトリをフォーク
 2. 機能ブランチを作成 (`git checkout -b feature/amazing-feature`)
 3. 変更をコミット (`git commit -m 'Add amazing feature'`)
 4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
 5. プルリクエストを作成
 
+### 開発ガイドライン
+- コードスタイル: PEP 8準拠
+- テスト: 新機能には必ずテストを追加
+- ドキュメント: 変更内容をREADMEに反映
+- デバッグ: デバッグツールでの検証を実施
+
+### 貢献者
+- プロジェクトリーダー: szk27@outlook.jp
+- 開発チーム: U22プロジェクトチーム
+
 ## サポート
 
-- 問題報告: GitHub Issues
-- 技術的質問: Discussions
-- メール: szk27@outlook.jp
+### 問い合わせ先
+- **問題報告**: GitHub Issues
+- **技術的質問**: GitHub Discussions
+- **メール**: szk27@outlook.jp
+
+### サポート範囲
+- プロトコル仕様に関する質問
+- 実装上の問題
+- パフォーマンス最適化
+- セキュリティ問題
+
+### レスポンス時間
+- 重要な問題: 24時間以内
+- 一般的な質問: 3営業日以内
+- 機能要求: 1週間以内
 
 ## 関連ドキュメント
 
+### 技術文書
 - [WTP仕様表.md](WTP仕様表.md) - 詳細な技術仕様
 - [project_detail.md](project_detail.md) - プロジェクト詳細
-- [debug_tools/docs/](debug_tools/docs/) - デバッグツール文書
 - [protocol_format.xlsx](protocol_format.xlsx) - パケット形式詳細
+
+### デバッグ文書
+- [debug_tools/docs/DEBUG_TOOLS_README.md](debug_tools/docs/DEBUG_TOOLS_README.md) - デバッグツール使用方法
+- [debug_tools/docs/extended_field_fix_report.md](debug_tools/docs/extended_field_fix_report.md) - 拡張フィールド修正レポート
+
+### 設定ファイル
+- [environment.yml](environment.yml) - Conda環境設定
+- [weather_code.json](weather_code.json) - 天気コード定義
+- [start_servers.bat](start_servers.bat) - サーバ起動スクリプト
 
 ## 更新履歴
 
@@ -313,3 +530,30 @@ client = WeatherClient(debug=True)
 - クライアントライブラリ
 - デバッグツール群
 - パフォーマンステスト
+
+#### 主要機能
+- NTPベースのUDPプロトコル
+- 48バイト軽量パケット
+- 座標解決機能
+- 気象データ配信
+- 災害情報配信
+- 拡張フィールドサポート
+
+#### 技術的改善
+- バイナリ形式でのデータ転送
+- Redis キャッシュシステム
+- 分散アーキテクチャ
+- 包括的なデバッグツール
+- 外部API性能比較
+
+#### 今後の予定
+- v1.1.0: 認証機能追加
+- v1.2.0: 暗号化サポート
+- v1.3.0: 多言語対応
+- v2.0.0: IPv6サポート
+
+---
+
+**WTP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
+
+プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/your-repo/wtp)をご確認ください。
