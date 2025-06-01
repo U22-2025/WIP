@@ -1,6 +1,7 @@
 import json
 import requests
 
+
 def fetch_json() -> dict:
     """
     気象庁のエリアコードJSONを取得する
@@ -82,6 +83,9 @@ def map_area_code_to_children(offices_code: str, result: dict) -> None:
     except Exception as e:
         print(f"エラーが発生しました: {e}")
 
+
+
+
 area_json = fetch_json()
 result = {}
 offices_codes = get_offices_codes(area_json)
@@ -90,3 +94,52 @@ for code in offices_codes:
 
 with open("wtp/data/area_codes.json","w",encoding='utf-8') as f:
     json.dump(result, f, ensure_ascii=False, indent=4)
+
+def find_area_key_by_children_code(target_code: str) -> str:
+    """
+    引数でコードが渡されたときに、area_codes.jsonを参照し、
+    最下位の階層のバリューから同じ値を探索、見つけたらキー値を返す
+    
+    Args:
+        target_code (str): 検索対象のコード
+        
+    Returns:
+        str: 見つかった場合はキー値、見つからない場合は空文字列
+    """
+    try:
+        # area_codes.jsonファイルを読み込み
+        with open('wtp/data/area_codes.json', 'r', encoding='utf-8') as f:
+            area_data = json.load(f)
+        
+        # 全ての階層を探索
+        for office_code, office_data in area_data.items():
+            for area_code, children_codes in office_data.items():
+                # 最下位の階層（class15_codes配列）で検索
+                if target_code in children_codes:
+                    return area_code
+        
+        # 見つからない場合は空文字列を返す
+        return target_code
+        
+    except FileNotFoundError:
+        print("Error: area_codes.json file not found")
+        return ""
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON: {e}")
+        return ""
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return ""
+
+# テスト用のコード
+# if __name__ == "__main__":
+#     # テスト例
+#     test_codes = ["0121400", "4630400", "1310100", "9999999"]
+    
+#     print("\n=== Area Code Search Test ===")
+#     for code in test_codes:
+#         result = find_area_key_by_code(code)
+#         if result:
+#             print(f"Code: {code} -> Office Key: {result}")
+#         else:
+#             print(f"Code: {code} -> Not found")

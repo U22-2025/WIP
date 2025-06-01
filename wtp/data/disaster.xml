@@ -1,0 +1,323 @@
+This XML file does not appear to have any style information associated with it. The document tree is shown below.
+<feed xmlns="http://www.w3.org/2005/Atom" lang="ja">
+<title>高頻度（地震火山）</title>
+<subtitle>JMAXML publishing feed</subtitle>
+<updated>2025-06-01T11:01:18+09:00</updated>
+<id>https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml#short_1748743278</id>
+<link rel="related" href="https://www.jma.go.jp/"/>
+<link rel="self" href="https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml"/>
+<link rel="hub" href="http://alert-hub.appspot.com/"/>
+<rights type="html">
+<![CDATA[ <a href="https://www.jma.go.jp/jma/kishou/info/coment.html">利用規約</a>, <a href="https://www.jma.go.jp/jma/en/copyright.html">Terms of Use</a> ]]>
+</rights>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250601020050_0_VFVO53_010000.xml</id>
+<updated>2025-06-01T02:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250601020050_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　諏訪之瀬島　降灰予報（定時）】　現在、諏訪之瀬島は噴火警戒レベル２（火口周辺規制）です。諏訪之瀬島で噴火が発生した場合には、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250601020055_0_VFVO53_010000.xml</id>
+<updated>2025-06-01T02:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250601020055_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　霧島山（新燃岳）　降灰予報（定時）】　現在、霧島山（新燃岳）は噴火警戒レベル２（火口周辺規制）です。霧島山（新燃岳）で噴火が発生した場合には、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250601020039_0_VFVO53_010000.xml</id>
+<updated>2025-06-01T02:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250601020039_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　桜島　降灰予報（定時）】　現在、桜島は噴火警戒レベル３（入山規制）です。桜島で噴火が発生した場合には、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250601020043_0_VFVO53_010000.xml</id>
+<updated>2025-06-01T02:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250601020043_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　薩摩硫黄島　降灰予報（定時）】　現在、薩摩硫黄島は噴火警戒レベル２（火口周辺規制）です。薩摩硫黄島で噴火が発生した場合には、１日２１時から２４時までは火口から北東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250601020047_0_VFVO53_010000.xml</id>
+<updated>2025-06-01T02:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250601020047_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　口永良部島　降灰予報（定時）】　現在、口永良部島は噴火警戒レベル２（火口周辺規制）です。口永良部島で噴火が発生した場合には、１日２１時から２４時までは火口から北東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250601020031_0_VFVO53_010000.xml</id>
+<updated>2025-06-01T02:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250601020031_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　岩手山　降灰予報（定時）】　現在、岩手山は噴火警戒レベル２（火口周辺規制）です。岩手山で噴火が発生した場合には、１日２１時から２４時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250601020034_0_VFVO53_010000.xml</id>
+<updated>2025-06-01T02:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250601020034_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　浅間山　降灰予報（定時）】　現在、浅間山は噴火警戒レベル２（火口周辺規制）です。浅間山で噴火が発生した場合には、１日２１時から２４時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>震源・震度に関する情報</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531231008_0_VXSE53_010000.xml</id>
+<updated>2025-05-31T23:10:08Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531231008_0_VXSE53_010000.xml"/>
+<content type="text">【震源・震度情報】　１日０８時０７分ころ、地震がありました。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531230049_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T23:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531230049_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　諏訪之瀬島　降灰予報（定時）】　現在、諏訪之瀬島は噴火警戒レベル２（火口周辺規制）です。諏訪之瀬島で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531230053_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T23:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531230053_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　霧島山（新燃岳）　降灰予報（定時）】　現在、霧島山（新燃岳）は噴火警戒レベル２（火口周辺規制）です。霧島山（新燃岳）で噴火が発生した場合には、１日０９時から１２時までは火口から南方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531230038_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T23:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531230038_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　桜島　降灰予報（定時）】　現在、桜島は噴火警戒レベル３（入山規制）です。桜島で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531230042_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T23:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531230042_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　薩摩硫黄島　降灰予報（定時）】　現在、薩摩硫黄島は噴火警戒レベル２（火口周辺規制）です。薩摩硫黄島で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向、１日２１時から２４時までは火口から北東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531230046_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T23:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531230046_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　口永良部島　降灰予報（定時）】　現在、口永良部島は噴火警戒レベル２（火口周辺規制）です。口永良部島で噴火が発生した場合には、１日０９時から１２時までは火口から南方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531230030_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T23:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531230030_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　岩手山　降灰予報（定時）】　現在、岩手山は噴火警戒レベル２（火口周辺規制）です。岩手山で噴火が発生した場合には、１日０９時から１２時までは火口から南西方向、１日２１時から２４時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531230034_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T23:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531230034_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　浅間山　降灰予報（定時）】　現在、浅間山は噴火警戒レベル２（火口周辺規制）です。浅間山で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向、１日２１時から２４時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>震源・震度に関する情報</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531215029_0_VXSE53_270000.xml</id>
+<updated>2025-05-31T21:50:28Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531215029_0_VXSE53_270000.xml"/>
+<content type="text">【震源・震度情報】　１日０６時４７分ころ、地震がありました。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531200046_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T20:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531200046_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　口永良部島　降灰予報（定時）】　現在、口永良部島は噴火警戒レベル２（火口周辺規制）です。口永良部島で噴火が発生した場合には、１日０９時から１２時までは火口から南方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531200050_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T20:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531200050_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　諏訪之瀬島　降灰予報（定時）】　現在、諏訪之瀬島は噴火警戒レベル２（火口周辺規制）です。諏訪之瀬島で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531200053_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T20:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531200053_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　霧島山（新燃岳）　降灰予報（定時）】　現在、霧島山（新燃岳）は噴火警戒レベル２（火口周辺規制）です。霧島山（新燃岳）で噴火が発生した場合には、１日０９時から１２時までは火口から南方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531200034_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T20:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531200034_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　浅間山　降灰予報（定時）】　現在、浅間山は噴火警戒レベル２（火口周辺規制）です。浅間山で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向、１日２１時から２４時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531200039_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T20:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531200039_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　桜島　降灰予報（定時）】　現在、桜島は噴火警戒レベル３（入山規制）です。桜島で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531200043_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T20:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531200043_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　薩摩硫黄島　降灰予報（定時）】　現在、薩摩硫黄島は噴火警戒レベル２（火口周辺規制）です。薩摩硫黄島で噴火が発生した場合には、１日０９時から１２時までは火口から南方向、１日２１時から２４時までは火口から北方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531200030_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T20:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531200030_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　岩手山　降灰予報（定時）】　現在、岩手山は噴火警戒レベル２（火口周辺規制）です。岩手山で噴火が発生した場合には、１日０９時から１２時までは火口から南西方向、１日２１時から２４時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531170052_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T17:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531170052_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　霧島山（新燃岳）　降灰予報（定時）】　現在、霧島山（新燃岳）は噴火警戒レベル２（火口周辺規制）です。霧島山（新燃岳）で噴火が発生した場合には、１日０９時から１２時までは火口から南方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531170042_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T17:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531170042_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　薩摩硫黄島　降灰予報（定時）】　現在、薩摩硫黄島は噴火警戒レベル２（火口周辺規制）です。薩摩硫黄島で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531170045_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T17:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531170045_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　口永良部島　降灰予報（定時）】　現在、口永良部島は噴火警戒レベル２（火口周辺規制）です。口永良部島で噴火が発生した場合には、１日０９時から１２時までは火口から南方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531170049_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T17:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531170049_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　諏訪之瀬島　降灰予報（定時）】　現在、諏訪之瀬島は噴火警戒レベル２（火口周辺規制）です。諏訪之瀬島で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531170030_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T17:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531170030_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　岩手山　降灰予報（定時）】　現在、岩手山は噴火警戒レベル２（火口周辺規制）です。岩手山で噴火が発生した場合には、１日０９時から１２時までは火口から南西方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531170034_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T17:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531170034_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　浅間山　降灰予報（定時）】　現在、浅間山は噴火警戒レベル２（火口周辺規制）です。浅間山で噴火が発生した場合には、１日０９時から１２時までは火口から南東方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531170038_0_VFVO53_010000.xml</id>
+<updated>2025-05-31T17:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531170038_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　桜島　降灰予報（定時）】　現在、桜島は噴火警戒レベル３（入山規制）です。桜島で噴火が発生した場合には、１日０９時から１２時までは火口から南方向に降灰が予想されます。</content>
+</entry>
+<entry>
+<title>震源・震度に関する情報</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250531165947_0_VXSE53_010000.xml</id>
+<updated>2025-05-31T16:59:47Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250531165947_0_VXSE53_010000.xml"/>
+<content type="text">【震源・震度情報】　１日０１時５６分ころ、地震がありました。</content>
+</entry>
+</feed>
