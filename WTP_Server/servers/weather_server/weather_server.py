@@ -1,5 +1,5 @@
 """
-天気サーバー - プロキシサーバー実装
+天気サーバー - プロキシサーバー実装（改良版：専用パケットクラス使用）
 他のサーバーへリクエストを転送し、レスポンスを返す
 """
 
@@ -19,14 +19,19 @@ if __name__ == "__main__":
 
 # モジュールとして使用される場合
 from ..base_server import BaseServer
-from common.packet import Request, Response, BitFieldError
+from common.packet import (
+    WeatherRequest, WeatherResponse, 
+    LocationRequest, LocationResponse,
+    QueryRequest, QueryResponse,
+    BitFieldError
+)
 from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 
 
 class WeatherServer(BaseServer):
-    """天気サーバーのメインクラス（プロキシサーバー）"""
+    """天気サーバーのメインクラス（プロキシサーバー・専用パケットクラス使用）"""
     
     def __init__(self, host=None, port=None, debug=None, max_workers=None):
         """
@@ -57,7 +62,7 @@ class WeatherServer(BaseServer):
         super().__init__(host, port, debug, max_workers)
         
         # サーバー名を設定
-        self.server_name = "WeatherServer"
+        self.server_name = "WeatherServer (Enhanced)"
         
         # プロトコルバージョンを設定から取得
         self.version = self.config.getint('system', 'protocol_version', 1)
@@ -72,13 +77,14 @@ class WeatherServer(BaseServer):
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
         if self.debug:
-            print(f"\n[Weather Server] Configuration:")
+            print(f"\n[Weather Server Enhanced] Configuration:")
             print(f"  Server: {host}:{port}")
             print(f"  Location Resolver: {self.location_resolver_host}:{self.location_resolver_port}")
             print(f"  Query Generator: {self.query_generator_host}:{self.query_generator_port}")
             print(f"  Protocol Version: {self.version}")
+            print(f"  Using specialized packet classes for improved processing")
         
-        # クライアントの初期化
+        # クライアントの初期化（改良版）
         self.location_client = LocationClient(
             host=self.location_resolver_host,
             port=self.location_resolver_port,
@@ -92,7 +98,7 @@ class WeatherServer(BaseServer):
         
     def handle_request(self, data, addr):
         """
-        リクエストを処理（プロキシとして転送）
+        リクエストを処理（プロキシとして転送・改良版）
         
         Args:
             data: 受信したバイナリデータ
@@ -102,7 +108,7 @@ class WeatherServer(BaseServer):
         start_time = time.time()
         
         if self.debug:
-            print(f"\n[Weather Server] Received {len(data)} bytes from {addr}")
+            print(f"\n[Weather Server Enhanced] Received {len(data)} bytes from {addr}")
             print(f"Raw data (first 20 bytes): {' '.join(f'{b:02x}' for b in data[:min(20, len(data))])}")
         
         try:
@@ -110,20 +116,23 @@ class WeatherServer(BaseServer):
             with self.lock:
                 self.request_count += 1
             
-            # リクエストをパース
+            # リクエストをパース（専用パケットクラス使用）
             try:
                 request, parse_time = self._measure_time(self.parse_request, data)
                 timing_info['parse'] = parse_time
                 if self.debug:
-                    print(f"[Weather Server] Successfully parsed request. Type: {request.type}")
+                    print(f"[Weather Server Enhanced] Successfully parsed request. Type: {request.type}")
+                    if hasattr(request, 'get_request_summary'):
+                        summary = request.get_request_summary()
+                        print(f"[Weather Server Enhanced] Request Summary: {summary}")
             except Exception as e:
-                print(f"[Weather Server] ERROR parsing request: {e}")
+                print(f"[Weather Server Enhanced] ERROR parsing request: {e}")
                 if self.debug:
                     import traceback
                     traceback.print_exc()
                 return
             
-            # デバッグ出力
+            # デバッグ出力（改良版）
             self._debug_print_request(data, request)
             
             # リクエストの妥当性をチェック
@@ -135,9 +144,9 @@ class WeatherServer(BaseServer):
                     print(f"[{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
                 return
             
-            # パケットタイプによる分岐処理
+            # パケットタイプによる分岐処理（専用クラス対応）
             if self.debug:
-                print(f"[Weather Server] Processing packet type {request.type}")
+                print(f"[Weather Server Enhanced] Processing packet type {request.type}")
                 
             if request.type == 0:
                 # Type 0: 座標解決リクエスト
@@ -169,22 +178,37 @@ class WeatherServer(BaseServer):
                 traceback.print_exc()
     
     def _handle_location_request(self, request, addr):
-        """座標解決リクエストの処理（Type 0）"""
+        """座標解決リクエストの処理（Type 0・改良版）"""
         try:
-            # source情報をex_fieldに追加
             source_info = f"{addr[0]}:{addr[1]}"
-            # ExtendedFieldオブジェクトはRequestに既に存在するはず
-            request.ex_field.set('source', source_info)
-            request.ex_flag = 1
             
             if self.debug:
-                print(f"\n[Weather Server] Type 0: Forwarding location request to Location Resolver")
-                print(f"  Added source: {source_info}")
+                print(f"\n[Weather Server Enhanced] Type 0: Processing location request")
+                print(f"  Source: {source_info}")
                 print(f"  Target: {self.location_resolver_host}:{self.location_resolver_port}")
-                print(f"  ex_field: {request.ex_field}")
+                if hasattr(request, 'get_coordinates'):
+                    coords = request.get_coordinates()
+                    print(f"  Coordinates: {coords}")
+            
+            # 専用クラスを使用してLocationRequestに変換
+            if isinstance(request, WeatherRequest):
+                # WeatherRequestからLocationRequestに変換
+                location_request = LocationRequest.from_weather_request(
+                    request, 
+                    source=source_info
+                )
+            else:
+                # 既にLocationRequestの場合は、source情報を追加
+                location_request = request
+                location_request.ex_field.set('source', source_info)
+            
+            if self.debug:
+                print(f"  Converted to LocationRequest")
+                if hasattr(location_request, 'get_source_info'):
+                    print(f"  Added source: {location_request.get_source_info()}")
             
             # Location Resolverに転送
-            packet_data = request.to_bytes()
+            packet_data = location_request.to_bytes()
             if self.debug:
                 print(f"  Packet size: {len(packet_data)} bytes")
                 
@@ -192,46 +216,32 @@ class WeatherServer(BaseServer):
             bytes_sent = self.send_udp_packet(packet_data, self.location_resolver_host, self.location_resolver_port)
             
         except Exception as e:
-            print(f"[Weather Server] Error handling location request: {e}")
+            print(f"[Weather Server Enhanced] Error handling location request: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
     
     def _handle_location_response(self, data, addr):
-        """座標解決レスポンスの処理（Type 1）"""
+        """座標解決レスポンスの処理（Type 1・改良版）"""
         try:
-            # レスポンスをパース
-            response = Response.from_bytes(data)
+            # 専用クラスでレスポンスをパース
+            response = LocationResponse.from_bytes(data)
             
             if self.debug:
-                print(f"\n[Weather Server] Type 1: Converting location response to weather request")
-                print(f"  Area code: {response.area_code}")
-                print(f"  ex_field: {response.ex_field if hasattr(response, 'ex_field') else 'None'}")
+                print(f"\n[Weather Server Enhanced] Type 1: Converting location response to weather request")
+                print(f"  Area code: {response.get_area_code()}")
+                print(f"  Source: {response.get_source_info()}")
+                print(f"  Valid: {response.is_valid()}")
             
-            # Type 2のリクエストパケットに変換
-            request = Request(
-                version=response.version,
-                packet_id=response.packet_id,
-                type=2,  # タイプを2に変更
-                # TODO: 元のType 0リクエストのフラグ情報を保持して使用すべき
-                # 現在は一時的にデフォルト値を使用
-                weather_flag=response.weather_flag,  # リクエストから引き継ぐ
-                temperature_flag=response.temperature_flag,  # リクエストから引き継ぐ
-                pops_flag=response.pops_flag,  # リクエストから引き継ぐ
-                alert_flag=response.alert_flag,  # リクエストから引き継ぐ
-                disaster_flag=response.disaster_flag,  # リクエストから引き継ぐ
-                ex_flag=1,  # ex_flagを1に設定
-                day=response.day,  # リクエストから引き継ぐ
-                timestamp=int(datetime.now().timestamp()),  # タイムスタンプを更新
-                area_code=response.area_code,
-                ex_field=response.ex_field.to_dict() if hasattr(response, 'ex_field') else {}  # ex_fieldを引き継ぎ
-            )
+            # 専用クラスの変換メソッドを使用
+            weather_request = response.to_weather_request()
             
             if self.debug:
+                print(f"  Converted to WeatherRequest (Type 2)")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
             
             # Query Generatorに送信
-            packet_data = request.to_bytes()
+            packet_data = weather_request.to_bytes()
             if self.debug:
                 print(f"  Packet size: {len(packet_data)} bytes")
                 
@@ -239,28 +249,44 @@ class WeatherServer(BaseServer):
             bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
             
         except Exception as e:
-            print(f"[Weather Server] Error handling location response: {e}")
+            print(f"[Weather Server Enhanced] Error handling location response: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
     
     def _handle_weather_request(self, request, addr):
-        """気象データリクエストの処理（Type 2）"""
+        """気象データリクエストの処理（Type 2・改良版）"""
         try:
-            # source情報をex_fieldに追加
             source_info = f"{addr[0]}:{addr[1]}"
-            # ExtendedFieldオブジェクトはRequestに既に存在するはず
-            request.ex_field.set('source', source_info)
-            request.ex_flag = 1
             
             if self.debug:
-                print(f"\n[Weather Server] Type 2: Forwarding weather request to Query Generator")
-                print(f"  Added source: {source_info}")
+                print(f"\n[Weather Server Enhanced] Type 2: Processing weather request")
+                print(f"  Source: {source_info}")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
                 print(f"  Area code: {request.area_code}")
+                if hasattr(request, 'get_requested_data_types'):
+                    data_types = request.get_requested_data_types()
+                    print(f"  Requested data: {data_types}")
+            
+            # 専用クラスを使用してQueryRequestに変換
+            if isinstance(request, WeatherRequest):
+                # WeatherRequestからQueryRequestに変換
+                query_request = QueryRequest.from_weather_request(
+                    request,
+                    source=source_info
+                )
+            else:
+                # 既にQueryRequestの場合は、source情報を追加
+                query_request = request
+                query_request.ex_field.set('source', source_info)
+            
+            if self.debug:
+                print(f"  Converted to QueryRequest")
+                if hasattr(query_request, 'get_source_info'):
+                    print(f"  Added source: {query_request.get_source_info()}")
             
             # Query Generatorに転送
-            packet_data = request.to_bytes()
+            packet_data = query_request.to_bytes()
             if self.debug:
                 print(f"  Packet size: {len(packet_data)} bytes")
                 
@@ -268,46 +294,51 @@ class WeatherServer(BaseServer):
             bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
             
         except Exception as e:
-            print(f"[Weather Server] Error handling weather request: {e}")
+            print(f"[Weather Server Enhanced] Error handling weather request: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
     
     def _handle_weather_response(self, data, addr):
-        """気象データレスポンスの処理（Type 3）"""
+        """気象データレスポンスの処理（Type 3・改良版）"""
         try:
-            # レスポンスをパース
-            response = Response.from_bytes(data)
+            # 専用クラスでレスポンスをパース
+            response = QueryResponse.from_bytes(data)
             
             if self.debug:
-                print(f"\n[Weather Server] Type 3: Processing weather response")
-                print(f"  ex_field: {response.ex_field if hasattr(response, 'ex_field') else 'None'}")
+                print(f"\n[Weather Server Enhanced] Type 3: Processing weather response")
+                print(f"  Success: {response.is_success()}")
+                if hasattr(response, 'get_response_summary'):
+                    summary = response.get_response_summary()
+                    print(f"  Summary: {summary}")
             
-            # ex_field.sourceから送信先を取得
-            if hasattr(response, 'ex_field') and response.ex_field:
-                source_info = response.ex_field.get('source')
-                if source_info:
-                    host, port = source_info.split(':')
-                    dest_addr = (host, int(port))
-                    
-                    if self.debug:
-                        print(f"  Forwarding weather response to {dest_addr}")
-                        print(f"  Packet size: {len(data)} bytes")
-                    
-                    # 元のクライアントに送信
-                    bytes_sent = self.sock.sendto(data, dest_addr)
-                    
-                    if self.debug:
-                        print(f"  Sent {bytes_sent} bytes to client")
-                else:
-                    print("[Weather Server] Error: No source information in weather response")
-                    if self.debug:
-                        print(f"  ex_field content: {response.ex_field}")
+            # 専用クラスのメソッドでsource情報を取得
+            source_info = response.get_source_info()
+            if source_info:
+                host, port = source_info.split(':')
+                dest_addr = (host, int(port))
+                
+                if self.debug:
+                    print(f"  Forwarding weather response to {dest_addr}")
+                    print(f"  Weather data: {response.get_weather_data()}")
+                    print(f"  Packet size: {len(data)} bytes")
+                
+                # WeatherResponseに変換
+                weather_response = WeatherResponse.from_query_response(response)
+                final_data = weather_response.to_bytes()
+                
+                # 元のクライアントに送信
+                bytes_sent = self.sock.sendto(final_data, dest_addr)
+                
+                if self.debug:
+                    print(f"  Sent {bytes_sent} bytes to client")
             else:
-                print("[Weather Server] Error: No ex_field in weather response")
+                print("[Weather Server Enhanced] Error: No source information in weather response")
+                if self.debug and hasattr(response, 'ex_field'):
+                    print(f"  ex_field content: {response.ex_field.to_dict()}")
                 
         except Exception as e:
-            print(f"[Weather Server] Error handling weather response: {e}")
+            print(f"[Weather Server Enhanced] Error handling weather response: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
@@ -327,24 +358,39 @@ class WeatherServer(BaseServer):
     
     def parse_request(self, data):
         """
-        リクエストデータをパース
+        リクエストデータをパース（専用パケットクラス使用）
         
         Args:
             data: 受信したバイナリデータ
             
         Returns:
-            Request or Response: パースされたオブジェクト
+            専用パケットクラスのインスタンス
         """
-        # まずRequestとしてパースを試みる
-        try:
-            return Request.from_bytes(data)
-        except:
-            # 失敗したらResponseとしてパース（Type 1, 3の場合）
-            return Response.from_bytes(data)
+        # まず基本的なパケットを解析してタイプを確認
+        from common.packet import Request
+        temp_request = Request.from_bytes(data)
+        packet_type = temp_request.type
+        
+        # タイプに応じて適切な専用クラスでパース
+        if packet_type == 0:
+            # 座標解決リクエスト
+            return WeatherRequest.from_bytes(data)
+        elif packet_type == 1:
+            # 座標解決レスポンス
+            return LocationResponse.from_bytes(data)
+        elif packet_type == 2:
+            # 気象データリクエスト
+            return WeatherRequest.from_bytes(data)
+        elif packet_type == 3:
+            # 気象データレスポンス
+            return QueryResponse.from_bytes(data)
+        else:
+            # 不明なタイプの場合は基本クラスを返す
+            return temp_request
     
     def validate_request(self, request):
         """
-        リクエストの妥当性をチェック
+        リクエストの妥当性をチェック（改良版）
         
         Args:
             request: リクエストオブジェクト
@@ -353,21 +399,36 @@ class WeatherServer(BaseServer):
             tuple: (is_valid, error_message)
         """
         if request.version != self.version:
-            return False, "バージョンが不正です"
+            return False, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック（0-3が有効）
         if request.type not in [0, 1, 2, 3]:
             return False, f"不正なパケットタイプ: {request.type}"
         
+        # 専用クラスのバリデーションメソッドを使用
+        if hasattr(request, 'is_valid') and callable(getattr(request, 'is_valid')):
+            if not request.is_valid():
+                return False, "専用クラスのバリデーションに失敗"
+        
         return True, None
     
     def _debug_print_request(self, data, parsed):
-        """リクエストのデバッグ情報を出力（オーバーライド）"""
+        """リクエストのデバッグ情報を出力（改良版・専用クラス対応）"""
         if not self.debug:
             return
             
-        print("\n=== RECEIVED PACKET ===")
+        print("\n=== RECEIVED PACKET (Enhanced) ===")
         print(f"Total Length: {len(data)} bytes")
+        print(f"Packet Class: {type(parsed).__name__}")
+        
+        # 専用クラスのサマリー情報を使用
+        if hasattr(parsed, 'get_request_summary'):
+            summary = parsed.get_request_summary()
+            print(f"Request Summary: {summary}")
+        elif hasattr(parsed, 'get_response_summary'):
+            summary = parsed.get_response_summary()
+            print(f"Response Summary: {summary}")
+        
         print("\nHeader:")
         print(f"Version: {parsed.version}")
         print(f"Type: {parsed.type}")
@@ -375,21 +436,30 @@ class WeatherServer(BaseServer):
         print(f"Packet ID: {parsed.packet_id}")
         print(f"Timestamp: {time.ctime(parsed.timestamp)}")
         
-        if parsed.type in [0, 2]:  # リクエストタイプ
-            print("\nFlags:")
-            print(f"Weather: {parsed.weather_flag}")
-            print(f"Temperature: {parsed.temperature_flag}")
-            print(f"PoPs: {parsed.pops_flag}")
-            print(f"Alert: {parsed.alert_flag}")
-            print(f"Disaster: {parsed.disaster_flag}")
-            print(f"Extended Field: {parsed.ex_flag}")
-            
-        if hasattr(parsed, 'ex_field') and parsed.ex_field:
-            print(f"\nExtended Field: {parsed.ex_field}")
+        # 専用クラスのメソッドを使用
+        if hasattr(parsed, 'get_coordinates'):
+            coords = parsed.get_coordinates()
+            if coords:
+                print(f"Coordinates: {coords}")
+                
+        if hasattr(parsed, 'get_source_info'):
+            source = parsed.get_source_info()
+            if source:
+                print(f"Source: {source}")
+                
+        if hasattr(parsed, 'get_requested_data_types'):
+            data_types = parsed.get_requested_data_types()
+            if data_types:
+                print(f"Requested Data: {data_types}")
+                
+        if hasattr(parsed, 'get_weather_data'):
+            weather_data = parsed.get_weather_data()
+            if weather_data:
+                print(f"Weather Data: {weather_data}")
             
         print("\nRaw Packet:")
         print(self._hex_dump(data))
-        print("=====================\n")
+        print("===========================\n")
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理（オーバーライド）"""
