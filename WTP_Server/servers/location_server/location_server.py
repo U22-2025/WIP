@@ -19,7 +19,7 @@ if __name__ == "__main__":
 # モジュールとして使用される場合
 from ..base_server import BaseServer
 from common.packet import Request, Response, BitFieldError
-from ...utils.config_loader import ConfigLoader
+from common.utils.config_loader import ConfigLoader
 
 
 class LRUCache:

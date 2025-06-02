@@ -21,7 +21,7 @@ from .modules.response_builder import ResponseBuilder
 from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
 from common.packet import Request, Response, BitFieldError
-from ...utils.config_loader import ConfigLoader
+from common.utils.config_loader import ConfigLoader
 
 
 class QueryServer(BaseServer):

@@ -22,7 +22,7 @@ from ..base_server import BaseServer
 from common.packet import Request, Response, BitFieldError
 from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
-from ...utils.config_loader import ConfigLoader
+from common.utils.config_loader import ConfigLoader
 
 
 class WeatherServer(BaseServer):
