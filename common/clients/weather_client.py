@@ -1,5 +1,5 @@
 """
-Weather Client - 最新版
+Weather Client - 改良版（専用パケットクラス使用）
 Weather Serverプロキシと通信するクライアント
 """
 
@@ -9,14 +9,14 @@ import sys
 import os
 from datetime import datetime
 
-from ..packet import Request, Response
+from ..packet import WeatherRequest, WeatherResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
 PIDG = PacketIDGenerator12Bit()
 
 
 class WeatherClient:
-    """Weather Serverと通信するクライアント"""
+    """Weather Serverと通信するクライアント（専用パケットクラス使用）"""
     
     def __init__(self, host='localhost', port=4110, debug=False):
         """
@@ -41,13 +41,19 @@ class WeatherClient:
         return f"Hex: {hex_str}\nASCII: {ascii_str}"
         
     def _debug_print_request(self, request, request_type):
-        """リクエストのデバッグ情報を出力"""
+        """リクエストのデバッグ情報を出力（改良版）"""
         if not self.debug:
             return
             
         print("\n=== SENDING REQUEST PACKET ===")
         print(f"Request Type: {request_type}")
         print(f"Total Length: {len(request.to_bytes())} bytes")
+        
+        # 専用クラスのサマリー情報を使用
+        if hasattr(request, 'get_request_summary'):
+            summary = request.get_request_summary()
+            print(f"\nRequest Summary: {summary}")
+        
         print("\nHeader:")
         print(f"Version: {request.version}")
         print(f"Type: {request.type}")
@@ -74,13 +80,20 @@ class WeatherClient:
         print("============================\n")
         
     def _debug_print_response(self, response):
-        """レスポンスのデバッグ情報を出力"""
+        """レスポンスのデバッグ情報を出力（改良版）"""
         if not self.debug:
             return
             
         print("\n=== RECEIVED RESPONSE PACKET ===")
         print(f"Response Type: {response.type}")
         print(f"Total Length: {len(response.to_bytes())} bytes")
+        
+        # 専用クラスのメソッドを使用
+        if hasattr(response, 'get_weather_data'):
+            weather_data = response.get_weather_data()
+            print(f"\nWeather Data: {weather_data}")
+            print(f"Success: {response.is_success()}")
+        
         print("\nHeader:")
         print(f"Version: {response.version}")
         print(f"Type: {response.type}")
@@ -89,17 +102,31 @@ class WeatherClient:
         print(f"Timestamp: {time.ctime(response.timestamp)}")
         
         if response.type == 3:
-            # 気象データレスポンス
-            if response.weather_flag and hasattr(response, 'weather_code'):
-                print(f"\nWeather Code: {response.weather_code}")
-            if response.temperature_flag and hasattr(response, 'temperature'):
-                actual_temp = response.temperature - 100
-                print(f"Temperature: {response.temperature} ({actual_temp}℃)")
-            if response.pops_flag and hasattr(response, 'pops'):
-                print(f"Precipitation: {response.pops}%")
-                
-        if hasattr(response, 'ex_field') and response.ex_field:
-            print(f"\nExtended Field: {response.ex_field.to_dict()}")
+            # 気象データレスポンス（専用メソッド使用）
+            if hasattr(response, 'get_weather_code'):
+                weather_code = response.get_weather_code()
+                if weather_code is not None:
+                    print(f"\nWeather Code: {weather_code}")
+            
+            if hasattr(response, 'get_temperature_celsius'):
+                temp = response.get_temperature_celsius()
+                if temp is not None:
+                    print(f"Temperature: {temp}℃")
+            
+            if hasattr(response, 'get_precipitation_percentage'):
+                pops = response.get_precipitation_percentage()
+                if pops is not None:
+                    print(f"Precipitation: {pops}%")
+                    
+            if hasattr(response, 'get_alerts'):
+                alerts = response.get_alerts()
+                if alerts:
+                    print(f"Alerts: {alerts}")
+                    
+            if hasattr(response, 'get_disaster_info'):
+                disaster = response.get_disaster_info()
+                if disaster:
+                    print(f"Disaster Info: {disaster}")
             
         print("\nRaw Packet:")
         print(self._hex_dump(response.to_bytes()))
@@ -128,23 +155,18 @@ class WeatherClient:
         try:
             start_time = time.time()
             
-            # Type 0: 座標解決リクエストを作成
-            request = Request(
-                version=self.VERSION,
+            # 専用クラスでリクエスト作成（大幅に簡潔になった）
+            request = WeatherRequest.create_by_coordinates(
+                latitude=latitude,
+                longitude=longitude,
                 packet_id=PIDG.next_id(),
-                type=0,  # 座標解決リクエスト
-                timestamp=int(datetime.now().timestamp()),
-                weather_flag=1 if weather else 0,
-                temperature_flag=1 if temperature else 0,
-                pops_flag=1 if precipitation else 0,
-                alert_flag=1 if alerts else 0,
-                disaster_flag=1 if disaster else 0,
+                weather=weather,
+                temperature=temperature,
+                precipitation=precipitation,
+                alerts=alerts,
+                disaster=disaster,
                 day=day,
-                ex_field={
-                    "latitude": latitude,
-                    "longitude": longitude
-                },
-                ex_flag=1
+                version=self.VERSION
             )
             
             self._debug_print_request(request, "Location Resolution (Type 0)")
@@ -152,41 +174,27 @@ class WeatherClient:
             # リクエスト送信
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             
-            # Type 3: 気象データレスポンスを受信
+            # Type 3: 気象データレスポンスを受信（専用クラス使用）
             response_data, addr = self.sock.recvfrom(1024)
-            response = Response.from_bytes(response_data)
+            response = WeatherResponse.from_bytes(response_data)
             
             self._debug_print_response(response)
             
-            # 結果を整形
-            result = {
-                'area_code': response.area_code,
-                'timestamp': response.timestamp,
-                'type': response.type
-            }
-            
-            if response.weather_flag and hasattr(response, 'weather_code'):
-                result['weather_code'] = response.weather_code
-            if response.temperature_flag and hasattr(response, 'temperature'):
-                result['temperature'] = response.temperature - 100  # 実際の気温に変換
-            if response.pops_flag and hasattr(response, 'pops'):
-                result['precipitation'] = response.pops
+            # 専用クラスのメソッドで結果を簡単に取得
+            if response.is_success():
+                result = response.get_weather_data()
                 
-            if hasattr(response, 'ex_field') and response.ex_field:
-                ex_dict = response.ex_field.to_dict()
-                if 'alert' in ex_dict:
-                    result['alerts'] = ex_dict['alert']
-                if 'disaster' in ex_dict:
-                    result['disaster'] = ex_dict['disaster']
-            
-            total_time = time.time() - start_time
-            
-            if self.debug:
-                print("\n=== TIMING INFORMATION ===")
-                print(f"Total operation time: {total_time*1000:.2f}ms")
-                print("========================\n")
-            
-            return result
+                total_time = time.time() - start_time
+                if self.debug:
+                    print("\n=== TIMING INFORMATION ===")
+                    print(f"Total operation time: {total_time*1000:.2f}ms")
+                    print("========================\n")
+                
+                return result
+            else:
+                if self.debug:
+                    print("Response indicates failure")
+                return None
             
         except socket.timeout:
             print("Timeout waiting for response")
@@ -220,25 +228,17 @@ class WeatherClient:
         try:
             start_time = time.time()
             
-            # エリアコードを6桁の文字列に正規化
-            if isinstance(area_code, int):
-                area_code_str = f"{area_code:06d}"
-            else:
-                area_code_str = str(area_code).zfill(6)
-            
-            # Type 2: 気象データリクエストを作成
-            request = Request(
-                version=self.VERSION,
+            # 専用クラスでリクエスト作成（大幅に簡潔になった）
+            request = WeatherRequest.create_by_area_code(
+                area_code=area_code,
                 packet_id=PIDG.next_id(),
-                type=2,  # 気象データリクエスト
-                timestamp=int(datetime.now().timestamp()),
-                area_code=area_code_str,
-                weather_flag=1 if weather else 0,
-                temperature_flag=1 if temperature else 0,
-                pops_flag=1 if precipitation else 0,
-                alert_flag=1 if alerts else 0,
-                disaster_flag=1 if disaster else 0,
-                day=day
+                weather=weather,
+                temperature=temperature,
+                precipitation=precipitation,
+                alerts=alerts,
+                disaster=disaster,
+                day=day,
+                version=self.VERSION
             )
             
             self._debug_print_request(request, "Weather Data (Type 2)")
@@ -246,41 +246,27 @@ class WeatherClient:
             # リクエスト送信
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             
-            # Type 3: 気象データレスポンスを受信
+            # Type 3: 気象データレスポンスを受信（専用クラス使用）
             response_data, addr = self.sock.recvfrom(1024)
-            response = Response.from_bytes(response_data)
+            response = WeatherResponse.from_bytes(response_data)
             
             self._debug_print_response(response)
             
-            # 結果を整形
-            result = {
-                'area_code': response.area_code,
-                'timestamp': response.timestamp,
-                'type': response.type
-            }
-            
-            if response.weather_flag and hasattr(response, 'weather_code'):
-                result['weather_code'] = response.weather_code
-            if response.temperature_flag and hasattr(response, 'temperature'):
-                result['temperature'] = response.temperature - 100  # 実際の気温に変換
-            if response.pops_flag and hasattr(response, 'pops'):
-                result['precipitation'] = response.pops
+            # 専用クラスのメソッドで結果を簡単に取得
+            if response.is_success():
+                result = response.get_weather_data()
                 
-            if hasattr(response, 'ex_field') and response.ex_field:
-                ex_dict = response.ex_field.to_dict()
-                if 'alert' in ex_dict:
-                    result['alerts'] = ex_dict['alert']
-                if 'disaster' in ex_dict:
-                    result['disaster'] = ex_dict['disaster']
-            
-            total_time = time.time() - start_time
-            
-            if self.debug:
-                print("\n=== TIMING INFORMATION ===")
-                print(f"Total operation time: {total_time*1000:.2f}ms")
-                print("========================\n")
-            
-            return result
+                total_time = time.time() - start_time
+                if self.debug:
+                    print("\n=== TIMING INFORMATION ===")
+                    print(f"Total operation time: {total_time*1000:.2f}ms")
+                    print("========================\n")
+                
+                return result
+            else:
+                if self.debug:
+                    print("Response indicates failure")
+                return None
             
         except socket.timeout:
             print("Timeout waiting for response")
@@ -298,9 +284,9 @@ class WeatherClient:
 
 
 def main():
-    """メイン関数 - 使用例"""
-    print("Weather Client Example")
-    print("=" * 50)
+    """メイン関数 - 使用例（専用パケットクラス版）"""
+    print("Weather Client Example (Enhanced with Specialized Packet Classes)")
+    print("=" * 70)
     
     client = WeatherClient(debug=True)
     
@@ -319,8 +305,8 @@ def main():
         
         if result:
             print("\n✓ Success!")
-            print(f"Area Code: {result['area_code']}")
-            print(f"Timestamp: {time.ctime(result['timestamp'])}")
+            print(f"Area Code: {result.get('area_code')}")
+            print(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
             if 'weather_code' in result:
                 print(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
@@ -345,8 +331,8 @@ def main():
         
         if result:
             print("\n✓ Success!")
-            print(f"Area Code: {result['area_code']}")
-            print(f"Timestamp: {time.ctime(result['timestamp'])}")
+            print(f"Area Code: {result.get('area_code')}")
+            print(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
             if 'weather_code' in result:
                 print(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
@@ -363,8 +349,9 @@ def main():
     finally:
         client.close()
         
-    print("\n" + "="*50)
-    print("Example completed")
+    print("\n" + "="*70)
+    print("Enhanced Weather Client Example completed")
+    print("✓ Using specialized packet classes for improved usability")
 
 
 if __name__ == "__main__":

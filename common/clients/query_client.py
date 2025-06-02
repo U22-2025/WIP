@@ -1,146 +1,116 @@
+"""
+Query Client - 改良版（専用パケットクラス使用）
+Query Serverとの通信を行うクライアント（サーバー間通信用）
+"""
+
 import socket
 import struct
 import time
 import threading
 import concurrent.futures
 
-from ..packet import Request, Response
+from ..packet import QueryRequest, QueryResponse
+from .utils.packet_id_generator import PacketIDGenerator12Bit
+
+PIDG = PacketIDGenerator12Bit()
+
 
 class QueryClient:
+    """Query Serverと通信するクライアント（専用パケットクラス使用）"""
+    
     def __init__(self, host='localhost', port=4111, debug=False):
+        """
+        初期化
+        
+        Args:
+            host: Query Serverのホスト
+            port: Query Serverのポート
+            debug: デバッグモード
+        """
         self.host = host
         self.port = port
         self.debug = debug
         self.VERSION = 1
         
     def _hex_dump(self, data):
-        """Create a hex dump of binary data"""
+        """バイナリデータのhexダンプを作成"""
         hex_str = ' '.join(f'{b:02x}' for b in data)
         ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
         return f"Hex: {hex_str}\nASCII: {ascii_str}"
         
-    def _debug_print_request(self, request_packet, area_code, flags):
-        """Print debug information for request packet"""
+    def _debug_print_request(self, request, area_code):
+        """リクエストのデバッグ情報を出力（改良版）"""
         if not self.debug:
             return
             
-        print("\n=== SENDING REQUEST PACKET ===")
-        print(f"Total Length: {len(request_packet)} bytes")
+        print("\n=== SENDING QUERY REQUEST PACKET ===")
+        print(f"Total Length: {len(request.to_bytes())} bytes")
         print(f"Area Code: {area_code}")
-        print("\nFlags:")
-        for flag_name, value in flags.items():
-            print(f"  {flag_name}: {value}")
+        
+        # 専用クラスのメソッドを使用
+        if hasattr(request, 'get_requested_data_types'):
+            requested_data = request.get_requested_data_types()
+            print(f"Requested Data: {requested_data}")
+            
+        if hasattr(request, 'get_source_info'):
+            source = request.get_source_info()
+            print(f"Source: {source}")
+        
         print("\nRaw Packet:")
-        print(self._hex_dump(request_packet))
+        print(self._hex_dump(request.to_bytes()))
         print("============================\n")
         
-    def _debug_print_response(self, response_data, parsed_response):
-        """Print debug information for response packet"""
+    def _debug_print_response(self, response):
+        """レスポンスのデバッグ情報を出力（改良版）"""
         if not self.debug:
             return
             
-        print("\n=== RECEIVED RESPONSE PACKET ===")
-        print(f"Total Length: {len(response_data)} bytes")
-        print("\nParsed Response:")
-        for key, value in parsed_response.items():
-            if key == 'timestamp':
-                print(f"  {key}: {time.ctime(value)} ({value})")
-            else:
-                print(f"  {key}: {value}")
+        print("\n=== RECEIVED QUERY RESPONSE PACKET ===")
+        print(f"Total Length: {len(response.to_bytes())} bytes")
+        
+        # 専用クラスのメソッドを使用
+        if hasattr(response, 'get_response_summary'):
+            summary = response.get_response_summary()
+            print(f"\nResponse Summary: {summary}")
+            
+        if hasattr(response, 'is_success'):
+            print(f"Success: {response.is_success()}")
+            
+        # 気象データの詳細
+        if hasattr(response, 'get_weather_code'):
+            weather_code = response.get_weather_code()
+            if weather_code is not None:
+                print(f"Weather Code: {weather_code}")
+                
+        if hasattr(response, 'get_temperature_celsius'):
+            temp = response.get_temperature_celsius()
+            if temp is not None:
+                print(f"Temperature: {temp}℃")
+                
+        if hasattr(response, 'get_precipitation_percentage'):
+            pops = response.get_precipitation_percentage()
+            if pops is not None:
+                print(f"Precipitation: {pops}%")
+                
+        if hasattr(response, 'get_alerts'):
+            alerts = response.get_alerts()
+            if alerts:
+                print(f"Alerts: {alerts}")
+                
+        if hasattr(response, 'get_disaster_info'):
+            disaster = response.get_disaster_info()
+            if disaster:
+                print(f"Disaster Info: {disaster}")
+        
         print("\nRaw Packet:")
-        print(self._hex_dump(response_data))
+        print(self._hex_dump(response.to_bytes()))
         print("==============================\n")
-
-    def create_request(self, area_code, weather_flag=0, temperature_flag=0, 
-                      pops_flag=0, alert_flag=0, disaster_flag=0, packet_id=None):
-        """
-        気象データリクエストパケットを作成する
-        
-        Args:
-            area_code: エリアコード（文字列または数値、例: "080010" または 80010）
-            weather_flag: 天気データ取得フラグ (1で取得)
-            temperature_flag: 気温データ取得フラグ (1で取得)
-            pops_flag: 降水確率データ取得フラグ (1で取得)
-            alert_flag: 警報データ取得フラグ (1で取得)
-            disaster_flag: 災害情報データ取得フラグ (1で取得)
-            packet_id: パケットID (Noneの場合は自動生成)
-            
-        Returns:
-            bytes: リクエストパケットのバイト列
-        """
-        if packet_id is None:
-            packet_id = int(time.time()) & 0xFFF  # 12ビットに制限
-        
-        # エリアコードを6桁の文字列に正規化
-        if isinstance(area_code, int):
-            area_code_str = f"{area_code:06d}"
-        else:
-            area_code_str = str(area_code).zfill(6)
-            
-        request = Request(
-            version=self.VERSION,
-            packet_id=packet_id,
-            type=2,  # 気象データリクエスト
-            weather_flag=weather_flag,
-            temperature_flag=temperature_flag,
-            pops_flag=pops_flag,
-            alert_flag=alert_flag,
-            disaster_flag=disaster_flag,
-            ex_flag=0,
-            day=0,
-            timestamp=int(time.time()),
-            area_code=area_code_str  # 文字列として設定
-        )
-        
-        return request.to_bytes()
-
-    def parse_response(self, response_data):
-        """
-        レスポンスパケットを解析する
-        
-        Args:
-            response_data: 受信したバイナリデータ
-            
-        Returns:
-            dict: 解析されたレスポンスデータ
-        """
-        try:
-            response = Response.from_bytes(response_data)
-            
-            result = {
-                'version': response.version,
-                'packet_id': response.packet_id,
-                'type': response.type,
-                'timestamp': response.timestamp,
-                'area_code': response.area_code,
-                'ex_flag': response.ex_flag
-            }
-            
-            # 固定長拡張フィールドがある場合
-            if hasattr(response, 'weather_code'):
-                result['weather_code'] = response.weather_code
-            if hasattr(response, 'temperature'):
-                # 気温を実際の値に変換 (0-255 -> -100℃～+155℃)
-                result['temperature'] = response.temperature - 100
-            if hasattr(response, 'pops'):
-                result['precipitation'] = response.pops
-                
-            # 拡張フィールドがある場合
-            if response.ex_flag == 1 and hasattr(response, 'ex_field'):
-                # ExtendedFieldオブジェクトから辞書形式で取得
-                result['ex_field'] = response.ex_field.to_dict()
-                
-            return result
-            
-        except Exception as e:
-            print(f"Error parsing response: {e}")
-            return {'error': str(e), 'raw_data': self._hex_dump(response_data)}
 
     def get_weather_data(self, area_code, weather=False, temperature=False, 
                         precipitation=False, alerts=False, disaster=False, 
-                        timeout=5.0):
+                        source=None, timeout=5.0):
         """
-        指定されたエリアの気象データを取得する
+        指定されたエリアの気象データを取得する（改良版）
         
         Args:
             area_code: エリアコード
@@ -149,6 +119,7 @@ class QueryClient:
             precipitation: 降水確率データを取得するか
             alerts: 警報データを取得するか
             disaster: 災害情報データを取得するか
+            source: 送信元情報（プロキシルーティング用）
             timeout: タイムアウト時間（秒）
             
         Returns:
@@ -160,66 +131,98 @@ class QueryClient:
         try:
             start_time = time.time()
             
-            # フラグの設定
-            flags = {
-                'weather_flag': 1 if weather else 0,
-                'temperature_flag': 1 if temperature else 0,
-                'pops_flag': 1 if precipitation else 0,
-                'alert_flag': 1 if alerts else 0,
-                'disaster_flag': 1 if disaster else 0
-            }
-            
-            # リクエスト作成
+            # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request_start = time.time()
-            request_packet = self.create_request(area_code, **flags)
+            request = QueryRequest.create_weather_data_request(
+                area_code=area_code,
+                packet_id=PIDG.next_id(),
+                weather=weather,
+                temperature=temperature,
+                precipitation=precipitation,
+                alerts=alerts,
+                disaster=disaster,
+                source=source,
+                version=self.VERSION
+            )
             request_time = time.time() - request_start
             
-            self._debug_print_request(request_packet, area_code, flags)
+            self._debug_print_request(request, area_code)
             
             # リクエスト送信
             network_start = time.time()
-            sock.sendto(request_packet, (self.host, self.port))
+            sock.sendto(request.to_bytes(), (self.host, self.port))
             
-            # レスポンス受信
+            # レスポンス受信（専用クラス使用）
             response_data, server_addr = sock.recvfrom(1024)
             network_time = time.time() - network_start
             
-            # レスポンス解析
+            # レスポンス解析（専用クラス使用）
             parse_start = time.time()
-            result = self.parse_response(response_data)
+            response = QueryResponse.from_bytes(response_data)
             parse_time = time.time() - parse_start
             
-            self._debug_print_response(response_data, result)
+            self._debug_print_response(response)
             
-            # タイミング情報を追加
-            total_time = time.time() - start_time
-            result['timing'] = {
-                'request_creation': request_time * 1000,
-                'network_roundtrip': network_time * 1000,
-                'response_parsing': parse_time * 1000,
-                'total_time': total_time * 1000
-            }
-            
-            if self.debug:
-                print("\n=== TIMING INFORMATION ===")
-                print(f"Request creation time: {request_time*1000:.2f}ms")
-                print(f"Network round-trip time: {network_time*1000:.2f}ms")
-                print(f"Response parsing time: {parse_time*1000:.2f}ms")
-                print(f"Total operation time: {total_time*1000:.2f}ms")
-                print("========================\n")
-            
-            return result
+            # 専用クラスのメソッドで結果を簡単に取得
+            if response.is_success():
+                result = response.get_weather_data()
+                
+                # タイミング情報を追加
+                total_time = time.time() - start_time
+                result['timing'] = {
+                    'request_creation': request_time * 1000,
+                    'network_roundtrip': network_time * 1000,
+                    'response_parsing': parse_time * 1000,
+                    'total_time': total_time * 1000
+                }
+                
+                if self.debug:
+                    print("\n=== TIMING INFORMATION ===")
+                    print(f"Request creation time: {request_time*1000:.2f}ms")
+                    print(f"Network round-trip time: {network_time*1000:.2f}ms")
+                    print(f"Response parsing time: {parse_time*1000:.2f}ms")
+                    print(f"Total operation time: {total_time*1000:.2f}ms")
+                    print("========================\n")
+                
+                return result
+            else:
+                return {'error': 'Query request failed', 'response_type': response.type}
             
         except socket.timeout:
             return {'error': 'Request timeout', 'timeout': timeout}
         except Exception as e:
+            if self.debug:
+                import traceback
+                traceback.print_exc()
             return {'error': str(e)}
         finally:
             sock.close()
 
+    def get_weather_data_simple(self, area_code, include_all=False, timeout=5.0):
+        """
+        簡便なメソッド：基本的な気象データを一括取得
+        
+        Args:
+            area_code: エリアコード
+            include_all: すべてのデータを取得するか（警報・災害情報も含む）
+            timeout: タイムアウト時間（秒）
+            
+        Returns:
+            dict: 取得した気象データ
+        """
+        return self.get_weather_data(
+            area_code=area_code,
+            weather=True,
+            temperature=True,
+            precipitation=True,
+            alerts=include_all,
+            disaster=include_all,
+            timeout=timeout
+        )
+
     def test_concurrent_requests(self, area_codes, num_threads=10, requests_per_thread=5):
         """
-        並列リクエストのテストを実行する
+        並列リクエストのテストを実行する（改良版）
         
         Args:
             area_codes: テストするエリアコードのリスト
@@ -239,11 +242,9 @@ class QueryClient:
             for i in range(requests_per_thread):
                 area_code = area_codes[i % len(area_codes)]
                 try:
-                    result = self.get_weather_data(
+                    result = self.get_weather_data_simple(
                         area_code=area_code,
-                        weather=True,
-                        temperature=True,
-                        precipitation=True
+                        include_all=(i % 2 == 0)  # 交互に全データ取得
                     )
                     
                     if 'error' not in result:
@@ -252,7 +253,10 @@ class QueryClient:
                             'request_id': i,
                             'area_code': area_code,
                             'timing': result.get('timing', {}),
-                            'success': True
+                            'success': True,
+                            'has_weather': 'weather_code' in result,
+                            'has_temperature': 'temperature' in result,
+                            'has_precipitation': 'precipitation' in result
                         })
                     else:
                         thread_errors.append({
@@ -310,10 +314,11 @@ class QueryClient:
             'errors': errors
         }
 
+
 def main():
-    """テスト用のメイン関数"""
-    print("Query Client Test")
-    print("=" * 50)
+    """メイン関数 - 使用例（専用パケットクラス版）"""
+    print("Query Client Example (Enhanced with Specialized Packet Classes)")
+    print("=" * 70)
     
     client = QueryClient(debug=True)
     
@@ -322,12 +327,13 @@ def main():
     print("-" * 30)
     
     result = client.get_weather_data(
-        area_code=11000,  # 札幌
+        area_code="011000",  # 札幌
         weather=True,
         temperature=True,
         precipitation=True,
         alerts=True,
-        disaster=True
+        disaster=True,
+        source="query_client_test"
     )
     
     if 'error' not in result:
@@ -336,16 +342,36 @@ def main():
         print(f"Weather Code: {result.get('weather_code')}")
         print(f"Temperature: {result.get('temperature')}°C")
         print(f"Precipitation: {result.get('precipitation')}%")
-        if result.get('ex_field'):
-            print(f"Extended Field: {result.get('ex_field')}")
+        if result.get('alerts'):
+            print(f"Alerts: {result.get('alerts')}")
+        if result.get('disaster'):
+            print(f"Disaster Info: {result.get('disaster')}")
     else:
         print(f"✗ Request failed: {result['error']}")
     
-    # 並列リクエストのテスト
-    print("\n2. Concurrent Request Test")
+    # 簡便メソッドのテスト
+    print("\n2. Simple Method Test")
     print("-" * 30)
     
-    test_area_codes = [11000, 12000, 13000, 14100, 15000]  # 北海道の各地域
+    simple_result = client.get_weather_data_simple(
+        area_code="130010",  # 東京
+        include_all=True
+    )
+    
+    if 'error' not in simple_result:
+        print("✓ Simple request successful!")
+        print(f"Area Code: {simple_result.get('area_code')}")
+        print(f"Weather Code: {simple_result.get('weather_code')}")
+        print(f"Temperature: {simple_result.get('temperature')}°C")
+        print(f"Precipitation: {simple_result.get('precipitation')}%")
+    else:
+        print(f"✗ Simple request failed: {simple_result['error']}")
+    
+    # 並列リクエストのテスト
+    print("\n3. Concurrent Request Test")
+    print("-" * 30)
+    
+    test_area_codes = ["011000", "012000", "013000", "014100", "015000"]  # 北海道の各地域
     
     test_result = client.test_concurrent_requests(
         area_codes=test_area_codes,
@@ -367,7 +393,12 @@ def main():
         for error in test_result['errors'][:5]:  # 最初の5個のエラーのみ表示
             print(f"  Thread {error['thread_id']}, Request {error['request_id']}: {error['error']}")
     
-    print("\nTest completed!")
+    print("\n" + "="*70)
+    print("Enhanced Query Client Example completed")
+    print("✓ Using specialized packet classes for improved usability")
+    print("✓ Simplified API with better error handling")
+    print("✓ Automatic data conversion and validation")
+
 
 if __name__ == "__main__":
     main()
