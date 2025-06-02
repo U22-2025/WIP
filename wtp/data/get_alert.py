@@ -11,6 +11,10 @@
 - 無効データの除去
 """
 
+"""
+    todo : 実行時、座標解決して災害情報を格納
+"""
+
 import requests
 from typing import Optional, Dict, List, Tuple
 import xml.etree.ElementTree as ET
