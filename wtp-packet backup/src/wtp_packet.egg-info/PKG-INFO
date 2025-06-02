@@ -1,0 +1,192 @@
+Metadata-Version: 2.4
+Name: wtp-packet
+Version: 1.0.0
+Summary: Weather Transport Protocol packet format implementation
+Home-page: https://github.com/yourproject/wtp-packet
+Author: WTP Project
+Keywords: weather,protocol,packet,wtp
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0; extra == "dev"
+Requires-Dist: black>=23.0; extra == "dev"
+Requires-Dist: flake8>=6.0; extra == "dev"
+Requires-Dist: mypy>=1.0; extra == "dev"
+Dynamic: home-page
+Dynamic: requires-python
+
+# WTP Packet
+
+Weather Transport Protocol (WTP) packet format implementation for Python.
+
+## 概要
+
+WTP Packetは、Weather Transport Protocol用のパケットフォーマット処理ライブラリです。
+バイナリパケットの作成、解析、検証機能を提供します。
+
+## 特徴
+
+- **完全なパケットフォーマット実装**: 基本フィールドと拡張フィールドの両方をサポート
+- **型安全**: Python 3.8+の型ヒントを完全サポート
+- **チェックサム自動計算**: パケットの整合性を自動的に保証
+- **柔軟な拡張フィールド**: 警報、災害情報、位置情報などの追加データをサポート
+- **オブザーバーパターン**: フィールド変更時の自動更新機能
+
+## インストール
+
+```bash
+pip install wtp-packet
+```
+
+開発版のインストール:
+
+```bash
+pip install -e ".[dev]"
+```
+
+## 使用方法
+
+### 基本的な使用例
+
+```python
+from wtp_packet import Request, Response, ExtendedField
+from datetime import datetime
+
+# リクエストパケットの作成
+request = Request(
+    version=1,
+    packet_id=1234,
+    type=0,
+    timestamp=int(datetime.now().timestamp()),
+    area_code="130010",
+    ex_flag=1,
+    ex_field={
+        'alert': ["津波警報"],
+        'disaster': ["土砂崩れ"],
+        'latitude': 35.6895,
+        'longitude': 139.6917,
+        'source': "127.0.0.1"
+    }
+)
+
+# バイト列への変換
+data = request.to_bytes()
+
+# バイト列からの復元
+restored_request = Request.from_bytes(data)
+
+# レスポンスパケットの作成
+response = Response(
+    version=1,
+    packet_id=1234,
+    type=1,
+    timestamp=int(datetime.now().timestamp()),
+    area_code="130010",
+    weather_code=200,
+    temperature=25,
+    pops=30
+)
+```
+
+### 拡張フィールドの使用
+
+```python
+from wtp_packet import ExtendedField
+
+# ExtendedFieldオブジェクトの作成
+ex_field = ExtendedField({
+    'alert': ["大雨警報", "洪水警報"],
+    'latitude': 35.6895,
+    'longitude': 139.6917
+})
+
+# フィールドの更新
+ex_field.set('disaster', ["台風接近"])
+
+# オブザーバーの追加
+def on_field_changed():
+    print("フィールドが更新されました")
+
+ex_field.add_observer(on_field_changed)
+```
+
+## パケット構造
+
+### 基本フィールド (128ビット)
+
+| フィールド | ビット位置 | ビット長 | 説明 |
+|-----------|-----------|---------|------|
+| version | 1-4 | 4 | バージョン番号 |
+| packet_id | 5-16 | 12 | パケットID |
+| type | 17-19 | 3 | パケットタイプ |
+| weather_flag | 20 | 1 | 天気フラグ |
+| temperature_flag | 21 | 1 | 気温フラグ |
+| pops_flag | 22 | 1 | 降水確率フラグ |
+| alert_flag | 23 | 1 | 警報フラグ |
+| disaster_flag | 24 | 1 | 災害フラグ |
+| ex_flag | 25 | 1 | 拡張フラグ |
+| day | 26-28 | 3 | 日数 |
+| reserved | 29-32 | 4 | 予約領域 |
+| timestamp | 33-96 | 64 | タイムスタンプ |
+| area_code | 97-116 | 20 | エリアコード |
+| checksum | 117-128 | 12 | チェックサム |
+
+### レスポンス固定拡張フィールド
+
+| フィールド | ビット位置 | ビット長 | 説明 |
+|-----------|-----------|---------|------|
+| weather_code | 129-144 | 16 | 天気コード |
+| temperature | 145-152 | 8 | 気温 |
+| pops | 153-160 | 8 | 降水確率 |
+
+### 拡張フィールド (可変長)
+
+拡張フィールドは以下の形式で格納されます：
+- ヘッダー (16ビット): バイト長(10ビット) + キー(6ビット)
+- データ: 可変長
+
+サポートされるフィールド:
+- `alert`: 警報情報（文字列リスト）
+- `disaster`: 災害情報（文字列リスト）
+- `latitude`: 緯度（-90.0 ～ 90.0）
+- `longitude`: 経度（-180.0 ～ 180.0）
+- `source`: 送信元情報（文字列）
+
+## 開発
+
+### テストの実行
+
+```bash
+pytest
+```
+
+### コードフォーマット
+
+```bash
+black src/
+```
+
+### 型チェック
+
+```bash
+mypy src/
+```
+
+## ライセンス
+
+MIT License
+
+## 貢献
+
+プルリクエストを歓迎します。大きな変更を行う場合は、まずissueを開いて変更内容について議論してください。
