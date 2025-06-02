@@ -2,27 +2,21 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from common.clients.weather_client import WeatherClient
+from WTP_Client import Client
 import time
 
 """メイン関数 - 使用例"""
 print("Weather Client Example")
 print("=" * 50)
 
-client = WeatherClient(debug=True)
+client = Client(debug=True)
 
 
 # 例1: 座標から天気情報を取得
 print("\n1. Getting weather by coordinates (Tokyo)")
 print("-" * 30)
-
-result = client.get_weather_by_coordinates(
-    latitude=35.6895,
-    longitude=139.6917,
-    weather=True,
-    temperature=True,
-    precipitation=True
-)
+client.set_coordinates(35.6895, 139.6917)
+result = client.get_weather()
 
 if result:
     print("\n✓ Success!")
