@@ -14,7 +14,11 @@
 """
     todo : 実行時、座標解決して災害情報を格納
 """
-
+import sys
+import os
+# パスを追加して直接実行にも対応
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import requests
 from typing import Optional, Dict, List, Tuple
 import xml.etree.ElementTree as ET
@@ -22,7 +26,8 @@ import json
 from collections import defaultdict
 from datetime import datetime
 import re
-
+from common.packet import LocationRequest, LocationResponse
+from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 
 class XMLProcessor:
     """
@@ -405,8 +410,7 @@ class DisasterDataProcessor:
             XMLファイルURLのリスト
         """
         try:
-            with open('wtp/data/disaster.xml', 'r', encoding='utf-8') as file:
-                xml_data = file.read()
+            xml_data = xml_data = self.xml_processor.fetch_xml("https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml")
             
             # XMLファイルの先頭調整
             xml_start = xml_data.find('<feed')
@@ -593,11 +597,14 @@ def main():
         print(f"Volcano Coordinate Keys: {volcano_keys}")
         
         # Step 4: エリアコードデータの読み込み
-        with open('wtp/data/area_codes.json', 'r', encoding='utf-8') as f:
+        with open('wtp/json/area_codes.json', 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         
-        with open('wtp/data/disaster_data.json', 'r', encoding='utf-8') as f:
+        with open('wtp/json/disaster_data.json', 'r', encoding='utf-8') as f:
             disaster_data = json.load(f)
+
+        
+
         
         # Step 5: エリアコード変換・統合処理
         converted_data = processor.convert_disaster_keys_to_area_codes(
