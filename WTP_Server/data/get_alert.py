@@ -13,9 +13,17 @@
 
 """
     todo : 実行時、座標解決して災害情報を格納
+            656行目
 """
 
+import re
+import sys
+import os
+
+# Add the common directory to the path for importing location client
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 import requests
+from common.clients.location_client import LocationClient
 from typing import Optional, Dict, List, Tuple
 import xml.etree.ElementTree as ET
 import json
@@ -405,8 +413,11 @@ class DisasterDataProcessor:
             XMLファイルURLのリスト
         """
         try:
-            with open('wtp/data/disaster.xml', 'r', encoding='utf-8') as file:
-                xml_data = file.read()
+            url = "https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml"
+            response = requests.get(url)
+            response.encoding = 'utf-8'
+            response.raise_for_status()
+            xml_data = response.text
             
             # XMLファイルの先頭調整
             xml_start = xml_data.find('<feed')
@@ -560,6 +571,56 @@ class DisasterDataProcessor:
             print("Warning: 'volcano_coordinates' key not found in JSON data")
             return []
         return list(json_data['volcano_coordinates'].keys())
+    
+    @staticmethod
+    def parse_volcano_coordinates(coord_str: str) -> Tuple[Optional[float], Optional[float]]:
+        """
+        火山座標文字列を緯度経度に変換
+        
+        Args:
+            coord_str: 座標文字列 (例: "+2938.30+12942.83+796/")
+            
+        Returns:
+            (緯度, 経度)のタプル、解析失敗時は(None, None)
+        """
+        try:
+            # 座標文字列の形式: "+DDMM.MM+DDDMM.MM+標高/"
+            # 最後の「/」を除去
+            coord_str = coord_str.rstrip('/')
+            
+            # 正規表現で緯度、経度、標高を抽出
+            pattern = r'([+-]\d{4}\.\d{2})([+-]\d{5}\.\d{2})([+-]\d+)'
+            match = re.match(pattern, coord_str)
+            
+            if not match:
+                print(f"座標文字列の形式が不正です: {coord_str}")
+                return None, None
+            
+            lat_str, lon_str, alt_str = match.groups()
+            
+            # 緯度の変換 (DDMM.MM -> DD.DDDD)
+            lat_sign = 1 if lat_str[0] == '+' else -1
+            lat_abs = lat_str[1:]
+            lat_degrees = int(lat_abs[:2])
+            lat_minutes = float(lat_abs[2:])
+            latitude = lat_sign * (lat_degrees + lat_minutes / 60.0)
+            # 緯度を6桁の精度に丸める
+            latitude = round(latitude, 6)
+            
+            # 経度の変換 (DDDMM.MM -> DDD.DDDD)
+            lon_sign = 1 if lon_str[0] == '+' else -1
+            lon_abs = lon_str[1:]
+            lon_degrees = int(lon_abs[:3])
+            lon_minutes = float(lon_abs[3:])
+            longitude = lon_sign * (lon_degrees + lon_minutes / 60.0)
+            # 経度を6桁の精度に丸める
+            longitude = round(longitude, 6)
+            
+            return latitude, longitude
+            
+        except Exception as e:
+            print(f"座標解析エラー: {e}, 座標文字列: {coord_str}")
+            return None, None
 
 
 def main():
@@ -569,10 +630,11 @@ def main():
     処理フロー:
     1. 災害XMLファイルリストの取得
     2. 各XMLファイルからの災害情報抽出・統合
-    3. エリアコードデータの読み込み
-    4. エリアコード変換・無効データ除去
-    5. 時間範囲統合
-    6. 結果ファイルの出力
+    3. 火山座標の解決処理
+    4. エリアコードデータの読み込み
+    5. エリアコード変換・無効データ除去
+    6. 時間範囲統合
+    7. 結果ファイルの出力
     """
     try:
         processor = DisasterDataProcessor()
@@ -584,33 +646,110 @@ def main():
             return
         
         # Step 2: 災害情報の取得・統合
-        json_result = processor.get_disaster_info(url_list, 'wtp/data/disaster_data.json')
+        json_result = processor.get_disaster_info(url_list, 'wtp/json/disaster_data.json')
         print("\n=== Disaster Info Processing Complete ===")
         
         # Step 3: 火山座標キーの取得
         result_dict = json.loads(json_result)
         volcano_keys = processor.convert_child_to_area(result_dict)
         print(f"Volcano Coordinate Keys: {volcano_keys}")
+
+        ### volcano_keyの座標解決処理
+        
+        # Step 3.1: 火山座標の解決処理
+        location_client = LocationClient(debug=True)
+        volcano_locations = {}
+        
+        try:
+            for volcano_key in volcano_keys:
+                if volcano_key in result_dict.get('volcano_coordinates', {}):
+                    coordinates_list = result_dict['volcano_coordinates'][volcano_key]
+                    for coord_str in coordinates_list:
+                        # 座標文字列を解析 (例: "+2938.30+12942.83+796/")
+                        latitude, longitude = processor.parse_volcano_coordinates(coord_str)
+                        if latitude is not None and longitude is not None:
+                            print(f"Resolving location for volcano {volcano_key}: lat={latitude}, lon={longitude}")
+                            
+                            # LocationClientで座標解決
+                            response, processing_time = location_client.get_location_info(
+                                latitude=latitude,
+                                longitude=longitude,
+                                source="disaster_alert_system"
+                            )
+                            
+                            if response and response.is_valid():
+                                area_code = response.get_area_code()
+                                volcano_locations[volcano_key] = {
+                                    'latitude': latitude,
+                                    'longitude': longitude,
+                                    'area_code': area_code,
+                                    'processing_time_ms': processing_time * 1000
+                                }
+                                print(f"✓ Volcano {volcano_key} resolved to area code: {area_code} (in {processing_time*1000:.2f}ms)")
+                            else:
+                                print(f"✗ Failed to resolve location for volcano {volcano_key}")
+                                volcano_locations[volcano_key] = {
+                                    'latitude': latitude,
+                                    'longitude': longitude,
+                                    'area_code': None,
+                                    'error': 'Location resolution failed'
+                                }
+                        else:
+                            print(f"✗ Failed to parse coordinates for volcano {volcano_key}: {coord_str}")
+        finally:
+            location_client.close()
+        
+        print(f"\nVolcano Location Resolution Results: {json.dumps(volcano_locations, ensure_ascii=False, indent=2)}")
         
         # Step 4: エリアコードデータの読み込み
-        with open('wtp/data/area_codes.json', 'r', encoding='utf-8') as f:
+        with open('wtp/json/area_codes.json', 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         
-        with open('wtp/data/disaster_data.json', 'r', encoding='utf-8') as f:
+        with open('wtp/json/disaster_data.json', 'r', encoding='utf-8') as f:
             disaster_data = json.load(f)
+            
+        child_codes = disaster_data.volcano_coordinates
+        for code in child_codes:
+            
+            # codeから座標を取得し、get_location_infoの引数として渡す
+            coordinates_list = child_codes[code]
+            for coord_str in coordinates_list:
+                # 座標文字列を解析 (例: "+2938.30+12942.83+796/")
+                latitude, longitude = processor.parse_volcano_coordinates(coord_str)
+                if latitude is not None and longitude is not None:
+                    print(f"Resolving location for volcano {code}: lat={latitude}, lon={longitude}")
+                    
+                    # LocationClientを初期化
+                    temp_location_client = LocationClient(debug=True)
+                    try:
+                        # get_location_infoの引数として座標を渡す
+                        response, processing_time = temp_location_client.get_location_info(
+                            latitude=latitude,
+                            longitude=longitude,
+                        )
+                        
+                        if response and response.is_valid():
+                            area_code = response.get_area_code()
+                            print(f"✓ Volcano {code} resolved to area code: {area_code} (in {processing_time*1000:.2f}ms)")
+                        else:
+                            print(f"✗ Failed to resolve location for volcano {code}")
+                    finally:
+                        temp_location_client.close()
+                else:
+                    print(f"✗ Failed to parse coordinates for volcano {code}: {coord_str}")
         
         # Step 5: エリアコード変換・統合処理
         converted_data = processor.convert_disaster_keys_to_area_codes(
-            disaster_data, area_codes_data, 'wtp/data/converted_disaster_data.json'
+            disaster_data, area_codes_data, 'wtp/json/disaster_data.json'
         )
         
-        # Step 6: 最終結果の保存
+        # Step 6: 最終結果の保存（火山位置情報を追加）
         updated_disaster_data = {
             "area_kind_mapping": converted_data,
-            "volcano_coordinates": disaster_data.get("volcano_coordinates", {})
+            "volcano_coordinates": disaster_data.get("volcano_coordinates", {}),
         }
         
-        with open('wtp/data/disaster_data.json', 'w', encoding='utf-8') as f:
+        with open('wtp/json/disaster_data.json', 'w', encoding='utf-8') as f:
             json.dump(updated_disaster_data, f, ensure_ascii=False, indent=2)
         
         print("Processing completed successfully.")
