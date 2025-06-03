@@ -19,9 +19,9 @@
 import re
 import sys
 import os
-
-# Add the common directory to the path for importing location client
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+# パスを追加して直接実行にも対応
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import requests
 from common.clients.location_client import LocationClient
 from typing import Optional, Dict, List, Tuple
@@ -673,8 +673,7 @@ def main():
                             # LocationClientで座標解決
                             response, processing_time = location_client.get_location_info(
                                 latitude=latitude,
-                                longitude=longitude,
-                                source="disaster_alert_system"
+                                longitude=longitude
                             )
                             
                             if response and response.is_valid():
@@ -708,7 +707,7 @@ def main():
         with open('wtp/json/disaster_data.json', 'r', encoding='utf-8') as f:
             disaster_data = json.load(f)
             
-        child_codes = disaster_data.volcano_coordinates
+        child_codes = disaster_data.get('volcano_coordinates',{})
         for code in child_codes:
             
             # codeから座標を取得し、get_location_infoの引数として渡す
