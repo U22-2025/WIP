@@ -82,9 +82,6 @@ def click():
     # 天気情報を取得
     weather_result = client.get_weather()
     
-    # 住所情報を取得
-    address_info = get_address_from_coordinates(lat, lng)
-    
     # レスポンスを構築
     response_data = {
         'status': 'ok',
@@ -92,8 +89,7 @@ def click():
             'lat': lat,
             'lng': lng
         },
-        'weather': weather_result,
-        'address': address_info
+        'weather': weather_result
     }
     
     return jsonify(response_data)
@@ -203,14 +199,10 @@ def weekly_forecast():
                     'area_code': 'unknown'
                 }
     
-    # 住所情報を取得
-    address_info = get_address_from_coordinates(lat, lng)
-    
     return jsonify({
         'status': 'ok',
         'coordinates': {'lat': lat, 'lng': lng},
-        'weekly_forecast': weekly_data,
-        'address': address_info
+        'weekly_forecast': weekly_data
     })
 
 if __name__ == '__main__':

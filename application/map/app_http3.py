@@ -97,9 +97,6 @@ async def click():
     loop = asyncio.get_event_loop()
     weather_result = await loop.run_in_executor(None, client.get_weather)
     
-    # 住所情報を取得（非同期で実行、キャッシュ付き）
-    address_info = await loop.run_in_executor(None, get_address_from_coordinates_cached, str(lat), str(lng))
-    
     # レスポンスを構築
     response_data = {
         'status': 'ok',
@@ -107,8 +104,7 @@ async def click():
             'lat': lat,
             'lng': lng
         },
-        'weather': weather_result,
-        'address': address_info
+        'weather': weather_result
     }
     
     return jsonify(response_data)
@@ -228,14 +224,10 @@ async def weekly_forecast():
     
     weekly_data = await get_weekly_data()
     
-    # 住所情報を取得（非同期で実行、キャッシュ付き）
-    address_info = await loop.run_in_executor(None, get_address_from_coordinates_cached, str(lat), str(lng))
-    
     return jsonify({
         'status': 'ok',
         'coordinates': {'lat': lat, 'lng': lng},
-        'weekly_forecast': weekly_data,
-        'address': address_info
+        'weekly_forecast': weekly_data
     })
 
 if __name__ == '__main__':

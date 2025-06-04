@@ -345,9 +345,6 @@ class WeatherApp {
                 weather_code: '100',
                 temperature: '--',
                 precipitation_prob: '--'
-            },
-            address: {
-                full_address: `緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}`
             }
         };
 
@@ -368,14 +365,6 @@ class WeatherApp {
         document.getElementById('coordinates').textContent =
             `緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}`;
 
-        // 住所情報の処理
-        let areaInfo = 'エリア不明';
-        if (data.address && data.address.full_address) {
-            areaInfo = data.address.full_address;
-        } else if (data.address && data.address.city) {
-            areaInfo = `${data.address.prefecture || ''}${data.address.city || ''}`;
-        }
-        document.getElementById('area-code').textContent = areaInfo;
 
         // 天気情報の処理
         let weatherCode = '100';
@@ -452,13 +441,6 @@ class WeatherApp {
         const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
         const temp = temperature !== '--' ? `${temperature}°C` : '--°C';
 
-        let areaInfo = 'エリア不明';
-        if (data.address && data.address.full_address) {
-            areaInfo = data.address.full_address;
-        } else if (data.address && data.address.city) {
-            areaInfo = `${data.address.prefecture || ''}${data.address.city || ''}`;
-        }
-
         return `
             <div class="popup-content">
                 <div class="popup-weather-icon">
@@ -466,7 +448,6 @@ class WeatherApp {
                 </div>
                 <div class="popup-temp">${temp}</div>
                 <div class="popup-description">${weatherName}</div>
-                <div class="popup-area">${areaInfo}</div>
                 <div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div>
             </div>
         `;
