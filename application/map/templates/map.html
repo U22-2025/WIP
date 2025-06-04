@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>次世代気象情報マップ - リアルタイム天気予報</title>
+
+    <!-- 外部ライブラリ -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- PWA対応 -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="次世代Weather Map">
+
+    <!-- カスタムスタイル -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+    <!-- 天気エフェクト用オーバーレイ -->
+    <div class="weather-overlay"></div>
+
+    <!-- パーティクルシステム -->
+    <div class="particle-system" id="particle-system"></div>
+
+    <!-- 雷エフェクト -->
+    <div class="lightning-effect" id="lightning-effect"></div>
+
+    <div class="container">
+        <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="サイドバー切り替え">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <div class="sidebar" id="sidebar" role="complementary">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-cloud-sun"></i> 次世代 Weather Map</h1>
+                <p>地図をクリックして詳細な気象情報を取得</p>
+            </div>
+
+            <div class="weather-info">
+                <div id="no-data" class="no-data">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <p>地図上の任意の場所をクリックして<br>リアルタイム気象情報を表示します</p>
+                </div>
+
+                <div id="weather-content" style="display: none;">
+                    <div class="location-display">
+                        <div class="coordinates" id="coordinates">-</div>
+                        <div class="area-code" id="area-code">エリア情報を取得中...</div>
+                    </div>
+
+                    <div class="weather-main">
+                        <div class="weather-icon" id="weather-icon">
+                            <i class="fas fa-sun"></i>
+                        </div>
+                        <div class="temperature" id="temperature">--°</div>
+                        <div class="weather-description" id="weather-description">天気情報を取得中...</div>
+                    </div>
+
+                    <div class="weather-details">
+                        <div class="detail-grid">
+                            <div class="detail-item" tabindex="0">
+                                <div class="detail-icon"><i class="fas fa-umbrella"></i></div>
+                                <div class="detail-label">降水確率</div>
+                                <div class="detail-value" id="precipitation-prob">--</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 週間予報切り替えボタン -->
+                    <div class="forecast-toggle">
+                        <button id="show-weekly-btn" class="weekly-toggle-btn">
+                            <i class="fas fa-calendar-week"></i>
+                            週間予報を表示
+                        </button>
+                    </div>
+
+                    <!-- 週間予報セクション -->
+                    <div class="weekly-forecast" id="weekly-forecast" style="display: none;">
+                        <div class="weekly-header">
+                            <h3><i class="fas fa-calendar-week"></i> 7日間の天気予報</h3>
+                            <button id="hide-weekly-btn" class="weekly-close-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="weekly-content">
+                            <div id="weekly-loading" class="weekly-loading">
+                                <div class="loading-spinner-small"></div>
+                                <span>週間予報を取得中...</span>
+                            </div>
+                            <div id="weekly-data" class="weekly-data" style="display: none;">
+                                <!-- 週間予報データがここに動的に挿入されます -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="map" role="main" aria-label="気象情報地図"></div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay" role="status" aria-label="読み込み中">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">気象データを取得中...</div>
+    </div>
+
+    <!-- 外部ライブラリ -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <!-- カスタムスクリプト -->
+    <script src="{{ url_for('static', filename='js/weather-app.js') }}"></script>
+</body>
+
+</html>

@@ -96,7 +96,7 @@ class Client:
     
     def set_coordinates(self, latitude, longitude):
         """
-        座標を設定し、自動的にエリアコード解決を実行
+        座標を設定
         
         Args:
             latitude (float): 緯度
