@@ -5,12 +5,12 @@ Weather Serverプロキシと通信するクライアント
 
 import socket
 import time
+from datetime import datetime
 import sys
 import os
-from datetime import datetime
-
-from ..packet import WeatherRequest, WeatherResponse
-from .utils.packet_id_generator import PacketIDGenerator12Bit
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from common.packet import WeatherRequest, WeatherResponse
+from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 
 PIDG = PacketIDGenerator12Bit()
 

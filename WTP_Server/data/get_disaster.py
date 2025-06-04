@@ -49,18 +49,15 @@ def main():
             area_codes_data = json.load(f)
         
         # Step 5: エリアコード変換・統合処理
-        converted_data = processor.convert_disaster_keys_to_area_codes(
-            result_dict, area_codes_data, 'wtp/json/disaster_data.json'
+        converted_data, converted_report_times = processor.convert_disaster_keys_to_area_codes(
+            result_dict, area_codes_data
         )
         
-        # Step 6: 最終結果の保存
-        updated_disaster_data = {
-            "area_kind_mapping": converted_data,
-            "volcano_coordinates": result_dict.get("volcano_coordinates", {}),
-        }
+        # Step 6: 最終結果を新しいフォーマットで保存（ReportDateTime付き）
+        final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times)
         
         with open('wtp/json/disaster_data.json', 'w', encoding='utf-8') as f:
-            json.dump(updated_disaster_data, f, ensure_ascii=False, indent=2)
+            json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
         
         print("=== 災害情報取得完了 ===")
         print("Processing completed successfully.")

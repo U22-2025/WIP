@@ -182,10 +182,11 @@ class DisasterXMLProcessor(XMLBaseProcessor):
             url_list: 処理するXMLファイルURLリスト
             
         Returns:
-            統合された災害情報
+            統合された災害情報（ReportDateTime付き）
         """
         all_area_mapping = defaultdict(list)
         all_volcano_coords = defaultdict(list)
+        area_report_times = {}  # エリアコード別のReportDateTime格納
         
         # 各XMLファイルを順次処理
         for url in url_list:
@@ -193,25 +194,41 @@ class DisasterXMLProcessor(XMLBaseProcessor):
             if xml_data is None:
                 continue
             
+            # XMLからReportDateTimeを取得
+            root = self.parse_xml(xml_data, '<Report')
+            if root is None:
+                continue
+                
+            report_datetime = self.get_report_time(root)
+            
             result = self.process_xml_data(xml_data)
             area_mapping = result["area_kind_mapping"]
             volcano_coords = result["volcano_coordinates"]
             
             # エリア-災害種別マッピングの統合
             for area_code, kind_names in area_mapping.items():
+                # ReportDateTimeを保存（最新のものを保持）
+                if report_datetime:
+                    area_report_times[area_code] = report_datetime
+                
                 for kind_name in kind_names:
                     if kind_name not in all_area_mapping[area_code]:
                         all_area_mapping[area_code].append(kind_name)
             
             # 火山座標データの統合
             for area_code, coordinates in volcano_coords.items():
+                # ReportDateTimeを保存（最新のものを保持）
+                if report_datetime:
+                    area_report_times[area_code] = report_datetime
+                    
                 for coordinate in coordinates:
                     if coordinate not in all_volcano_coords[area_code]:
                         all_volcano_coords[area_code].append(coordinate)
         
         return {
             "area_kind_mapping": dict(all_area_mapping),
-            "volcano_coordinates": dict(all_volcano_coords)
+            "volcano_coordinates": dict(all_volcano_coords),
+            "area_report_times": area_report_times
         }
 
 
@@ -475,7 +492,7 @@ class DisasterDataProcessor:
         return json_output
     
     def convert_disaster_keys_to_area_codes(self, disaster_data: Dict, area_codes_data: Dict, 
-                                          output_json_path: Optional[str] = None) -> Dict:
+                                          output_json_path: Optional[str] = None) -> Tuple[Dict, Dict]:
         """
         災害データのエリアコード変換・無効データ除去・時間統合
         
@@ -485,15 +502,18 @@ class DisasterDataProcessor:
             output_json_path: 出力JSONファイルパス（オプション）
             
         Returns:
-            変換・統合済みの災害データ
+            (変換・統合済みの災害データ, 変換済みReportDateTime)のタプル
         """
         if 'area_kind_mapping' not in disaster_data:
             print("Warning: 'area_kind_mapping' key not found in disaster data")
-            return {}
+            return {}, {}
         
         area_kind_mapping = disaster_data['area_kind_mapping']
         volcano_coordinates = disaster_data.get('volcano_coordinates', {})
+        area_report_times = disaster_data.get('area_report_times', {})
+        
         converted_mapping = defaultdict(list)
+        converted_report_times = {}
         invalid_codes = []
         
         # 無効なエリアコードを特定
@@ -521,6 +541,10 @@ class DisasterDataProcessor:
                 if value not in converted_mapping[target_key]:
                     converted_mapping[target_key].append(value)
             
+            # ReportDateTimeの転送
+            if disaster_key in area_report_times:
+                converted_report_times[target_key] = area_report_times[disaster_key]
+            
             if not found_area_code:
                 print(f"No conversion found for: {disaster_key} (keeping original key)")
         
@@ -535,7 +559,33 @@ class DisasterDataProcessor:
         if output_json_path:
             self.xml_processor.save_json(consolidated_result, output_json_path)
         
-        return consolidated_result
+        return consolidated_result, converted_report_times
+    
+    def format_to_alert_style(self, area_kind_mapping: Dict[str, List[str]], area_report_times: Dict[str, str] = None) -> Dict[str, Dict[str, Any]]:
+        """
+        災害データを警報・注意報データと同じフォーマットに変換
+        
+        Args:
+            area_kind_mapping: エリアコード別の災害種別マッピング
+            area_report_times: エリアコード別のReportDateTime（オプション）
+            
+        Returns:
+            警報・注意報データと同じフォーマットの辞書
+        """
+        formatted_data = {}
+        
+        for area_code, disaster_list in area_kind_mapping.items():
+            # ReportDateTimeを取得（利用可能な場合）
+            report_datetime = ""
+            if area_report_times and area_code in area_report_times:
+                report_datetime = area_report_times[area_code]
+            
+            formatted_data[area_code] = {
+                "災害情報": disaster_list,
+                "disaster_reportdatetime": report_datetime
+            }
+        
+        return formatted_data
     
     def resolve_volcano_coordinates(self, disaster_data: Dict) -> Tuple[Dict, Dict]:
         """
@@ -624,43 +674,58 @@ def main():
         processor = DisasterDataProcessor()
         
         # Step 1: XMLファイルリストの取得
+        print("Step 1: Getting XML file list...")
         url_list = processor.get_disaster_xml_list()
+        print(f"Found {len(url_list)} URLs")
         if not url_list:
             print("No URLs found. Exiting.")
             return
         
         # Step 2: 災害情報の取得・統合
+        print("Step 2: Processing disaster info...")
         json_result = processor.get_disaster_info(url_list, 'wtp/json/disaster_data.json')
         print("\n=== Disaster Info Processing Complete ===")
         
         # Step 3: 火山座標の解決処理
+        print("Step 3: Resolving volcano coordinates...")
         result_dict = json.loads(json_result)
+        print(f"Area report times found: {len(result_dict.get('area_report_times', {}))}")
+        print(f"Sample area report times: {dict(list(result_dict.get('area_report_times', {}).items())[:3])}")
+        
         result_dict, volcano_locations = processor.resolve_volcano_coordinates(result_dict)
         
         print(f"\nVolcano Location Resolution Results: {json.dumps(volcano_locations, ensure_ascii=False, indent=2)}")
         
         # Step 4: エリアコードデータの読み込み
+        print("Step 4: Loading area codes...")
         with open('wtp/json/area_codes.json', 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         
         # Step 5: エリアコード変換・統合処理
-        converted_data = processor.convert_disaster_keys_to_area_codes(
-            result_dict, area_codes_data, 'wtp/json/disaster_data.json'
+        print("Step 5: Converting area codes...")
+        converted_data, converted_report_times = processor.convert_disaster_keys_to_area_codes(
+            result_dict, area_codes_data
+        )
+        print(f"Converted report times: {len(converted_report_times)}")
+        print(f"Sample converted report times: {dict(list(converted_report_times.items())[:3])}")
+        
+        # Step 6: ReportDateTimeを含む最終フォーマットに変換
+        print("Step 6: Formatting to alert style...")
+        final_data = processor.format_to_alert_style(
+            converted_data, converted_report_times
         )
         
-        # Step 6: 最終結果の保存
-        updated_disaster_data = {
-            "area_kind_mapping": converted_data,
-            "volcano_coordinates": result_dict.get("volcano_coordinates", {}),
-        }
-        
+        # Step 7: 最終結果の保存
+        print("Step 7: Saving final data...")
         with open('wtp/json/disaster_data.json', 'w', encoding='utf-8') as f:
-            json.dump(updated_disaster_data, f, ensure_ascii=False, indent=2)
+            json.dump(final_data, f, ensure_ascii=False, indent=2)
         
         print("Processing completed successfully.")
         
     except Exception as e:
         print(f"Error in main processing: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
