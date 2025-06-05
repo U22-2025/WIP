@@ -2,7 +2,7 @@
 -- Based on PACKET_STRUCTURE.md specification
 
 -- プロトコル定義
-local wtp_proto = Proto("WTP", "Weather Transmission Protocol")
+local wtp_proto = Proto("WTPv1", "Weather Transmission Protocol")
 
 -- 基本フィールドの定義（128ビット固定）
 local f_version = ProtoField.uint8("wtp.version", "Version", base.DEC, nil, 0x0F)

@@ -12,7 +12,7 @@ from datetime import datetime
 from ..packet import WeatherRequest, WeatherResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
-PIDG = PacketIDGenerator12Bit()
+
 
 
 class WeatherClient:
@@ -33,6 +33,7 @@ class WeatherClient:
         self.sock.settimeout(10.0)
         self.debug = debug
         self.VERSION = 1
+        self.PIDG = PacketIDGenerator12Bit()
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -159,7 +160,7 @@ class WeatherClient:
             request = WeatherRequest.create_by_coordinates(
                 latitude=latitude,
                 longitude=longitude,
-                packet_id=PIDG.next_id(),
+                packet_id=self.PIDG.next_id(),
                 weather=weather,
                 temperature=temperature,
                 precipitation=precipitation,
@@ -231,7 +232,7 @@ class WeatherClient:
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request = WeatherRequest.create_by_area_code(
                 area_code=area_code,
-                packet_id=PIDG.next_id(),
+                packet_id=self.PIDG.next_id(),
                 weather=weather,
                 temperature=temperature,
                 precipitation=precipitation,

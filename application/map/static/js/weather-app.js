@@ -303,7 +303,8 @@ class WeatherApp {
         this.showLoading();
 
         try {
-            const response = await fetch('/click', {
+            // 週間予報データを取得（今日の分も含まれる）
+            const weeklyResponse = await fetch('/weekly_forecast', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -314,23 +315,45 @@ class WeatherApp {
                 })
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            if (!weeklyResponse.ok) {
+                throw new Error(`HTTP error! status: ${weeklyResponse.status}`);
             }
 
-            const data = await response.json();
-            console.log('APIデータ:', data);
+            const weeklyData = await weeklyResponse.json();
+            console.log('週間予報データ:', weeklyData);
 
-            if (data.status === 'ok') {
-                this.displayWeatherInfo(data, lat, lng);
+            if (weeklyData.status === 'ok' && weeklyData.weekly_forecast && weeklyData.weekly_forecast.length > 0) {
+                // 今日の天気情報（day=0）を現在の天気として表示
+                const todayWeather = weeklyData.weekly_forecast[0];
+                const currentWeatherData = {
+                    status: 'ok',
+                    weather: {
+                        weather_code: todayWeather.weather_code,
+                        temperature: todayWeather.temperature,
+                        precipitation_prob: todayWeather.precipitation_prob,
+                        // その他のフィールドがあれば追加
+                        visibility: todayWeather.visibility || '--',
+                        wind_speed: todayWeather.wind_speed || '--',
+                        pressure: todayWeather.pressure || '--',
+                        humidity: todayWeather.humidity || '--',
+                        uv_index: todayWeather.uv_index || '--'
+                    }
+                };
+
+                // 現在の天気情報を表示
+                this.displayWeatherInfo(currentWeatherData, lat, lng);
                 if (this.currentMarker) {
-                    this.currentMarker.bindPopup(this.createPopupContent(data, lat, lng)).openPopup();
+                    this.currentMarker.bindPopup(this.createPopupContent(currentWeatherData, lat, lng)).openPopup();
                 }
+
+                // 週間予報を表示
+                this.displayWeeklyForecastData(weeklyData.weekly_forecast);
+
             } else {
-                throw new Error('無効なAPIレスポンス');
+                throw new Error('無効な週間予報レスポンス');
             }
         } catch (error) {
-            console.error('API呼び出しエラー:', error);
+            console.error('週間予報取得エラー:', error);
             this.handleAPIError(lat, lng);
         } finally {
             this.hideLoading();
@@ -704,7 +727,71 @@ class WeatherApp {
         }
     }
 
-    // 週間予報データ表示
+    // 週間予報データを直接表示（クリック時用）
+    displayWeeklyForecastData(weeklyData) {
+        const weeklyForecast = document.getElementById('weekly-forecast');
+        const weeklyDataContainer = document.getElementById('weekly-data');
+
+        if (!weeklyForecast || !weeklyDataContainer) return;
+
+        // 週間予報パネルを表示
+        weeklyForecast.style.display = 'block';
+        this.isWeeklyForecastVisible = true;
+
+        // 日本語の曜日マッピング
+        const dayNames = {
+            'Monday': '月',
+            'Tuesday': '火',
+            'Wednesday': '水',
+            'Thursday': '木',
+            'Friday': '金',
+            'Saturday': '土',
+            'Sunday': '日'
+        };
+
+        // 週間予報データを表示
+        let weeklyHTML = '';
+        weeklyData.forEach((dayData, index) => {
+            const weatherCode = dayData.weather_code ? dayData.weather_code.toString() : '100';
+            const iconClass = this.weatherIconMap[weatherCode] || 'fas fa-sun';
+            const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
+            const temperature = dayData.temperature !== undefined && dayData.temperature !== '--' ?
+                `${dayData.temperature}°C` : '--°C';
+            const precipitation = dayData.precipitation_prob !== undefined && dayData.precipitation_prob !== '--' ?
+                `${dayData.precipitation_prob}%` : '--';
+
+            // 日付処理
+            const date = new Date(dayData.date);
+            const dayName = dayNames[dayData.day_of_week] || dayData.day_of_week.substring(0, 1);
+            const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+
+            // 今日かどうかを判定
+            const isToday = index === 0;
+            const dayClass = isToday ? 'weekly-day today' : 'weekly-day';
+
+            weeklyHTML += `
+                <div class="${dayClass}">
+                    <div class="day-info">
+                        <div class="day-name">${isToday ? '今日' : dayName}</div>
+                        <div class="day-date">${dateStr}</div>
+                    </div>
+                    <div class="day-weather">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <div class="day-temp">${temperature}</div>
+                    <div class="day-precipitation">
+                        <i class="fas fa-umbrella"></i>
+                        ${precipitation}
+                    </div>
+                </div>
+            `;
+        });
+
+        weeklyDataContainer.innerHTML = weeklyHTML;
+        weeklyDataContainer.style.display = 'block';
+    }
+
+    // 週間予報データ表示（従来のメソッド）
     displayWeeklyForecast(weeklyData) {
         const weeklyDataContainer = document.getElementById('weekly-data');
         if (!weeklyDataContainer) return;
