@@ -12,6 +12,9 @@ class WeatherApp {
         this.currentLat = null;
         this.currentLng = null;
         this.isWeeklyForecastVisible = false;
+        this.currentChart = null;
+        this.currentChartType = 'temperature';
+        this.weeklyDataForChart = null;
 
         // 天気アイコンマッピング
         this.weatherIconMap = {
@@ -346,7 +349,7 @@ class WeatherApp {
                     this.currentMarker.bindPopup(this.createPopupContent(currentWeatherData, lat, lng)).openPopup();
                 }
 
-                // 週間予報を表示
+                // 週間予報を自動的に表示
                 this.displayWeeklyForecastData(weeklyData.weekly_forecast);
 
             } else {
@@ -375,61 +378,27 @@ class WeatherApp {
         if (this.currentMarker) {
             this.currentMarker.bindPopup(this.createPopupContent(sampleData, lat, lng)).openPopup();
         }
-
-        document.getElementById('weather-description').textContent = '情報取得に失敗しました';
     }
 
     // 天気情報表示
     displayWeatherInfo(data, lat, lng) {
+        console.log('天気情報表示開始:', data);
+
         document.getElementById('no-data').style.display = 'none';
         document.getElementById('weather-content').style.display = 'block';
 
-        // 座標情報
-        document.getElementById('coordinates').textContent =
-            `緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}`;
-
-
         // 天気情報の処理
         let weatherCode = '100';
-        let temperature = '--';
-        let precipitation = '--';
 
         if (data.weather) {
-            if (data.weather.weather_code !== undefined) {
+            if (data.weather.weather_code !== undefined && data.weather.weather_code !== null) {
                 weatherCode = data.weather.weather_code.toString();
-            }
-            if (data.weather.temperature !== undefined) {
-                temperature = data.weather.temperature;
-            }
-            if (data.weather.precipitation_prob !== undefined) {
-                precipitation = data.weather.precipitation_prob;
-            } else if (data.weather.precipitation !== undefined) {
-                precipitation = data.weather.precipitation;
             }
         }
 
-        // メイン天気情報
-        const weatherIcon = document.getElementById('weather-icon');
-        const iconClass = this.weatherIconMap[weatherCode] || 'fas fa-sun';
-        const animationClass = this.weatherIconClassMap[weatherCode] || '';
-
-        weatherIcon.innerHTML = `<i class="${iconClass}"></i>`;
-        weatherIcon.className = `weather-icon ${animationClass}`;
-
-        // 気温表示
-        document.getElementById('temperature').textContent = `${temperature}°C`;
-
-        // 天気説明
-        document.getElementById('weather-description').textContent =
-            this.weatherCodeMap[weatherCode] || '天気情報不明';
-
-        // 詳細情報
-        document.getElementById('precipitation-prob').textContent = `${precipitation}%`;
-        this.updateDetailItem('visibility', (data.weather && data.weather.visibility) || '--');
-        this.updateDetailItem('wind-speed', (data.weather && data.weather.wind_speed) ? `${data.weather.wind_speed}m/s` : '--');
-        this.updateDetailItem('pressure', (data.weather && data.weather.pressure) ? `${data.weather.pressure}hPa` : '--');
-        this.updateDetailItem('humidity', (data.weather && data.weather.humidity) ? `${data.weather.humidity}%` : '--');
-        this.updateDetailItem('uv-index', (data.weather && data.weather.uv_index) || '--');
+        console.log('処理された天気データ:', {
+            weatherCode
+        });
 
         // テーマとエフェクトを適用
         const weatherTheme = this.getWeatherTheme(weatherCode);
@@ -450,6 +419,7 @@ class WeatherApp {
     createPopupContent(data, lat, lng) {
         let weatherCode = '100';
         let temperature = '--';
+        let precipitation = '--';
 
         if (data.weather) {
             if (data.weather.weather_code !== undefined) {
@@ -458,19 +428,33 @@ class WeatherApp {
             if (data.weather.temperature !== undefined) {
                 temperature = data.weather.temperature;
             }
+            if (data.weather.precipitation_prob !== undefined && data.weather.precipitation_prob !== null) {
+                precipitation = data.weather.precipitation_prob;
+            }
         }
 
         const iconClass = this.weatherIconMap[weatherCode] || 'fas fa-sun';
         const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
         const temp = temperature !== '--' ? `${temperature}°C` : '--°C';
+        const precipitationText = precipitation !== '--' && precipitation !== null && precipitation !== undefined ?
+            `${precipitation}%` : '--';
 
         return `
             <div class="popup-content">
                 <div class="popup-weather-icon">
                     <i class="${iconClass}"></i>
                 </div>
-                <div class="popup-temp">${temp}</div>
                 <div class="popup-description">${weatherName}</div>
+                <div class="popup-weather-data">
+                    <div class="popup-temp-container">
+                        <div class="popup-temp">${temp}</div>
+                        <div class="popup-temp-label">気温</div>
+                    </div>
+                    <div class="popup-precipitation-container">
+                        <div class="popup-precipitation">${precipitationText}</div>
+                        <div class="popup-precipitation-label">降水確率</div>
+                    </div>
+                </div>
                 <div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div>
             </div>
         `;
@@ -626,6 +610,14 @@ class WeatherApp {
             }
         });
 
+        // スイッチ切り替えイベント
+        const tabSwitch = document.getElementById('viewSwitch');
+        if (tabSwitch) {
+            tabSwitch.addEventListener('change', (e) => {
+                this.switchTab(e.target.checked ? 'chart' : 'list');
+            });
+        }
+
         // キーボードイベント
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -731,12 +723,21 @@ class WeatherApp {
     displayWeeklyForecastData(weeklyData) {
         const weeklyForecast = document.getElementById('weekly-forecast');
         const weeklyDataContainer = document.getElementById('weekly-data');
+        const weeklyLoading = document.getElementById('weekly-loading');
 
         if (!weeklyForecast || !weeklyDataContainer) return;
 
         // 週間予報パネルを表示
         weeklyForecast.style.display = 'block';
         this.isWeeklyForecastVisible = true;
+
+        // ローディング表示を非表示にする
+        if (weeklyLoading) {
+            weeklyLoading.style.display = 'none';
+        }
+
+        // グラフ用データを保存
+        this.weeklyDataForChart = weeklyData;
 
         // 日本語の曜日マッピング
         const dayNames = {
@@ -757,7 +758,9 @@ class WeatherApp {
             const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
             const temperature = dayData.temperature !== undefined && dayData.temperature !== '--' ?
                 `${dayData.temperature}°C` : '--°C';
-            const precipitation = dayData.precipitation_prob !== undefined && dayData.precipitation_prob !== '--' ?
+            const precipitation = dayData.precipitation_prob !== undefined &&
+                dayData.precipitation_prob !== '--' &&
+                dayData.precipitation_prob !== null ?
                 `${dayData.precipitation_prob}%` : '--';
 
             // 日付処理
@@ -791,6 +794,335 @@ class WeatherApp {
         weeklyDataContainer.style.display = 'block';
     }
 
+    // タブ切り替え
+    switchTab(tabType) {
+        console.log('タブ切り替え:', tabType);
+
+        // タブボタンのアクティブ状態を更新
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tab === tabType) {
+                btn.classList.add('active');
+            }
+        });
+
+        // タブコンテンツの表示切り替え
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+        });
+
+        const targetContent = document.getElementById(`weekly-${tabType}-view`);
+        if (targetContent) {
+            targetContent.classList.add('active');
+
+            // グラフタブが選択された場合、複合グラフを描画
+            if (tabType === 'chart' && this.weeklyDataForChart) {
+                setTimeout(() => {
+                    this.drawChart('combined');
+                }, 100);
+            }
+        }
+    }
+
+    // チャートタイプ切り替え
+    switchChartType(chartType) {
+        console.log('チャートタイプ切り替え:', chartType);
+
+        this.currentChartType = chartType;
+
+        // チャートタブボタンのアクティブ状態を更新
+        const chartTabBtns = document.querySelectorAll('.chart-tab-btn');
+        chartTabBtns.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.chart === chartType) {
+                btn.classList.add('active');
+            }
+        });
+
+        // グラフを再描画
+        if (this.weeklyDataForChart) {
+            this.drawChart(chartType);
+        }
+    }
+
+    // グラフ描画
+    drawChart(chartType) {
+        if (!this.weeklyDataForChart || !Chart) {
+            console.warn('グラフデータまたはChart.jsが利用できません');
+            return;
+        }
+
+        const canvas = document.getElementById('weather-chart');
+        if (!canvas) {
+            console.warn('グラフキャンバスが見つかりません');
+            return;
+        }
+
+        // 既存のチャートを破棄
+        if (this.currentChart) {
+            this.currentChart.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+
+        // データ準備
+        const labels = this.weeklyDataForChart.map((day, index) => {
+            if (index === 0) return '今日';
+            const date = new Date(day.date);
+            return `${date.getMonth() + 1}/${date.getDate()}`;
+        });
+
+        const temperatures = this.weeklyDataForChart.map(day =>
+            day.temperature !== undefined && day.temperature !== '--' ? parseFloat(day.temperature) : null
+        );
+
+        const precipitations = this.weeklyDataForChart.map(day =>
+            day.precipitation_prob !== undefined && day.precipitation_prob !== '--' && day.precipitation_prob !== null ?
+            parseFloat(day.precipitation_prob) : 0
+        );
+
+        // チャート設定
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                            size: 12
+                        },
+                        usePointStyle: true,
+                        padding: 15
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#2d3436',
+                    bodyColor: '#636e72',
+                    borderColor: 'rgba(102, 126, 234, 0.2)',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: true
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                            size: 11
+                        },
+                        color: '#636e72'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(182, 190, 195, 0.3)',
+                        lineWidth: 1
+                    },
+                    ticks: {
+                        font: {
+                            family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                            size: 11
+                        },
+                        color: '#636e72'
+                    }
+                }
+            }
+        };
+
+        let chartConfig;
+
+        switch (chartType) {
+            case 'temperature':
+                chartConfig = {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '気温 (°C)',
+                            data: temperatures,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#667eea',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        ...commonOptions,
+                        scales: {
+                            ...commonOptions.scales,
+                            y: {
+                                ...commonOptions.scales.y,
+                                title: {
+                                    display: true,
+                                    text: '気温 (°C)',
+                                    font: {
+                                        family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                                        size: 12
+                                    },
+                                    color: '#636e72'
+                                }
+                            }
+                        }
+                    }
+                };
+                break;
+
+            case 'precipitation':
+                chartConfig = {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '降水確率 (%)',
+                            data: precipitations,
+                            backgroundColor: precipitations.map(val =>
+                                val >= 70 ? 'rgba(231, 76, 60, 0.8)' :
+                                val >= 50 ? 'rgba(230, 126, 34, 0.8)' :
+                                val >= 30 ? 'rgba(241, 196, 15, 0.8)' :
+                                'rgba(52, 152, 219, 0.8)'
+                            ),
+                            borderColor: precipitations.map(val =>
+                                val >= 70 ? '#e74c3c' :
+                                val >= 50 ? '#e67e22' :
+                                val >= 30 ? '#f1c40f' :
+                                '#3498db'
+                            ),
+                            borderWidth: 2,
+                            borderRadius: 4,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: {
+                        ...commonOptions,
+                        scales: {
+                            ...commonOptions.scales,
+                            y: {
+                                ...commonOptions.scales.y,
+                                min: 0,
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: '降水確率 (%)',
+                                    font: {
+                                        family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                                        size: 12
+                                    },
+                                    color: '#636e72'
+                                }
+                            }
+                        }
+                    }
+                };
+                break;
+
+            case 'combined':
+                chartConfig = {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                                label: '気温 (°C)',
+                                data: temperatures,
+                                borderColor: '#667eea',
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                borderWidth: 3,
+                                fill: false,
+                                tension: 0.4,
+                                pointBackgroundColor: '#667eea',
+                                pointBorderColor: '#ffffff',
+                                pointBorderWidth: 2,
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: '降水確率 (%)',
+                                data: precipitations,
+                                type: 'bar',
+                                backgroundColor: 'rgba(79, 172, 254, 0.6)',
+                                borderColor: '#4facfe',
+                                borderWidth: 1,
+                                borderRadius: 3,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        ...commonOptions,
+                        scales: {
+                            x: commonOptions.scales.x,
+                            y: {
+                                ...commonOptions.scales.y,
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: '気温 (°C)',
+                                    font: {
+                                        family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                                        size: 12
+                                    },
+                                    color: '#636e72'
+                                }
+                            },
+                            y1: {
+                                ...commonOptions.scales.y,
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                min: 0,
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: '降水確率 (%)',
+                                    font: {
+                                        family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                                        size: 12
+                                    },
+                                    color: '#636e72'
+                                },
+                                grid: {
+                                    drawOnChartArea: false
+                                }
+                            }
+                        }
+                    }
+                };
+                break;
+
+            default:
+                console.warn('不明なチャートタイプ:', chartType);
+                return;
+        }
+
+        // チャートを作成
+        try {
+            this.currentChart = new Chart(ctx, chartConfig);
+            console.log('グラフ描画完了:', chartType);
+        } catch (error) {
+            console.error('グラフ描画エラー:', error);
+        }
+    }
+
     // 週間予報データ表示（従来のメソッド）
     displayWeeklyForecast(weeklyData) {
         const weeklyDataContainer = document.getElementById('weekly-data');
@@ -815,7 +1147,9 @@ class WeatherApp {
             const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
             const temperature = dayData.temperature !== undefined && dayData.temperature !== '--' ?
                 `${dayData.temperature}°C` : '--°C';
-            const precipitation = dayData.precipitation_prob !== undefined && dayData.precipitation_prob !== '--' ?
+            const precipitation = dayData.precipitation_prob !== undefined &&
+                dayData.precipitation_prob !== '--' &&
+                dayData.precipitation_prob !== null ?
                 `${dayData.precipitation_prob}%` : '--';
 
             // 日付処理

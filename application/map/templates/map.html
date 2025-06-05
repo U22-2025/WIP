@@ -49,35 +49,6 @@
                 </div>
 
                 <div id="weather-content" style="display: none;">
-                    <div class="location-display">
-                        <div class="coordinates" id="coordinates">-</div>
-                    </div>
-
-                    <div class="weather-main">
-                        <div class="weather-icon" id="weather-icon">
-                            <i class="fas fa-sun"></i>
-                        </div>
-                        <div class="temperature" id="temperature">--°</div>
-                        <div class="weather-description" id="weather-description">天気情報を取得中...</div>
-                    </div>
-
-                    <div class="weather-details">
-                        <div class="detail-grid">
-                            <div class="detail-item" tabindex="0">
-                                <div class="detail-icon"><i class="fas fa-umbrella"></i></div>
-                                <div class="detail-label">降水確率</div>
-                                <div class="detail-value" id="precipitation-prob">--</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 週間予報切り替えボタン -->
-                    <div class="forecast-toggle">
-                        <button id="show-weekly-btn" class="weekly-toggle-btn">
-                            <i class="fas fa-calendar-week"></i>
-                            週間予報を表示
-                        </button>
-                    </div>
 
                     <!-- 週間予報セクション -->
                     <div class="weekly-forecast" id="weekly-forecast" style="display: none;">
@@ -87,13 +58,39 @@
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
+
+                        <!-- タブナビゲーション（スイッチ形式） -->
+                        <div class="weekly-tabs">
+                            <div class="tab-switch">
+                                <input type="checkbox" id="viewSwitch" class="tab-switch-input">
+                                <label for="viewSwitch" class="tab-switch-label">
+                                    <span class="tab-switch-text">リスト</span>
+                                    <span class="tab-switch-text">グラフ</span>
+                                    <span class="tab-switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="weekly-content">
                             <div id="weekly-loading" class="weekly-loading">
                                 <div class="loading-spinner-small"></div>
                                 <span>週間予報を取得中...</span>
                             </div>
-                            <div id="weekly-data" class="weekly-data" style="display: none;">
-                                <!-- 週間予報データがここに動的に挿入されます -->
+
+                            <!-- リスト表示 -->
+                            <div id="weekly-list-view" class="tab-content active">
+                                <div id="weekly-data" class="weekly-data" style="display: none;">
+                                    <!-- 週間予報データがここに動的に挿入されます -->
+                                </div>
+                            </div>
+
+                            <!-- グラフ表示 -->
+                            <div id="weekly-chart-view" class="tab-content">
+                                <div class="chart-container">
+                                    <div class="chart-wrapper">
+                                        <canvas id="weather-chart" width="300" height="250"></canvas>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -111,6 +108,7 @@
 
     <!-- 外部ライブラリ -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- カスタムスクリプト -->
     <script src="{{ url_for('static', filename='js/weather-app.js') }}"></script>

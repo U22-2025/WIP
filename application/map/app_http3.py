@@ -16,10 +16,12 @@ from WTP_Client import Client
 
 app = Quart(__name__)
 
-# Quartアプリケーションの設定
-app.config['PROVIDE_AUTOMATIC_OPTIONS'] = True
-app.config['JSON_AS_ASCII'] = False
-app.config['JSON_SORT_KEYS'] = False
+# Quartアプリケーションの設定（アプリ初期化後に設定）
+app.config.update({
+    'PROVIDE_AUTOMATIC_OPTIONS': True,
+    'JSON_AS_ASCII': False,
+    'JSON_SORT_KEYS': False
+})
 
 client = Client(debug=True)
 

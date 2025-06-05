@@ -132,13 +132,30 @@ def weekly_forecast():
     if lat is None or lng is None:
         return jsonify({'status': 'error', 'message': '緯度と経度が必要です'}), 400
     
-    # 座標を設定
+    # day=0（今日）を座標から取得してエリアコードを取得
     client.set_coordinates(lat, lng)
     
-    def get_daily_weather(day):
-        """指定された日の天気データを取得する関数"""
+    try:
+        today_weather = client.get_weather(day=0)
+        if not today_weather or 'area_code' not in today_weather:
+            return jsonify({'status': 'error', 'message': '今日の天気データまたはエリアコードの取得に失敗しました'}), 500
+        
+        area_code = today_weather['area_code']
+        
+        # 今日のデータに日付情報を追加
+        today_date = datetime.now()
+        today_weather['date'] = today_date.strftime('%Y-%m-%d')
+        today_weather['day_of_week'] = today_date.strftime('%A')
+        today_weather['day_number'] = 0
+        
+    except Exception as e:
+        print(f"Error getting today's weather: {e}")
+        return jsonify({'status': 'error', 'message': f'今日の天気データの取得に失敗しました: {str(e)}'}), 500
+    
+    def get_daily_weather_by_area_code(day):
+        """エリアコードを使って指定された日の天気データを取得する関数（day=1~6用）"""
         try:
-            weather_result = client.get_weather(day=day)
+            weather_result = client.get_weather_by_area_code(area_code=area_code, day=day)
             if weather_result:
                 # 日付情報を追加
                 date = datetime.now() + timedelta(days=day)
@@ -156,10 +173,10 @@ def weekly_forecast():
                     'weather_code': '100',
                     'temperature': '--',
                     'precipitation_prob': '--',
-                    'area_code': 'unknown'
+                    'area_code': area_code
                 }
         except Exception as e:
-            print(f"Error getting weather for day {day}: {e}")
+            print(f"Error getting weather for day {day} with area code {area_code}: {e}")
             # エラーの場合はダミーデータを返す
             date = datetime.now() + timedelta(days=day)
             return {
@@ -169,15 +186,15 @@ def weekly_forecast():
                 'weather_code': '100',
                 'temperature': '--',
                 'precipitation_prob': '--',
-                'area_code': 'unknown'
+                'area_code': area_code
             }
     
-    # 並列で一週間分の天気データを取得
-    weekly_data = [None] * 7  # 結果を格納するリストを初期化
+    # 明日以降（day=1~6）を並列でエリアコードから取得
+    weekly_data = [today_weather] + [None] * 6  # 今日のデータ + 6日分のNone
     
-    with ThreadPoolExecutor(max_workers=7) as executor:
-        # 全ての日について並列でタスクを送信
-        future_to_day = {executor.submit(get_daily_weather, day): day for day in range(7)}
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        # day=1~6について並列でタスクを送信
+        future_to_day = {executor.submit(get_daily_weather_by_area_code, day): day for day in range(1, 7)}
         
         # 結果を取得して正しい順序でリストに格納
         for future in as_completed(future_to_day):
@@ -196,12 +213,13 @@ def weekly_forecast():
                     'weather_code': '100',
                     'temperature': '--',
                     'precipitation_prob': '--',
-                    'area_code': 'unknown'
+                    'area_code': area_code
                 }
     
     return jsonify({
         'status': 'ok',
         'coordinates': {'lat': lat, 'lng': lng},
+        'area_code': area_code,
         'weekly_forecast': weekly_data
     })
 
