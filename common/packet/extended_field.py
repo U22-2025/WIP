@@ -74,6 +74,7 @@ class ExtendedField:
         """
         self._data: Dict[str, Any] = {}
         self._observers: List[Callable[[], None]] = []
+        self.flag: int = 1  # 拡張フィールドフラグ（1=有効、0=無効）
         
         # 初期データを設定
         if data:
@@ -130,6 +131,26 @@ class ExtendedField:
         """全てのフィールドをクリア"""
         self._data.clear()
         self._notify_observers()
+    
+    def remove(self, key: str) -> None:
+        """
+        指定されたキーのフィールドを削除
+        
+        Args:
+            key: 削除するキー
+        """
+        if key in self._data:
+            del self._data[key]
+            self._notify_observers()
+    
+    def is_empty(self) -> bool:
+        """
+        拡張フィールドが空かどうかを確認
+        
+        Returns:
+            拡張フィールドが空の場合True
+        """
+        return len(self._data) == 0
     
     def contains(self, key: str) -> bool:
         """
@@ -257,13 +278,13 @@ class ExtendedField:
                         coord_value = float(single_value)
                         # 10^6倍して整数化
                         int_value = int(coord_value * ExtendedFieldType.COORDINATE_SCALE)
-                        value_bytes = int_value.to_bytes(4, byteorder='big', signed=True)
+                        value_bytes = int_value.to_bytes(4, byteorder='little', signed=True)
                     elif isinstance(single_value, (int, float)):
                         # その他の数値
                         if isinstance(single_value, float):
                             value_bytes = str(single_value).encode('utf-8')
                         else:
-                            value_bytes = single_value.to_bytes((single_value.bit_length() + 7) // 8 or 1, byteorder='big')
+                            value_bytes = single_value.to_bytes((single_value.bit_length() + 7) // 8 or 1, byteorder='little')
                     else:
                         raise BitFieldError(f"サポートされていない値の型: {type(single_value)}")
                     
@@ -274,7 +295,7 @@ class ExtendedField:
                     
                     # ヘッダー構造（バイト長を上位、キーを下位）
                     header = ((bytes_needed & self.MAX_EXTENDED_LENGTH) << self.EXTENDED_HEADER_KEY) | (key_int & self.MAX_EXTENDED_KEY)
-                    value_bits = int.from_bytes(value_bytes, byteorder='big')
+                    value_bits = int.from_bytes(value_bytes, byteorder='little')
                     
                     # 値を上位ビットに、ヘッダーを下位ビットに配置
                     value_bit_width = bytes_needed * 8
@@ -333,14 +354,14 @@ class ExtendedField:
                 value_bits = extract_bits(bitstr, current_pos + cls.EXTENDED_HEADER_TOTAL, bits_length)
                 
                 try:
-                    value_bytes = value_bits.to_bytes(bytes_length, byteorder='big')
+                    value_bytes = value_bits.to_bytes(bytes_length, byteorder='little')
                     if key in ExtendedFieldType.STRING_LIST_FIELDS or key == ExtendedFieldType.SOURCE:
                         # 文字列の末尾の余分な文字を削除
                         value = value_bytes.decode('utf-8').rstrip('\x00#')
                     elif key in ExtendedFieldType.COORDINATE_FIELDS:
                         # 4バイト符号付き整数として復元し、10^6で割って浮動小数点数に戻す
                         if bytes_length == 4:
-                            int_value = int.from_bytes(value_bytes, byteorder='big', signed=True)
+                            int_value = int.from_bytes(value_bytes, byteorder='little', signed=True)
                             value = int_value / ExtendedFieldType.COORDINATE_SCALE
                         else:
                             # 互換性のため、従来の文字列形式もサポート
@@ -348,7 +369,7 @@ class ExtendedField:
                                 decoded_str = value_bytes.decode('utf-8').rstrip('\x00#')
                                 value = float(decoded_str)
                             except (UnicodeDecodeError, ValueError):
-                                value = int.from_bytes(value_bytes, byteorder='big')
+                                value = int.from_bytes(value_bytes, byteorder='little')
                     else:
                         value = value_bits
                 except UnicodeDecodeError:
@@ -362,6 +383,10 @@ class ExtendedField:
             # 結果を辞書に変換
             converted_dict = cls._extended_field_to_dict(result)
             instance._data = converted_dict
+            
+            # 拡張フィールドが空の場合はフラグを0に設定
+            if instance.is_empty():
+                instance.flag = 0
             
             return instance
             
