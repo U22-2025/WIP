@@ -203,6 +203,18 @@ class WeatherApp {
         }
     }
 
+    // CSS変数を取得するヘルパー関数（フォールバック付き）
+    getCSSVariable(variableName) {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+        // フォールバック値を設定
+        const fallbacks = {
+            '--chart-text-primary': '#2d3436',
+            '--chart-text-secondary': '#636e72',
+            '--chart-grid-color': 'rgba(182, 190, 195, 0.3)'
+        };
+        return value || fallbacks[variableName] || '#2d3436';
+    }
+
     // 天気コードを読み込む
     async loadWeatherCodes() {
         try {
@@ -333,7 +345,7 @@ class WeatherApp {
                     weather: {
                         weather_code: todayWeather.weather_code,
                         temperature: todayWeather.temperature,
-                        precipitation_prob: todayWeather.precipitation_prob,
+                        precipitation: todayWeather.precipitation,
                         // その他のフィールドがあれば追加
                         visibility: todayWeather.visibility || '--',
                         wind_speed: todayWeather.wind_speed || '--',
@@ -370,7 +382,7 @@ class WeatherApp {
             weather: {
                 weather_code: '100',
                 temperature: '--',
-                precipitation_prob: '--'
+                precipitation: '--'
             }
         };
 
@@ -428,8 +440,8 @@ class WeatherApp {
             if (data.weather.temperature !== undefined) {
                 temperature = data.weather.temperature;
             }
-            if (data.weather.precipitation_prob !== undefined && data.weather.precipitation_prob !== null) {
-                precipitation = data.weather.precipitation_prob;
+            if (data.weather.precipitation !== undefined && data.weather.precipitation !== null) {
+                precipitation = data.weather.precipitation;
             }
         }
 
@@ -758,10 +770,10 @@ class WeatherApp {
             const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
             const temperature = dayData.temperature !== undefined && dayData.temperature !== '--' ?
                 `${dayData.temperature}°C` : '--°C';
-            const precipitation = dayData.precipitation_prob !== undefined &&
-                dayData.precipitation_prob !== '--' &&
-                dayData.precipitation_prob !== null ?
-                `${dayData.precipitation_prob}%` : '--';
+            const precipitation = dayData.precipitation !== undefined &&
+                dayData.precipitation !== '--' &&
+                dayData.precipitation !== null ?
+                `${dayData.precipitation}%` : '--';
 
             // 日付処理
             const date = new Date(dayData.date);
@@ -879,11 +891,11 @@ class WeatherApp {
         );
 
         const precipitations = this.weeklyDataForChart.map(day =>
-            day.precipitation_prob !== undefined && day.precipitation_prob !== '--' && day.precipitation_prob !== null ?
-            parseFloat(day.precipitation_prob) : 0
+            day.precipitation !== undefined && day.precipitation !== '--' && day.precipitation !== null ?
+            parseFloat(day.precipitation) : 0
         );
 
-        // チャート設定
+        // チャート設定（CSS変数を使用）
         const commonOptions = {
             responsive: true,
             maintainAspectRatio: false,
@@ -897,7 +909,8 @@ class WeatherApp {
                             size: 12
                         },
                         usePointStyle: true,
-                        padding: 15
+                        padding: 15,
+                        color: '#2d3436'
                     }
                 },
                 tooltip: {
@@ -977,7 +990,7 @@ class WeatherApp {
                                         family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                         size: 12
                                     },
-                                    color: '#636e72'
+                                    color: this.getCSSVariable('--chart-text-secondary')
                                 }
                             }
                         }
@@ -1025,7 +1038,7 @@ class WeatherApp {
                                         family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                         size: 12
                                     },
-                                    color: '#636e72'
+                                    color: this.getCSSVariable('--chart-text-secondary')
                                 }
                             }
                         }
@@ -1081,7 +1094,7 @@ class WeatherApp {
                                         family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                         size: 12
                                     },
-                                    color: '#636e72'
+                                    color: this.getCSSVariable('--chart-text-secondary')
                                 }
                             },
                             y1: {
@@ -1098,7 +1111,7 @@ class WeatherApp {
                                         family: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                                         size: 12
                                     },
-                                    color: '#636e72'
+                                    color: this.getCSSVariable('--chart-text-secondary')
                                 },
                                 grid: {
                                     drawOnChartArea: false
@@ -1147,10 +1160,10 @@ class WeatherApp {
             const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
             const temperature = dayData.temperature !== undefined && dayData.temperature !== '--' ?
                 `${dayData.temperature}°C` : '--°C';
-            const precipitation = dayData.precipitation_prob !== undefined &&
-                dayData.precipitation_prob !== '--' &&
-                dayData.precipitation_prob !== null ?
-                `${dayData.precipitation_prob}%` : '--';
+            const precipitation = dayData.precipitation !== undefined &&
+                dayData.precipitation !== '--' &&
+                dayData.precipitation !== null ?
+                `${dayData.precipitation}%` : '--';
 
             // 日付処理
             const date = new Date(dayData.date);

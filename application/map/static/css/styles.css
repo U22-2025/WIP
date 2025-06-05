@@ -45,6 +45,10 @@
     --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.15);
     --shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.2);
     --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.37);
+    /* グラフ用の色 */
+    --chart-text-primary: #2d3436;
+    --chart-text-secondary: #636e72;
+    --chart-grid-color: rgba(182, 190, 195, 0.3);
     /* 天気連動効果 */
     --weather-overlay: transparent;
     --particle-color: #fff;
@@ -1255,12 +1259,12 @@ button:focus,
     text-align: center;
     font-size: var(--font-base);
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
     transition: all var(--transition-normal);
     z-index: 2;
     position: relative;
     padding: var(--space-xs);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    text-shadow: none;
 }
 
 .tab-switch-slider {

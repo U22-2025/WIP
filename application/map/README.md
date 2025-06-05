@@ -131,7 +131,7 @@ fetch('/click', {
   "weather": {
     "weather_code": "100",
     "temperature": "22",
-    "precipitation_prob": "10",
+    "precipitation": "10",
     "area_code": "130010"
   },
   "address": {
