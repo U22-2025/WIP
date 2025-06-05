@@ -16,9 +16,9 @@ class WeatherConstants:
     DEFAULT_TEMPERATURE = 100 # デフォルト温度（0℃）
     
     # 降水確率
-    MIN_PRECIPITATION = 0     # 最小降水確率
-    MAX_PRECIPITATION = 100   # 最大降水確率
-    DEFAULT_PRECIPITATION = 0 # デフォルト降水確率
+    MIN_PRECIPITATION_PROB = 0     # 最小降水確率
+    MAX_PRECIPITATION_PROB = 100   # 最大降水確率
+    DEFAULT_PRECIPITATION_PROB = 0 # デフォルト降水確率
     
     # 天気コード
     DEFAULT_WEATHER_CODE = 0  # デフォルト天気コード

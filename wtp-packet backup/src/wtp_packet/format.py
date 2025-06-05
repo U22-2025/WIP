@@ -28,7 +28,7 @@ class Format(FormatExtended):
     - type:             17-19bit (3ビット)
     - weather_flag:     20bit    (1ビット)
     - temperature_flag: 21bit    (1ビット)
-    - pops_flag:        22bit    (1ビット)
+    - pop_flag:        22bit    (1ビット)
     - alert_flag:       23bit    (1ビット)
     - disaster_flag:    24bit    (1ビット)
     - ex_flag:          25bit    (1ビット)

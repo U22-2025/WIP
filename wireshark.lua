@@ -21,7 +21,7 @@ local f_type = ProtoField.uint8("wtp.type", "Type", base.DEC, {
 -- フラグフィールド
 local f_weather_flag = ProtoField.bool("wtp.weather_flag", "Weather Flag", 8, nil, 0x08)
 local f_temperature_flag = ProtoField.bool("wtp.temperature_flag", "Temperature Flag", 8, nil, 0x10)
-local f_pops_flag = ProtoField.bool("wtp.pops_flag", "PoPs Flag", 8, nil, 0x20)
+local f_pop_flag = ProtoField.bool("wtp.pop_flag", "pop Flag", 8, nil, 0x20)
 local f_alert_flag = ProtoField.bool("wtp.alert_flag", "Alert Flag", 8, nil, 0x40)
 local f_disaster_flag = ProtoField.bool("wtp.disaster_flag", "Disaster Flag", 8, nil, 0x80)
 local f_ex_flag = ProtoField.bool("wtp.ex_flag", "Extension Flag", 8, nil, 0x01)
@@ -48,7 +48,7 @@ local f_ext_data = ProtoField.string("wtp.ext_data", "Extension Data")
 -- プロトコルフィールドの登録
 wtp_proto.fields = {
     f_version, f_packet_id, f_type,
-    f_weather_flag, f_temperature_flag, f_pops_flag, f_alert_flag, f_disaster_flag,
+    f_weather_flag, f_temperature_flag, f_pop_flag, f_alert_flag, f_disaster_flag,
     f_ex_flag, f_day, f_reserved,
     f_timestamp, f_area_code, f_checksum,
     f_ext_record, f_ext_key, f_ext_length, f_ext_data
@@ -126,7 +126,7 @@ function wtp_proto.dissector(buffer, pinfo, tree)
     local type_val = extract_bits_le(buffer(0, 4), 16, 3)
     local weather_flag = extract_bits_le(buffer(0, 4), 19, 1)
     local temperature_flag = extract_bits_le(buffer(0, 4), 20, 1)
-    local pops_flag = extract_bits_le(buffer(0, 4), 21, 1)
+    local pop_flag = extract_bits_le(buffer(0, 4), 21, 1)
     local alert_flag = extract_bits_le(buffer(0, 4), 22, 1)
     local disaster_flag = extract_bits_le(buffer(0, 4), 23, 1)
     local ex_flag = extract_bits_le(buffer(0, 4), 24, 1)
@@ -141,7 +141,7 @@ function wtp_proto.dissector(buffer, pinfo, tree)
     local flag_tree = control_tree:add(buffer(2, 2), "Flags")
     flag_tree:add_le(f_weather_flag, buffer(2, 1)):append_text(" (" .. weather_flag .. ")")
     flag_tree:add_le(f_temperature_flag, buffer(2, 1)):append_text(" (" .. temperature_flag .. ")")
-    flag_tree:add_le(f_pops_flag, buffer(2, 1)):append_text(" (" .. pops_flag .. ")")
+    flag_tree:add_le(f_pop_flag, buffer(2, 1)):append_text(" (" .. pop_flag .. ")")
     flag_tree:add_le(f_alert_flag, buffer(2, 1)):append_text(" (" .. alert_flag .. ")")
     flag_tree:add_le(f_disaster_flag, buffer(2, 1)):append_text(" (" .. disaster_flag .. ")")
     flag_tree:add_le(f_ex_flag, buffer(3, 1)):append_text(" (" .. ex_flag .. ")")

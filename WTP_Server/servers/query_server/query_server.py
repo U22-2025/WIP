@@ -126,7 +126,7 @@ class QueryServer(BaseServer):
         
         # フラグのチェック（少なくとも1つは必要）
         if not any([request.weather_flag, request.temperature_flag, 
-                   request.pops_flag, request.alert_flag, request.disaster_flag]):
+                   request.pop_flag, request.alert_flag, request.disaster_flag]):
             return False, "No data flags set"
         
         return True, None
@@ -161,7 +161,7 @@ class QueryServer(BaseServer):
             timestamp=int(time.time()),
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
-            pops_flag=request.pops_flag,
+            pop_flag=request.pop_flag,
             alert_flag=request.alert_flag,
             disaster_flag=request.disaster_flag,
             ex_flag=0  # 初期値は0
@@ -185,7 +185,7 @@ class QueryServer(BaseServer):
             area_code=request.area_code,
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
-            pops_flag=request.pops_flag,
+            pop_flag=request.pop_flag,
             alert_flag=request.alert_flag,
             disaster_flag=request.disaster_flag,
             day=request.day
@@ -215,15 +215,15 @@ class QueryServer(BaseServer):
             else:
                 response.temperature = 100  # 0℃
             
-            if request.pops_flag and 'precipitation' in weather_data:
+            if request.pop_flag and 'precipitation_prob' in weather_data:
                 # 文字列を整数に変換（リストの場合は最初の要素）
-                pops_value = weather_data['precipitation']
-                if isinstance(pops_value, list):
-                    response.pops = int(pops_value[0]) if pops_value else 0
+                pop_value = weather_data['precipitation_prob']
+                if isinstance(pop_value, list):
+                    response.pop = int(pop_value[0]) if pop_value else 0
                 else:
-                    response.pops = int(pops_value) if pops_value else 0
+                    response.pop = int(pop_value) if pop_value else 0
             else:
-                response.pops = 0
+                response.pop = 0
             
             # alert/disasterを追加（ExtendedFieldのsetメソッドを使用）
             if request.alert_flag and 'warnings' in weather_data:
@@ -239,8 +239,8 @@ class QueryServer(BaseServer):
                 response.weather_code = 0
             if request.temperature_flag:
                 response.temperature = 100  # 0℃
-            if request.pops_flag:
-                response.pops = 0
+            if request.pop_flag:
+                response.pop = 0
         
         # 最終確認
         if self.debug:
@@ -265,7 +265,7 @@ class QueryServer(BaseServer):
         print("\nFlags:")
         print(f"Weather: {parsed.weather_flag}")
         print(f"Temperature: {parsed.temperature_flag}")
-        print(f"PoPs: {parsed.pops_flag}")
+        print(f"pop: {parsed.pop_flag}")
         print(f"Alert: {parsed.alert_flag}")
         print(f"Disaster: {parsed.disaster_flag}")
         print(f"Extended Field Flag: {parsed.ex_flag}")
@@ -297,8 +297,8 @@ class QueryServer(BaseServer):
             if resp_obj.temperature_flag:
                 actual_temp = resp_obj.temperature - 100
                 print(f"Temperature: {resp_obj.temperature} ({actual_temp}℃)")
-            if resp_obj.pops_flag:
-                print(f"Precipitation: {resp_obj.pops}%")
+            if resp_obj.pop_flag:
+                print(f"precipitation_prob: {resp_obj.pop}%")
             if hasattr(resp_obj, 'ex_field') and resp_obj.ex_field:
                 print(f"Extended Fields: {resp_obj.ex_field}")
         except:

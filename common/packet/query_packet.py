@@ -24,7 +24,7 @@ class QueryRequest(Request):
         packet_id: int,
         weather: bool = True,
         temperature: bool = True,
-        precipitation: bool = True,
+        precipitation_prob: bool = True,
         alerts: bool = False,
         disaster: bool = False,
         day: int = 0,
@@ -39,7 +39,7 @@ class QueryRequest(Request):
             packet_id: パケットID
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
-            precipitation: 降水確率データを取得するか
+            precipitation_prob: 降水確率データを取得するか
             alerts: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日
@@ -76,7 +76,7 @@ class QueryRequest(Request):
             type=2,  # 気象データリクエスト
             weather_flag=1 if weather else 0,
             temperature_flag=1 if temperature else 0,
-            pops_flag=1 if precipitation else 0,
+            pop_flag=1 if precipitation_prob else 0,
             alert_flag=1 if alerts else 0,
             disaster_flag=1 if disaster else 0,
             ex_flag=1 if ex_field else 0,
@@ -110,7 +110,7 @@ class QueryRequest(Request):
             packet_id=location_response.packet_id,
             weather=bool(location_response.weather_flag),
             temperature=bool(location_response.temperature_flag),
-            precipitation=bool(location_response.pops_flag),
+            precipitation_prob=bool(location_response.pop_flag),
             alerts=bool(location_response.alert_flag),
             disaster=bool(location_response.disaster_flag),
             day=location_response.day,
@@ -147,7 +147,7 @@ class QueryRequest(Request):
             packet_id=weather_request.packet_id,
             weather=bool(weather_request.weather_flag),
             temperature=bool(weather_request.temperature_flag),
-            precipitation=bool(weather_request.pops_flag),
+            precipitation_prob=bool(weather_request.pop_flag),
             alerts=bool(weather_request.alert_flag),
             disaster=bool(weather_request.disaster_flag),
             day=weather_request.day,
@@ -178,8 +178,8 @@ class QueryRequest(Request):
             types.append('weather')
         if self.temperature_flag:
             types.append('temperature')
-        if self.pops_flag:
-            types.append('precipitation')
+        if self.pop_flag:
+            types.append('precipitation_prob')
         if self.alert_flag:
             types.append('alerts')
         if self.disaster_flag:
@@ -217,7 +217,7 @@ class QueryResponse(Response):
             >>> weather_data = {
             ...     'weather': 100,
             ...     'temperature': 25,
-            ...     'precipitation': 30,
+            ...     'precipitation_prob': 30,
             ...     'warnings': ['大雨警報'],
             ...     'disaster_info': ['土砂災害警戒']
             ... }
@@ -235,7 +235,7 @@ class QueryResponse(Response):
         # 気象データを設定（デフォルト値で初期化）
         weather_code = 0
         temperature = 100  # 0℃ (実際の温度 + 100)
-        pops = 0
+        pop = 0
         
         if weather_data:
             # 天気コード
@@ -256,12 +256,12 @@ class QueryResponse(Response):
                 temperature = actual_temp + 100  # パケットフォーマット変換
             
             # 降水確率
-            if request.pops_flag and 'precipitation' in weather_data:
-                pops_value = weather_data['precipitation']
-                if isinstance(pops_value, list):
-                    pops = int(pops_value[0]) if pops_value else 0
+            if request.pop_flag and 'precipitation_prob' in weather_data:
+                pop_value = weather_data['precipitation_prob']
+                if isinstance(pop_value, list):
+                    pop = int(pop_value[0]) if pop_value else 0
                 else:
-                    pops = int(pops_value) if pops_value else 0
+                    pop = int(pop_value) if pop_value else 0
             
             # 警報・災害情報を拡張フィールドに追加
             if request.alert_flag and 'warnings' in weather_data:
@@ -276,7 +276,7 @@ class QueryResponse(Response):
             type=3,  # 気象データレスポンス
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
-            pops_flag=request.pops_flag,
+            pop_flag=request.pop_flag,
             alert_flag=request.alert_flag,
             disaster_flag=request.disaster_flag,
             ex_flag=1 if ex_field else 0,
@@ -285,7 +285,7 @@ class QueryResponse(Response):
             area_code=request.area_code,
             weather_code=weather_code,
             temperature=temperature,
-            pops=pops,
+            pop=pop,
             ex_field=ex_field if ex_field else None
         )
     
@@ -322,15 +322,15 @@ class QueryResponse(Response):
             return self.weather_code
         return None
     
-    def get_precipitation_percentage(self) -> Optional[int]:
+    def get_precipitation(self) -> Optional[int]:
         """
         降水確率を取得
         
         Returns:
             降水確率（パーセント）またはNone
         """
-        if self.pops_flag and hasattr(self, 'pops'):
-            return self.pops
+        if self.pop_flag and hasattr(self, 'pop'):
+            return self.pop
         return None
     
     def get_alerts(self) -> List[str]:
@@ -377,8 +377,8 @@ class QueryResponse(Response):
         if self.temperature_flag:
             data['temperature'] = self.get_temperature_celsius()
         
-        if self.pops_flag:
-            data['precipitation'] = self.get_precipitation_percentage()
+        if self.pop_flag:
+            data['precipitation_prob'] = self.get_precipitation()
         
         # 拡張データ
         alerts = self.get_alerts()
@@ -412,7 +412,7 @@ class QueryResponse(Response):
             has_data = True
         if self.temperature_flag and self.get_temperature_celsius() is not None:
             has_data = True
-        if self.pops_flag and self.get_precipitation_percentage() is not None:
+        if self.pop_flag and self.get_precipitation() is not None:
             has_data = True
         if self.alert_flag and self.get_alerts():
             has_data = True

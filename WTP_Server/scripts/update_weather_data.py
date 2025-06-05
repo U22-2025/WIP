@@ -1,20 +1,14 @@
-import redis
-from redis.commands.json.path import Path
-from redis.client import Pipeline
 import time
 import requests
 import json
 import concurrent.futures
 import threading
-db_list = [
-    {
-        "host": "localhost",
-        "port": 6379,
-        "db": 0
-    }
-]
+import sys
+import os
 
-r = redis.Redis(host='localhost', port=6379, db=0)
+# パスを追加してredis_managerをインポート
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'data'))
+from redis_manager import create_redis_manager
 
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {}
@@ -107,7 +101,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 pop = []
                 for p in pop_areas:
                     if p.get("area", {}).get("code") == code:
-                        pop = p.get("pops", [])
+                        pop = p.get("pop", [])
                         pop = [v for i, v in enumerate(pop) if i not in removed_indices]
                         break
                 
@@ -158,8 +152,8 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                                     add_codes = sub_area.get("weatherCodes", [])
                                     weather_codes += add_codes[len(weather_codes):week_days]
                                 if len(pop) < week_days:
-                                    add_pops = sub_area.get("pops", [])
-                                    pop += add_pops[len(pop):week_days]
+                                    add_pop = sub_area.get("pop", [])
+                                    pop += add_pop[len(pop):week_days]
                                 break
                 
                 area_data = {
@@ -168,7 +162,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                     "area_name": area_name,
                     "weather": weather_codes,
                     "temperature": temps,
-                    "precipitation": pop,
+                    "precipitation_prob": pop,
                     "warnings": [],
                     "disaster_info": []
                 }
@@ -204,15 +198,15 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 print("全データをRedisに一括保存します")
                 redis_start_time = time.time()
             
-            # 各エリアのデータをRedisに一括保存
-            pipe = r.pipeline()
-            for code, data in output.items():
-                pipe.json().set(f"weather:{code}", ".", data)
-            pipe.execute()
+            # Redis管理クラスを使用して一括保存
+            redis_manager = create_redis_manager(debug=debug)
+            result = redis_manager.bulk_update_weather_data(output)
+            redis_manager.close()
             
             if debug:
                 redis_end_time = time.time()
                 print(f"Redisへの一括保存完了: 所要時間 {redis_end_time - redis_start_time:.2f}秒")
+                print(f"更新件数: {result['updated']}, エラー件数: {result['errors']}")
         except Exception as e:
             print(f"Redisへの一括保存エラー: {e}")
             if debug:
@@ -249,17 +243,44 @@ def update_redis_weather_data(debug=False):
 
 
 def redis_set_data(key, data):
-    r.json().set(f"weather:{key}", ".", data)
+    """
+    個別の気象データをRedisに保存
+    
+    Args:
+        key: エリアコード
+        data: 気象データ
+    """
+    try:
+        redis_manager = create_redis_manager()
+        redis_manager.update_weather_data(key, data)
+        redis_manager.close()
+    except Exception as e:
+        print(f"Redis保存エラー ({key}): {e}")
 
 def redis_get_data(key):
-    r = redis.Redis(host='localhost', port=6379, db=0)
-    return r.json().get(f"weather:{key}", ".")
+    """
+    個別の気象データをRedisから取得
+    
+    Args:
+        key: エリアコード
+        
+    Returns:
+        気象データ、存在しない場合はNone
+    """
+    try:
+        redis_manager = create_redis_manager()
+        data = redis_manager.get_weather_data(key)
+        redis_manager.close()
+        return data
+    except Exception as e:
+        print(f"Redis取得エラー ({key}): {e}")
+        return None
 
 
 
 if __name__ == "__main__":
     area_codes = []
-    with open("wtp/data/area_codes.json", "r", encoding="utf-8") as f:
+    with open("wtp/json/area_codes.json", "r", encoding="utf-8") as f:
         area_codes = list(json.load(f).keys())
     # Redisにのみ保存（test.jsonへの保存を削除）
     get_data(area_codes, debug=True, save_to_redis=True)

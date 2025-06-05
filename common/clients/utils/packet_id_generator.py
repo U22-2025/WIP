@@ -15,4 +15,4 @@ class PacketIDGenerator12Bit:
     def next_id_bytes(self) -> bytes:
         """2バイトに12ビット分を格納して返す（上位4ビットは0埋め）"""
         pid = self.next_id()
-        return pid.to_bytes(2, byteorder='big')
+        return pid.to_bytes(2, byteorder='little')

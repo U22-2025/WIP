@@ -24,7 +24,7 @@ def traditional_usage_example():
         timestamp=int(datetime.now().timestamp()),
         weather_flag=1,
         temperature_flag=1,
-        pops_flag=1,
+        pop_flag=1,
         alert_flag=0,
         disaster_flag=0,
         day=0,
@@ -38,7 +38,7 @@ def traditional_usage_example():
     print("従来のRequest作成:")
     print(f"  コード行数: 15行")
     print(f"  Type: {request.type}")
-    print(f"  Flags: {request.weather_flag}, {request.temperature_flag}, {request.pops_flag}")
+    print(f"  Flags: {request.weather_flag}, {request.temperature_flag}, {request.pop_flag}")
     print(f"  Coordinates: {request.ex_field.get('latitude')}, {request.ex_field.get('longitude')}")
     
     # エリアコードから天気情報を取得（従来方式）
@@ -50,7 +50,7 @@ def traditional_usage_example():
         area_code="011000",
         weather_flag=1,
         temperature_flag=1,
-        pops_flag=1,
+        pop_flag=1,
         alert_flag=1,
         disaster_flag=0,
         day=0
@@ -73,7 +73,7 @@ def modern_usage_example():
         packet_id=PIDG.next_id(),
         weather=True,
         temperature=True,
-        precipitation=True
+        precipitation_prob=True
     )
     
     print("新しいWeatherRequest作成:")
@@ -87,7 +87,7 @@ def modern_usage_example():
         packet_id=PIDG.next_id(),
         weather=True,
         temperature=True,
-        precipitation=True,
+        precipitation_prob=True,
         alerts=True
     )
     
@@ -110,13 +110,13 @@ def response_processing_example():
         timestamp=int(datetime.now().timestamp()),
         weather_flag=1,
         temperature_flag=1,
-        pops_flag=1,
+        pop_flag=1,
         alert_flag=1,
         disaster_flag=0,
         ex_flag=1,
         weather_code=100,
         temperature=125,  # 25℃ + 100
-        pops=30,
+        pop=30,
         ex_field={
             'alert': ['大雨警報', '洪水注意報']
         }
@@ -126,7 +126,7 @@ def response_processing_example():
     print("従来のレスポンス処理:")
     print(f"  気温: {sample_response.temperature - 100}℃ (手動変換)")
     print(f"  天気コード: {sample_response.weather_code}")
-    print(f"  降水確率: {sample_response.pops}%")
+    print(f"  降水確率: {sample_response.pop}%")
     if hasattr(sample_response, 'ex_field') and sample_response.ex_field:
         alerts = sample_response.ex_field.get('alert', [])
         print(f"  警報: {alerts}")
@@ -138,7 +138,7 @@ def response_processing_example():
     print(f"\n新しいWeatherResponse処理:")
     print(f"  気温: {weather_resp.get_temperature_celsius()}℃ (自動変換)")
     print(f"  天気コード: {weather_resp.get_weather_code()}")
-    print(f"  降水確率: {weather_resp.get_precipitation_percentage()}%")
+    print(f"  降水確率: {weather_resp.get_precipitation_prob()}%")
     print(f"  警報: {weather_resp.get_alerts()}")
     print(f"  成功判定: {weather_resp.is_success()}")
     print(f"  全データ: {weather_resp.get_weather_data()}")
@@ -158,7 +158,7 @@ def client_integration_example():
             packet_id=PIDG.next_id(),
             weather=options.get('weather', True),
             temperature=options.get('temperature', True),
-            precipitation=options.get('precipitation', True),
+            precipitation_prob=options.get('precipitation_prob', True),
             alerts=options.get('alerts', False),
             disaster=options.get('disaster', False)
         )

@@ -207,7 +207,7 @@ class LocationServer(BaseServer):
             type=1,  # Response type
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
-            pops_flag=request.pops_flag,
+            pop_flag=request.pop_flag,
             alert_flag=request.alert_flag,
             disaster_flag=request.disaster_flag,
             ex_flag=1,
