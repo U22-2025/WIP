@@ -2,27 +2,17 @@
 chcp 65001 > nul
 echo WTPサーバー起動中...
 
-REM 現在のディレクトリを保存
 set CURRENT_DIR=%cd%
-
-REM PYTHONPATHを設定（wtpの親ディレクトリを追加）
 set PYTHONPATH=%CURRENT_DIR%;%PYTHONPATH%
 
-echo 全Serverを起動中...
-@REM start "Servers" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --debug"
+wt ^
+  new-tab cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --weather --debug" ^
+  ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --query --debug" ^
+  ; focus-pane -t 0 ^
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --location --debug" ^
+  ; focus-pane -t 1 ^
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR%\application\map && conda activate U22-2025 && python app.py"
 
-echo Location Serverを起動中
-start "Location Server" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --location --debug"
-
-echo Weather Serverを起動中
-start "Weather Server" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --weather --debug"
-
-echo Query Serverを起動中
-start "Query Server" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --query --debug"
-
-echo MAP Serverを起動中
-start "MAP Server" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && cd application/map/ &&  python app.py"
-
+start http://localhost:5000
 
 echo すべてのサーバーが起動しました。
-pause
