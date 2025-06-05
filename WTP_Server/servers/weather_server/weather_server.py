@@ -322,6 +322,26 @@ class WeatherServer(BaseServer):
                     print(f"  Forwarding weather response to {dest_addr}")
                     print(f"  Weather data: {response.get_weather_data()}")
                     print(f"  Packet size: {len(data)} bytes")
+                    print(f"  Source info stored: {source_info}")
+                
+                # source情報を変数に格納したので拡張フィールドから削除
+                if hasattr(response, 'ex_field') and response.ex_field:
+                    if self.debug:
+                        print(f"  Removing source from extended field")
+                        print(f"  Extended field before: {response.ex_field.to_dict()}")
+                    
+                    # sourceフィールドを削除
+                    response.ex_field.remove('source')
+                    
+                    # 拡張フィールドが空になった場合はフラグを0にする
+                    if response.ex_field.is_empty():
+                        if self.debug:
+                            print(f"  Extended field is now empty, setting flag to 0")
+                        response.ex_field.flag = 0
+                    
+                    if self.debug:
+                        print(f"  Extended field after: {response.ex_field.to_dict()}")
+                        print(f"  Extended field flag: {response.ex_field.flag}")
                 
                 # WeatherResponseに変換
                 weather_response = WeatherResponse.from_query_response(response)
