@@ -202,6 +202,7 @@ class FormatBase:
             
             # 必要なバイト数を計算
             required_bytes = (bitstr.bit_length() + 7) // 8
+            min_packet_size = self.get_min_packet_size()
             
             # リトルエンディアンでバイト列に変換
             if required_bytes > 0:
@@ -209,9 +210,9 @@ class FormatBase:
             else:
                 bytes_data = b''
             
-            # 最低32バイトにパディング（右側を0で埋める）
-            if len(bytes_data) < 32:
-                bytes_data = bytes_data + b'\x00' * (32 - len(bytes_data))
+            # パケットタイプに応じた最小サイズまでパディング
+            if len(bytes_data) < min_packet_size:
+                bytes_data = bytes_data + b'\x00' * (min_packet_size - len(bytes_data))
             
             # チェックサムを計算して設定
             self._checksum = self.calc_checksum12(bytes_data)
@@ -367,6 +368,16 @@ class FormatBase:
         except Exception as e:
             raise BitFieldError(f"ビット列の解析中にエラーが発生しました: {e}")
 
+    def get_min_packet_size(self) -> int:
+        """
+        パケットの最小サイズを取得する（子クラスでオーバーライド可能）
+        
+        Returns:
+            最小パケットサイズ（バイト）
+        """
+        # 基本フィールド（128ビット = 16バイト）
+        return 16
+
     def to_bits(self) -> int:
         """
         全フィールドをビット列に変換する
@@ -409,7 +420,6 @@ class FormatBase:
         ビット列をバイト列に変換する
         
         基本フィールドをバイト列に変換します。
-        バイト列の長さは最低32バイト（256ビット）です。
         チェックサムを計算して格納します。
         
         Returns:
@@ -426,6 +436,7 @@ class FormatBase:
             
             # 必要なバイト数を計算
             required_bytes = (bitstr.bit_length() + 7) // 8
+            min_packet_size = self.get_min_packet_size()
             
             # リトルエンディアンでバイト列に変換
             if required_bytes > 0:
@@ -433,9 +444,9 @@ class FormatBase:
             else:
                 bytes_data = b''
             
-            # 最低32バイトにパディング（右側を0で埋める）
-            if len(bytes_data) < 32:
-                bytes_data = bytes_data + b'\x00' * (32 - len(bytes_data))
+            # パケットタイプに応じた最小サイズまでパディング
+            if len(bytes_data) < min_packet_size:
+                bytes_data = bytes_data + b'\x00' * (min_packet_size - len(bytes_data))
             
             # チェックサムを計算して設定
             self.checksum = self.calc_checksum12(bytes_data)
@@ -450,9 +461,9 @@ class FormatBase:
             else:
                 final_bytes = b''
             
-            # 最低32バイトにパディング
-            if len(final_bytes) < 32:
-                final_bytes = final_bytes + b'\x00' * (32 - len(final_bytes))
+            # パケットタイプに応じた最小サイズまでパディング
+            if len(final_bytes) < min_packet_size:
+                final_bytes = final_bytes + b'\x00' * (min_packet_size - len(final_bytes))
             
             return final_bytes
             
