@@ -205,6 +205,46 @@ class ExtendedField:
                 # オブザーバーのエラーは無視
                 pass
     
+    @property
+    def alert(self) -> Union[List[str], str, None]:
+        return self.get('alert')
+
+    @alert.setter
+    def alert(self, value: Union[List[str], str]) -> None:
+        self.set('alert', value)
+
+    @property
+    def disaster(self) -> Union[List[str], str, None]:
+        return self.get('disaster')
+
+    @disaster.setter
+    def disaster(self, value: Union[List[str], str]) -> None:
+        self.set('disaster', value)
+
+    @property
+    def latitude(self) -> Union[float, None]:
+        return self.get('latitude')
+
+    @latitude.setter
+    def latitude(self, value: float) -> None:
+        self.set('latitude', value)
+
+    @property
+    def longitude(self) -> Union[float, None]:
+        return self.get('longitude')
+
+    @longitude.setter
+    def longitude(self, value: float) -> None:
+        self.set('longitude', value)
+
+    @property
+    def source(self) -> Union[str, None]:
+        return self.get('source')
+
+    @source.setter
+    def source(self, value: str) -> None:
+        self.set('source', value)
+
     def _validate_value(self, key: str, value: Any) -> None:
         """
         値の検証
@@ -222,8 +262,13 @@ class ExtendedField:
                 for item in value:
                     if not isinstance(item, str):
                         raise ValueError(f"{key}の要素は文字列である必要があります")
+                # リスト内の空文字列を削除
+                value[:] = [item for item in value if item.strip()]
             elif not isinstance(value, str):
                 raise ValueError(f"{key}は文字列またはリストである必要があります")
+            # 単一の文字列の場合も空文字列は設定しない
+            if isinstance(value, str) and not value.strip():
+                raise ValueError(f"{key}は空文字列であってはなりません")
         
         # 座標フィールドの検証
         elif key == 'latitude':
@@ -242,6 +287,8 @@ class ExtendedField:
         elif key == 'source':
             if not isinstance(value, str):
                 raise ValueError("sourceは文字列である必要があります")
+            if not value.strip():
+                raise ValueError("sourceは空文字列であってはなりません")
     
     def to_bits(self) -> int:
         """
