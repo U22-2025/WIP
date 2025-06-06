@@ -483,6 +483,11 @@ class FormatBase:
         Returns:
             生成されたインスタンス
         """
+        # バイト列の長さが最小パケットサイズより短い場合はエラー
+        min_packet_size = cls().get_min_packet_size()
+        if len(data) < min_packet_size:
+            raise BitFieldError(f"バイト列の長さが最小パケットサイズ {min_packet_size} バイトより短いです。受け取った長さ: {len(data)} バイト")
+
         # リトルエンディアンからビット列に変換
         bitstr = int.from_bytes(data, byteorder='little')
         
@@ -494,6 +499,10 @@ class FormatBase:
         
         # from_bitsを手動で呼び出す（_total_bitsが設定された後）
         instance.from_bits(bitstr)
+        
+        # チェックサムを検証
+        if not instance.verify_checksum12(data):
+            raise BitFieldError("チェックサム検証に失敗しました。パケットが破損しているか、改ざんされています。")
         
         return instance
         
