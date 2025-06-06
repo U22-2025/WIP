@@ -65,7 +65,7 @@ class QueryServer(BaseServer):
         self._init_components()
         
         if self.debug:
-            print(f"\n[Query Server] Configuration:")
+            print(f"\n[クエリサーバー] 設定:")
             print(f"  Server: {host}:{port}")
             print(f"  Protocol Version: {self.version}")
             print(f"  Max Workers: {max_workers}")
@@ -143,13 +143,13 @@ class QueryServer(BaseServer):
         """
         # デバッグ：リクエストの状態を確認
         if self.debug:
-            print(f"\n[QueryServer] Creating response for request:")
+            print(f"\n[クエリサーバー] リクエストに対するレスポンスを作成中:")
             print(f"  Area code: {request.area_code}")
             print(f"  ex_flag: {request.ex_flag}")
             if hasattr(request, 'ex_field'):
                 print(f"  ex_field: {request.ex_field}")
             else:
-                print("  NO ex_field attribute!")
+                print("  ex_field 属性がありません！")
         
         # レスポンスオブジェクトを作成
         response = Response(
@@ -175,10 +175,10 @@ class QueryServer(BaseServer):
                 response.ex_field.set('source', source)
                 response.ex_flag = 1  # ex_fieldがあるのでフラグを1に
                 if self.debug:
-                    print(f"[QueryServer] Copied source to response: {source}")
+                    print(f"[クエリサーバー] 送信元をレスポンスにコピーしました: {source}")
         else:
             if self.debug:
-                print("[QueryServer] WARNING: No ex_field in request!")
+                print("[クエリサーバー] 警告: リクエストに ex_field がありません！")
         
         # 気象データを取得
         weather_data = self.weather_manager.get_weather_data(
@@ -244,7 +244,7 @@ class QueryServer(BaseServer):
         
         # 最終確認
         if self.debug:
-            print(f"[QueryServer] Final response state:")
+            print(f"[クエリサーバー] 最終レスポンス状態:")
             print(f"  ex_flag: {response.ex_flag}")
             print(f"  ex_field: {response.ex_field}")
         
@@ -255,7 +255,7 @@ class QueryServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== RECEIVED REQUEST PACKET ===")
+        print("\n=== 受信リクエストパケット ===")
         print(f"Total Length: {len(data)} bytes")
         print("\nHeader:")
         print(f"Version: {parsed.version}")
@@ -274,7 +274,7 @@ class QueryServer(BaseServer):
         if hasattr(parsed, 'ex_field'):
             print(f"\nExtended Field content: {parsed.ex_field}")
         else:
-            print("\nNo ex_field attribute in parsed request!")
+            print("\nパースされたリクエストに ex_field 属性がありません！")
         
         print("\nRaw Packet:")
         print(self._hex_dump(data))
@@ -285,7 +285,7 @@ class QueryServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== SENDING RESPONSE PACKET ===")
+        print("\n=== 送信レスポンスパケット ===")
         print(f"Total Length: {len(response)} bytes")
         
         # レスポンスオブジェクトの詳細情報を表示

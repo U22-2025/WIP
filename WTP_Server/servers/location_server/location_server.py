@@ -104,7 +104,7 @@ class LocationServer(BaseServer):
         self.weather_server_ip = "127.0.0.1"  # Default to localhost
         
         if self.debug:
-            print(f"\n[Location Server] Configuration:")
+            print(f"\n[位置情報サーバー] 設定:")
             print(f"  Server: {host}:{port}")
             print(f"  Database: {self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}")
             print(f"  Cache size: {max_cache_size}")
@@ -132,10 +132,10 @@ class LocationServer(BaseServer):
             self.connection_pool.putconn(conn)
             
             if self.debug:
-                print(f"Successfully connected to database {self.DB_NAME}")
+                print(f"データベース {self.DB_NAME} に正常に接続しました")
             
         except (Exception, psycopg2.Error) as error:
-            print(f"Error connecting to PostgreSQL database: {error}")
+            print(f"PostgreSQL データベースへの接続エラー: {error}")
             if hasattr(self, 'connection_pool'):
                 self.connection_pool.closeall()
             raise SystemExit(1)
@@ -144,7 +144,7 @@ class LocationServer(BaseServer):
         """キャッシュを初期化"""
         self.cache = LRUCache(maxsize=max_cache_size)
         if self.debug:
-            print(f"Initialized LRU cache with max size: {max_cache_size}")
+            print(f"最大サイズ {max_cache_size} のLRUキャッシュを初期化しました")
     
     def parse_request(self, data):
         """
@@ -242,7 +242,7 @@ class LocationServer(BaseServer):
         # Check cache first
         if cache_key in self.cache:
             if self.debug:
-                print("Cache hit!")
+                print("キャッシュヒット！")
             return self.cache[cache_key]
         
         conn = None
@@ -268,12 +268,12 @@ class LocationServer(BaseServer):
             self.cache[cache_key] = district_code
             
             if self.debug:
-                print(f"Query result for ({longitude}, {latitude}): {district_code}")
+                print(f"({longitude}, {latitude}) のクエリ結果: {district_code}")
             
             return district_code
             
         except Exception as e:
-            print(f"Database error: {e}")
+            print(f"データベースエラー: {e}")
             return None
             
         finally:
@@ -287,7 +287,7 @@ class LocationServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== RECEIVED REQUEST PACKET ===")
+        print("\n=== 受信リクエストパケット ===")
         print(f"Total Length: {len(data)} bytes")
         print("\nHeader:")
         print(f"Version: {parsed.version}")
@@ -298,7 +298,7 @@ class LocationServer(BaseServer):
             print(f"Latitude: {parsed.ex_field.get('latitude')}")
             print(f"Longitude: {parsed.ex_field.get('longitude')}")
         else:
-            print("No coordinates in request")
+            print("リクエストに座標がありません")
         print("\nRaw Packet:")
         print(self._hex_dump(data))
         print("===========================\n")
@@ -308,7 +308,7 @@ class LocationServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== SENDING RESPONSE PACKET ===")
+        print("\n=== 送信レスポンスパケット ===")
         print(f"Total Length: {len(response)} bytes")
         
         # レスポンスから地域コードを抽出（デバッグ用）
@@ -326,15 +326,15 @@ class LocationServer(BaseServer):
     def _print_timing_info(self, addr, timing_info):
         """タイミング情報を出力（オーバーライド）"""
         # 基底クラスの処理に加えて、データベースクエリ時間も出力
-        print(f"\n=== TIMING INFORMATION for {addr} ===")
+        print(f"\n=== {addr} のタイミング情報 ===")
         print(f"Request parsing time: {timing_info.get('parse', 0)*1000:.2f}ms")
         
         # データベースクエリ時間は response creation に含まれる
         response_time = timing_info.get('response', 0)
-        print(f"Database query + Response creation time: {response_time*1000:.2f}ms")
+        print(f"データベースクエリ + レスポンス作成時間: {response_time*1000:.2f}ms")
         
-        print(f"Response send time: {timing_info.get('send', 0)*1000:.2f}ms")
-        print(f"Total processing time: {timing_info.get('total', 0)*1000:.2f}ms")
+        print(f"レスポンス送信時間: {timing_info.get('send', 0)*1000:.2f}ms")
+        print(f"総処理時間: {timing_info.get('total', 0)*1000:.2f}ms")
         print("================================\n")
     
     def print_statistics(self):
@@ -344,7 +344,7 @@ class LocationServer(BaseServer):
         
         # キャッシュの統計情報を追加
         if hasattr(self, 'cache'):
-            print(f"\n=== CACHE STATISTICS ===")
+            print(f"\n=== キャッシュ統計 ===")
             print(f"Cache size: {len(self.cache.cache)}/{self.cache.maxsize}")
             print("========================\n")
     
@@ -352,9 +352,9 @@ class LocationServer(BaseServer):
         """派生クラス固有のクリーンアップ処理（オーバーライド）"""
         # データベース接続プールをクローズ
         if hasattr(self, 'connection_pool'):
-            print("Closing database connection pool...")
+            print("データベース接続プールをクローズ中...")
             self.connection_pool.closeall()
-            print("Database connections closed.")
+            print("データベース接続をクローズしました。")
 
 
 if __name__ == "__main__":
