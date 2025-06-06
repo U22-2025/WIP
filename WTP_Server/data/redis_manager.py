@@ -306,7 +306,7 @@ class WeatherRedisManager:
                     update_pipe.json().set(weather_key, ".area_name", data.get("area_name", ""))
                     update_pipe.json().set(weather_key, ".weather", data.get("weather", []))
                     update_pipe.json().set(weather_key, ".temperature", data.get("temperature", []))
-                    update_pipe.json().set(weather_key, ".precipitation", data.get("precipitation", []))
+                    update_pipe.json().set(weather_key, ".precipitation_prob", data.get("precipitation_prob", []))
                     
                     # parent_codeがある場合は更新
                     if "parent_code" in data:

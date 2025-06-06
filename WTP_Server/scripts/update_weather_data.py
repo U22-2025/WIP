@@ -101,7 +101,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 pop = []
                 for p in pop_areas:
                     if p.get("area", {}).get("code") == code:
-                        pop = p.get("pop", [])
+                        pop = p.get("pops", [])
                         pop = [v for i, v in enumerate(pop) if i not in removed_indices]
                         break
                 
@@ -152,10 +152,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                                     add_codes = sub_area.get("weatherCodes", [])
                                     weather_codes += add_codes[len(weather_codes):week_days]
                                 if len(pop) < week_days:
-                                    add_pop = sub_area.get("pop", [])
+                                    add_pop = sub_area.get("pops", [])
                                     pop += add_pop[len(pop):week_days]
                                 break
-                
                 area_data = {
                     "updated_at": updated_at,
                     "parent_code": parent_code,
