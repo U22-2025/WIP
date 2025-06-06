@@ -493,7 +493,7 @@ class WeatherServer(BaseServer):
             return False, f"不正なパケットタイプ: {request.type}"
         
         # エリアコードのチェック
-        if not request.area_code or request.area_code == "000000": 
+        if request.type != 0 and (not request.area_code or request.area_code == "000000"): 
             return False, "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
