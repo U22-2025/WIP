@@ -25,7 +25,7 @@ class WeatherRequest(Request):
         packet_id: int,
         weather: bool = True,
         temperature: bool = True,
-        precipitation: bool = True,
+        precipitation_prob: bool = True,
         alerts: bool = False,
         disaster: bool = False,
         day: int = 0,
@@ -40,7 +40,7 @@ class WeatherRequest(Request):
             packet_id: パケットID
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
-            precipitation: 降水確率データを取得するか
+            precipitation_prob: 降水確率データを取得するか
             alerts: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
@@ -64,7 +64,7 @@ class WeatherRequest(Request):
             type=0,  # 座標解決リクエスト
             weather_flag=1 if weather else 0,
             temperature_flag=1 if temperature else 0,
-            pops_flag=1 if precipitation else 0,
+            pops_flag=1 if precipitation_prob else 0,
             alert_flag=1 if alerts else 0,
             disaster_flag=1 if disaster else 0,
             ex_flag=1,  # 拡張フィールドを使用
@@ -84,7 +84,7 @@ class WeatherRequest(Request):
         packet_id: int,
         weather: bool = True,
         temperature: bool = True,
-        precipitation: bool = True,
+        precipitation_prob: bool = True,
         alerts: bool = False,
         disaster: bool = False,
         day: int = 0,
@@ -98,7 +98,7 @@ class WeatherRequest(Request):
             packet_id: パケットID
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
-            precipitation: 降水確率データを取得するか
+            precipitation_prob: 降水確率データを取得するか
             alerts: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
@@ -128,7 +128,7 @@ class WeatherRequest(Request):
             type=2,  # 気象データリクエスト
             weather_flag=1 if weather else 0,
             temperature_flag=1 if temperature else 0,
-            pops_flag=1 if precipitation else 0,
+            pops_flag=1 if precipitation_prob else 0,
             alert_flag=1 if alerts else 0,
             disaster_flag=1 if disaster else 0,
             ex_flag=0,  # Type 2では基本的に拡張フィールド不要
@@ -156,7 +156,7 @@ class WeatherRequest(Request):
         if self.temperature_flag:
             summary['requested_data'].append('temperature')
         if self.pops_flag:
-            summary['requested_data'].append('precipitation')
+            summary['requested_data'].append('precipitation_prob')
         if self.alert_flag:
             summary['requested_data'].append('alerts')
         if self.disaster_flag:
@@ -206,7 +206,7 @@ class WeatherResponse(Response):
             return self.weather_code
         return None
     
-    def get_precipitation_percentage(self) -> Optional[int]:
+    def get_precipitation_prob_percentage(self) -> Optional[int]:
         """
         降水確率を取得
         
@@ -268,7 +268,7 @@ class WeatherResponse(Response):
             data['temperature'] = self.get_temperature_celsius()
         
         if self.pops_flag:
-            data['precipitation'] = self.get_precipitation_percentage()
+            data['precipitation_prob'] = self.get_precipitation_prob_percentage()
         
         # 拡張データ
         alerts = self.get_alerts()
@@ -298,7 +298,7 @@ class WeatherResponse(Response):
             has_data = True
         if self.temperature_flag and self.get_temperature_celsius() is not None:
             has_data = True
-        if self.pops_flag and self.get_precipitation_percentage() is not None:
+        if self.pops_flag and self.get_precipitation_prob_percentage() is not None:
             has_data = True
         if self.alert_flag and self.get_alerts():
             has_data = True

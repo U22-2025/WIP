@@ -205,6 +205,7 @@ class LocationServer(BaseServer):
             version=self.version,
             packet_id=request.packet_id,
             type=1,  # Response type
+            day=request.day,
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
             pops_flag=request.pops_flag,

@@ -82,8 +82,8 @@ class ResponseBuilder:
             # パケットフォーマットに合わせて変換（実際の温度 + 100）
             response.temperature = actual_temp + 100
         
-        if request.pops_flag and 'precipitation' in weather_data:
-            pops_value = weather_data['precipitation']
+        if request.pops_flag and 'precipitation_prob' in weather_data:
+            pops_value = weather_data['precipitation_prob']
             # リストの場合は最初の要素を使用
             if isinstance(pops_value, list):
                 response.pops = int(pops_value[0]) if pops_value else 0

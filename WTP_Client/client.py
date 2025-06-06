@@ -96,7 +96,7 @@ class Client:
     
     def set_coordinates(self, latitude, longitude):
         """
-        座標を設定し、自動的にエリアコード解決を実行
+        座標を設定
         
         Args:
             latitude (float): 緯度
@@ -109,7 +109,7 @@ class Client:
         if self.debug:
             print(f"Coordinates updated: ({latitude}, {longitude})")
     
-    def get_weather(self, weather=True, temperature=True, precipitation=True, 
+    def get_weather(self, weather=True, temperature=True, precipitation_prob=True, 
                    alerts=False, disaster=False, day=0):
         """
         現在の状態（座標またはエリアコード）から天気情報を取得
@@ -117,7 +117,7 @@ class Client:
         Args:
             weather (bool): 天気データを取得するか（デフォルト: True）
             temperature (bool): 気温データを取得するか（デフォルト: True）
-            precipitation (bool): 降水確率データを取得するか（デフォルト: True）
+            precipitation_prob (bool): 降水確率データを取得するか（デフォルト: True）
             alerts (bool): 警報データを取得するか（デフォルト: False）
             disaster (bool): 災害情報データを取得するか（デフォルト: False）
             day (int): 予報日（0: 今日, 1: 明日, ...）（デフォルト: 0）
@@ -135,7 +135,7 @@ class Client:
                 longitude=self._longitude,
                 weather=weather,
                 temperature=temperature,
-                precipitation=precipitation,
+                precipitation_prob=precipitation_prob,
                 alerts=alerts,
                 disaster=disaster,
                 day=day
@@ -149,7 +149,7 @@ class Client:
                 area_code=self._area_code,
                 weather=weather,
                 temperature=temperature,
-                precipitation=precipitation,
+                precipitation_prob=precipitation_prob,
                 alerts=alerts,
                 disaster=disaster,
                 day=day
@@ -164,7 +164,7 @@ class Client:
                 longitude=self._longitude,
                 weather=weather,
                 temperature=temperature,
-                precipitation=precipitation,
+                precipitation_prob=precipitation_prob,
                 alerts=alerts,
                 disaster=disaster,
                 day=day
@@ -286,8 +286,8 @@ def main():
                 print(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
                 print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation' in result:
-                print(f"Precipitation: {result['precipitation']}%")
+            if 'precipitation_prob' in result:
+                print(f"precipitation_prob: {result['precipitation_prob']}%")
         else:
             print("✗ Failed to get weather data")
         
@@ -318,8 +318,8 @@ def main():
                 print(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
                 print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation' in result:
-                print(f"Precipitation: {result['precipitation']}%")
+            if 'precipitation_prob' in result:
+                print(f"precipitation_prob: {result['precipitation_prob']}%")
         else:
             print("✗ Failed to get weather data")
             

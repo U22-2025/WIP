@@ -73,7 +73,7 @@ def modern_usage_example():
         packet_id=PIDG.next_id(),
         weather=True,
         temperature=True,
-        precipitation=True
+        precipitation_prob=True
     )
     
     print("新しいWeatherRequest作成:")
@@ -87,7 +87,7 @@ def modern_usage_example():
         packet_id=PIDG.next_id(),
         weather=True,
         temperature=True,
-        precipitation=True,
+        precipitation_prob=True,
         alerts=True
     )
     
@@ -138,7 +138,7 @@ def response_processing_example():
     print(f"\n新しいWeatherResponse処理:")
     print(f"  気温: {weather_resp.get_temperature_celsius()}℃ (自動変換)")
     print(f"  天気コード: {weather_resp.get_weather_code()}")
-    print(f"  降水確率: {weather_resp.get_precipitation_percentage()}%")
+    print(f"  降水確率: {weather_resp.get_precipitation_prob_percentage()}%")
     print(f"  警報: {weather_resp.get_alerts()}")
     print(f"  成功判定: {weather_resp.is_success()}")
     print(f"  全データ: {weather_resp.get_weather_data()}")
@@ -158,7 +158,7 @@ def client_integration_example():
             packet_id=PIDG.next_id(),
             weather=options.get('weather', True),
             temperature=options.get('temperature', True),
-            precipitation=options.get('precipitation', True),
+            precipitation_prob=options.get('precipitation_prob', True),
             alerts=options.get('alerts', False),
             disaster=options.get('disaster', False)
         )

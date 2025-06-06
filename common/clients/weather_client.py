@@ -12,7 +12,7 @@ from datetime import datetime
 from ..packet import WeatherRequest, WeatherResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
-PIDG = PacketIDGenerator12Bit()
+
 
 
 class WeatherClient:
@@ -33,6 +33,7 @@ class WeatherClient:
         self.sock.settimeout(10.0)
         self.debug = debug
         self.VERSION = 1
+        self.PIDG = PacketIDGenerator12Bit()
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -113,10 +114,10 @@ class WeatherClient:
                 if temp is not None:
                     print(f"Temperature: {temp}℃")
             
-            if hasattr(response, 'get_precipitation_percentage'):
-                pops = response.get_precipitation_percentage()
+            if hasattr(response, 'get_precipitation_prob_percentage'):
+                pops = response.get_precipitation_prob_percentage()
                 if pops is not None:
-                    print(f"Precipitation: {pops}%")
+                    print(f"precipitation_prob: {pops}%")
                     
             if hasattr(response, 'get_alerts'):
                 alerts = response.get_alerts()
@@ -134,7 +135,7 @@ class WeatherClient:
         
     def get_weather_by_coordinates(self, latitude, longitude, 
                                   weather=True, temperature=True, 
-                                  precipitation=True, alerts=False, disaster=False,
+                                  precipitation_prob=True, alerts=False, disaster=False,
                                   day=0):
         """
         座標から天気情報を取得（Type 0 → Type 3）
@@ -144,7 +145,7 @@ class WeatherClient:
             longitude: 経度
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
-            precipitation: 降水確率データを取得するか
+            precipitation_prob: 降水確率データを取得するか
             alerts: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
@@ -159,10 +160,10 @@ class WeatherClient:
             request = WeatherRequest.create_by_coordinates(
                 latitude=latitude,
                 longitude=longitude,
-                packet_id=PIDG.next_id(),
+                packet_id=self.PIDG.next_id(),
                 weather=weather,
                 temperature=temperature,
-                precipitation=precipitation,
+                precipitation_prob=precipitation_prob,
                 alerts=alerts,
                 disaster=disaster,
                 day=day,
@@ -208,7 +209,7 @@ class WeatherClient:
         
     def get_weather_by_area_code(self, area_code, 
                                 weather=True, temperature=True, 
-                                precipitation=True, alerts=False, disaster=False,
+                                precipitation_prob=True, alerts=False, disaster=False,
                                 day=0):
         """
         エリアコードから天気情報を取得（Type 2 → Type 3）
@@ -217,7 +218,7 @@ class WeatherClient:
             area_code: エリアコード（文字列または数値、例: "011000" または 11000）
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
-            precipitation: 降水確率データを取得するか
+            precipitation_prob: 降水確率データを取得するか
             alerts: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
@@ -231,10 +232,10 @@ class WeatherClient:
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request = WeatherRequest.create_by_area_code(
                 area_code=area_code,
-                packet_id=PIDG.next_id(),
+                packet_id=self.PIDG.next_id(),
                 weather=weather,
                 temperature=temperature,
-                precipitation=precipitation,
+                precipitation_prob=precipitation_prob,
                 alerts=alerts,
                 disaster=disaster,
                 day=day,
@@ -300,7 +301,7 @@ def main():
             longitude=139.6917,
             weather=True,
             temperature=True,
-            precipitation=True
+            precipitation_prob=True
         )
         
         if result:
@@ -311,8 +312,8 @@ def main():
                 print(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
                 print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation' in result:
-                print(f"Precipitation: {result['precipitation']}%")
+            if 'precipitation_prob' in result:
+                print(f"precipitation_prob: {result['precipitation_prob']}%")
         else:
             print("\n✗ Failed to get weather data")
         
@@ -324,7 +325,7 @@ def main():
             area_code="011000",
             weather=True,
             temperature=True,
-            precipitation=True,
+            precipitation_prob=True,
             alerts=True,
             disaster=True
         )
@@ -337,8 +338,8 @@ def main():
                 print(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
                 print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation' in result:
-                print(f"Precipitation: {result['precipitation']}%")
+            if 'precipitation_prob' in result:
+                print(f"precipitation_prob: {result['precipitation_prob']}%")
             if 'alerts' in result:
                 print(f"Alerts: {result['alerts']}")
             if 'disaster' in result:

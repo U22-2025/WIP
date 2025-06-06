@@ -215,9 +215,9 @@ class QueryServer(BaseServer):
             else:
                 response.temperature = 100  # 0℃
             
-            if request.pops_flag and 'precipitation' in weather_data:
+            if request.pops_flag and 'precipitation_prob' in weather_data:
                 # 文字列を整数に変換（リストの場合は最初の要素）
-                pops_value = weather_data['precipitation']
+                pops_value = weather_data['precipitation_prob']
                 if isinstance(pops_value, list):
                     response.pops = int(pops_value[0]) if pops_value else 0
                 else:
@@ -298,7 +298,7 @@ class QueryServer(BaseServer):
                 actual_temp = resp_obj.temperature - 100
                 print(f"Temperature: {resp_obj.temperature} ({actual_temp}℃)")
             if resp_obj.pops_flag:
-                print(f"Precipitation: {resp_obj.pops}%")
+                print(f"precipitation_prob: {resp_obj.pops}%")
             if hasattr(resp_obj, 'ex_field') and resp_obj.ex_field:
                 print(f"Extended Fields: {resp_obj.ex_field}")
         except:

@@ -1,21 +1,18 @@
 @echo off
+chcp 65001 > nul
 echo WTPサーバー起動中...
 
-REM 現在のディレクトリを保存
 set CURRENT_DIR=%cd%
-
-REM PYTHONPATHを設定（wtpの親ディレクトリを追加）
 set PYTHONPATH=%CURRENT_DIR%;%PYTHONPATH%
 
-echo Location Serverを起動中...
-start "Location Server" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python -m wtp.servers.location_server.location_server"
+wt ^
+  new-tab cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --weather --debug" ^
+  ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --query --debug" ^
+  ; focus-pane -t 0 ^
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --location --debug" ^
+  ; focus-pane -t 1 ^
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR%\application\map && conda activate U22-2025 && python app.py"
 
-echo Query Serverを起動中...
-start "Query Server" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python -m wtp.servers.query_server.query_server"
-
-echo Weather Serverを起動中...
-start "Weather Server" cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python -m wtp.servers.weather_server.weather_server"
+start http://localhost:5000
 
 echo すべてのサーバーが起動しました。
-echo このウィンドウは閉じても大丈夫です。
-pause

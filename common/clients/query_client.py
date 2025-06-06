@@ -87,10 +87,10 @@ class QueryClient:
             if temp is not None:
                 print(f"Temperature: {temp}℃")
                 
-        if hasattr(response, 'get_precipitation_percentage'):
-            pops = response.get_precipitation_percentage()
+        if hasattr(response, 'get_precipitation_prob_percentage'):
+            pops = response.get_precipitation_prob_percentage()
             if pops is not None:
-                print(f"Precipitation: {pops}%")
+                print(f"precipitation_prob: {pops}%")
                 
         if hasattr(response, 'get_alerts'):
             alerts = response.get_alerts()
@@ -107,7 +107,7 @@ class QueryClient:
         print("==============================\n")
 
     def get_weather_data(self, area_code, weather=False, temperature=False, 
-                        precipitation=False, alerts=False, disaster=False, 
+                        precipitation_prob=False, alerts=False, disaster=False, 
                         source=None, timeout=5.0):
         """
         指定されたエリアの気象データを取得する（改良版）
@@ -116,7 +116,7 @@ class QueryClient:
             area_code: エリアコード
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
-            precipitation: 降水確率データを取得するか
+            precipitation_prob: 降水確率データを取得するか
             alerts: 警報データを取得するか
             disaster: 災害情報データを取得するか
             source: 送信元情報（プロキシルーティング用）
@@ -138,7 +138,7 @@ class QueryClient:
                 packet_id=PIDG.next_id(),
                 weather=weather,
                 temperature=temperature,
-                precipitation=precipitation,
+                precipitation_prob=precipitation_prob,
                 alerts=alerts,
                 disaster=disaster,
                 source=source,
@@ -214,7 +214,7 @@ class QueryClient:
             area_code=area_code,
             weather=True,
             temperature=True,
-            precipitation=True,
+            precipitation_prob=True,
             alerts=include_all,
             disaster=include_all,
             timeout=timeout
@@ -256,7 +256,7 @@ class QueryClient:
                             'success': True,
                             'has_weather': 'weather_code' in result,
                             'has_temperature': 'temperature' in result,
-                            'has_precipitation': 'precipitation' in result
+                            'has_precipitation_prob': 'precipitation_prob' in result
                         })
                     else:
                         thread_errors.append({
@@ -330,7 +330,7 @@ def main():
         area_code="011000",  # 札幌
         weather=True,
         temperature=True,
-        precipitation=True,
+        precipitation_prob=True,
         alerts=True,
         disaster=True,
         source="query_client_test"
@@ -341,7 +341,7 @@ def main():
         print(f"Area Code: {result.get('area_code')}")
         print(f"Weather Code: {result.get('weather_code')}")
         print(f"Temperature: {result.get('temperature')}°C")
-        print(f"Precipitation: {result.get('precipitation')}%")
+        print(f"precipitation_prob: {result.get('precipitation_prob')}%")
         if result.get('alerts'):
             print(f"Alerts: {result.get('alerts')}")
         if result.get('disaster'):
@@ -363,7 +363,7 @@ def main():
         print(f"Area Code: {simple_result.get('area_code')}")
         print(f"Weather Code: {simple_result.get('weather_code')}")
         print(f"Temperature: {simple_result.get('temperature')}°C")
-        print(f"Precipitation: {simple_result.get('precipitation')}%")
+        print(f"precipitation_prob: {simple_result.get('precipitation_prob')}%")
     else:
         print(f"✗ Simple request failed: {simple_result['error']}")
     

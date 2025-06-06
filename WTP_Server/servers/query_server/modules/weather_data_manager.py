@@ -105,12 +105,12 @@ class WeatherDataManager:
                             result['temperature'] = temperatures
                     
                     # 降水確率
-                    if pops_flag and 'precipitation' in weather_data:
-                        precipitations = weather_data['precipitation']
-                        if isinstance(precipitations, list) and len(precipitations) > day:
-                            result['precipitation'] = precipitations[day]
+                    if pops_flag and 'precipitation_prob' in weather_data:
+                        precipitation_probs = weather_data['precipitation_prob']
+                        if isinstance(precipitation_probs, list) and len(precipitation_probs) > day:
+                            result['precipitation_prob'] = precipitation_probs[day]
                         else:
-                            result['precipitation'] = precipitations
+                            result['precipitation_prob'] = precipitation_probs
                     
                     # 警報
                     if alert_flag and 'warnings' in weather_data:

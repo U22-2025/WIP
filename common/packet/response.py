@@ -24,7 +24,7 @@ class Response(FormatBase):
         実際の気温は、この値から100を引いた値となる（-100℃～+155℃）。
         
     - pops (153-160bit, 8ビット):
-        降水確率 (Probability of Precipitation)。
+        降水確率 (Probability of precipitation_prob)。
         0-100の範囲でパーセント値を表す。
         
     可変長拡張フィールド (161bit-):
@@ -59,6 +59,16 @@ class Response(FormatBase):
         'temperature': (0, (1 << 8) - 1),    # 0-255 (-100℃～+155℃)
         'pops': (0, 100),                    # 0-100%
     }
+
+    def get_min_packet_size(self) -> int:
+        """
+        レスポンスパケットの最小サイズを取得する
+        
+        Returns:
+            最小パケットサイズ（バイト） - 基本フィールド(16バイト) + 固定長拡張フィールド(4バイト) = 20バイト
+        """
+        # 基本フィールド（128ビット = 16バイト）+ 固定長拡張フィールド（32ビット = 4バイト）= 20バイト
+        return 20
 
     def __init__(
         self, 
@@ -275,6 +285,7 @@ class Response(FormatBase):
         
         基本フィールドと拡張フィールドを含むすべてのデータをバイト列に変換します。
         チェックサムを計算して格納します。
+        親クラスのメソッドを使用して最適なパディングを行います。
         
         Returns:
             バイト列表現
@@ -282,82 +293,9 @@ class Response(FormatBase):
         Raises:
             BitFieldError: バイト列への変換中にエラーが発生した場合
         """
-        try:
-            # 一時的にチェックサムを0にしてビット列を取得
-            original_checksum = self.checksum
-            self.checksum = 0
-            bitstr = self.to_bits()
-            
-            # 基本バイト数を計算（固定長拡張フィールドを含む最低バイト数）
-            # 基本フィールド: 128ビット + 固定長拡張フィールド: 32ビット = 160ビット = 20バイト
-            min_bytes_needed = (self.VARIABLE_FIELD_START + 7) // 8  # 161ビット = 21バイト
-            num_bytes = max((bitstr.bit_length() + 7) // 8, min_bytes_needed)
-            
-            # 拡張フィールドのバイト数を計算
-            if self.ex_flag == 1 and self._ex_field and self._ex_field.to_dict():
-                ex_field_dict = self._ex_field.to_dict()
-                # ヘッダー用のバイト数（各フィールドに16ビット = 2バイト）
-                num_extended_records = 0
-                for value in ex_field_dict.values():
-                    if isinstance(value, list):
-                        num_extended_records += len(value)
-                    else:
-                        num_extended_records += 1
-                num_bytes += num_extended_records * 2
-                
-                # 各値のバイト数を計算
-                for key, value in ex_field_dict.items():
-                    if isinstance(value, list):
-                        for item in value:
-                            if isinstance(item, str):
-                                num_bytes += len(item.encode('utf-8'))
-                            elif key in ['latitude', 'longitude']:
-                                num_bytes += 4  # 座標は4バイト固定
-                    else:
-                        if isinstance(value, str):
-                            num_bytes += len(value.encode('utf-8'))
-                        elif key in ['latitude', 'longitude']:
-                            num_bytes += 4  # 座標は4バイト固定
-                        elif isinstance(value, (int, float)):
-                            val_bits = int(value)
-                            num_bytes += (val_bits.bit_length() + 7) // 8 or 1
-            
-            # 必要なバイト数を計算
-            required_bytes = (bitstr.bit_length() + 7) // 8
-            
-            # リトルエンディアンでバイト列に変換
-            if required_bytes > 0:
-                bytes_data = bitstr.to_bytes(required_bytes, byteorder='little')
-            else:
-                bytes_data = b''
-            
-            # 最低必要バイト数にパディング（右側を0で埋める）
-            if len(bytes_data) < num_bytes:
-                bytes_data = bytes_data + b'\x00' * (num_bytes - len(bytes_data))
-            
-            # チェックサムを計算して設定
-            self.checksum = self.calc_checksum12(bytes_data)
-            
-            # 最終的なビット列を生成（チェックサムを含む）
-            final_bitstr = self.to_bits()
-            
-            # 最終的なバイト列を生成
-            final_required_bytes = (final_bitstr.bit_length() + 7) // 8
-            if final_required_bytes > 0:
-                final_bytes = final_bitstr.to_bytes(final_required_bytes, byteorder='little')
-            else:
-                final_bytes = b''
-            
-            # 最低必要バイト数にパディング
-            if len(final_bytes) < num_bytes:
-                final_bytes = final_bytes + b'\x00' * (num_bytes - len(final_bytes))
-            
-            return final_bytes
-            
-        except Exception as e:
-            # エラー時は元のチェックサムを復元
-            self.checksum = original_checksum
-            raise BitFieldError("バイト列への変換中にエラー: {}".format(e))
+        # 親クラスの最適化されたto_bytes()を使用
+        # get_min_packet_size()でレスポンスパケットの最小サイズ（20バイト）が設定される
+        return super().to_bytes()
 
     def as_dict(self) -> Dict[str, Any]:
         """
