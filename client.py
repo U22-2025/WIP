@@ -26,7 +26,7 @@ if result:
         print(f"Weather Code: {result['weather_code']}")
     if 'temperature' in result:
         print(f"Temperature: {result['temperature']}°C")
-    if 'precipitation' in result:
-        print(f"Precipitation: {result['precipitation']}%")
+    if 'precipitation_prob' in result:
+        print(f"precipitation_prob: {result['precipitation_prob']}%")
 else:
     print("\n✗ Failed to get weather data")

@@ -541,7 +541,7 @@ body {
 
 /* 簡潔な降水確率表示 */
 
-.precipitation-simple {
+.precipitation_prob-simple {
     background: var(--surface-primary);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-lg);
@@ -555,7 +555,7 @@ body {
     border: 1px solid var(--glass-border);
 }
 
-.precipitation-simple i {
+.precipitation_prob-simple i {
     color: var(--accent-color);
     margin-right: var(--space-xs);
 }
@@ -777,7 +777,7 @@ body {
 }
 
 .popup-temp-container,
-.popup-precipitation-container {
+.popup-precipitation_prob-container {
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
     border-radius: var(--radius-md);
     padding: var(--space-sm);
@@ -788,7 +788,7 @@ body {
 }
 
 .popup-temp-container:hover,
-.popup-precipitation-container:hover {
+.popup-precipitation_prob-container:hover {
     transform: translateY(-2px);
     box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.15), inset -1px -1px 3px rgba(255, 255, 255, 0.9), 0 4px 8px rgba(0, 0, 0, 0.1);
 }
@@ -801,7 +801,7 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.popup-precipitation {
+.popup-precipitation_prob {
     font-size: var(--font-xl);
     font-weight: 700;
     color: var(--accent-color);
@@ -810,7 +810,7 @@ body {
 }
 
 .popup-temp-label,
-.popup-precipitation-label {
+.popup-precipitation_prob-label {
     font-size: var(--font-xs);
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -1207,7 +1207,7 @@ button:focus,
     color: var(--text-primary);
 }
 
-.day-precipitation {
+.day-precipitation_prob {
     text-align: center;
     font-size: var(--font-xs);
     color: var(--text-secondary);
@@ -1216,7 +1216,7 @@ button:focus,
     gap: 4px;
 }
 
-.day-precipitation i {
+.day-precipitation_prob i {
     font-size: var(--font-sm);
     color: var(--accent-color);
 }
@@ -1418,7 +1418,7 @@ button:focus,
         justify-self: end;
         text-align: right;
     }
-    .day-precipitation {
+    .day-precipitation_prob {
         grid-column: 1 / -1;
         justify-self: center;
         margin-top: var(--space-xs);

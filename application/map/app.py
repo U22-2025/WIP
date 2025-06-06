@@ -172,7 +172,7 @@ def weekly_forecast():
                     'day_number': day,
                     'weather_code': '100',
                     'temperature': '--',
-                    'precipitation': '--',
+                    'precipitation_prob': '--',
                     'area_code': area_code
                 }
         except Exception as e:
@@ -185,7 +185,7 @@ def weekly_forecast():
                 'day_number': day,
                 'weather_code': '100',
                 'temperature': '--',
-                'precipitation': '--',
+                'precipitation_prob': '--',
                 'area_code': area_code
             }
     
@@ -212,7 +212,7 @@ def weekly_forecast():
                     'day_number': day,
                     'weather_code': '100',
                     'temperature': '--',
-                    'precipitation': '--',
+                    'precipitation_prob': '--',
                     'area_code': area_code
                 }
     

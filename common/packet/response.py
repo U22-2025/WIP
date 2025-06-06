@@ -24,7 +24,7 @@ class Response(FormatBase):
         実際の気温は、この値から100を引いた値となる（-100℃～+155℃）。
         
     - pops (153-160bit, 8ビット):
-        降水確率 (Probability of Precipitation)。
+        降水確率 (Probability of precipitation_prob)。
         0-100の範囲でパーセント値を表す。
         
     可変長拡張フィールド (161bit-):

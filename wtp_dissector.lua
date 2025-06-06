@@ -36,7 +36,7 @@ local f_checksum = ProtoField.uint16("wtp.checksum", "Checksum", base.HEX, nil, 
 -- レスポンス固定長拡張フィールド（129-160ビット）
 local f_weather_code = ProtoField.uint16("wtp.weather_code", "Weather Code", base.DEC)
 local f_temperature = ProtoField.uint8("wtp.temperature", "Temperature", base.DEC)
-local f_pops = ProtoField.uint8("wtp.pops", "Precipitation Probability (%)", base.DEC)
+local f_pops = ProtoField.uint8("wtp.pops", "precipitation_prob Probability (%)", base.DEC)
 
 -- 可変長拡張フィールド
 local f_ext_record = ProtoField.bytes("wtp.ext_record", "Extension Record")

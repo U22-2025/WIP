@@ -345,7 +345,7 @@ class WeatherApp {
                     weather: {
                         weather_code: todayWeather.weather_code,
                         temperature: todayWeather.temperature,
-                        precipitation: todayWeather.precipitation,
+                        precipitation_prob: todayWeather.precipitation_prob,
                         // その他のフィールドがあれば追加
                         visibility: todayWeather.visibility || '--',
                         wind_speed: todayWeather.wind_speed || '--',
@@ -382,7 +382,7 @@ class WeatherApp {
             weather: {
                 weather_code: '100',
                 temperature: '--',
-                precipitation: '--'
+                precipitation_prob: '--'
             }
         };
 
@@ -431,7 +431,7 @@ class WeatherApp {
     createPopupContent(data, lat, lng) {
         let weatherCode = '100';
         let temperature = '--';
-        let precipitation = '--';
+        let precipitation_prob = '--';
 
         if (data.weather) {
             if (data.weather.weather_code !== undefined) {
@@ -440,16 +440,16 @@ class WeatherApp {
             if (data.weather.temperature !== undefined) {
                 temperature = data.weather.temperature;
             }
-            if (data.weather.precipitation !== undefined && data.weather.precipitation !== null) {
-                precipitation = data.weather.precipitation;
+            if (data.weather.precipitation_prob !== undefined && data.weather.precipitation_prob !== null) {
+                precipitation_prob = data.weather.precipitation_prob;
             }
         }
 
         const iconClass = this.weatherIconMap[weatherCode] || 'fas fa-sun';
         const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
         const temp = temperature !== '--' ? `${temperature}°C` : '--°C';
-        const precipitationText = precipitation !== '--' && precipitation !== null && precipitation !== undefined ?
-            `${precipitation}%` : '--';
+        const precipitation_probText = precipitation_prob !== '--' && precipitation_prob !== null && precipitation_prob !== undefined ?
+            `${precipitation_prob}%` : '--';
 
         return `
             <div class="popup-content">
@@ -462,9 +462,9 @@ class WeatherApp {
                         <div class="popup-temp">${temp}</div>
                         <div class="popup-temp-label">気温</div>
                     </div>
-                    <div class="popup-precipitation-container">
-                        <div class="popup-precipitation">${precipitationText}</div>
-                        <div class="popup-precipitation-label">降水確率</div>
+                    <div class="popup-precipitation_prob-container">
+                        <div class="popup-precipitation_prob">${precipitation_probText}</div>
+                        <div class="popup-precipitation_prob-label">降水確率</div>
                     </div>
                 </div>
                 <div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div>
@@ -770,10 +770,10 @@ class WeatherApp {
             const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
             const temperature = dayData.temperature !== undefined && dayData.temperature !== '--' ?
                 `${dayData.temperature}°C` : '--°C';
-            const precipitation = dayData.precipitation !== undefined &&
-                dayData.precipitation !== '--' &&
-                dayData.precipitation !== null ?
-                `${dayData.precipitation}%` : '--';
+            const precipitation_prob = dayData.precipitation_prob !== undefined &&
+                dayData.precipitation_prob !== '--' &&
+                dayData.precipitation_prob !== null ?
+                `${dayData.precipitation_prob}%` : '--';
 
             // 日付処理
             const date = new Date(dayData.date);
@@ -794,9 +794,9 @@ class WeatherApp {
                         <i class="${iconClass}"></i>
                     </div>
                     <div class="day-temp">${temperature}</div>
-                    <div class="day-precipitation">
+                    <div class="day-precipitation_prob">
                         <i class="fas fa-umbrella"></i>
-                        ${precipitation}
+                        ${precipitation_prob}
                     </div>
                 </div>
             `;
@@ -890,9 +890,9 @@ class WeatherApp {
             day.temperature !== undefined && day.temperature !== '--' ? parseFloat(day.temperature) : null
         );
 
-        const precipitations = this.weeklyDataForChart.map(day =>
-            day.precipitation !== undefined && day.precipitation !== '--' && day.precipitation !== null ?
-            parseFloat(day.precipitation) : 0
+        const precipitation_probs = this.weeklyDataForChart.map(day =>
+            day.precipitation_prob !== undefined && day.precipitation_prob !== '--' && day.precipitation_prob !== null ?
+            parseFloat(day.precipitation_prob) : 0
         );
 
         // チャート設定（CSS変数を使用）
@@ -998,21 +998,21 @@ class WeatherApp {
                 };
                 break;
 
-            case 'precipitation':
+            case 'precipitation_prob':
                 chartConfig = {
                     type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [{
                             label: '降水確率 (%)',
-                            data: precipitations,
-                            backgroundColor: precipitations.map(val =>
+                            data: precipitation_probs,
+                            backgroundColor: precipitation_probs.map(val =>
                                 val >= 70 ? 'rgba(231, 76, 60, 0.8)' :
                                 val >= 50 ? 'rgba(230, 126, 34, 0.8)' :
                                 val >= 30 ? 'rgba(241, 196, 15, 0.8)' :
                                 'rgba(52, 152, 219, 0.8)'
                             ),
-                            borderColor: precipitations.map(val =>
+                            borderColor: precipitation_probs.map(val =>
                                 val >= 70 ? '#e74c3c' :
                                 val >= 50 ? '#e67e22' :
                                 val >= 30 ? '#f1c40f' :
@@ -1068,7 +1068,7 @@ class WeatherApp {
                             },
                             {
                                 label: '降水確率 (%)',
-                                data: precipitations,
+                                data: precipitation_probs,
                                 type: 'bar',
                                 backgroundColor: 'rgba(79, 172, 254, 0.6)',
                                 borderColor: '#4facfe',
@@ -1160,10 +1160,10 @@ class WeatherApp {
             const weatherName = this.weatherCodeMap[weatherCode] || '天気情報不明';
             const temperature = dayData.temperature !== undefined && dayData.temperature !== '--' ?
                 `${dayData.temperature}°C` : '--°C';
-            const precipitation = dayData.precipitation !== undefined &&
-                dayData.precipitation !== '--' &&
-                dayData.precipitation !== null ?
-                `${dayData.precipitation}%` : '--';
+            const precipitation_prob = dayData.precipitation_prob !== undefined &&
+                dayData.precipitation_prob !== '--' &&
+                dayData.precipitation_prob !== null ?
+                `${dayData.precipitation_prob}%` : '--';
 
             // 日付処理
             const date = new Date(dayData.date);
@@ -1184,9 +1184,9 @@ class WeatherApp {
                         <i class="${iconClass}"></i>
                     </div>
                     <div class="day-temp">${temperature}</div>
-                    <div class="day-precipitation">
+                    <div class="day-precipitation_prob">
                         <i class="fas fa-umbrella"></i>
-                        ${precipitation}
+                        ${precipitation_prob}
                     </div>
                 </div>
             `;

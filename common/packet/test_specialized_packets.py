@@ -18,7 +18,7 @@ def test_weather_packet():
         packet_id=123,
         weather=True,
         temperature=True,
-        precipitation=True
+        precipitation_prob=True
     )
     
     print(f"Weather Request (by coordinates):")
@@ -103,7 +103,7 @@ def test_query_packet():
         packet_id=999,
         weather=True,
         temperature=True,
-        precipitation=True,
+        precipitation_prob=True,
         alerts=True,
         source="192.168.1.100:12345"
     )
@@ -118,7 +118,7 @@ def test_query_packet():
     weather_data = {
         'weather': 100,
         'temperature': 25,
-        'precipitation': 30,
+        'precipitation_prob': 30,
         'warnings': ['大雨警報', '洪水注意報'],
         'disaster_info': ['土砂災害警戒']
     }
@@ -132,7 +132,7 @@ def test_query_packet():
     print(f"  Type: {query_resp.type}")
     print(f"  Weather Code: {query_resp.get_weather_code()}")
     print(f"  Temperature: {query_resp.get_temperature_celsius()}℃")
-    print(f"  Precipitation: {query_resp.get_precipitation_percentage()}%")
+    print(f"  precipitation_prob: {query_resp.get_precipitation_prob_percentage()}%")
     print(f"  Alerts: {query_resp.get_alerts()}")
     print(f"  Disaster Info: {query_resp.get_disaster_info()}")
     print(f"  Success: {query_resp.is_success()}")

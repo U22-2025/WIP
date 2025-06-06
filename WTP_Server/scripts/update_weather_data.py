@@ -235,7 +235,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                     "area_name": area_name,
                     "weather": weather_codes,
                     "temperature": temps,
-                    "precipitation": pop,
+                    "precipitation_prob": pop,
                     "warnings": [],
                     "disaster_info": []
                 }
