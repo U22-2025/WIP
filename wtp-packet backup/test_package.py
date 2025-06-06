@@ -58,14 +58,14 @@ response = Response(
     area_code="130010",
     weather_code=200,
     temperature=125,  # 25℃ (100 + 25)
-    pops=30
+    pop=30
 )
 resp_data = response.to_bytes()
 print(f"  レスポンスバイト列の長さ: {len(resp_data)} bytes")
 restored_resp = Response.from_bytes(resp_data)
 print(f"  復元された天気コード: {restored_resp.weather_code}")
 print(f"  復元された気温: {restored_resp.temperature - 100}℃")
-print(f"  復元された降水確率: {restored_resp.pops}%")
+print(f"  復元された降水確率: {restored_resp.pop}%")
 print("  ✓ 成功\n")
 
 # 4. ExtendedFieldオブジェクトの直接使用

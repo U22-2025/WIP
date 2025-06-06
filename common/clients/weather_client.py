@@ -5,14 +5,14 @@ Weather Serverプロキシと通信するクライアント
 
 import socket
 import time
+from datetime import datetime
 import sys
 import os
-from datetime import datetime
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from common.packet import WeatherRequest, WeatherResponse
+from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 
-from ..packet import WeatherRequest, WeatherResponse
-from .utils.packet_id_generator import PacketIDGenerator12Bit
-
-
+PIDG = PacketIDGenerator12Bit()
 
 
 class WeatherClient:
@@ -72,7 +72,7 @@ class WeatherClient:
             print("\nFlags:")
             print(f"Weather: {request.weather_flag}")
             print(f"Temperature: {request.temperature_flag}")
-            print(f"PoPs: {request.pops_flag}")
+            print(f"pop: {request.pop_flag}")
             print(f"Alert: {request.alert_flag}")
             print(f"Disaster: {request.disaster_flag}")
             
@@ -114,10 +114,10 @@ class WeatherClient:
                 if temp is not None:
                     print(f"Temperature: {temp}℃")
             
-            if hasattr(response, 'get_precipitation_prob_percentage'):
-                pops = response.get_precipitation_prob_percentage()
-                if pops is not None:
-                    print(f"precipitation_prob: {pops}%")
+            if hasattr(response, 'get_precipitation_prob'):
+                pop = response.get_precipitation_prob()
+                if pop is not None:
+                    print(f"precipitation_prob: {pop}%")
                     
             if hasattr(response, 'get_alerts'):
                 alerts = response.get_alerts()

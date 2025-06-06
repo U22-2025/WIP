@@ -95,7 +95,7 @@ response = Response(
     area_code="130010",
     weather_code=200,
     temperature=25,
-    pops=30
+    pop=30
 )
 ```
 
@@ -132,7 +132,7 @@ ex_field.add_observer(on_field_changed)
 | type | 17-19 | 3 | パケットタイプ |
 | weather_flag | 20 | 1 | 天気フラグ |
 | temperature_flag | 21 | 1 | 気温フラグ |
-| pops_flag | 22 | 1 | 降水確率フラグ |
+| pop_flag | 22 | 1 | 降水確率フラグ |
 | alert_flag | 23 | 1 | 警報フラグ |
 | disaster_flag | 24 | 1 | 災害フラグ |
 | ex_flag | 25 | 1 | 拡張フラグ |
@@ -148,7 +148,7 @@ ex_field.add_observer(on_field_changed)
 |-----------|-----------|---------|------|
 | weather_code | 129-144 | 16 | 天気コード |
 | temperature | 145-152 | 8 | 気温 |
-| pops | 153-160 | 8 | 降水確率 |
+| pop | 153-160 | 8 | 降水確率 |
 
 ### 拡張フィールド (可変長)
 

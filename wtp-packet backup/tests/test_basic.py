@@ -79,7 +79,7 @@ def test_response_basic():
         area_code="130010",
         weather_code=200,
         temperature=125,  # 25℃ (100 + 25)
-        pops=30
+        pop=30
     )
     
     # バイト列への変換
@@ -92,7 +92,7 @@ def test_response_basic():
     assert restored.type == 1
     assert restored.weather_code == 200
     assert restored.temperature == 125
-    assert restored.pops == 30
+    assert restored.pop == 30
 
 
 def test_extended_field_object():

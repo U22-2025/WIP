@@ -87,10 +87,10 @@ class QueryClient:
             if temp is not None:
                 print(f"Temperature: {temp}℃")
                 
-        if hasattr(response, 'get_precipitation_prob_percentage'):
-            pops = response.get_precipitation_prob_percentage()
-            if pops is not None:
-                print(f"precipitation_prob: {pops}%")
+        if hasattr(response, 'get_precipitation_prob'):
+            pop = response.get_precipitation_prob()
+            if pop is not None:
+                print(f"Precipitation: {pop}%")
                 
         if hasattr(response, 'get_alerts'):
             alerts = response.get_alerts()

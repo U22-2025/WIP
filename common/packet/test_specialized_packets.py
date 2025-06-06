@@ -64,7 +64,7 @@ def test_location_packet():
         preserve_flags={
             'weather_flag': 1,
             'temperature_flag': 1,
-            'pops_flag': 1
+            'pop_flag': 1
         }
     )
     
@@ -132,7 +132,7 @@ def test_query_packet():
     print(f"  Type: {query_resp.type}")
     print(f"  Weather Code: {query_resp.get_weather_code()}")
     print(f"  Temperature: {query_resp.get_temperature_celsius()}℃")
-    print(f"  precipitation_prob: {query_resp.get_precipitation_prob_percentage()}%")
+    print(f"  precipitation_prob: {query_resp.get_precipitation()}%")
     print(f"  Alerts: {query_resp.get_alerts()}")
     print(f"  Disaster Info: {query_resp.get_disaster_info()}")
     print(f"  Success: {query_resp.is_success()}")

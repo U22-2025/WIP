@@ -46,7 +46,7 @@ class ResponseBuilder:
             timestamp=int(time.time()),
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
-            pops_flag=request.pops_flag,
+            pop_flag=request.pop_flag,
             alert_flag=request.alert_flag,
             disaster_flag=request.disaster_flag,
             ex_flag=0  # デフォルトは0
@@ -82,13 +82,13 @@ class ResponseBuilder:
             # パケットフォーマットに合わせて変換（実際の温度 + 100）
             response.temperature = actual_temp + 100
         
-        if request.pops_flag and 'precipitation_prob' in weather_data:
-            pops_value = weather_data['precipitation_prob']
+        if request.pop_flag and 'precipitation_prob' in weather_data:
+            pop_value = weather_data['precipitation_prob']
             # リストの場合は最初の要素を使用
-            if isinstance(pops_value, list):
-                response.pops = int(pops_value[0]) if pops_value else 0
+            if isinstance(pop_value, list):
+                response.pop = int(pop_value[0]) if pop_value else 0
             else:
-                response.pops = int(pops_value) if pops_value else 0
+                response.pop = int(pop_value) if pop_value else 0
     
     def _set_extended_fields(self, response, request, weather_data):
         """拡張フィールドを設定"""
@@ -129,7 +129,7 @@ class ResponseBuilder:
             timestamp=int(time.time()),
             weather_flag=0,
             temperature_flag=0,
-            pops_flag=0,
+            pop_flag=0,
             alert_flag=0,
             disaster_flag=0,
             ex_flag=1

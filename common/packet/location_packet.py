@@ -53,7 +53,7 @@ class LocationRequest(Request):
             ...     preserve_flags={
             ...         'weather_flag': 1,
             ...         'temperature_flag': 1,
-            ...         'pops_flag': 1
+            ...         'pop_flag': 1
             ...     }
             ... )
         """
@@ -76,7 +76,7 @@ class LocationRequest(Request):
             type=0,  # 座標解決リクエスト
             weather_flag=flags.get('weather_flag', 0),
             temperature_flag=flags.get('temperature_flag', 0),
-            pops_flag=flags.get('pops_flag', 0),
+            pop_flag=flags.get('pop_flag', 0),
             alert_flag=flags.get('alert_flag', 0),
             disaster_flag=flags.get('disaster_flag', 0),
             ex_flag=1,  # 拡張フィールドを使用
@@ -112,7 +112,7 @@ class LocationRequest(Request):
         preserve_flags = {
             'weather_flag': weather_request.weather_flag,
             'temperature_flag': weather_request.temperature_flag,
-            'pops_flag': weather_request.pops_flag,
+            'pop_flag': weather_request.pop_flag,
             'alert_flag': weather_request.alert_flag,
             'disaster_flag': weather_request.disaster_flag
         }
@@ -197,7 +197,7 @@ class LocationResponse(Response):
             type=1,  # 位置解決レスポンス
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
-            pops_flag=request.pops_flag,
+            pop_flag=request.pop_flag,
             alert_flag=request.alert_flag,
             disaster_flag=request.disaster_flag,
             ex_flag=1 if ex_field else 0,
@@ -237,7 +237,7 @@ class LocationResponse(Response):
         return {
             'weather_flag': self.weather_flag,
             'temperature_flag': self.temperature_flag,
-            'pops_flag': self.pops_flag,
+            'pop_flag': self.pop_flag,
             'alert_flag': self.alert_flag,
             'disaster_flag': self.disaster_flag
         }
@@ -264,7 +264,7 @@ class LocationResponse(Response):
             type=request_type,
             weather_flag=self.weather_flag,
             temperature_flag=self.temperature_flag,
-            pops_flag=self.pops_flag,
+            pop_flag=self.pop_flag,
             alert_flag=self.alert_flag,
             disaster_flag=self.disaster_flag,
             ex_flag=1 if ex_field else 0,

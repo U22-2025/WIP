@@ -18,7 +18,7 @@ class FormatBase:
     - type:             17-19bit (3ビット)
     - weather_flag:     20bit    (1ビット)
     - temperature_flag: 21bit    (1ビット)
-    - pops_flag:        22bit    (1ビット)
+    - pop_flag:        22bit    (1ビット)
     - alert_flag:       23bit    (1ビット)
     - disaster_flag:    24bit    (1ビット)
     - ex_flag:          25bit    (1ビット)
@@ -36,7 +36,7 @@ class FormatBase:
         'type': 3,            # パケットタイプ
         'weather_flag': 1,     # 天気フラグ
         'temperature_flag': 1, # 気温フラグ
-        'pops_flag': 1,       # 降水確率フラグ
+        'pop_flag': 1,       # 降水確率フラグ
         'alert_flag': 1,      # 警報フラグ
         'disaster_flag': 1,    # 災害フラグ
         'ex_flag': 1,         # 拡張フラグ
@@ -74,7 +74,7 @@ class FormatBase:
         type: int = 0,
         weather_flag: int = 0,
         temperature_flag: int = 0,
-        pops_flag: int = 0,
+        pop_flag: int = 0,
         alert_flag: int = 0,
         disaster_flag: int = 0,
         ex_flag: int = 0,
@@ -95,7 +95,7 @@ class FormatBase:
             type: パケットタイプ (3ビット)
             weather_flag: 天気フラグ (1ビット)
             temperature_flag: 気温フラグ (1ビット)
-            pops_flag: 降水確率フラグ (1ビット)
+            pop_flag: 降水確率フラグ (1ビット)
             alert_flag: 警報フラグ (1ビット)
             disaster_flag: 災害フラグ (1ビット)
             ex_flag: 拡張フラグ (1ビット)
@@ -126,7 +126,7 @@ class FormatBase:
                 'type': type,
                 'weather_flag': weather_flag,
                 'temperature_flag': temperature_flag,
-                'pops_flag': pops_flag,
+                'pop_flag': pop_flag,
                 'alert_flag': alert_flag,
                 'disaster_flag': disaster_flag,
                 'ex_flag': ex_flag,
@@ -263,12 +263,12 @@ class FormatBase:
         self._set_validated_field('temperature_flag', value)
     
     @property
-    def pops_flag(self) -> int:
-        return getattr(self, '_pops_flag', 0)
+    def pop_flag(self) -> int:
+        return getattr(self, '_pop_flag', 0)
     
-    @pops_flag.setter
-    def pops_flag(self, value: Union[int, float]) -> None:
-        self._set_validated_field('pops_flag', value)
+    @pop_flag.setter
+    def pop_flag(self, value: Union[int, float]) -> None:
+        self._set_validated_field('pop_flag', value)
     
     @property
     def alert_flag(self) -> int:

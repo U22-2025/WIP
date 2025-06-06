@@ -93,7 +93,7 @@ WTP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 #### レスポンス専用フィールド
 - **Weather Code (16bit)**: 天気コード
 - **Temperature (8bit)**: 気温（2の補数、+100オフセット）
-- **Precipitation (8bit)**: 降水確率（%）
+- **precipitation_prob (8bit)**: 降水確率（%）
 
 #### 拡張フィールド（可変長）
 - **ヘッダー (16bit)**: データ長(10bit) + データ種別(6bit)
@@ -170,13 +170,13 @@ result = client.get_weather_by_coordinates(
     longitude=139.6917, # 東京の経度
     weather=True,       # 天気データ
     temperature=True,   # 気温データ
-    precipitation=True  # 降水確率
+    precipitation_prob=True  # 降水確率
 )
 
 print(f"Area Code: {result['area_code']}")
 print(f"Weather Code: {result['weather_code']}")
 print(f"Temperature: {result['temperature']}°C")
-print(f"Precipitation: {result['precipitation']}%")
+print(f"precipitation_prob: {result['precipitation_prob']}%")
 
 # エリアコードから直接取得
 result = client.get_weather_by_area_code(

@@ -59,7 +59,7 @@ class WeatherDataManager:
             self.redis_pool = None
     
     def get_weather_data(self, area_code, weather_flag=False, temperature_flag=False, 
-                        pops_flag=False, alert_flag=False, disaster_flag=False, day=0):
+                        pop_flag=False, alert_flag=False, disaster_flag=False, day=0):
         """
         気象データを取得（Redisから直接）
         
@@ -105,11 +105,12 @@ class WeatherDataManager:
                             result['temperature'] = temperatures
                     
                     # 降水確率
-                    if pops_flag and 'precipitation_prob' in weather_data:
-                        precipitation_probs = weather_data['precipitation_prob']
-                        if isinstance(precipitation_probs, list) and len(precipitation_probs) > day:
-                            result['precipitation_prob'] = precipitation_probs[day]
+                    if pop_flag and 'precipitation_prob' in weather_data:
+                        precipitation_prob = weather_data['precipitation_prob']
+                        if isinstance(precipitation_prob, list) and len(precipitation_prob) > day:
+                            result['precipitation_prob'] = precipitation_prob[day]
                         else:
+                            result['precipitation_prob'] = precipitation_prob
                             result['precipitation_prob'] = precipitation_probs
                     
                     # 警報
@@ -137,7 +138,7 @@ class WeatherDataManager:
         return None
     
     def save_weather_data(self, area_code, data, weather_flag=False, temperature_flag=False,
-                         pops_flag=False, alert_flag=False, disaster_flag=False, day=0):
+                         pop_flag=False, alert_flag=False, disaster_flag=False, day=0):
         """
         気象データをRedisキャッシュに保存
         
@@ -150,7 +151,7 @@ class WeatherDataManager:
         # キャッシュキーを生成
         cache_key = self._generate_cache_key(
             area_code, weather_flag, temperature_flag,
-            pops_flag, alert_flag, disaster_flag, day
+            pop_flag, alert_flag, disaster_flag, day
         )
         
         # キャッシュに保存
@@ -158,12 +159,12 @@ class WeatherDataManager:
             self._save_to_cache(cache_key, data)
     
     def _generate_cache_key(self, area_code, weather_flag, temperature_flag, 
-                           pops_flag, alert_flag, disaster_flag, day):
+                           pop_flag, alert_flag, disaster_flag, day):
         """キャッシュキーを生成"""
         flags = []
         if weather_flag: flags.append('w')
         if temperature_flag: flags.append('t')
-        if pops_flag: flags.append('p')
+        if pop_flag: flags.append('p')
         if alert_flag: flags.append('a')
         if disaster_flag: flags.append('d')
         
