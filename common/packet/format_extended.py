@@ -42,7 +42,7 @@ class FormatExtended(FormatBase):
 
     def _on_ex_field_changed(self) -> None:
         """拡張フィールドが変更されたときの処理"""
-        if hasattr(self, '_auto_checksum') and self._auto_checksum:
+        if self._auto_checksum:
             self._recalculate_checksum()
 
     @property
