@@ -1,5 +1,5 @@
 """
-WTP (Weather Transport Protocol) サーバーパッケージ
+WIP (Weather Information Protocol) サーバーパッケージ
 天気情報転送プロトコルの実装
 """
 
@@ -7,7 +7,7 @@ WTP (Weather Transport Protocol) サーバーパッケージ
 __version__ = "1.0.0"
 
 # パッケージ情報
-__author__ = "WTP Team"
+__author__ = "WIP Team"
 
 # 遅延インポートを使用してサーバークラスを公開
 def __getattr__(name):

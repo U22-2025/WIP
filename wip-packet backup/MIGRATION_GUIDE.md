@@ -1,8 +1,8 @@
-# WTP Packet 移行ガイド
+# WIP Packet 移行ガイド
 
 ## 概要
 
-このガイドは、既存のWTP_ClientとWTP_Serverプロジェクトを、新しい統合されたwtp-packetパッケージに移行する方法を説明します。
+このガイドは、既存のWIP_ClientとWIP_Serverプロジェクトを、新しい統合されたwtp-packetパッケージに移行する方法を説明します。
 
 ## パッケージのインストール
 
@@ -28,13 +28,13 @@ pip install .
 
 既存のコード：
 ```python
-# WTP_Client/clients/weather_client.py
+# WIP_Client/clients/weather_client.py
 from ..packet import Request, Response
 ```
 
 新しいコード：
 ```python
-# WTP_Client/clients/weather_client.py
+# WIP_Client/clients/weather_client.py
 from wtp_packet import Request, Response
 ```
 
@@ -66,8 +66,8 @@ request = Request(ex_field=ex_field)
 
 - [ ] wtp-packetパッケージをインストール
 - [ ] すべてのインポート文を更新
-- [ ] WTP_Client/packetディレクトリを削除（またはバックアップ）
-- [ ] WTP_Server/packetディレクトリを削除（またはバックアップ）
+- [ ] WIP_Client/packetディレクトリを削除（またはバックアップ）
+- [ ] WIP_Server/packetディレクトリを削除（またはバックアップ）
 - [ ] テストを実行して動作確認
 
 ### 4. 互換性の確認

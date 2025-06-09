@@ -117,7 +117,7 @@ class NewProcessor(XMLBaseProcessor):
 ## ファイル構成
 
 ```
-WTP_Server/data/
+WIP_Server/data/
 ├── xml_base.py              # 基底クラス
 ├── alert_processor.py       # 警報・注意報処理
 ├── disaster_processor.py    # 災害情報処理

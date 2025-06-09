@@ -1,9 +1,9 @@
 import threading
 import argparse
-from WTP_Server import QueryServer, LocationServer, WeatherServer
+from WIP_Server import QueryServer, LocationServer, WeatherServer
 
 def main():
-    parser = argparse.ArgumentParser(description='WTPサーバー起動スクリプト')
+    parser = argparse.ArgumentParser(description='WIPサーバー起動スクリプト')
     parser.add_argument('--server', choices=['query', 'location', 'weather'], 
                        help='起動するサーバーを指定 (query, location, weather)')
     parser.add_argument('--query', action='store_true', help='Queryサーバーを起動')

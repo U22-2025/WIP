@@ -1,13 +1,13 @@
-# WTP プロジェクト構造（新構造）
+# WIP プロジェクト構造（新構造）
 
 ## 概要
-WTPプロジェクトは、共通ライブラリを使用した構造に再編成されました。
+WIPプロジェクトは、共通ライブラリを使用した構造に再編成されました。
 これにより、クライアントとサーバー間でコードの重複を避け、メンテナンスが容易になります。
 
 ## ディレクトリ構造
 
 ```
-WTP/
+WIP/
 ├── common/                 # 共通ライブラリ
 │   ├── __init__.py
 │   ├── packet/            # パケット処理（統合済み）
@@ -32,10 +32,10 @@ WTP/
 │       ├── __init__.py
 │       └── debug.py
 │
-├── WTP_Client/            # クライアント固有の実装（削除予定）
+├── WIP_Client/            # クライアント固有の実装（削除予定）
 │   └── （古い構造、移行後削除）
 │
-├── WTP_Server/            # サーバー固有の実装
+├── WIP_Server/            # サーバー固有の実装
 │   ├── servers/           # 各種サーバー実装
 │   ├── data/              # サーバー固有のデータ処理
 │   ├── scripts/           # サーバー管理スクリプト
@@ -58,9 +58,9 @@ python client.py
 ```bash
 python start_servers.bat
 # または個別に
-python -m WTP_Server.servers.location_server.location_server
-python -m WTP_Server.servers.weather_server.weather_server
-python -m WTP_Server.servers.query_server.query_server
+python -m WIP_Server.servers.location_server.location_server
+python -m WIP_Server.servers.weather_server.weather_server
+python -m WIP_Server.servers.query_server.query_server
 ```
 
 ## インポートの例
@@ -75,11 +75,11 @@ from common.clients.weather_client import WeatherClient
 from common.packet import Request, Response
 ```
 
-### サーバー側（WTP_Server内）
+### サーバー側（WIP_Server内）
 ```python
 import sys
 import os
-# WTP_Serverの親ディレクトリをパスに追加
+# WIP_Serverの親ディレクトリをパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from common.packet import Request, Response, BitFieldError
@@ -95,6 +95,6 @@ from common.clients.location_client import LocationClient
 
 ## 今後の作業
 
-1. WTP_Server内のインポートを更新
-2. WTP_Client/とWTP_Server/packet/を削除
+1. WIP_Server内のインポートを更新
+2. WIP_Client/とWIP_Server/packet/を削除
 3. テストの実行と動作確認

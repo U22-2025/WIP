@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wtp-packet"
 version = "1.0.0"
-description = "Weather Transport Protocol packet format implementation"
+description = "Weather Information Protocol packet format implementation"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
-    {name = "WTP Project"}
+    {name = "WIP Project"}
 ]
 keywords = ["weather", "protocol", "packet", "wtp"]
 classifiers = [

@@ -1,13 +1,13 @@
--- WTP (Weather Transmission Protocol) Wireshark Dissector
+-- WIP (Weather Information Protocol) Wireshark Dissector
 -- Based on PACKET_STRUCTURE.md specification
 
 -- プロトコル定義
-local wtp_proto = Proto("WTP-U22", "Weather Transmission Protocol")
+local wip_proto = Proto("WIP-U22", "Weather Information Protocol")
 
 -- 基本フィールドの定義（128ビット固定）
-local f_version = ProtoField.uint8("wtp.version", "Version", base.DEC, nil, 0x0F)
-local f_packet_id = ProtoField.uint16("wtp.packet_id", "Packet ID", base.DEC, nil, 0xFFF0)
-local f_type = ProtoField.uint8("wtp.type", "Type", base.DEC, {
+local f_version = ProtoField.uint8("wip.version", "Version", base.DEC, nil, 0x0F)
+local f_packet_id = ProtoField.uint16("wip.packet_id", "Packet ID", base.DEC, nil, 0xFFF0)
+local f_type = ProtoField.uint8("wip.type", "Type", base.DEC, {
     [0] = "Location Request",
     [1] = "Location Response", 
     [2] = "Weather Request",
@@ -19,34 +19,34 @@ local f_type = ProtoField.uint8("wtp.type", "Type", base.DEC, {
 }, 0x07)
 
 -- フラグフィールド
-local f_weather_flag = ProtoField.bool("wtp.weather_flag", "Weather Flag", 8, nil, 0x08)
-local f_temperature_flag = ProtoField.bool("wtp.temperature_flag", "Temperature Flag", 8, nil, 0x10)
-local f_pop_flag = ProtoField.bool("wtp.pop_flag", "pop Flag", 8, nil, 0x20)
-local f_alert_flag = ProtoField.bool("wtp.alert_flag", "Alert Flag", 8, nil, 0x40)
-local f_disaster_flag = ProtoField.bool("wtp.disaster_flag", "Disaster Flag", 8, nil, 0x80)
-local f_ex_flag = ProtoField.bool("wtp.ex_flag", "Extension Flag", 8, nil, 0x01)
-local f_day = ProtoField.uint8("wtp.day", "Days", base.DEC, nil, 0x0E)
-local f_reserved = ProtoField.uint8("wtp.reserved", "Reserved", base.HEX, nil, 0xF0)
+local f_weather_flag = ProtoField.bool("wip.weather_flag", "Weather Flag", 8, nil, 0x08)
+local f_temperature_flag = ProtoField.bool("wip.temperature_flag", "Temperature Flag", 8, nil, 0x10)
+local f_pop_flag = ProtoField.bool("wip.pop_flag", "pop Flag", 8, nil, 0x20)
+local f_alert_flag = ProtoField.bool("wip.alert_flag", "Alert Flag", 8, nil, 0x40)
+local f_disaster_flag = ProtoField.bool("wip.disaster_flag", "Disaster Flag", 8, nil, 0x80)
+local f_ex_flag = ProtoField.bool("wip.ex_flag", "Extension Flag", 8, nil, 0x01)
+local f_day = ProtoField.uint8("wip.day", "Days", base.DEC, nil, 0x0E)
+local f_reserved = ProtoField.uint8("wip.reserved", "Reserved", base.HEX, nil, 0xF0)
 
 -- タイムスタンプとエリア情報
-local f_timestamp = ProtoField.uint64("wtp.timestamp", "Timestamp", base.DEC)
-local f_area_code = ProtoField.uint32("wtp.area_code", "Area Code", base.DEC, nil, 0xFFFFF000)
-local f_checksum = ProtoField.uint16("wtp.checksum", "Checksum", base.HEX, nil, 0x0FFF)
+local f_timestamp = ProtoField.uint64("wip.timestamp", "Timestamp", base.DEC)
+local f_area_code = ProtoField.uint32("wip.area_code", "Area Code", base.DEC, nil, 0xFFFFF000)
+local f_checksum = ProtoField.uint16("wip.checksum", "Checksum", base.HEX, nil, 0x0FFF)
 
 -- 拡張フィールド
-local f_ext_record = ProtoField.bytes("wtp.ext_record", "Extension Record")
-local f_ext_key = ProtoField.uint16("wtp.ext_key", "Extension Key", base.DEC, {
+local f_ext_record = ProtoField.bytes("wip.ext_record", "Extension Record")
+local f_ext_key = ProtoField.uint16("wip.ext_key", "Extension Key", base.DEC, {
     [1] = "Alert",
     [2] = "Disaster", 
     [33] = "Latitude",
     [34] = "Longitude",
     [40] = "Source"
 }, 0x003F)
-local f_ext_length = ProtoField.uint16("wtp.ext_length", "Extension Length", base.DEC, nil, 0xFFC0)
-local f_ext_data = ProtoField.string("wtp.ext_data", "Extension Data")
+local f_ext_length = ProtoField.uint16("wip.ext_length", "Extension Length", base.DEC, nil, 0xFFC0)
+local f_ext_data = ProtoField.string("wip.ext_data", "Extension Data")
 
 -- プロトコルフィールドの登録
-wtp_proto.fields = {
+wip_proto.fields = {
     f_version, f_packet_id, f_type,
     f_weather_flag, f_temperature_flag, f_pop_flag, f_alert_flag, f_disaster_flag,
     f_ex_flag, f_day, f_reserved,
@@ -104,15 +104,15 @@ local function decode_extension_data(key, data)
 end
 
 -- メイン解析関数
-function wtp_proto.dissector(buffer, pinfo, tree)
+function wip_proto.dissector(buffer, pinfo, tree)
     local length = buffer:len()
     if length < 16 then  -- 最小パケットサイズ（128ビット = 16バイト）
         return
     end
     
-    pinfo.cols.protocol = wtp_proto.name
+    pinfo.cols.protocol = wip_proto.name
     
-    local subtree = tree:add(wtp_proto, buffer(), "Weather Transmission Protocol")
+    local subtree = tree:add(wip_proto, buffer(), "Weather Information Protocol")
     
     -- 基本フィールドの解析（128ビット）
     local basic_tree = subtree:add(buffer(0, 16), "Basic Fields (128 bits)")
@@ -223,25 +223,25 @@ function wtp_proto.dissector(buffer, pinfo, tree)
     end
     
     -- パケット情報の設定
-    pinfo.cols.info = "WTP v" .. version .. " ID:" .. packet_id .. " Type:" .. type_val .. 
+    pinfo.cols.info = "WIP v" .. version .. " ID:" .. packet_id .. " Type:" .. type_val .. 
                      " Area:" .. area_code .. (ex_flag == 1 and " [Extended]" or "")
 end
 
 -- UDPポート4109-4111にプロトコルを登録
 local udp_port_table = DissectorTable.get("udp.port")
-udp_port_table:add(4109, wtp_proto)
-udp_port_table:add(4110, wtp_proto)
-udp_port_table:add(4111, wtp_proto)
+udp_port_table:add(4109, wip_proto)
+udp_port_table:add(4110, wip_proto)
+udp_port_table:add(4111, wip_proto)
 
 -- プロトコル情報を表示
-local function wtp_proto_init()
-    local wtp_info = {
+local function wip_proto_init()
+    local wip_info = {
         version = "1.0",
-        author = "WTP Project",
-        description = "Weather Transmission Protocol Dissector for Wireshark"
+        author = "WIP Project",
+        description = "Weather Information Protocol Dissector for Wireshark"
     }
-    print("WTP Dissector loaded: " .. wtp_info.description .. " v" .. wtp_info.version)
+    print("WIP Dissector loaded: " .. wip_info.description .. " v" .. wip_info.version)
 end
 
 -- 初期化時にプロトコル情報を表示
-wtp_proto_init()
+wip_proto_init()
