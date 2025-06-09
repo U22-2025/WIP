@@ -61,4 +61,4 @@ dependencies:
   - xz-gpl-tools=5.8.1=hbcc6ac9_1
   - xz-tools=5.8.1=hb9d3cd8_1
   - zstandard=0.23.0=py310ha75aee5_2
-prefix: /home/u22-wtp/miniconda3/envs/u22-wtp
+prefix: /home/shared/miniconda3/envs/u22-wtp
