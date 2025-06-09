@@ -8,7 +8,7 @@ import struct
 import time
 import threading
 import concurrent.futures
-
+import os
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
@@ -18,7 +18,7 @@ PIDG = PacketIDGenerator12Bit()
 class QueryClient:
     """Query Serverと通信するクライアント（専用パケットクラス使用）"""
     
-    def __init__(self, host='localhost', port=4111, debug=False):
+    def __init__(self, host=os.getenv('QUERY_GENERATOR_HOST'), port=int(os.getenv('QUERY_GENERATOR_PORT')), debug=False):
         """
         初期化
         

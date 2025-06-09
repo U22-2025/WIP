@@ -18,7 +18,7 @@ PIDG = PacketIDGenerator12Bit()
 class WeatherClient:
     """Weather Serverと通信するクライアント（専用パケットクラス使用）"""
     
-    def __init__(self, host='localhost', port=4110, debug=False):
+    def __init__(self, host=os.getenv('WEATHER_SERVER_HOST'), port=int(os.getenv('WEATHER_SERVER_PORT')), debug=False):
         """
         初期化
         

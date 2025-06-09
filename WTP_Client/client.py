@@ -8,17 +8,17 @@ NTPモジュールのような設計で、Weather Serverとの通信を簡潔に
 import sys
 import os
 import time
-
+from dotenv import load_dotenv
 # commonパッケージのパスを追加
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from common.clients.weather_client import WeatherClient
-
+load_dotenv()
 
 class Client:
     """WTP Client - Weather Server通信用のシンプルなクライアント（状態管理型）"""
     
-    def __init__(self, server_ip=os.getenv('WEATHER_SERVER_HOST'), server_port=os.getenv('WEATHER_SERVER_PORT'), debug=False, 
+    def __init__(self, server_ip=os.getenv('WEATHER_SERVER_HOST'), server_port=int(os.getenv('WEATHER_SERVER_PORT')), debug=False, 
                  latitude=None, longitude=None, area_code=None):
         """
         初期化

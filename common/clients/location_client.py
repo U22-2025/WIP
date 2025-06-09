@@ -9,17 +9,18 @@ import ipaddress
 import time
 import random
 from datetime import datetime
-
+from dotenv import load_dotenv
+import os
 from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
 PIDG = PacketIDGenerator12Bit()
-
+load_dotenv()
 
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
     
-    def __init__(self, host='localhost', port=4109, debug=False):
+    def __init__(self, host=os.getenv('LOCATION_RESOLVER_HOST'), port=int(os.getenv('LOCATION_RESOLVER_PORT')), debug=False):
         """
         初期化
         
