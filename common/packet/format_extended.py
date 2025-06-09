@@ -158,49 +158,18 @@ class FormatExtended(FormatBase):
             bitstr = self.to_bits()
             
             # 基本バイト数を計算（最低32バイト = 256ビット）
-            num_bytes = max((bitstr.bit_length() + 7) // 8, 32)
-            
-            # 拡張フィールドのバイト数を計算
-            if self.ex_flag == 1 and self._ex_field and self._ex_field.to_dict():
-                ex_field_dict = self._ex_field.to_dict()
-                # ヘッダー用のバイト数（各フィールドに16ビット = 2バイト）
-                num_extended_records = 0
-                for value in ex_field_dict.values():
-                    if isinstance(value, list):
-                        num_extended_records += len(value)
-                    else:
-                        num_extended_records += 1
-                num_bytes += num_extended_records * 2
-                
-                # 各値のバイト数を計算
-                for key, value in ex_field_dict.items():
-                    if isinstance(value, list):
-                        for item in value:
-                            if isinstance(item, str):
-                                num_bytes += len(item.encode('utf-8'))
-                            elif key in ['latitude', 'longitude']:
-                                num_bytes += 4  # 座標は4バイト固定
-                    else:
-                        if isinstance(value, str):
-                            num_bytes += len(value.encode('utf-8'))
-                        elif key in ['latitude', 'longitude']:
-                            num_bytes += 4  # 座標は4バイト固定
-                        elif isinstance(value, (int, float)):
-                            val_bits = int(value)
-                            num_bytes += (val_bits.bit_length() + 7) // 8 or 1
-            
-            # 必要なバイト数を計算
-            required_bytes = (bitstr.bit_length() + 7) // 8
+            # パケット全体のバイト数を計算し、最低32バイトを保証
+            total_packet_bytes = max((bitstr.bit_length() + 7) // 8, 32)
             
             # リトルエンディアンでバイト列に変換
-            if required_bytes > 0:
-                bytes_data = bitstr.to_bytes(required_bytes, byteorder='little')
+            if total_packet_bytes > 0:
+                bytes_data = bitstr.to_bytes(total_packet_bytes, byteorder='little')
             else:
                 bytes_data = b''
             
             # 最低必要バイト数にパディング（右側を0で埋める）
-            if len(bytes_data) < num_bytes:
-                bytes_data = bytes_data + b'\x00' * (num_bytes - len(bytes_data))
+            if len(bytes_data) < total_packet_bytes:
+                bytes_data = bytes_data + b'\x00' * (total_packet_bytes - len(bytes_data))
             
             # チェックサムを計算して設定
             self.checksum = self.calc_checksum12(bytes_data)
@@ -211,13 +180,13 @@ class FormatExtended(FormatBase):
             # 最終的なバイト列を生成
             final_required_bytes = (final_bitstr.bit_length() + 7) // 8
             if final_required_bytes > 0:
-                final_bytes = final_bitstr.to_bytes(final_required_bytes, byteorder='little')
+                final_bytes = final_bitstr.to_bytes(total_packet_bytes, byteorder='little')
             else:
                 final_bytes = b''
             
             # 最低必要バイト数にパディング
-            if len(final_bytes) < num_bytes:
-                final_bytes = final_bytes + b'\x00' * (num_bytes - len(final_bytes))
+            if len(final_bytes) < total_packet_bytes:
+                final_bytes = final_bytes + b'\x00' * (total_packet_bytes - len(final_bytes))
             
             return final_bytes
             
