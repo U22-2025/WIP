@@ -1,0 +1,15 @@
+# HTTP/3対応WTPサーバー用パッケージ
+
+# 基本フレームワーク
+quart>=0.19.0              # HTTP/3対応のASGIフレームワーク
+hypercorn[h3]>=0.16.0      # HTTP/3対応のASGIサーバー
+
+# 地理情報
+geopy>=2.3.0               # 地理情報処理
+
+# 既存の依存関係（Flask版から継承）
+flask>=2.3.0               # 元のFlaskアプリとの互換性のため
+requests>=2.31.0           # HTTPリクエスト
+
+# HTTP/3追加パッケージ
+aioquic>=0.9.20            # HTTP/3とQUICプロトコルサポート
