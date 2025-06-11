@@ -6,6 +6,7 @@
 import time
 import sys
 import os
+import datetime
 # プロジェクトルートをパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))))
 
@@ -43,7 +44,7 @@ class ResponseBuilder:
             type=3,  # Type 3 for weather data response
             area_code=request.area_code,
             day=request.day,
-            timestamp=int(time.time()),
+            timestamp=int(datetime.now().timestamp()),
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
             pop_flag=request.pop_flag,
@@ -126,7 +127,7 @@ class ResponseBuilder:
             type=3,
             area_code=request.area_code,
             day=request.day,
-            timestamp=int(time.time()),
+            timestamp=int(datetime.now().timestamp()),
             weather_flag=0,
             temperature_flag=0,
             pop_flag=0,

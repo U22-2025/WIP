@@ -10,6 +10,7 @@ from collections import OrderedDict
 import sys
 import os
 from pathlib import Path
+import datetime
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -212,7 +213,7 @@ class LocationServer(BaseServer):
             alert_flag=request.alert_flag,
             disaster_flag=request.disaster_flag,
             ex_flag=1,
-            timestamp=int(time.time()),
+            timestamp=int(datetime.now().timestamp()),
             area_code=int(area_code) if area_code else 0
         )
         
