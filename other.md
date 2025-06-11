@@ -1,0 +1,2 @@
+- redis_get_data使ってない
+- 

@@ -27,7 +27,7 @@ class AlertProcessor(XMLBaseProcessor):
     
     def __init__(self):
         super().__init__()
-        self.info_key = "警報・注意報"
+        self.info_key = "warnings"
         self.time_key = "alert_reportdatetime"
         self.target_type = "気象警報・注意報（一次細分区域等）"
     
