@@ -8,7 +8,7 @@ import os
 
 # パスを追加してredis_managerをインポート
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'data'))
-from redis_manager import create_redis_manager
+from data.redis_manager import create_redis_manager 
 
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {}
@@ -45,7 +45,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             response = session.get(URL, timeout=timeout)
             response.raise_for_status()
             data = response.json()
-            
+
             if debug:
                 print(f"エリアコード {area_code} のデータ取得完了: {len(data)}件")
             
@@ -162,8 +162,6 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                     "weather": weather_codes,
                     "temperature": temps,
                     "precipitation_prob": pop,
-                    "warnings": [],
-                    "disaster_info": []
                 }
                 
                 area_output[code] = area_data
