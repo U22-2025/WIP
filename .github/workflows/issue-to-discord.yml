@@ -1,13 +1,10 @@
 name: Notify Discord on Issue Update
-
 on:
   issues:
     types: [opened, closed, deleted]
-
 permissions:
   issues: read
   contents: read
-
 jobs:
   notify:
     runs-on: ubuntu-latest
@@ -18,7 +15,7 @@ jobs:
           echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
           echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
           echo "ISSUE_ACTION=${{ github.event.action }}" >> $GITHUB_ENV
-
+          echo "ISSUE_URL=${{ github.event.issue.html_url }}" >> $GITHUB_ENV
       - name: Fetch open issues
         uses: actions/github-script@v7
         id: get_open_issues
@@ -30,52 +27,65 @@ jobs:
               state: "open",
               per_page: 100,
             });
-
             function format(issues) {
-              if (issues.length === 0) return "*なし*";
-              return issues.map(i => `• [#${i.number}](${i.html_url}) ${i.title}`).join("\\n");
+              if (issues.length === 0) return "*None*";
+              // Use proper Discord markdown formatting for links
+              return issues.map(i => `• [#${i.number} ${i.title}](${i.html_url})`).join("\\n");
             }
-
             return JSON.stringify({
               openIssues: format(issues)
             });
           result-encoding: string
-
       - name: Send to Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           ISSUE_TITLE: ${{ env.ISSUE_TITLE }}
           ISSUE_NUMBER: ${{ env.ISSUE_NUMBER }}
           ISSUE_ACTION: ${{ env.ISSUE_ACTION }}
+          ISSUE_URL: ${{ env.ISSUE_URL }}
         run: |
           echo '${{ steps.get_open_issues.outputs.result }}' > result.json
           OPEN_ISSUES=$(jq -r .openIssues result.json)
-
+          
+          # Create change description with proper link formatting
           if [ "$ISSUE_ACTION" = "opened" ]; then
-            CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **作成** されました"
+            CHANGE_TEXT="• Issue [#$ISSUE_NUMBER $ISSUE_TITLE]($ISSUE_URL) was **created**"
           elif [ "$ISSUE_ACTION" = "closed" ]; then
-            CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **完了（Closed）** されました"
+            CHANGE_TEXT="• Issue [#$ISSUE_NUMBER $ISSUE_TITLE]($ISSUE_URL) was **closed**"
           elif [ "$ISSUE_ACTION" = "deleted" ]; then
-            CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **削除** されました"
+            CHANGE_TEXT="• Issue #$ISSUE_NUMBER was **deleted**"
           else
-            CHANGE_TEXT="• Issue #$ISSUE_NUMBER に変更がありました"
+            CHANGE_TEXT="• Issue [#$ISSUE_NUMBER $ISSUE_TITLE]($ISSUE_URL) was **updated**"
           fi
-
-          PAYLOAD=$(jq -n --arg ct "$CHANGE_TEXT" --arg oi "$OPEN_ISSUES" '{
-            content: "🔔 **Issueの更新があります**",
-            embeds: [
-              {
-                title: "📌 変更内容",
-                description: $ct,
-                color: 3447003
-              },
-              {
-                title: "🟩 OpenなIssue一覧",
-                description: $oi,
-                color: 3066993
-              }
-            ]
-          }')
-
+          
+          # Create Discord webhook payload with proper formatting
+          PAYLOAD=$(jq -n \
+            --arg ct "$CHANGE_TEXT" \
+            --arg oi "$OPEN_ISSUES" \
+            --arg repo "${{ github.repository }}" \
+            --arg url "${{ github.event.repository.html_url }}/issues" \
+            '{
+              content: "🔔 **Issue Update Notification**",
+              embeds: [
+                {
+                  title: "📌 Changes",
+                  description: $ct,
+                  color: 3447003,
+                  timestamp: (now | strftime("%Y-%m-%dT%H:%M:%SZ"))
+                },
+                {
+                  title: "🟩 Open Issues",
+                  description: $oi,
+                  color: 3066993,
+                  footer: {
+                    text: $repo,
+                    icon_url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                  },
+                  url: $url
+                }
+              ]
+            }'
+          )
+          
           curl -X POST -H "Content-Type: application/json" \
             -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL"
