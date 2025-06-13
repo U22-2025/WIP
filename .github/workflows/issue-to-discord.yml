@@ -47,36 +47,31 @@ jobs:
           echo '${{ steps.get_open_issues.outputs.result }}' > result.json
           OPEN_ISSUES=$(jq -r .openIssues result.json)
 
-          case "$ISSUE_ACTION" in
-            opened)
-              CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **作成** されました"
-              ;;
-            closed)
-              CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **完了（Closed）** されました"
-              ;;
-            deleted)
-              CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **削除** されました"
-              ;;
-            *)
-              CHANGE_TEXT="• Issue #$ISSUE_NUMBER に変更がありました"
-              ;;
-          esac
+          if [ "$ISSUE_ACTION" = "opened" ]; then
+            CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **作成** されました"
+          elif [ "$ISSUE_ACTION" = "closed" ]; then
+            CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **完了（Closed）** されました"
+          elif [ "$ISSUE_ACTION" = "deleted" ]; then
+            CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **削除** されました"
+          else
+            CHANGE_TEXT="• Issue #$ISSUE_NUMBER に変更がありました"
+          fi
 
-          curl -X POST -H "Content-Type: application/json" \
-            -d @- $DISCORD_WEBHOOK_URL <<EOF
-          {
-            "content": "🔔 **Issueの更新があります**",
-            "embeds": [
+          PAYLOAD=$(jq -n --arg ct "$CHANGE_TEXT" --arg oi "$OPEN_ISSUES" '{
+            content: "🔔 **Issueの更新があります**",
+            embeds: [
               {
-                "title": "📌 変更内容",
-                "description": "$CHANGE_TEXT",
-                "color": 3447003
+                title: "📌 変更内容",
+                description: $ct,
+                color: 3447003
               },
               {
-                "title": "🟩 OpenなIssue一覧",
-                "description": "$OPEN_ISSUES",
-                "color": 3066993
+                title: "🟩 OpenなIssue一覧",
+                description: $oi,
+                color: 3066993
               }
             ]
-          }
-EOF
+          }')
+
+          curl -X POST -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL"
