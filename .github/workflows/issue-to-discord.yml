@@ -1,0 +1,82 @@
+name: Notify Discord on Issue Update
+
+on:
+  issues:
+    types: [opened, closed, deleted]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save change summary
+        id: change_summary
+        run: |
+          echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
+          echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
+          echo "ISSUE_ACTION=${{ github.event.action }}" >> $GITHUB_ENV
+
+      - name: Fetch open issues
+        uses: actions/github-script@v7
+        id: get_open_issues
+        with:
+          script: |
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+
+            function format(issues) {
+              if (issues.length === 0) return "*なし*";
+              return issues.map(i => `• [#${i.number}](${i.html_url}) ${i.title}`).join("\\n");
+            }
+
+            return {
+              openIssues: format(issues)
+            };
+          result-encoding: string
+
+      - name: Send to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ISSUE_TITLE: ${{ env.ISSUE_TITLE }}
+          ISSUE_NUMBER: ${{ env.ISSUE_NUMBER }}
+          ISSUE_ACTION: ${{ env.ISSUE_ACTION }}
+        run: |
+          echo '${{ steps.get_open_issues.outputs.result }}' > result.json
+          OPEN_ISSUES=$(jq -r .openIssues result.json)
+
+          case "$ISSUE_ACTION" in
+            opened)
+              CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **作成** されました"
+              ;;
+            closed)
+              CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **完了（Closed）** されました"
+              ;;
+            deleted)
+              CHANGE_TEXT="• Issue #$ISSUE_NUMBER が **削除** されました"
+              ;;
+            *)
+              CHANGE_TEXT="• Issue #$ISSUE_NUMBER に変更がありました"
+              ;;
+          esac
+
+          curl -X POST -H "Content-Type: application/json" \
+            -d @- $DISCORD_WEBHOOK_URL <<EOF
+          {
+            "content": "🔔 **Issueの更新があります**",
+            "embeds": [
+              {
+                "title": "📌 変更内容",
+                "description": "$CHANGE_TEXT",
+                "color": 3447003
+              },
+              {
+                "title": "🟩 OpenなIssue一覧",
+                "description": "$OPEN_ISSUES",
+                "color": 3066993
+              }
+            ]
+          }
+EOF
