@@ -4,6 +4,10 @@ on:
   issues:
     types: [opened, closed, deleted]
 
+permissions:
+  issues: read
+  contents: read
+
 jobs:
   notify:
     runs-on: ubuntu-latest
