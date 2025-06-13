@@ -45,9 +45,9 @@ jobs:
               const chunks = chunkArray(issues, 25);
               return chunks.map((chunk, index) => ({
                 fields: chunk.map(issue => ({
-                  name: `#${issue.number}`,
-                  value: `[${issue.title}](${issue.html_url})`,
-                  inline: true
+                  name: `[${issue.title}](${issue.html_url})`,
+                  value: issue.body ? (issue.body.length > 1000 ? issue.body.substring(0, 1000) + "..." : issue.body) : "*No description provided*",
+                  inline: false
                 })),
                 isLast: index === chunks.length - 1,
                 chunkIndex: index + 1,
