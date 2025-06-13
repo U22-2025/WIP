@@ -36,9 +36,9 @@ jobs:
               return issues.map(i => `• [#${i.number}](${i.html_url}) ${i.title}`).join("\\n");
             }
 
-            return JSON.stringify{
+            return JSON.stringify({
               openIssues: format(issues)
-            };
+            });
           result-encoding: string
 
       - name: Send to Discord
