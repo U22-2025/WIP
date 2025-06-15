@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 災害情報取得スクリプト
 
@@ -39,7 +40,7 @@ def main():
         json_result = processor.get_disaster_info(url_list, 'wtp/json/disaster_data.json')
         print("\n=== Disaster Info Processing Complete ===")
         print(f"Debug: json_result type: {type(json_result)}")
-        print(f"Debug: json_result content (first 100 chars): {json_result[:100]}")
+        # print(f"Debug: json_result content (first 100 chars): {json_result[:100]}") # エンコーディングエラー回避のためコメントアウト
         
         # Step 3: 火山座標の解決処理
         try:
@@ -50,7 +51,7 @@ def main():
             return # 処理を中断
         result_dict, volcano_locations = processor.resolve_volcano_coordinates(result_dict)
         
-        print(f"\nVolcano Location Resolution Results: {json.dumps(volcano_locations, ensure_ascii=False, indent=2)}")
+        print(f"\nVolcano Location Resolution Results: {len(volcano_locations)} locations resolved.") # 簡潔な表示に変更
         
         # Step 4: エリアコードデータの読み込み
         with open('wtp/json/area_codes.json', 'r', encoding='utf-8') as f:

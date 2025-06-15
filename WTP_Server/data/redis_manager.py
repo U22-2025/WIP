@@ -226,17 +226,26 @@ class WeatherRedisManager:
                 # disaster_pulldatetimeは処理対象外なのでスキップ
                 continue
             try:
-                # 新規データ作成
-                new_data = self._create_default_weather_data()
-                new_data['disaster_info'] = disaster_info.get('災害情報', [])
+                # 既存の気象データを取得、なければデフォルトデータを作成
+                existing_data = self.get_weather_data(area_code)
+                if existing_data:
+                    new_data = existing_data
+                    updated_count += 1
+                else:
+                    new_data = self._create_default_weather_data()
+                    created_count += 1
+                
+                new_data['disaster_info'] = disaster_info.get('disaster_info', [])
                 
                 if self.update_weather_data(area_code, new_data):
-                    created_count += 1
-                    if self.debug:
-                        print(f"災害新規: {area_code} - {len(new_data['disaster_info'])}件")
+                    if existing_data:
+                        if self.debug:
+                            print(f"災害更新: {area_code} - {len(new_data['disaster_info'])}件")
+                    else:
+                        if self.debug:
+                            print(f"災害新規: {area_code} - {len(new_data['disaster_info'])}件")
                 else:
                     error_count += 1
-                        
             except Exception as e:
                 if self.debug:
                     print(f"災害処理エラー ({area_code}): {e}")

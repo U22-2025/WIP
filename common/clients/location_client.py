@@ -3,6 +3,7 @@ Location Client - 改良版（専用パケットクラス使用）
 Location Serverとの通信を行うクライアント（サーバー間通信用）
 """
 
+import json
 import socket
 import struct
 import ipaddress
@@ -74,7 +75,11 @@ class LocationClient:
         # 専用クラスのメソッドを使用
         if hasattr(response, 'get_response_summary'):
             summary = response.get_response_summary()
-            print(f"\nResponse Summary: {summary}")
+            # summaryが辞書の場合、json.dumpsで安全に表示
+            if isinstance(summary, dict):
+                print(f"\nResponse Summary: {json.dumps(summary, ensure_ascii=False, indent=2)}")
+            else:
+                print(f"\nResponse Summary: {summary}")
         
         print(f"\nResponse Details:")
         print(f"Type: {response.type}")
@@ -199,7 +204,7 @@ def main():
         )
         
         if response and response.is_valid():
-            print(f"\n✓ Location request completed in {total_time*1000:.2f}ms")
+            print(f"\nLocation request completed in {total_time*1000:.2f}ms")
             print(f"Area Code: {response.get_area_code()}")
             print(f"Response Summary: {response.get_response_summary()}")
             
@@ -209,7 +214,7 @@ def main():
             print(f"Area Code (convenience method): {area_code}")
             
         else:
-            print("\n✗ Location request failed")
+            print("\nLocation request failed")
             if response:
                 print(f"Response valid: {response.is_valid()}")
                 
@@ -218,7 +223,7 @@ def main():
         
     print("\n" + "="*70)
     print("Enhanced Location Client Example completed")
-    print("✓ Using specialized packet classes for improved usability")
+    print("Using specialized packet classes for improved usability")
 
 
 if __name__ == "__main__":
