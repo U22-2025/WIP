@@ -8,7 +8,7 @@
     python get_alert.py
 """
 
-from alert_processor import AlertProcessor
+from alert_processor import AlertDataProcessor
 from redis_manager import create_redis_manager
 
 
@@ -21,14 +21,24 @@ def main():
     """
     print("=== 警報・注意報情報取得開始 ===")
     
-    # AlertProcessorのインスタンスを作成
-    processor = AlertProcessor()
+    # AlertDataProcessorのインスタンスを作成
+    processor = AlertDataProcessor()
     
-    # 全ての警報・注意報情報を処理
-    json_result = processor.process_all_alerts('wtp/json/alert_data.json')
+    # Step 1: XMLファイルリストの取得
+    print("Step 1: Getting XML file list...")
+    url_list = processor.get_alert_xml_list()
+    print(f"Found {len(url_list)} URLs")
+    if not url_list:
+        print("No URLs found. Exiting.")
+        return
+    
+    # Step 2: 警報・注意報情報の取得・統合
+    print("Step 2: Processing alert info...")
+    json_result = processor.get_alert_info(url_list, 'wtp/json/alert_data.json')
     
     print("=== 警報・注意報情報取得完了 ===")
-    print(json_result)
+    import json
+    print(json.dumps(json_result, ensure_ascii=False, indent=2))
     
     # Redis管理クラスを使用してデータを更新
     print("\n=== Redisデータ更新開始 ===")
@@ -38,7 +48,8 @@ def main():
         redis_manager = create_redis_manager(debug=True)
         
         # 警報・注意報情報を更新
-        result = redis_manager.update_alerts(json_result)
+        # RedisManagerのupdate_alertsはarea_alert_mapping部分を期待
+        result = redis_manager.update_alerts(json_result["area_alert_mapping"])
         
         # 結果を表示
         print(f"\n=== Redis更新結果 ===")

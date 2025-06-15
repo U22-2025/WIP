@@ -6,9 +6,8 @@ import threading
 import sys
 import os
 
-# パスを追加してredis_managerをインポート
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'data'))
-from data.redis_manager import create_redis_manager
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from WTP_Server.data.redis_manager import create_redis_manager
 
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {}
@@ -51,7 +50,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
             weather_areas = data[0]["timeSeries"][0]["areas"]
             pop_areas = data[0]["timeSeries"][1]["areas"]
-            updated_at = data[0]["reportDatetime"]
+            reporttime = data[0]["reportDatetime"]
 
             week_days = 7
             time_defines = data[0]["timeSeries"][0]["timeDefines"]
@@ -156,14 +155,12 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                                     pop += add_pop[len(pop):week_days]
                                 break
                 area_data = {
-                    "weather_reportdatetime": updated_at,
+                    "weather_reportdatetime": reporttime,
                     "parent_code": parent_code,
                     "area_name": area_name,
                     "weather": weather_codes,
                     "temperature": temps,
                     "precipitation_prob": pop,
-                    "warnings": [],
-                    "disaster_info": []
                 }
 
                 area_output[code] = area_data

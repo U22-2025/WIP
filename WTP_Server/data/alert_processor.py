@@ -15,9 +15,9 @@ import json
 from collections import defaultdict
 from typing import Dict, List, Any, Optional
 from xml_base import XMLBaseProcessor
+from datetime import datetime
 
-
-class AlertProcessor(XMLBaseProcessor):
+class AlertXMLProcessor(XMLBaseProcessor):
     """
     警報・注意報情報処理クラス
     
@@ -28,28 +28,24 @@ class AlertProcessor(XMLBaseProcessor):
     def __init__(self):
         super().__init__()
         self.info_key = "warnings"
-        self.time_key = "alert_reportdatetime"
         self.target_type = "気象警報・注意報（一次細分区域等）"
+        self.time_key = "alert_pulldatetime"
     
     def process_xml_data(self, xml_data: str) -> Dict[str, Any]:
         """
-        単一XMLファイルから警報・注意報情報を抽出
+        単一XMLファイルから警報・注意報情報を抽出し、エリアコード別のマッピングとReportDateTimeを返す
         
         Args:
             xml_data: 処理するXMLデータ
             
         Returns:
-            エリアコード別の警報・注意報情報
+            エリアコード別の警報・注意報情報とReportDateTimeを含む辞書
         """
         root = self.parse_xml(xml_data, '<Report')
         if root is None:
             return {}
         
-        # 報告時刻を取得
-        alert_reportdatetime = self.get_report_time(root)
-        
-        # 結果格納用辞書（area-codeをキーとする）
-        result = defaultdict(lambda: {self.info_key: [], self.time_key: ""})
+        area_alert_mapping = defaultdict(list)
         
         # 情報部分を走査
         for information in root.findall(f'.//ib:Information[@type="{self.target_type}"]', self.ns):
@@ -62,13 +58,12 @@ class AlertProcessor(XMLBaseProcessor):
                 
                 # エリアコード別に警報・注意報情報を格納
                 for area_code in area_codes:
-                    result[area_code][self.time_key] = alert_reportdatetime
                     # 重複を避けて種別を追加
                     for kind in kinds:
-                        if kind not in result[area_code][self.info_key]:
-                            result[area_code][self.info_key].append(kind)
+                        if kind not in area_alert_mapping[area_code]:
+                            area_alert_mapping[area_code].append(kind)
         
-        return dict(result)
+        return area_alert_mapping
     
     def _extract_alert_kinds(self, item: ET.Element) -> List[str]:
         """
@@ -114,8 +109,10 @@ class AlertProcessor(XMLBaseProcessor):
         Returns:
             統合された警報・注意報情報
         """
-        # 結果格納用辞書（area-codeをキーとする）
-        result = defaultdict(lambda: {self.info_key: [], self.time_key: ""})
+        output = {
+            "alert_pulldatetime" : datetime.now().isoformat(timespec='seconds') + '+09:00',
+            "area_alert_mapping": {}
+        }
         
         for url in url_list:
             xml_data = self.fetch_xml(url)
@@ -124,19 +121,16 @@ class AlertProcessor(XMLBaseProcessor):
             
             file_result = self.process_xml_data(xml_data)
             
-            # 結果を統合
-            for area_code, data in file_result.items():
-                # 時刻情報を更新（最新のものを保持）
-                if data[self.time_key]:
-                    result[area_code][self.time_key] = data[self.time_key]
-                
+            for area_code, alert_kinds in file_result.items():
+                # area_alert_mapping内にエリアコードが存在しない場合、リストを初期化
+                if area_code not in output["area_alert_mapping"]:
+                    output["area_alert_mapping"][area_code] = {"alert_info": []}
                 # 警報・注意報情報を統合（重複回避）
-                for kind in data[self.info_key]:
-                    if kind not in result[area_code][self.info_key]:
-                        result[area_code][self.info_key].append(kind)
-        
-        return dict(result)
-    
+                for kind in alert_kinds:
+                    if kind not in output["area_alert_mapping"][area_code]["alert_info"]:
+                        output["area_alert_mapping"][area_code]["alert_info"].append(kind)
+        return output
+
     def get_alert_xml_list(self) -> List[str]:
         """
         警報・注意報XMLファイルのURLリストを取得
@@ -145,49 +139,76 @@ class AlertProcessor(XMLBaseProcessor):
             XMLファイルURLのリスト
         """
         return self.get_feed_entry_urls("https://www.data.jma.go.jp/developer/xml/feed/extra.xml")
+
+
+class AlertDataProcessor:
+    """
+    警報・注意報データ処理統合クラス（メインコントローラー）
     
-    def process_all_alerts(self, output_file: Optional[str] = None) -> str:
+    役割:
+    - 全体的な処理フローの制御
+    - 各専門クラスの連携調整
+    - ファイル入出力の管理
+    - エラーハンドリング
+    - データ変換・統合の統括
+    """
+    
+    def __init__(self):
+        self.xml_processor = AlertXMLProcessor()
+
+    def get_alert_xml_list(self) -> List[str]:
         """
-        全ての警報・注意報情報を処理
+        警報・注意報XMLファイルのURLリストを取得
+        
+        Returns:
+            XMLファイルURLのリスト
+        """
+        return self.xml_processor.get_alert_xml_list()
+
+    def get_alert_info(self, url_list: List[str], output_json_path: Optional[str] = None) -> str:
+        """
+        複数XMLファイルから警報・注意報情報を取得・統合
         
         Args:
-            output_file: 出力JSONファイルパス（オプション）
+            url_list: 処理するXMLファイルURLリスト
+            output_json_path: 出力JSONファイルパス（オプション）
             
         Returns:
-            処理結果のJSON文字列
+            統合された警報・注意報情報JSON文字列
         """
-        # XMLファイルリストを取得
-        url_list = self.get_alert_xml_list()
-        if not url_list:
-            print("No alert XML URLs found.")
-            return "{}"
+        result = self.xml_processor.process_multiple_urls(url_list)
         
-        print(f"Processing {len(url_list)} alert XML files...")
+        if output_json_path:
+            self.xml_processor.save_json(result, output_json_path)
         
-        # 全XMLファイルを処理
-        result = self.process_multiple_urls(url_list)
-        
-        # JSON文字列として出力
-        json_output = json.dumps(result, ensure_ascii=False, indent=2)
-        
-        # ファイル出力（オプション）
-        if output_file:
-            self.save_json(result, output_file)
-        
-        return json_output
+        return result
 
 
 def main():
     """
     警報・注意報処理のメイン関数
     """
-    processor = AlertProcessor()
-    
-    # 全ての警報・注意報情報を処理
-    json_result = processor.process_all_alerts('wtp/json/alert_data.json')
-    
-    print("=== Alert Processing Complete ===")
-    print(json_result)
+    try:
+        processor = AlertDataProcessor()
+        
+        # Step 1: XMLファイルリストの取得
+        print("Step 1: Getting XML file list...")
+        url_list = processor.get_alert_xml_list()
+        print(f"Found {len(url_list)} URLs")
+        if not url_list:
+            print("No URLs found. Exiting.")
+            return
+        
+        # Step 2: 警報・注意報情報の取得・統合
+        print("Step 2: Processing alert info...")
+        json_result = processor.get_alert_info(url_list, 'wtp/json/alert_data.json')
+        print("\n=== Alert Info Processing Complete ===")
+        print(json_result)
+
+    except Exception as e:
+        print(f"Error in main processing: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

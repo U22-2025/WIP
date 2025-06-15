@@ -7,8 +7,8 @@ import json
 import redis
 from .weather_constants import RedisConstants, CacheConstants
 from datetime import datetime, timedelta
+from WTP_Server.data import redis_manager
 import dateutil.parser
-from data import redis_manager
 
 class WeatherDataManager:
     """気象データマネージャー"""
@@ -89,10 +89,10 @@ class WeatherDataManager:
 
                     ### 災害情報や気象注意報が古いものか確認
                     update_flag = False
-                    if self.check_update_time(weather_data['disaster_reportdatetime']):
+                    if self.check_update_time(weather_data['disaster_pulldatetime']):
                             rm.update_disasters()
                             update_flag = True
-                    if self.check_update_time(weather_data['alert_reportdatetime']):
+                    if self.check_update_time(weather_data['alert_pulldatetime']):
                             rm.update_alerts()
                             update_flag = True
                     ### 更新が行われたなら再取得
@@ -149,7 +149,6 @@ class WeatherDataManager:
         if self.debug:
             print(f"No weather data found for area {area_code}")
         return None
-    
 
     # 気象注意報・災害情報の更新時間が古いか確認
     def check_update_time(iso_time_str):  
