@@ -1,0 +1,184 @@
+name: Notify Discord on Issue Update
+on:
+  issues:
+    types: [opened, closed, deleted]
+permissions:
+  issues: read
+  contents: read
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save change summary
+        id: change_summary
+        run: |
+          echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
+          echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
+          echo "ISSUE_ACTION=${{ github.event.action }}" >> $GITHUB_ENV
+          echo "ISSUE_URL=${{ github.event.issue.html_url }}" >> $GITHUB_ENV
+      - name: Fetch open issues
+        uses: actions/github-script@v7
+        id: get_open_issues
+        with:
+          script: |
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            
+            // Split issues into chunks of 25 for embed field limits
+            function chunkArray(array, chunkSize) {
+              const chunks = [];
+              for (let i = 0; i < array.length; i += chunkSize) {
+                chunks.push(array.slice(i, i + chunkSize));
+              }
+              return chunks;
+            }
+            
+            function formatIssueChunks(issues) {
+              if (issues.length === 0) {
+                return [{ fields: [{ name: "Status", value: "*No open issues*", inline: false }] }];
+              }
+              
+              const chunks = chunkArray(issues, 25);
+              return chunks.map((chunk, index) => ({
+                fields: chunk.map(issue => ({
+                  name: `#${issue.number} ${issue.title}`,
+                  value: `[🔗 View Issue](${issue.html_url})\n\n${issue.body ? (issue.body.length > 950 ? issue.body.substring(0, 950) + "..." : issue.body) : "*No description provided*"}`,
+                  inline: false
+                })),
+                isLast: index === chunks.length - 1,
+                chunkIndex: index + 1,
+                totalChunks: chunks.length
+              }));
+            }
+            
+            return JSON.stringify({
+              issueChunks: formatIssueChunks(issues),
+              totalIssues: issues.length
+            });
+          result-encoding: string
+      - name: Send to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          ISSUE_TITLE: ${{ env.ISSUE_TITLE }}
+          ISSUE_NUMBER: ${{ env.ISSUE_NUMBER }}
+          ISSUE_ACTION: ${{ env.ISSUE_ACTION }}
+          ISSUE_URL: ${{ env.ISSUE_URL }}
+        run: |
+          echo '${{ steps.get_open_issues.outputs.result }}' > result.json
+          ISSUE_CHUNKS=$(jq -r .issueChunks result.json)
+          TOTAL_ISSUES=$(jq -r .totalIssues result.json)
+          
+          # Create change description with proper link formatting
+          if [ "$ISSUE_ACTION" = "opened" ]; then
+            CHANGE_TEXT="Issue was **created**"
+            CHANGE_VALUE="[#$ISSUE_NUMBER $ISSUE_TITLE]($ISSUE_URL)"
+          elif [ "$ISSUE_ACTION" = "closed" ]; then
+            CHANGE_TEXT="Issue was **closed**"
+            CHANGE_VALUE="[#$ISSUE_NUMBER $ISSUE_TITLE]($ISSUE_URL)"
+          elif [ "$ISSUE_ACTION" = "deleted" ]; then
+            CHANGE_TEXT="Issue was **deleted**"
+            CHANGE_VALUE="#$ISSUE_NUMBER $ISSUE_TITLE"
+          else
+            CHANGE_TEXT="Issue was **updated**"
+            CHANGE_VALUE="[#$ISSUE_NUMBER $ISSUE_TITLE]($ISSUE_URL)"
+          fi
+          
+          # Parse issue chunks
+          CHUNKS_COUNT=$(echo "$ISSUE_CHUNKS" | jq length)
+          
+          # Create base payload with change notification
+          BASE_PAYLOAD=$(jq -n \
+            --arg ct "$CHANGE_TEXT" \
+            --arg cv "$CHANGE_VALUE" \
+            --arg repo "${{ github.repository }}" \
+            --argjson total "$TOTAL_ISSUES" \
+            '{
+              content: "🔔 **Issue Update Notification**",
+              embeds: [
+                {
+                  title: "📌 Recent Change",
+                  color: 3447003,
+                  timestamp: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
+                  fields: [
+                    {
+                      name: $ct,
+                      value: $cv,
+                      inline: false
+                    }
+                  ]
+                }
+              ]
+            }'
+          )
+          
+          # Function to send payload to Discord
+          send_payload() {
+            local payload="$1"
+            curl -s -X POST -H "Content-Type: application/json" \
+              -d "$payload" "$DISCORD_WEBHOOK_URL"
+            sleep 1  # Rate limit protection
+          }
+          
+          # Send base notification
+          send_payload "$BASE_PAYLOAD"
+          
+          # Send issue list embeds
+          for i in $(seq 0 $((CHUNKS_COUNT - 1))); do
+            CHUNK=$(echo "$ISSUE_CHUNKS" | jq ".[$i]")
+            FIELDS=$(echo "$CHUNK" | jq .fields)
+            IS_LAST=$(echo "$CHUNK" | jq -r .isLast)
+            CHUNK_INDEX=$(echo "$CHUNK" | jq -r .chunkIndex)
+            TOTAL_CHUNKS=$(echo "$CHUNK" | jq -r .totalChunks)
+            
+            # Create title based on chunk info
+            if [ "$TOTAL_CHUNKS" -eq 1 ]; then
+              EMBED_TITLE="🟩 Open Issues ($TOTAL_ISSUES total)"
+            else
+              EMBED_TITLE="🟩 Open Issues (Part $CHUNK_INDEX/$TOTAL_CHUNKS)"
+            fi
+            
+            # Create embed payload
+            if [ "$IS_LAST" = "true" ]; then
+              EMBED_PAYLOAD=$(jq -n \
+                --arg title "$EMBED_TITLE" \
+                --argjson fields "$FIELDS" \
+                --arg repo "${{ github.repository }}" \
+                --arg url "${{ github.event.repository.html_url }}/issues" \
+                --argjson total "$TOTAL_ISSUES" \
+                '{
+                  embeds: [
+                    {
+                      title: $title,
+                      color: 3066993,
+                      fields: $fields,
+                      footer: {
+                        text: ($repo + " • " + ($total | tostring) + " open issues"),
+                        icon_url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                      },
+                      url: $url
+                    }
+                  ]
+                }'
+              )
+            else
+              EMBED_PAYLOAD=$(jq -n \
+                --arg title "$EMBED_TITLE" \
+                --argjson fields "$FIELDS" \
+                '{
+                  embeds: [
+                    {
+                      title: $title,
+                      color: 3066993,
+                      fields: $fields
+                    }
+                  ]
+                }'
+              )
+            fi
+            
+            send_payload "$EMBED_PAYLOAD"
+          done
