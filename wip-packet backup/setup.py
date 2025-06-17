@@ -1,5 +1,5 @@
 """
-WTP Packet - Weather Transport Protocol Packet Implementation
+WIP Packet - Weather Transport Protocol Packet Implementation
 """
 from setuptools import setup, find_packages
 
@@ -7,13 +7,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="wtp-packet",
+    name="wip-packet",
     version="1.0.0",
-    author="WTP Project",
+    author="WIP Project",
     description="Weather Transport Protocol packet format implementation",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourproject/wtp-packet",
+    url="https://github.com/yourproject/wip-packet",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     classifiers=[

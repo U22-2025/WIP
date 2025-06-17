@@ -12,7 +12,7 @@ def fetch_json_from_file() -> Optional[dict]:
         Optional[dict]: エリアコードの辞書データ、失敗時はNone
     """
     try:
-        with open('wtp/data/area_codes.json', 'r', encoding='utf-8') as f:
+        with open('wip/data/area_codes.json', 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         print(f"エリアコードJSONの取得に失敗しました: {e}")

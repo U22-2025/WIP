@@ -80,7 +80,7 @@ class QueryServer(BaseServer):
             'redis_host': self.config.get('redis', 'host', 'localhost'),
             'redis_port': self.config.getint('redis', 'port', 6379),
             'redis_db': self.config.getint('redis', 'db', 0),
-            'weather_output_file': self.config.get('database', 'weather_output_file', 'wtp/resources/test.json'),
+            'weather_output_file': self.config.get('database', 'weather_output_file', 'wip/resources/test.json'),
             'debug': self.debug,
             'max_workers': self.max_workers,
             'version': self.version

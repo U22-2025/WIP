@@ -1,5 +1,5 @@
 """
-WTP クライアントパッケージ
+WIP クライアントパッケージ
 """
 from .location_client import LocationClient
 from .query_client import QueryClient

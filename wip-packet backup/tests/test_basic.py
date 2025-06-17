@@ -3,7 +3,7 @@
 """
 import pytest
 from datetime import datetime
-from wtp_packet import Request, Response, ExtendedField, BitFieldError
+from wip_packet import Request, Response, ExtendedField, BitFieldError
 
 
 def test_request_basic():

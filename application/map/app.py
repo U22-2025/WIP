@@ -13,7 +13,7 @@ app = Flask(__name__)
 client = Client(server_ip='10.12.0.12', server_port=4110, debug=True)
 
 # ジオコーダーの初期化
-geolocator = Nominatim(user_agent="wtp_map_app")
+geolocator = Nominatim(user_agent="wip_map_app")
 
 def get_address_from_coordinates(lat, lng):
     """座標から住所を取得する関数"""

@@ -683,7 +683,7 @@ def main():
         
         # Step 2: 災害情報の取得・統合
         print("Step 2: Processing disaster info...")
-        json_result = processor.get_disaster_info(url_list, 'wtp/json/disaster_data.json')
+        json_result = processor.get_disaster_info(url_list, 'wip/json/disaster_data.json')
         print("\n=== Disaster Info Processing Complete ===")
         
         # Step 3: 火山座標の解決処理
@@ -698,7 +698,7 @@ def main():
         
         # Step 4: エリアコードデータの読み込み
         print("Step 4: Loading area codes...")
-        with open('wtp/json/area_codes.json', 'r', encoding='utf-8') as f:
+        with open('wip/json/area_codes.json', 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         
         # Step 5: エリアコード変換・統合処理
@@ -717,7 +717,7 @@ def main():
         
         # Step 7: 最終結果の保存
         print("Step 7: Saving final data...")
-        with open('wtp/json/disaster_data.json', 'w', encoding='utf-8') as f:
+        with open('wip/json/disaster_data.json', 'w', encoding='utf-8') as f:
             json.dump(final_data, f, ensure_ascii=False, indent=2)
         
         print("Processing completed successfully.")

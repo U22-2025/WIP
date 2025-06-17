@@ -21,7 +21,7 @@ class ConfigManager:
         """設定値を環境変数またはデフォルト値から読み込み"""
         
         # サーバー設定
-        self.server_host = os.getenv('WTP_HOST', NetworkConstants.DEFAULT_HOST)
+        self.server_host = os.getenv('WIP_HOST', NetworkConstants.DEFAULT_HOST)
         self.server_port = int(os.getenv('QUERY_GENERATOR_PORT', NetworkConstants.DEFAULT_PORT))
         
         # Redis設定
@@ -30,7 +30,7 @@ class ConfigManager:
         self.redis_db = int(os.getenv('REDIS_DB', RedisConstants.DEFAULT_DB))
         
         # スレッド設定
-        self.max_workers = int(os.getenv('WTP_MAX_WORKERS', ThreadConstants.DEFAULT_MAX_WORKERS))
+        self.max_workers = int(os.getenv('WIP_MAX_WORKERS', ThreadConstants.DEFAULT_MAX_WORKERS))
         
         # ネットワーク設定
         self.udp_buffer_size = int(os.getenv('UDP_BUFFER_SIZE', NetworkConstants.UDP_BUFFER_SIZE))
@@ -38,7 +38,7 @@ class ConfigManager:
         self.socket_connect_timeout = NetworkConstants.SOCKET_CONNECT_TIMEOUT
         
         # デバッグ設定
-        self.debug = os.getenv('WTP_DEBUG', 'false').lower() == 'true'
+        self.debug = os.getenv('WIP_DEBUG', 'false').lower() == 'true'
         
         # バージョン
         self.version = int(os.getenv('PROTOCOL_VERSION', '1'))

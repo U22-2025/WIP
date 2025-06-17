@@ -122,7 +122,7 @@ def generate_area_codes_file() -> None:
         map_area_code_to_children(code, area_json, result)
 
     try:
-        with open("wtp/data/area_codes.json", "w", encoding='utf-8') as f:
+        with open("wip/data/area_codes.json", "w", encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=4)
         print("area_codes.jsonファイルを生成しました")
     except IOError as e:

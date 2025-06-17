@@ -1,5 +1,5 @@
 """
-WTP Client - Weather Server通信用のシンプルなクライアント
+WIP Client - Weather Server通信用のシンプルなクライアント
 
 NTPモジュールのような設計で、Weather Serverとの通信を簡潔に扱う
 インスタンスが座標とエリアコードの状態を管理し、効率的な通信を提供
@@ -16,7 +16,7 @@ from common.clients.weather_client import WeatherClient
 load_dotenv()
 
 class Client:
-    """WTP Client - Weather Server通信用のシンプルなクライアント（状態管理型）"""
+    """WIP Client - Weather Server通信用のシンプルなクライアント（状態管理型）"""
     
     def __init__(self, server_ip=os.getenv('WEATHER_SERVER_HOST'), server_port=int(os.getenv('WEATHER_SERVER_PORT')), debug=False, 
                  latitude=None, longitude=None, area_code=None):
@@ -49,7 +49,7 @@ class Client:
         )
         
         if self.debug:
-            print(f"WTP Client initialized - Server: {self.server_ip}:{self.server_port}")
+            print(f"WIP Client initialized - Server: {self.server_ip}:{self.server_port}")
             print(f"Initial state - Latitude: {self._latitude}, Longitude: {self._longitude}, Area Code: {self._area_code}")
     
     @property
@@ -257,12 +257,12 @@ class Client:
         """
         self._weather_client.close()
         if self.debug:
-            print("WTP Client closed")
+            print("WIP Client closed")
 
 
 def main():
     """使用例"""
-    print("WTP Client Example (State Management)")
+    print("WIP Client Example (State Management)")
     print("=" * 50)
     
     # 1. 状態管理型の使用例

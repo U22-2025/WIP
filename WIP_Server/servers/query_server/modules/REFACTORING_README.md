@@ -55,7 +55,7 @@ self.redis_port = int(os.getenv('REDIS_PORT', RedisConstants.DEFAULT_PORT))
 ## ファイル構成
 
 ```
-wtp/
+wip/
 ├── query_generator.py              # メインサーバークラス（簡潔化）
 └── query_generator_modules/        # 関連モジュールフォルダ
     ├── __init__.py                # パッケージ初期化
@@ -71,7 +71,7 @@ wtp/
 
 ### 基本的な使用
 ```python
-from wtp.query_generator import QueryGenerator
+from wip.query_generator import QueryGenerator
 
 # デフォルト設定で起動
 server = QueryGenerator()
@@ -92,10 +92,10 @@ server.run()
 
 ### 環境変数での設定
 ```bash
-export WTP_HOST=0.0.0.0
-export WTP_PORT=5000
-export WTP_DEBUG=true
-export WTP_MAX_WORKERS=30
+export WIP_HOST=0.0.0.0
+export WIP_PORT=5000
+export WIP_DEBUG=true
+export WIP_MAX_WORKERS=30
 export REDIS_HOST=redis-server
 export REDIS_PORT=6379
 ```

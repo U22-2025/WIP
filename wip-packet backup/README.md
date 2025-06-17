@@ -1,10 +1,10 @@
-# WTP Packet
+# WIP Packet
 
-Weather Transport Protocol (WTP) packet format implementation for Python.
+Weather Transport Protocol (WIP) packet format implementation for Python.
 
 ## 概要
 
-WTP Packetは、Weather Transport Protocol用のパケットフォーマット処理ライブラリです。
+WIP Packetは、Weather Transport Protocol用のパケットフォーマット処理ライブラリです。
 バイナリパケットの作成、解析、検証機能を提供します。
 
 ## 特徴
@@ -18,7 +18,7 @@ WTP Packetは、Weather Transport Protocol用のパケットフォーマット�
 ## インストール
 
 ```bash
-pip install wtp-packet
+pip install wip-packet
 ```
 
 開発版のインストール:
@@ -32,7 +32,7 @@ pip install -e ".[dev]"
 ### 基本的な使用例
 
 ```python
-from wtp_packet import Request, Response, ExtendedField
+from wip_packet import Request, Response, ExtendedField
 from datetime import datetime
 
 # リクエストパケットの作成
@@ -74,7 +74,7 @@ response = Response(
 ### 拡張フィールドの使用
 
 ```python
-from wtp_packet import ExtendedField
+from wip_packet import ExtendedField
 
 # ExtendedFieldオブジェクトの作成
 ex_field = ExtendedField({

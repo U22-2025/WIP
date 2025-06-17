@@ -1,8 +1,8 @@
-# WTP Packet 移行ガイド
+# WIP Packet 移行ガイド
 
 ## 概要
 
-このガイドは、既存のWTP_ClientとWTP_Serverプロジェクトを、新しい統合されたwtp-packetパッケージに移行する方法を説明します。
+このガイドは、既存のWIP_ClientとWIP_Serverプロジェクトを、新しい統合されたwip-packetパッケージに移行する方法を説明します。
 
 ## パッケージのインストール
 
@@ -11,14 +11,14 @@
 プロジェクトルートから：
 
 ```bash
-cd wtp-packet
+cd wip-packet
 pip install -e .
 ```
 
 ### 2. 通常のインストール
 
 ```bash
-cd wtp-packet
+cd wip-packet
 pip install .
 ```
 
@@ -28,14 +28,14 @@ pip install .
 
 既存のコード：
 ```python
-# WTP_Client/clients/weather_client.py
+# WIP_Client/clients/weather_client.py
 from ..packet import Request, Response
 ```
 
 新しいコード：
 ```python
-# WTP_Client/clients/weather_client.py
-from wtp_packet import Request, Response
+# WIP_Client/clients/weather_client.py
+from wip_packet import Request, Response
 ```
 
 ### 2. 主な変更点
@@ -64,10 +64,10 @@ request = Request(ex_field=ex_field)
 
 ### 3. 移行チェックリスト
 
-- [ ] wtp-packetパッケージをインストール
+- [ ] wip-packetパッケージをインストール
 - [ ] すべてのインポート文を更新
-- [ ] WTP_Client/packetディレクトリを削除（またはバックアップ）
-- [ ] WTP_Server/packetディレクトリを削除（またはバックアップ）
+- [ ] WIP_Client/packetディレクトリを削除（またはバックアップ）
+- [ ] WIP_Server/packetディレクトリを削除（またはバックアップ）
 - [ ] テストを実行して動作確認
 
 ### 4. 互換性の確認
@@ -75,7 +75,7 @@ request = Request(ex_field=ex_field)
 移行後、以下のコマンドでテストを実行して互換性を確認してください：
 
 ```bash
-cd wtp-packet
+cd wip-packet
 python -m pytest tests/ -v
 ```
 
@@ -83,7 +83,7 @@ python -m pytest tests/ -v
 
 ### インポートエラー
 
-もし`ModuleNotFoundError: No module named 'wtp_packet'`が発生した場合：
+もし`ModuleNotFoundError: No module named 'wip_packet'`が発生した場合：
 
 1. パッケージが正しくインストールされているか確認
 2. Pythonパスが正しく設定されているか確認

@@ -2,9 +2,9 @@
 パッケージの動作確認用スクリプト
 """
 from datetime import datetime
-from wtp_packet import Request, Response, ExtendedField
+from wip_packet import Request, Response, ExtendedField
 
-print("=== WTP Packet 動作確認 ===\n")
+print("=== WIP Packet 動作確認 ===\n")
 
 # 1. 基本的なリクエストパケットのテスト
 print("1. 基本的なリクエストパケットのテスト")
@@ -108,8 +108,8 @@ print(f"  チェックサム検証: {'✓ 有効' if is_valid else '✗ 無効'}
 print("  ✓ 成功\n")
 
 print("=== すべてのテストが成功しました！ ===")
-print("\nwtp-packetパッケージは正常に動作しています。")
+print("\nwip-packetパッケージは正常に動作しています。")
 print("次のステップ：")
-print("1. WTP_ClientとWTP_Serverのインポートを更新")
+print("1. WIP_ClientとWIP_Serverのインポートを更新")
 print("2. 古いpacketディレクトリを削除")
 print("3. MIGRATION_GUIDE.mdを参照して移行を完了")
