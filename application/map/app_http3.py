@@ -12,7 +12,7 @@ import logging
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from WIP_Client import Client
+from WTP_Client import Client
 
 app = Quart(__name__)
 
@@ -26,7 +26,7 @@ app.config.update({
 client = Client(debug=True)
 
 # ジオコーダーの初期化（高速化設定）
-geolocator = Nominatim(user_agent="wip_map_app_http3")
+geolocator = Nominatim(user_agent="wtp_map_app_http3")
 
 # 地理情報のキャッシュ（最大100件、1時間保持）
 @lru_cache(maxsize=100)

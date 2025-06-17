@@ -1,7 +1,7 @@
 """
-WIP Packet - Weather Information Protocol Packet Implementation
+WTP Packet - Weather Transport Protocol Packet Implementation
 
-このパッケージは、Weather Information Protocol (WIP) のパケットフォーマット処理を提供します。
+このパッケージは、Weather Transport Protocol (WTP) のパケットフォーマット処理を提供します。
 
 基本パケットクラス:
 - Request, Response: 汎用的なパケット処理

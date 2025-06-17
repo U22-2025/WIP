@@ -53,7 +53,7 @@
 - JSONレスポンス形式
 
 ✅ **外部依存関係**
-- WIP_Client との連携
+- WTP_Client との連携
 - geopy による地理情報処理
 - テンプレートファイル (map.html, weather_code.json)
 - 静的ファイル (CSS, JavaScript)

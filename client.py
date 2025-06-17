@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from WIP_Client import Client
+from WTP_Client import Client
 import time
 
 """メイン関数 - 使用例"""

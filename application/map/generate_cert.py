@@ -24,7 +24,7 @@ def generate_self_signed_cert():
             "openssl", "req", "-x509", "-newkey", "rsa:4096", 
             "-keyout", key_file, "-out", cert_file, 
             "-days", "365", "-nodes",
-            "-subj", "/C=JP/ST=Tokyo/L=Tokyo/O=WIP/OU=Development/CN=localhost"
+            "-subj", "/C=JP/ST=Tokyo/L=Tokyo/O=WTP/OU=Development/CN=localhost"
         ]
         
         print("SSL証明書を生成中...")
@@ -64,7 +64,7 @@ def check_openssl():
         return False
 
 if __name__ == "__main__":
-    print("HTTP/3 WIPサーバー用SSL証明書生成ツール")
+    print("HTTP/3 WTPサーバー用SSL証明書生成ツール")
     print("=" * 50)
     
     # OpenSSLの確認

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WIP拡張フィールド処理デバッグツール
-wipフォルダから実行可能な統合デバッグインターフェース
+WTP拡張フィールド処理デバッグツール
+wtpフォルダから実行可能な統合デバッグインターフェース
 """
 
 import sys
@@ -13,7 +13,7 @@ current_dir = os.path.dirname(__file__)
 project_root = os.path.dirname(current_dir)
 debug_tools_path = os.path.join(project_root, 'debug_tools')
 
-# wipパッケージのパスを追加
+# wtpパッケージのパスを追加
 sys.path.insert(0, project_root)
 
 # デバッグツールのパスを追加
@@ -25,7 +25,7 @@ sys.path.append(os.path.join(debug_tools_path, 'individual'))
 def print_banner():
     """バナーを表示"""
     print("=" * 60)
-    print("WIP拡張フィールド処理デバッグツール")
+    print("WTP拡張フィールド処理デバッグツール")
     print("=" * 60)
     print()
 
@@ -181,7 +181,7 @@ def run_encoding_debug():
 def main():
     """メイン関数"""
     parser = argparse.ArgumentParser(
-        description="WIP拡張フィールド処理デバッグツール",
+        description="WTP拡張フィールド処理デバッグツール",
         add_help=False  # カスタムヘルプを使用
     )
     
