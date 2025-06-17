@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: wtp-packet
 Version: 1.0.0
-Summary: Weather Transport Protocol packet format implementation
+Summary: Weather Information Protocol packet format implementation
 Home-page: https://github.com/yourproject/wtp-packet
-Author: WTP Project
+Author: WIP Project
 Keywords: weather,protocol,packet,wtp
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -26,13 +26,13 @@ Requires-Dist: mypy>=1.0; extra == "dev"
 Dynamic: home-page
 Dynamic: requires-python
 
-# WTP Packet
+# WIP Packet
 
-Weather Transport Protocol (WTP) packet format implementation for Python.
+Weather Information Protocol (WIP) packet format implementation for Python.
 
 ## 概要
 
-WTP Packetは、Weather Transport Protocol用のパケットフォーマット処理ライブラリです。
+WIP Packetは、Weather Information Protocol用のパケットフォーマット処理ライブラリです。
 バイナリパケットの作成、解析、検証機能を提供します。
 
 ## 特徴

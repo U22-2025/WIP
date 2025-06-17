@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 > nul
-echo WTPサーバー起動中...
+echo WIPサーバー起動中...
 
 set CURRENT_DIR=%cd%
 set PYTHONPATH=%CURRENT_DIR%;%PYTHONPATH%

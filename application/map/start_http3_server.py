@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HTTP/3対応WTPサーバーの起動スクリプト
+HTTP/3対応WIPサーバーの起動スクリプト
 """
 
 import os
@@ -77,7 +77,7 @@ def generate_certificates():
 
 def main():
     """メイン関数"""
-    print("HTTP/3 WTPサーバー起動準備")
+    print("HTTP/3 WIPサーバー起動準備")
     print("=" * 40)
     
     # カレントディレクトリを確認

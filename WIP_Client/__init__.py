@@ -1,5 +1,5 @@
 """
-WTP (Weather Transport Protocol) クライアントパッケージ
+WIP (Weather Information Protocol) クライアントパッケージ
 """
 
 from .client import Client
@@ -8,7 +8,7 @@ from .client import Client
 __version__ = "1.0.0"
 
 # パッケージ情報
-__author__ = "WTP Team"
+__author__ = "WIP Team"
 
 
 

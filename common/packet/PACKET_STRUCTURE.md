@@ -1,12 +1,12 @@
-# WTP パケット構造仕様
+# WIP パケット構造仕様
 
-Weather Transmission Protocol (WTP) のパケット構造に関する詳細な技術仕様書です。
+Weather Information Protocol (WIP) のパケット構造に関する詳細な技術仕様書です。
 
 ## 📊 パケット全体アーキテクチャ
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           WTPパケット構造                                    │
+│                           WIPパケット構造                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  🔹 基本フィールド（固定128ビット）                                          │
@@ -66,7 +66,7 @@ Weather Transmission Protocol (WTP) のパケット構造に関する詳細な�
 
 ### ビット順序とエンディアン
 
-WTPパケットは**完全リトルエンディアン**設計です：
+WIPパケットは**完全リトルエンディアン**設計です：
 
 ```
 ビット表現例（version=1, packet_id=123の場合）:
@@ -377,9 +377,9 @@ analyzer.print_bit_visualization()
 - RFC 1042: Standard for the transmission of IP datagrams over IEEE 802 networks
 - IEEE 802.3: Ethernet specification
 - JIS X 0208: 日本語文字コード体系
-- WTP Protocol Specification v1.0
+- WIP Protocol Specification v1.0
 
 ---
 
-この仕様書は WTP v1.0 に基づいて作成されています。
+この仕様書は WIP v1.0 に基づいて作成されています。
 仕様変更や追加機能については、バージョン管理に従って更新されます。

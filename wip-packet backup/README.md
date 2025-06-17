@@ -1,10 +1,10 @@
-# WTP Packet
+# WIP Packet
 
-Weather Transport Protocol (WTP) packet format implementation for Python.
+Weather Information Protocol (WIP) packet format implementation for Python.
 
 ## 概要
 
-WTP Packetは、Weather Transport Protocol用のパケットフォーマット処理ライブラリです。
+WIP Packetは、Weather Information Protocol用のパケットフォーマット処理ライブラリです。
 バイナリパケットの作成、解析、検証機能を提供します。
 
 ## 特徴
