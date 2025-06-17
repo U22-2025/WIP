@@ -87,7 +87,6 @@ class WeatherRedisManager:
     def _create_default_weather_data(self) -> Dict[str, Any]:
         """デフォルト気象データ構造を作成"""
         return {
-            "updated_at": "",
             "area_name": "",
             "weather": [],
             "temperature": [],
@@ -179,32 +178,25 @@ class WeatherRedisManager:
         
         for area_code, alert_info in alert_dict.items():
             try:
+                # 新規データ作成
+                # 既存の気象データを取得、なければデフォルトデータを作成
                 existing_data = self.get_weather_data(area_code)
-                
                 if existing_data:
-                    # 既存データに警報・注意報情報を追加
-                    existing_data['warnings'] = alert_info.get('警報・注意報', [])
-                    existing_data['alert_reportdatetime'] = alert_info.get('alert_reportdatetime', '')
-                    
-                    if self.update_weather_data(area_code, existing_data):
-                        updated_count += 1
-                        if self.debug:
-                            print(f"警報更新: {area_code} - {len(existing_data['warnings'])}件")
-                    else:
-                        error_count += 1
+                    new_data = existing_data
+                    updated_count += 1
                 else:
-                    # 新規データ作成
                     new_data = self._create_default_weather_data()
-                    new_data['warnings'] = alert_info.get('警報・注意報', [])
-                    new_data['alert_reportdatetime'] = alert_info.get('alert_reportdatetime', '')
+                    created_count += 1
+                
+                new_data['warnings'] = alert_info.get('alert_info', [])
+                
+                if self.update_weather_data(area_code, new_data):
+                    created_count += 1
+                    if self.debug:
+                        print(f"警報新規: {area_code} - {len(new_data['warnings'])}件")
+                else:
+                    error_count += 1
                     
-                    if self.update_weather_data(area_code, new_data):
-                        created_count += 1
-                        if self.debug:
-                            print(f"警報新規: {area_code} - {len(new_data['warnings'])}件")
-                    else:
-                        error_count += 1
-                        
             except Exception as e:
                 if self.debug:
                     print(f"警報処理エラー ({area_code}): {e}")
@@ -230,33 +222,30 @@ class WeatherRedisManager:
         error_count = 0
         
         for area_code, disaster_info in disaster_data.items():
+            if area_code == "disaster_pulldatetime":
+                # disaster_pulldatetimeは処理対象外なのでスキップ
+                continue
             try:
+                # 既存の気象データを取得、なければデフォルトデータを作成
                 existing_data = self.get_weather_data(area_code)
-                
                 if existing_data:
-                    # 既存データに災害情報を追加
-                    existing_data['disaster_info'] = disaster_info.get('災害情報', [])
-                    existing_data['disaster_reportdatetime'] = disaster_info.get('disaster_reportdatetime', '')
-                    
-                    if self.update_weather_data(area_code, existing_data):
-                        updated_count += 1
-                        if self.debug:
-                            print(f"災害更新: {area_code} - {len(existing_data['disaster_info'])}件")
-                    else:
-                        error_count += 1
+                    new_data = existing_data
+                    updated_count += 1
                 else:
-                    # 新規データ作成
                     new_data = self._create_default_weather_data()
-                    new_data['disaster_info'] = disaster_info.get('災害情報', [])
-                    new_data['disaster_reportdatetime'] = disaster_info.get('disaster_reportdatetime', '')
-                    
-                    if self.update_weather_data(area_code, new_data):
-                        created_count += 1
+                    created_count += 1
+                
+                new_data['disaster_info'] = disaster_info.get('disaster_info', [])
+                
+                if self.update_weather_data(area_code, new_data):
+                    if existing_data:
+                        if self.debug:
+                            print(f"災害更新: {area_code} - {len(new_data['disaster_info'])}件")
+                    else:
                         if self.debug:
                             print(f"災害新規: {area_code} - {len(new_data['disaster_info'])}件")
-                    else:
-                        error_count += 1
-                        
+                else:
+                    error_count += 1
             except Exception as e:
                 if self.debug:
                     print(f"災害処理エラー ({area_code}): {e}")
@@ -302,15 +291,12 @@ class WeatherRedisManager:
                 
                 if existing_data:
                     # 既存データがある場合は気象データフィールドのみ部分更新
-                    update_pipe.json().set(weather_key, ".updated_at", data.get("updated_at", ""))
+                    update_pipe.json().set(weather_key, ".weather_reportdatetime", data.get("weather_reportdatetime", ""))
                     update_pipe.json().set(weather_key, ".area_name", data.get("area_name", ""))
                     update_pipe.json().set(weather_key, ".weather", data.get("weather", []))
                     update_pipe.json().set(weather_key, ".temperature", data.get("temperature", []))
                     update_pipe.json().set(weather_key, ".precipitation_prob", data.get("precipitation_prob", []))
-                    
-                    # parent_codeがある場合は更新
-                    if "parent_code" in data:
-                        update_pipe.json().set(weather_key, ".parent_code", data["parent_code"])
+                    update_pipe.json().set(weather_key, ".parent_code", data["parent_code"])
                     
                     if self.debug:
                         print(f"部分更新: {weather_key}")

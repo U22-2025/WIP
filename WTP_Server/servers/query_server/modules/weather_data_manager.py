@@ -6,7 +6,9 @@ Redisキャッシュを管理
 import json
 import redis
 from .weather_constants import RedisConstants, CacheConstants
-
+from datetime import datetime, timedelta
+from WTP_Server.data import redis_manager
+import dateutil.parser
 
 class WeatherDataManager:
     """気象データマネージャー"""
@@ -71,19 +73,31 @@ class WeatherDataManager:
         Returns:
             dict: 気象データ
         """
+        rm = redis_manager.WeatherRedisManager()
         # まず、メインの気象データを取得
-        weather_key = f"weather:{area_code}"
+        weather_key = rm._get_weather_key(area_code)
         
         if self.redis_pool:
             try:
-                r = redis.Redis(connection_pool=self.redis_pool)
                 # JSON形式でデータを取得
-                weather_data = r.json().get(weather_key)
+                weather_data = rm.json().get(weather_key)
                 
                 if weather_data:
                     if self.debug:
                         print(f"Weather data found for area {area_code}")
                         print(f"Raw data: {weather_data}")
+
+                    ### 災害情報や気象注意報が古いものか確認
+                    update_flag = False
+                    if self.check_update_time(weather_data['disaster_pulldatetime']):
+                            rm.update_disasters()
+                            update_flag = True
+                    if self.check_update_time(weather_data['alert_pulldatetime']):
+                            rm.update_alerts()
+                            update_flag = True
+                    ### 更新が行われたなら再取得
+                    if update_flag:
+                        weather_data = rm.json().get(weather_key)
                     
                     # 必要なデータを抽出
                     result = {}
@@ -111,8 +125,7 @@ class WeatherDataManager:
                             result['precipitation_prob'] = precipitation_prob[day]
                         else:
                             result['precipitation_prob'] = precipitation_prob
-                            result['precipitation_prob'] = precipitation_probs
-                    
+
                     # 警報
                     if alert_flag and 'warnings' in weather_data:
                         result['warnings'] = weather_data['warnings']
@@ -136,6 +149,23 @@ class WeatherDataManager:
         if self.debug:
             print(f"No weather data found for area {area_code}")
         return None
+
+    # 気象注意報・災害情報の更新時間が古いか確認
+    def check_update_time(iso_time_str):  
+        # ISO 8601文字列をパース（タイムゾーン対応）
+        target_time = dateutil.parser.isoparse(iso_time_str)
+
+        # 現在時刻（対象のタイムゾーンと同じタイムゾーンで取得）
+        now = datetime.now(target_time.tzinfo)
+
+        # 差を計算
+        time_diff = now - target_time
+
+        # 30分以上前ならTrueで
+        # 更新させる
+        import os
+        return time_diff >= timedelta(minutes=os.getenv('DISASTER_ALERT_CACHE_MIN'))
+
     
     def save_weather_data(self, area_code, data, weather_flag=False, temperature_flag=False,
                          pop_flag=False, alert_flag=False, disaster_flag=False, day=0):

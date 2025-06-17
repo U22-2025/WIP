@@ -6,8 +6,8 @@
 
 import sys
 import os
-import time
 from pathlib import Path
+import datetime
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -158,7 +158,7 @@ class QueryServer(BaseServer):
             type=3,  # Response type (Type 3 for weather data response)
             area_code=request.area_code,
             day=request.day,
-            timestamp=int(time.time()),
+            timestamp=int(datetime.now().timestamp()),
             weather_flag=request.weather_flag,
             temperature_flag=request.temperature_flag,
             pop_flag=request.pop_flag,

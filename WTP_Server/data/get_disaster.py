@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 災害情報取得スクリプト
 
@@ -38,25 +39,37 @@ def main():
         # Step 2: 災害情報の取得・統合
         json_result = processor.get_disaster_info(url_list, 'wtp/json/disaster_data.json')
         print("\n=== Disaster Info Processing Complete ===")
+        print(f"Debug: json_result type: {type(json_result)}")
+        # print(f"Debug: json_result content (first 100 chars): {json_result[:100]}") # エンコーディングエラー回避のためコメントアウト
         
         # Step 3: 火山座標の解決処理
-        import json
-        result_dict = json.loads(json_result)
+        try:
+            result_dict = json.loads(json_result)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+            print(f"Problematic JSON: {json_result}")
+            return # 処理を中断
         result_dict, volcano_locations = processor.resolve_volcano_coordinates(result_dict)
         
-        print(f"\nVolcano Location Resolution Results: {json.dumps(volcano_locations, ensure_ascii=False, indent=2)}")
+        print(f"\nVolcano Location Resolution Results: {len(volcano_locations)} locations resolved.") # 簡潔な表示に変更
         
         # Step 4: エリアコードデータの読み込み
         with open('wtp/json/area_codes.json', 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
+        print(f"Debug: area_codes_data type: {type(area_codes_data)}")
+        print(f"Debug: area_codes_data is None: {area_codes_data is None}")
         
         # Step 5: エリアコード変換・統合処理
         converted_data, converted_report_times = processor.convert_disaster_keys_to_area_codes(
             result_dict, area_codes_data
         )
+        print(f"Debug: converted_data type: {type(converted_data)}")
+        print(f"Debug: converted_data is None: {converted_data is None}")
+        print(f"Debug: converted_report_times type: {type(converted_report_times)}")
+        print(f"Debug: converted_report_times is None: {converted_report_times is None}")
         
         # Step 6: 最終結果を新しいフォーマットで保存（ReportDateTime付き）
-        final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times)
+        final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
         
         with open('wtp/json/disaster_data.json', 'w', encoding='utf-8') as f:
             json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)

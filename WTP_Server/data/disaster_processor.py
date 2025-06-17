@@ -198,8 +198,6 @@ class DisasterXMLProcessor(XMLBaseProcessor):
             root = self.parse_xml(xml_data, '<Report')
             if root is None:
                 continue
-                
-            report_datetime = self.get_report_time(root)
             
             result = self.process_xml_data(xml_data)
             area_mapping = result["area_kind_mapping"]
@@ -208,8 +206,6 @@ class DisasterXMLProcessor(XMLBaseProcessor):
             # エリア-災害種別マッピングの統合
             for area_code, kind_names in area_mapping.items():
                 # ReportDateTimeを保存（最新のものを保持）
-                if report_datetime:
-                    area_report_times[area_code] = report_datetime
                 
                 for kind_name in kind_names:
                     if kind_name not in all_area_mapping[area_code]:
@@ -218,8 +214,6 @@ class DisasterXMLProcessor(XMLBaseProcessor):
             # 火山座標データの統合
             for area_code, coordinates in volcano_coords.items():
                 # ReportDateTimeを保存（最新のものを保持）
-                if report_datetime:
-                    area_report_times[area_code] = report_datetime
                     
                 for coordinate in coordinates:
                     if coordinate not in all_volcano_coords[area_code]:
@@ -509,6 +503,11 @@ class DisasterDataProcessor:
             return {}, {}
         
         area_kind_mapping = disaster_data['area_kind_mapping']
+        print(f"Debug: type of area_kind_mapping: {type(area_kind_mapping)}")
+        print(f"Debug: area_kind_mapping is None: {area_kind_mapping is None}")
+        if area_kind_mapping is None:
+            print("Error: area_kind_mapping is None. Returning empty dicts.")
+            return {}, {}
         volcano_coordinates = disaster_data.get('volcano_coordinates', {})
         area_report_times = disaster_data.get('area_report_times', {})
         
@@ -561,31 +560,32 @@ class DisasterDataProcessor:
         
         return consolidated_result, converted_report_times
     
-    def format_to_alert_style(self, area_kind_mapping: Dict[str, List[str]], area_report_times: Dict[str, str] = None) -> Dict[str, Dict[str, Any]]:
+    def format_to_alert_style(self, area_kind_mapping: Dict[str, List[str]], area_report_times: Dict[str, str] = None, area_codes_data: Dict = None) -> Dict[str, Any]:
         """
         災害データを警報・注意報データと同じフォーマットに変換
         
         Args:
             area_kind_mapping: エリアコード別の災害種別マッピング
             area_report_times: エリアコード別のReportDateTime（オプション）
+            area_codes_data: エリアコード階層データ（親コードとエリア名取得用）
             
         Returns:
             警報・注意報データと同じフォーマットの辞書
         """
-        formatted_data = {}
+
+        # トップレベルの構造を初期化
+        final_output = {
+            "disaster_pulldatetime": datetime.now().isoformat(timespec='seconds') + '+09:00',
+        }
         
         for area_code, disaster_list in area_kind_mapping.items():
-            # ReportDateTimeを取得（利用可能な場合）
-            report_datetime = ""
-            if area_report_times and area_code in area_report_times:
-                report_datetime = area_report_times[area_code]
-            
-            formatted_data[area_code] = {
-                "災害情報": disaster_list,
-                "disaster_reportdatetime": report_datetime
+            # ユーザーの例の形式に合わせる
+            final_output[area_code] = {
+                "disaster_info": disaster_list # 災害情報
             }
-        
-        return formatted_data
+            
+        print(final_output)
+        return final_output
     
     def resolve_volcano_coordinates(self, disaster_data: Dict) -> Tuple[Dict, Dict]:
         """
@@ -712,7 +712,7 @@ def main():
         # Step 6: ReportDateTimeを含む最終フォーマットに変換
         print("Step 6: Formatting to alert style...")
         final_data = processor.format_to_alert_style(
-            converted_data, converted_report_times
+            converted_data, converted_report_times, area_codes_data # area_codes_dataを渡す
         )
         
         # Step 7: 最終結果の保存

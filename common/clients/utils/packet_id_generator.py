@@ -1,9 +1,10 @@
 import threading
+import random 
 
 class PacketIDGenerator12Bit:
     def __init__(self):
         self._lock = threading.Lock()
-        self._current = 0
+        self._current = random.randint(0,4095) # 0 - 4095
         self._max_id = 4096  # 2^12
 
     def next_id(self) -> int:
