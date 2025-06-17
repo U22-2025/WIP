@@ -95,7 +95,7 @@ class WeatherDataManager:
                             update_flag = True
                     ### 更新が行われたなら再取得
                     if update_flag:
-                        weather_data = rm.json().get(weather_key)
+                        weather_data = rm.get_weather_data(area_code)
                     
                     # 必要なデータを抽出
                     result = {}
@@ -149,7 +149,7 @@ class WeatherDataManager:
         return None
 
     # 気象注意報・災害情報の更新時間が古いか確認
-    def check_update_time(iso_time_str):  
+    def check_update_time(iso_time_str):
         # ISO 8601文字列をパース（タイムゾーン対応）
         target_time = dateutil.parser.isoparse(iso_time_str)
 
@@ -162,7 +162,9 @@ class WeatherDataManager:
         # 30分以上前ならTrueで
         # 更新させる
         import os
-        return time_diff >= timedelta(minutes=os.getenv('DISASTER_ALERT_CACHE_MIN'))
+        # 環境変数からキャッシュ時間を取得し、intに変換
+        cache_minutes = int(os.getenv('DISASTER_ALERT_CACHE_MIN', '30')) # デフォルトは30分
+        return time_diff >= timedelta(minutes=cache_minutes)
 
     
     def save_weather_data(self, area_code, data, weather_flag=False, temperature_flag=False,

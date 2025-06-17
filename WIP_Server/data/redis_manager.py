@@ -104,14 +104,13 @@ class WeatherRedisManager:
             気象データ辞書、存在しない場合はNone
         """
         if not self.redis_client:
+            if self.debug:
+                print("Redisクライアントが接続されていません。気象データを取得できません。")
             return None
         
         try:
             weather_key = self._get_weather_key(area_code)
             data = self.redis_client.json().get(weather_key, ".")
-            
-            if self.debug and data:
-                print(f"取得: {weather_key}")
             
             return data
             
@@ -132,20 +131,23 @@ class WeatherRedisManager:
             成功した場合True
         """
         if not self.redis_client:
+            if self.debug:
+                print("Redisクライアントが接続されていません。気象データを更新できません。")
             return False
         
         try:
             weather_key = self._get_weather_key(area_code)
+            # RedisにJSONデータをセット
             self.redis_client.json().set(weather_key, ".", data)
             
             if self.debug:
-                print(f"更新: {weather_key}")
+                print(f"更新成功: {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}")
             
             return True
             
         except Exception as e:
             if self.debug:
-                print(f"データ更新エラー ({area_code}): {e}")
+                print(f"データ更新エラー ({area_code}): {str(e)}, データ型: {type(data)}, データ: {data}")
             return False
     
     def update_alerts(self, alert_data: Union[str, Dict[str, Any]]) -> Dict[str, int]:
@@ -161,23 +163,17 @@ class WeatherRedisManager:
         if not self.redis_client:
             return {'updated': 0, 'created': 0, 'errors': 0}
         
-        # データがJSON文字列の場合は辞書に変換
-        if isinstance(alert_data, str):
-            try:
-                alert_dict = json.loads(alert_data)
-            except json.JSONDecodeError as e:
-                if self.debug:
-                    print(f"JSONデコードエラー: {e}")
-                return {'updated': 0, 'created': 0, 'errors': 1}
-        else:
-            alert_dict = alert_data
-        
         updated_count = 0
         created_count = 0
         error_count = 0
         
-        for area_code, alert_info in alert_dict.items():
+        for area_code, alert_info in alert_data.items():
+            new_data = {}
             try:
+                if area_code == "alert_pulldatetime":
+                    self.update_weather_data(area_code, alert_info)
+                    continue
+
                 # 新規データ作成
                 # 既存の気象データを取得、なければデフォルトデータを作成
                 existing_data = self.get_weather_data(area_code)
@@ -191,9 +187,13 @@ class WeatherRedisManager:
                 new_data['warnings'] = alert_info.get('alert_info', [])
                 
                 if self.update_weather_data(area_code, new_data):
-                    created_count += 1
-                    if self.debug:
-                        print(f"警報新規: {area_code} - {len(new_data['warnings'])}件")
+                    if existing_data:
+                        if self.debug:
+                            print(f"警報更新: {area_code} - {len(new_data['warnings'])}件")
+                    else:
+                        created_count += 1
+                        if self.debug:
+                            print(f"警報新規: {area_code} - {len(new_data['warnings'])}件")
                 else:
                     error_count += 1
                     
@@ -220,37 +220,42 @@ class WeatherRedisManager:
         updated_count = 0
         created_count = 0
         error_count = 0
-        
+
         for area_code, disaster_info in disaster_data.items():
-            if area_code == "disaster_pulldatetime":
-                # disaster_pulldatetimeは処理対象外なのでスキップ
-                continue
+            new_data={}
             try:
+                if area_code == "disaster_pulldatetime":
+                    self.update_weather_data(area_code, disaster_info)
+                    continue
+
                 # 既存の気象データを取得、なければデフォルトデータを作成
                 existing_data = self.get_weather_data(area_code)
+                    
                 if existing_data:
                     new_data = existing_data
                     updated_count += 1
                 else:
                     new_data = self._create_default_weather_data()
                     created_count += 1
-                
+
+                # 災害情報を追加
                 new_data['disaster_info'] = disaster_info.get('disaster_info', [])
-                
+
                 if self.update_weather_data(area_code, new_data):
-                    if existing_data:
-                        if self.debug:
-                            print(f"災害更新: {area_code} - {len(new_data['disaster_info'])}件")
-                    else:
-                        if self.debug:
-                            print(f"災害新規: {area_code} - {len(new_data['disaster_info'])}件")
+                    if self.debug:
+                        if existing_data:
+                            print(f"災害更新成功: {area_code} - {len(new_data[area_code].get('disaster_info', []))}件")
+                        else:
+                            print(f"災害新規成功: {area_code} - {len(new_data[area_code].get('disaster_info', []))}件")
                 else:
+                    if self.debug:
+                        print(f"災害更新失敗: {area_code}")
                     error_count += 1
             except Exception as e:
                 if self.debug:
                     print(f"災害処理エラー ({area_code}): {e}")
                 error_count += 1
-        
+                
         return {'updated': updated_count, 'created': created_count, 'errors': error_count}
     
     def bulk_update_weather_data(self, weather_data: Dict[str, Dict[str, Any]]) -> Dict[str, int]:
