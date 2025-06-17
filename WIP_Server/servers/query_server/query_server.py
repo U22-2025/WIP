@@ -7,7 +7,7 @@
 import sys
 import os
 from pathlib import Path
-import datetime
+from datetime import datetime
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":

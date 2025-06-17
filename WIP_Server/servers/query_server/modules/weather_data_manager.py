@@ -74,13 +74,11 @@ class WeatherDataManager:
             dict: 気象データ
         """
         rm = redis_manager.WeatherRedisManager()
-        # まず、メインの気象データを取得
-        weather_key = rm._get_weather_key(area_code)
         
         if self.redis_pool:
             try:
                 # JSON形式でデータを取得
-                weather_data = rm.json().get(weather_key)
+                weather_data = rm.get_weather_data(area_code)
                 
                 if weather_data:
                     if self.debug:
