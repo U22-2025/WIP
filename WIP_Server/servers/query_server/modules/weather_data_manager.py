@@ -7,7 +7,7 @@ import json
 import redis
 from .weather_constants import RedisConstants, CacheConstants
 from datetime import datetime, timedelta
-from WTP_Server.data import redis_manager
+from WIP_Server.data import redis_manager
 import dateutil.parser
 
 class WeatherDataManager:

@@ -7,7 +7,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from WTP_Server.data.redis_manager import create_redis_manager
+from WIP_Server.data.redis_manager import create_redis_manager
 
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {}

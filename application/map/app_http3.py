@@ -12,7 +12,7 @@ import logging
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from WTP_Client import Client
+from WIP_Client import Client
 
 app = Quart(__name__)
 

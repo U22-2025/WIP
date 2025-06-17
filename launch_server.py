@@ -1,6 +1,6 @@
 import threading
 import argparse
-from WTP_Server import QueryServer, LocationServer, WeatherServer
+from WIP_Server import QueryServer, LocationServer, WeatherServer
 
 def main():
     parser = argparse.ArgumentParser(description='WTPサーバー起動スクリプト')
