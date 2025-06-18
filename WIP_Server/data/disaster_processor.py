@@ -24,7 +24,7 @@ from typing import Optional, Dict, List, Tuple, Any
 # パスを追加して直接実行にも対応
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from xml_base import XMLBaseProcessor
+from .xml_base import XMLBaseProcessor
 from common.clients.location_client import LocationClient
 from common.packet import LocationRequest, LocationResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit

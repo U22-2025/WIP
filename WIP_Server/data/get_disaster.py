@@ -10,8 +10,8 @@
 """
 
 import json
-from disaster_processor import DisasterDataProcessor
-from redis_manager import create_redis_manager
+from .disaster_processor import DisasterDataProcessor
+from .redis_manager import create_redis_manager
 
 
 def main():
