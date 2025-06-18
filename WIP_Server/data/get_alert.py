@@ -8,8 +8,8 @@
     python get_alert.py
 """
 import json
-from alert_processor import AlertDataProcessor
-from redis_manager import create_redis_manager
+from .alert_processor import AlertDataProcessor, AlertXMLProcessor
+from .redis_manager import create_redis_manager
 
 
 def main():
@@ -23,11 +23,11 @@ def main():
     
     # AlertDataProcessorのインスタンスを作成
     processor = AlertDataProcessor()
-    
+    lister = AlertXMLProcessor()
     try:
         # Step 1: XMLファイルリストの取得
         print("Step 1: Getting XML file list...")
-        url_list = processor.get_alert_xml_list()
+        url_list = lister.get_alert_xml_list()
 
         print(f"Found {len(url_list)} URLs")
         if not url_list:

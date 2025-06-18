@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 import json
 from collections import defaultdict
 from typing import Dict, List, Any, Optional
-from xml_base import XMLBaseProcessor
+from .xml_base import XMLBaseProcessor
 from datetime import datetime
 
 class AlertXMLProcessor(XMLBaseProcessor):
@@ -25,10 +25,10 @@ class AlertXMLProcessor(XMLBaseProcessor):
     エリアコード別に警報・注意報情報を整理する。
     """
     
-    # def __init__(self):
-    #     super().__init__()
+    def __init__(self):
+        super().__init__()
     #     self.info_key = "warnings"
-    #     self.target_type = "気象警報・注意報（一次細分区域等）"
+        self.target_type = "気象警報・注意報（一次細分区域等）"
     #     self.time_key = "alert_pulldatetime"
     
     def process_xml_data(self, xml_data: str) -> Dict[str, Any]:
