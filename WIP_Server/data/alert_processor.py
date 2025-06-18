@@ -25,11 +25,11 @@ class AlertXMLProcessor(XMLBaseProcessor):
     エリアコード別に警報・注意報情報を整理する。
     """
     
-    def __init__(self):
-        super().__init__()
-        self.info_key = "warnings"
-        self.target_type = "気象警報・注意報（一次細分区域等）"
-        self.time_key = "alert_pulldatetime"
+    # def __init__(self):
+    #     super().__init__()
+    #     self.info_key = "warnings"
+    #     self.target_type = "気象警報・注意報（一次細分区域等）"
+    #     self.time_key = "alert_pulldatetime"
     
     def process_xml_data(self, xml_data: str) -> Dict[str, Any]:
         """
@@ -39,7 +39,7 @@ class AlertXMLProcessor(XMLBaseProcessor):
             xml_data: 処理するXMLデータ
             
         Returns:
-            エリアコード別の警報・注意報情報とReportDateTimeを含む辞書
+            エリアコード別の警報・注意報情報とpulldatetimeを含む辞書
         """
         root = self.parse_xml(xml_data, '<Report')
         if root is None:
@@ -111,7 +111,6 @@ class AlertXMLProcessor(XMLBaseProcessor):
         """
         output = {
             "alert_pulldatetime" : datetime.now().isoformat(timespec='seconds') + '+09:00',
-            "area_alert_mapping": {}
         }
         
         for url in url_list:
@@ -119,16 +118,16 @@ class AlertXMLProcessor(XMLBaseProcessor):
             if xml_data is None:
                 continue
             
-            file_result = self.process_xml_data(xml_data)
+            result = self.process_xml_data(xml_data)
             
-            for area_code, alert_kinds in file_result.items():
+            for area_code, alert_kinds in result.items():
                 # area_alert_mapping内にエリアコードが存在しない場合、リストを初期化
-                if area_code not in output["area_alert_mapping"]:
-                    output["area_alert_mapping"][area_code] = {"alert_info": []}
+                if area_code not in output:
+                    output[area_code] = {"alert_info": []}
                 # 警報・注意報情報を統合（重複回避）
                 for kind in alert_kinds:
-                    if kind not in output["area_alert_mapping"][area_code]["alert_info"]:
-                        output["area_alert_mapping"][area_code]["alert_info"].append(kind)
+                    if kind not in output[area_code]["alert_info"]:
+                        output[area_code]["alert_info"].append(kind)
         return output
 
     def get_alert_xml_list(self) -> List[str]:
@@ -155,15 +154,6 @@ class AlertDataProcessor:
     
     def __init__(self):
         self.xml_processor = AlertXMLProcessor()
-
-    def get_alert_xml_list(self) -> List[str]:
-        """
-        警報・注意報XMLファイルのURLリストを取得
-        
-        Returns:
-            XMLファイルURLのリスト
-        """
-        return self.xml_processor.get_alert_xml_list()
 
     def get_alert_info(self, url_list: List[str], output_json_path: Optional[str] = None) -> str:
         """
