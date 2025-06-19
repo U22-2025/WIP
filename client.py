@@ -9,14 +9,14 @@ import time
 print("Weather Client Example")
 print("=" * 50)
 
-client = Client(debug=True)
+client = Client(area_code=460010, debug=True)
 
 
 # 例1: 座標から天気情報を取得
 print("\n1. Getting weather by coordinates (Tokyo)")
 print("-" * 30)
-client.set_coordinates(35.6895, 139.6917)
-result = client.get_weather()
+# client.set_coordinates(35.6895, 139.6917)
+result = client.get_weather(alerts=True, disaster=True)
 
 if result:
     print("\n✓ Success!")
@@ -28,5 +28,10 @@ if result:
         print(f"Temperature: {result['temperature']}°C")
     if 'precipitation_prob' in result:
         print(f"precipitation_prob: {result['precipitation_prob']}%")
+    if 'alerts' in result:
+        print(f"alerts: {result['alerts']}")
+    if 'disaster' in result:
+        print(f"disaster: {result['disaster']}")
+    
 else:
     print("\n✗ Failed to get weather data")
