@@ -27,9 +27,7 @@ class AlertXMLProcessor(XMLBaseProcessor):
     
     def __init__(self):
         super().__init__()
-    #     self.info_key = "warnings"
         self.target_type = "気象警報・注意報（一次細分区域等）"
-    #     self.time_key = "alert_pulldatetime"
     
     def process_xml_data(self, xml_data: str) -> Dict[str, Any]:
         """

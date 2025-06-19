@@ -7,7 +7,7 @@ import json
 import redis
 from .weather_constants import RedisConstants, CacheConstants
 from datetime import datetime, timedelta
-from WIP_Server.data import redis_manager,get_disaster
+from WIP_Server.data import redis_manager,get_disaster, get_alert
 import dateutil.parser
 
 class WeatherDataManager:
@@ -75,79 +75,73 @@ class WeatherDataManager:
         """
         rm = redis_manager.WeatherRedisManager()
         
-        if self.redis_pool:
-            try:
-                # JSON形式でデータを取得
-                disasterpulldatetime = rm.get_weather_data("disaster_pulldatetime")
-                weather_data = rm.get_weather_data(area_code)
+        if not self.redis_pool:
+            return None
+
+        try:
+            # JSON形式でデータを取得
+            disasterpulldatetime = rm.get_weather_data("disaster_pulldatetime")
+            alertpulldatetime = rm.get_weather_data("alert_pulldatetime")
+            
+            ### 災害情報や気象注意報が古いものか確認
+            if self.check_update_time(disasterpulldatetime):
+                get_disaster.main()
+            if self.check_update_time(alertpulldatetime):
+                get_alert.main()
+
+            weather_data = rm.get_weather_data(area_code)
+            if not weather_data:
+                None
+
+            if self.debug:
+                print(f"Weather data found for area {area_code}")
+                print(f"Raw data: {weather_data}")
+            # 必要なデータを抽出
+            result = {}
+            
+            # 天気コード
+            if weather_flag and 'weather' in weather_data:
+                weather_codes = weather_data['weather']
+                if isinstance(weather_codes, list) and len(weather_codes) > day:
+                    result['weather'] = weather_codes[day]
+                else:
+                    result['weather'] = weather_codes
+            
+            # 気温
+            if temperature_flag and 'temperature' in weather_data:
+                temperatures = weather_data['temperature']
+                if isinstance(temperatures, list) and len(temperatures) > day:
+                    result['temperature'] = temperatures[day]
+                else:
+                    result['temperature'] = temperatures
+            
+            # 降水確率
+            if pop_flag and 'precipitation_prob' in weather_data:
+                precipitation_prob = weather_data['precipitation_prob']
+                if isinstance(precipitation_prob, list) and len(precipitation_prob) > day:
+                    result['precipitation_prob'] = precipitation_prob[day]
+                else:
+                    result['precipitation_prob'] = precipitation_prob
+
+            # 警報
+            if alert_flag and 'warnings' in weather_data:
+                result['warnings'] = weather_data['warnings']
+            
+            # 災害情報
+            if disaster_flag and 'disaster_info' in weather_data:
+                result['disaster_info'] = weather_data['disaster_info']
+            
+            if self.debug:
+                print(f"Extracted data: {result}")
+            
+            return result
                 
-                if weather_data:
-                    if self.debug:
-                        print(f"Weather data found for area {area_code}")
-                        print(f"Raw data: {weather_data}")
-
-                    ### 災害情報や気象注意報が古いものか確認
-                    update_flag = False
-                    if self.check_update_time(disasterpulldatetime):
-                            get_disaster.main()
-                            update_flag = True
-                    # if self.check_update_time(weather_data['alert_pulldatetime']):
-                    #         rm.update_alerts()
-                    #         update_flag = True
-                    ### 更新が行われたなら再取得
-                    if update_flag:
-                        weather_data = rm.get_weather_data(area_code)
-                    
-                    # 必要なデータを抽出
-                    result = {}
-                    
-                    # 天気コード
-                    if weather_flag and 'weather' in weather_data:
-                        weather_codes = weather_data['weather']
-                        if isinstance(weather_codes, list) and len(weather_codes) > day:
-                            result['weather'] = weather_codes[day]
-                        else:
-                            result['weather'] = weather_codes
-                    
-                    # 気温
-                    if temperature_flag and 'temperature' in weather_data:
-                        temperatures = weather_data['temperature']
-                        if isinstance(temperatures, list) and len(temperatures) > day:
-                            result['temperature'] = temperatures[day]
-                        else:
-                            result['temperature'] = temperatures
-                    
-                    # 降水確率
-                    if pop_flag and 'precipitation_prob' in weather_data:
-                        precipitation_prob = weather_data['precipitation_prob']
-                        if isinstance(precipitation_prob, list) and len(precipitation_prob) > day:
-                            result['precipitation_prob'] = precipitation_prob[day]
-                        else:
-                            result['precipitation_prob'] = precipitation_prob
-
-                    # 警報
-                    if alert_flag and 'warnings' in weather_data:
-                        result['warnings'] = weather_data['warnings']
-                    
-                    # 災害情報
-                    if disaster_flag and 'disaster_info' in weather_data:
-                        result['disaster_info'] = weather_data['disaster_info']
-                    
-                    if self.debug:
-                        print(f"Extracted data: {result}")
-                    
-                    return result
-                    
-            except Exception as e:
-                if self.debug:
-                    print(f"Error retrieving weather data: {e}")
-                    import traceback
-                    traceback.print_exc()
-        
-        # データが見つからない場合
-        if self.debug:
-            print(f"No weather data found for area {area_code}")
-        return None
+        except Exception as e:
+            if self.debug:
+                print(f"Error retrieving weather data: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
 
     # 気象注意報・災害情報の更新時間が古いか確認
     def check_update_time(self, iso_time_str):
@@ -164,7 +158,7 @@ class WeatherDataManager:
         # 更新させる
         import os
         # 環境変数からキャッシュ時間を取得し、intに変換
-        cache_minutes = int(os.getenv('DISASTER_ALERT_CACHE_MIN', '30')) # デフォルトは30分
+        cache_minutes = int(os.getenv('DISASTER_ALERT_CACHE_MIN', '1440')) # デフォルトは30分
         return time_diff >= timedelta(minutes=cache_minutes)
 
     

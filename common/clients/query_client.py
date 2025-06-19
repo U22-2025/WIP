@@ -9,6 +9,7 @@ import time
 import threading
 import concurrent.futures
 import os
+from datetime import datetime
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
@@ -154,7 +155,7 @@ class QueryClient:
             
             # レスポンス受信（専用クラス使用）
             response_data, server_addr = sock.recvfrom(1024)
-            network_time = time.time() - network_start
+            network_time = datetime.now() - network_start
             
             # レスポンス解析（専用クラス使用）
             parse_start = time.time()
