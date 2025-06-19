@@ -95,11 +95,11 @@ class ExtendedField:
         if key not in self.FIELD_MAPPING_STR:
             raise ValueError(f"不正なキー: '{key}'")
         
-        # 値の検証
-        self._validate_value(key, value)
+        # 値の検証と正規化
+        validated_value = self._validate_value(key, value)
         
         # 値を設定
-        self._data[key] = value
+        self._data[key] = validated_value
         
         # 変更を通知
         self._notify_observers()
@@ -245,30 +245,33 @@ class ExtendedField:
     def source(self, value: str) -> None:
         self.set('source', value)
 
-    def _validate_value(self, key: str, value: Any) -> None:
+    def _validate_value(self, key: str, value: Any) -> Any:
         """
-        値の検証
+        値の検証と正規化
         
         Args:
             key: フィールドキー
             value: 検証する値
             
+        Returns:
+            正規化された値
+            
         Raises:
             ValueError: 値が不正な場合
         """
-        # alert/disasterフィールドの検証
+        # alert/disasterフィールドの検証と結合
         if key in ['alert', 'disaster']:
             if isinstance(value, list):
-                for item in value:
-                    if not isinstance(item, str):
-                        raise ValueError(f"{key}の要素は文字列である必要があります")
-                # リスト内の空文字列を削除
-                value[:] = [item for item in value if item.strip()]
-            elif not isinstance(value, str):
-                raise ValueError(f"{key}は文字列またはリストである必要があります")
-            # 単一の文字列の場合も空文字列は設定しない
-            if isinstance(value, str) and not value.strip():
+                # リストの要素を結合
+                processed_value = ", ".join([str(item) for item in value if str(item).strip()])
+            elif isinstance(value, str):
+                processed_value = value.strip()
+            else:
+                raise ValueError(f"{key}は文字列または文字列のリストである必要があります")
+            
+            if not processed_value:
                 raise ValueError(f"{key}は空文字列であってはなりません")
+            return processed_value
         
         # 座標フィールドの検証
         elif key == 'latitude':
@@ -276,19 +279,26 @@ class ExtendedField:
                 raise ValueError("緯度は数値である必要があります")
             if not (ExtendedFieldType.LATITUDE_MIN <= value <= ExtendedFieldType.LATITUDE_MAX):
                 raise ValueError(f"緯度が範囲外です: {value}")
+            return value
         
         elif key == 'longitude':
             if not isinstance(value, (int, float)):
                 raise ValueError("経度は数値である必要があります")
             if not (ExtendedFieldType.LONGITUDE_MIN <= value <= ExtendedFieldType.LONGITUDE_MAX):
                 raise ValueError(f"経度が範囲外です: {value}")
+            return value
         
         # sourceフィールドの検証
         elif key == 'source':
             if not isinstance(value, str):
                 raise ValueError("sourceは文字列である必要があります")
-            if not value.strip():
+            processed_value = value.strip()
+            if not processed_value:
                 raise ValueError("sourceは空文字列であってはなりません")
+            return processed_value
+        
+        # その他の未知のキーはそのまま返す
+        return value
     
     def to_bits(self) -> int:
         """
@@ -310,46 +320,41 @@ class ExtendedField:
                 raise BitFieldError(f"不正なキー: '{key}'")
             
             try:
-                # 値をリストに正規化（リストでない場合は単一要素のリストにする）
-                if isinstance(value, list):
-                    values_to_process = value
-                else:
-                    values_to_process = [value]
+                # _validate_valueで既に正規化されているため、直接valueを使用
+                values_to_process = value
                 
-                # 各値を個別のレコードとして処理
-                for single_value in values_to_process:
-                    if isinstance(single_value, str):
-                        value_bytes = single_value.encode('utf-8')
-                    elif key in ['latitude', 'longitude']:
-                        # 座標値の変換
-                        coord_value = float(single_value)
-                        # 10^6倍して整数化
-                        int_value = int(coord_value * ExtendedFieldType.COORDINATE_SCALE)
-                        value_bytes = int_value.to_bytes(4, byteorder='little', signed=True)
-                    elif isinstance(single_value, (int, float)):
-                        # その他の数値
-                        if isinstance(single_value, float):
-                            value_bytes = str(single_value).encode('utf-8')
-                        else:
-                            value_bytes = single_value.to_bytes((single_value.bit_length() + 7) // 8 or 1, byteorder='little')
+                if isinstance(values_to_process, str):
+                    value_bytes = values_to_process.encode('utf-8')
+                elif key in ['latitude', 'longitude']:
+                    # 座標値の変換
+                    coord_value = float(values_to_process)
+                    # 10^6倍して整数化
+                    int_value = int(coord_value * ExtendedFieldType.COORDINATE_SCALE)
+                    value_bytes = int_value.to_bytes(4, byteorder='little', signed=True)
+                elif isinstance(values_to_process, (int, float)):
+                    # その他の数値
+                    if isinstance(values_to_process, float):
+                        value_bytes = str(values_to_process).encode('utf-8')
                     else:
-                        raise BitFieldError(f"サポートされていない値の型: {type(single_value)}")
-                    
-                    # バイト数とビット長を計算
-                    bytes_needed = len(value_bytes)
-                    if bytes_needed > self.MAX_EXTENDED_LENGTH:
-                        raise BitFieldError(f"値が大きすぎます: {bytes_needed} バイト")
-                    
-                    # ヘッダー構造（バイト長を上位、キーを下位）
-                    header = ((bytes_needed & self.MAX_EXTENDED_LENGTH) << self.EXTENDED_HEADER_KEY) | (key_int & self.MAX_EXTENDED_KEY)
-                    value_bits = int.from_bytes(value_bytes, byteorder='little')
-                    
-                    # 値を上位ビットに、ヘッダーを下位ビットに配置
-                    value_bit_width = bytes_needed * 8
-                    record_bits = (value_bits << self.EXTENDED_HEADER_TOTAL) | header
-                    result_bits |= (record_bits << current_pos)
-                    
-                    current_pos += self.EXTENDED_HEADER_TOTAL + (bytes_needed * 8)
+                        value_bytes = values_to_process.to_bytes((values_to_process.bit_length() + 7) // 8 or 1, byteorder='little')
+                else:
+                    raise BitFieldError(f"サポートされていない値の型: {type(values_to_process)}")
+                
+                # バイト数とビット長を計算
+                bytes_needed = len(value_bytes)
+                if bytes_needed > self.MAX_EXTENDED_LENGTH:
+                    raise BitFieldError(f"値が大きすぎます: {bytes_needed} バイト")
+                
+                # ヘッダー構造（バイト長を上位、キーを下位）
+                header = ((bytes_needed & self.MAX_EXTENDED_LENGTH) << self.EXTENDED_HEADER_KEY) | (key_int & self.MAX_EXTENDED_KEY)
+                value_bits = int.from_bytes(value_bytes, byteorder='little')
+                
+                # 値を上位ビットに、ヘッダーを下位ビットに配置
+                value_bit_width = bytes_needed * 8
+                record_bits = (value_bits << self.EXTENDED_HEADER_TOTAL) | header
+                result_bits |= (record_bits << current_pos)
+                
+                current_pos += self.EXTENDED_HEADER_TOTAL + (bytes_needed * 8)
                 
             except Exception as e:
                 raise BitFieldError(f"キー '{key}' の処理中にエラー: {e}")
@@ -441,7 +446,7 @@ class ExtendedField:
             raise BitFieldError(f"拡張フィールドの解析中にエラーが発生しました: {e}")
     
     @classmethod
-    def _extended_field_to_dict(cls, extended_field: List[Dict[str, Any]]) -> Dict[str, Union[str, int, List[str]]]:
+    def _extended_field_to_dict(cls, extended_field: List[Dict[str, Any]]) -> Dict[str, Union[str, int]]:
         """
         拡張フィールドを辞書に変換
         
@@ -455,7 +460,7 @@ class ExtendedField:
             BitFieldError: 不正なフォーマットの場合
         """
         try:
-            result: Dict[str, Union[str, int, List[str]]] = {}
+            result: Dict[str, Union[str, int]] = {}
             
             for item in extended_field:
                 if not item or len(item) != 1:
@@ -464,13 +469,20 @@ class ExtendedField:
                 key = next(iter(item))
                 value = item[key]
                 
-                # alert/disasterは配列として扱う
+                # alert/disasterは単一の文字列として結合して扱う
                 if key in ["alert", "disaster"]:
                     if not isinstance(value, (str, int)):
                         raise BitFieldError(f"不正な値の型: {type(value)}")
-                    # 空文字列は追加しない
-                    if str(value).strip():
-                        result.setdefault(key, []).append(str(value))
+                    stripped_value = str(value).strip()
+                    if not stripped_value: # 空文字列は追加しない
+                        continue # 空文字列の場合はスキップして次の要素へ
+                    
+                    if key in result:
+                        # 既存の値があれば結合
+                        result[key] = f"{result[key]}, {stripped_value}"
+                    else:
+                        # なければそのまま設定
+                        result[key] = stripped_value
                 else:
                     result[key] = value
             

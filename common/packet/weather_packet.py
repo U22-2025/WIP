@@ -217,29 +217,29 @@ class WeatherResponse(Response):
             return self.pop
         return None
     
-    def get_alerts(self) -> list:
+    def get_alerts(self) -> Optional[str]:
         """
         警報情報を取得
         
         Returns:
-            警報情報のリスト（空の場合は空リスト）
+            警報情報（文字列）またはNone
         """
         if self.alert_flag and hasattr(self, 'ex_field') and self.ex_field:
-            alerts = self.ex_field.get('alert', [])
-            return alerts if isinstance(alerts, list) else [alerts]
-        return []
+            alerts = self.ex_field.get('alert')
+            return str(alerts) if alerts is not None else None
+        return None
     
-    def get_disaster_info(self) -> list:
+    def get_disaster_info(self) -> Optional[str]:
         """
         災害情報を取得
         
         Returns:
-            災害情報のリスト（空の場合は空リスト）
+            災害情報（文字列）またはNone
         """
         if self.disaster_flag and hasattr(self, 'ex_field') and self.ex_field:
-            disaster = self.ex_field.get('disaster', [])
-            return disaster if isinstance(disaster, list) else [disaster]
-        return []
+            disaster = self.ex_field.get('disaster')
+            return str(disaster) if disaster is not None else None
+        return None
     
     def get_weather_data(self) -> Dict[str, Any]:
         """
