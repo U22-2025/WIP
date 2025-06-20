@@ -240,7 +240,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
         print(f"全処理完了: 合計所要時間 {end_time - start_time:.2f}秒")
         print(f"取得したエリア数: {len(output)}")
 
-    return output
+    return skip_area
 
 def update_redis_weather_data(debug=False):
     """
@@ -261,7 +261,8 @@ def update_redis_weather_data(debug=False):
         print(f"気象データの取得と保存完了: {len(weather_data)}エリア")
         print(f"合計所要時間: {end_time - start_time:.2f}秒")
 
-    return len(weather_data)
+    # return len(weather_data)
+    return skip_area
 
 def redis_set_data(key, data):
     """

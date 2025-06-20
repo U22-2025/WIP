@@ -68,6 +68,9 @@ class QueryServer(BaseServer):
         # 各コンポーネントの初期化
         self._init_components()
         
+        # スキップエリアリストを初期化
+        self.skip_area = []
+
         # スケジューラーを開始
         self._start_weather_update_scheduler()
 
@@ -334,6 +337,12 @@ class QueryServer(BaseServer):
         for update_time in update_times:
             schedule.every().day.at(update_time).do(self.update_weather_data_scheduled)
         
+        # configからskip_areaの確認と更新間隔を取得
+        skip_area_interval = self.config.getint('schedule', 'skip_area_check_interval_minutes', 10)
+        if self.debug:
+            print(f"[クエリサーバー] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。")
+        schedule.every(skip_area_interval).minutes.do(self.check_and_update_skip_area_scheduled)
+
         # スケジュールを実行するスレッドを開始
         def run_scheduler():
             while True:
@@ -351,14 +360,40 @@ class QueryServer(BaseServer):
             print(f"[クエリサーバー] スケジュールされた気象データ更新を実行中...")
         try:
             # WIP_Server/scripts/update_weather_data.py の関数を呼び出す
-            updated_count = update_redis_weather_data(debug=self.debug)
+            self.skip_area = update_redis_weather_data(debug=self.debug)
             if self.debug:
-                print(f"[クエリサーバー] 気象データ更新完了。{updated_count} エリアが更新されました。")
+                print(f"[クエリサーバー] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。")
         except Exception as e:
             print(f"[クエリサーバー] 気象データ更新エラー: {e}")
             if self.debug:
                 import traceback
                 traceback.print_exc()
+
+    def check_and_update_skip_area_scheduled(self):
+        """
+        スケジュールされたskip_areaの確認と更新処理
+        """
+        if self.debug:
+            print(f"[クエリサーバー] スケジュールされたskip_areaの確認と更新を実行中...")
+        
+        if self.skip_area:
+            if self.debug:
+                print(f"[クエリサーバー] skip_areaに地域コードが存在します: {self.skip_area}")
+                print(f"[クエリサーバー] update_redis_weather_dataをskip_areaを引数に実行します。")
+            try:
+                # skip_areaを引数としてupdate_redis_weather_dataを呼び出す
+                updated_skip_area = update_redis_weather_data(debug=self.debug, area_codes=self.skip_area)
+                self.skip_area = updated_skip_area
+                if self.debug:
+                    print(f"[クエリサーバー] skip_areaの更新完了。現在のskip_area: {self.skip_area}")
+            except Exception as e:
+                print(f"[クエリサーバー] skip_area更新エラー: {e}")
+                if self.debug:
+                    import traceback
+                    traceback.print_exc()
+        else:
+            if self.debug:
+                print(f"[クエリサーバー] skip_areaは空です。更新はスキップされます。")
 
 
 if __name__ == "__main__":
