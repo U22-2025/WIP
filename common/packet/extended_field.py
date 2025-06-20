@@ -5,6 +5,8 @@ from typing import Optional, Dict, Any, List, Union, Callable
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
 
+import csv
+import io
 
 class ExtendedFieldType:
     """拡張フィールドタイプの定数定義"""
@@ -206,7 +208,7 @@ class ExtendedField:
                 pass
     
     @property
-    def alert(self) -> Union[List[str], str, None]:
+    def alert(self) -> Optional[str]:
         return self.get('alert')
 
     @alert.setter
@@ -214,7 +216,7 @@ class ExtendedField:
         self.set('alert', value)
 
     @property
-    def disaster(self) -> Union[List[str], str, None]:
+    def disaster(self) -> Optional[str]:
         return self.get('disaster')
 
     @disaster.setter
@@ -263,7 +265,8 @@ class ExtendedField:
         if key in ['alert', 'disaster']:
             if isinstance(value, list):
                 # リストの要素を結合
-                processed_value = ", ".join([str(item) for item in value if str(item).strip()])
+                processed_value = self.to_csv_line(value)
+                
             elif isinstance(value, str):
                 processed_value = value.strip()
             else:
@@ -299,6 +302,13 @@ class ExtendedField:
         
         # その他の未知のキーはそのまま返す
         return value
+
+    # CSVとして安全にカンマ区切り文字列に変換
+    def to_csv_line(value_list):
+        output = io.StringIO()
+        writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow([str(item).strip() for item in value_list if str(item).strip()])
+        return output.getvalue().strip()  # .strip()で末尾の改行削除
     
     def to_bits(self) -> int:
         """
