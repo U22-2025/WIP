@@ -57,8 +57,11 @@
 {
   "disaster_pulldatetime":"2025-05-18T05:00:00+09:00",
   "alert_pulldatetime":"2025-05-18T05:00:00+09:00",
+  "weather_reportdatetime": {
+    "150000" : "2025-05-18T05:00:00+09:00",
+    "160000" : "2025-05-18T05:00:00+09:00",
+  }
   "150010": {
-    "weather_reportdatetime": "2025-05-18T05:00:00+09:00",
     "parent_code": "150000",
     "area_name": "下越",
     "weather": ["101", "202"],
