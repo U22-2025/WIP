@@ -156,6 +156,41 @@ class BaseServer(ABC):
         """
         return True, None
     
+    def _handle_error(self, error_code, original_packet, addr):
+        """
+        エラーパケットを生成して送信
+        
+        Args:
+            error_code: エラーコード（uint16）
+            original_packet: 元のリクエストパケット（解析済みオブジェクト）
+            addr: 送信元アドレス
+        """
+        try:
+            # ソースIP取得（送信元アドレスから）
+            source_ip = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
+            
+            # ErrorResponseパケットの生成
+            from common.packet.error_response import ErrorResponse
+            err_pkt = ErrorResponse()
+            err_pkt.packet_id = original_packet.packet_id
+            err_pkt.error_code = error_code
+            err_pkt.ex_field.set('source_ip', source_ip)
+            
+            # パケットをシリアライズ
+            response_data = err_pkt.serialize()
+            
+            # エラーレスポンスを送信
+            self.sock.sendto(response_data, addr)
+            
+            if self.debug:
+                print(f"[{threading.current_thread().name}] Sent error response to {addr}, code: {error_code}")
+                
+        except Exception as e:
+            print(f"[{threading.current_thread().name}] Failed to send error response: {e}")
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+
     def handle_request(self, data, addr):
         """
         リクエストを処理（ワーカースレッドで実行）
@@ -186,6 +221,8 @@ class BaseServer(ABC):
                     self.error_count += 1
                 if self.debug:
                     print(f"[{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
+                # バリデーションエラーの場合はエラーパケットを送信
+                self._handle_error(0x0001, request, addr)  # 0x0001は無効なパケット形式エラー
                 return
             
             # レスポンスを作成
@@ -217,6 +254,17 @@ class BaseServer(ABC):
             if self.debug:
                 import traceback
                 traceback.print_exc()
+            
+            # エラーが発生した場合、元のリクエストをパースできているかどうかで処理を分ける
+            if 'request' in locals() and request is not None:
+                # リクエストのパースに成功している場合はエラーパケットを送信
+                self._handle_error(0x0003, request, addr)  # 0x0003はサーバー内部エラー
+            else:
+                # リクエストのパースに失敗している場合は最小限のエラーパケットを送信
+                from common.packet.format import Format
+                dummy_request = Format()
+                dummy_request.packet_id = 0  # 不明のため0
+                self._handle_error(0x0001, dummy_request, addr)
     
     def _print_timing_info(self, addr, timing_info):
         """タイミング情報を出力"""

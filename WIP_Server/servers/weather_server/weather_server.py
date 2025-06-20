@@ -162,6 +162,8 @@ class WeatherServer(BaseServer):
             elif request.type == 3:
                 # Type 3: 気象データレスポンス
                 self._handle_weather_response(data, addr)
+            elif request.type == 7:  # エラーパケット処理を追加
+                self._handle_error_packet(request, addr)
             else:
                 if self.debug:
                     print(f"不明なパケットタイプ: {request.type}")
@@ -364,70 +366,35 @@ class WeatherServer(BaseServer):
             if self.debug:
                 import traceback
                 traceback.print_exc()
-    def _handle_bad_response(self, data, addr,):
-        """エラーレスポンスの処理（Type ？）"""
-        return
-        # try:
-        #     # 専用クラスでレスポンスをパース
-        #     response = QueryResponse.from_bytes(data)
+    def _handle_error_packet(self, request, addr):
+        """エラーパケットの処理（Type 7）"""
+        try:
+            if self.debug:
+                print(f"\n[天気サーバー] タイプ7: エラーパケットを処理中")
+                print(f"  エラーコード: {request.error_code}")
+                print(f"  送信元アドレス: {addr}")
             
-        #     if self.debug:
-        #         print(f"\n[Weather Server Enhanced] Type 3: Processing weather response")
-        #         print(f"  Success: {response.is_success()}")
-        #         if hasattr(response, 'get_response_summary'):
-        #             summary = response.get_response_summary()
-        #             print(f"  Summary: {summary}")
-            
-        #     # 専用クラスのメソッドでsource情報を取得
-        #     source_info = response.get_source_info()
-        #     if source_info:
-        #         host, port = source_info.split(':')
-        #         dest_addr = (host, int(port))
+            # 拡張フィールドからsource_ipを取得
+            if request.ex_field and 'source_ip' in request.ex_field:
+                source_ip = request.ex_field['source_ip']
+                if self.debug:
+                    print(f"  ソースIPを取得: {source_ip}")
                 
-        #         if self.debug:
-        #             print(f"  Forwarding weather response to {dest_addr}")
-        #             print(f"  Weather data: {response.get_weather_data()}")
-        #             print(f"  Packet size: {len(data)} bytes")
-        #             print(f"  Source info stored: {source_info}")
+                # エラーパケットを送信
+                self.sock.sendto(request.to_bytes(), (source_ip, 4000))
                 
-        #         # source情報を変数に格納したので拡張フィールドから削除
-        #         if hasattr(response, 'ex_field') and response.ex_field:
-        #             if self.debug:
-        #                 print(f"  Removing source from extended field")
-        #                 print(f"  Extended field before: {response.ex_field.to_dict()}")
+                if self.debug:
+                    print(f"  エラーパケットを {source_ip}:4000 に送信しました")
+            else:
+                print(f"[天気サーバー] エラー: エラーパケットにsource_ipが含まれていません")
+                if self.debug:
+                    print(f"  拡張フィールド: {request.ex_field.to_dict() if request.ex_field else 'なし'}")
                     
-        #             # sourceフィールドを削除
-        #             response.ex_field.remove('source')
-                    
-        #             # 拡張フィールドが空になった場合はフラグを0にする
-        #             if response.ex_field.is_empty():
-        #                 if self.debug:
-        #                     print(f"  Extended field is now empty, setting flag to 0")
-        #                 response.ex_field.flag = 0
-                    
-        #             if self.debug:
-        #                 print(f"  Extended field after: {response.ex_field.to_dict()}")
-        #                 print(f"  Extended field flag: {response.ex_field.flag}")
-                
-        #         # WeatherResponseに変換
-        #         weather_response = WeatherResponse.from_query_response(response)
-        #         final_data = weather_response.to_bytes()
-                
-        #         # 元のクライアントに送信
-        #         bytes_sent = self.sock.sendto(final_data, dest_addr)
-                
-        #         if self.debug:
-        #             print(f"  Sent {bytes_sent} bytes to client")
-        #     else:
-        #         print("[Weather Server Enhanced] Error: No source information in weather response")
-        #         if self.debug and hasattr(response, 'ex_field'):
-        #             print(f"  ex_field content: {response.ex_field.to_dict()}")
-                
-        # except Exception as e:
-        #     print(f"[Weather Server Enhanced] Error handling weather response: {e}")
-        #     if self.debug:
-        #         import traceback
-        #         traceback.print_exc()
+        except Exception as e:
+            print(f"[天気サーバー] エラーパケット処理中にエラーが発生しました: {e}")
+            if self.debug:
+                import traceback
+                traceback.print_exc()
     
     
     def create_response(self, request):
@@ -471,6 +438,9 @@ class WeatherServer(BaseServer):
         elif packet_type == 3:
             # 気象データレスポンス
             return QueryResponse.from_bytes(data)
+        elif packet_type == 7:  # エラーパケット
+            from common.packet.error_response import ErrorResponse
+            return ErrorResponse.from_bytes(data)
         else:
             # 不明なタイプの場合は基本クラスを返す
             return temp_request
