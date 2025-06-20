@@ -118,7 +118,7 @@ class WeatherRedisManager:
             if self.debug:
                 print(f"データ取得エラー ({area_code}): {e}")
             return None
-    
+
     def update_weather_data(self, area_code: str, data: Dict[str, Any]) -> bool:
         """
         気象データを更新
@@ -296,7 +296,6 @@ class WeatherRedisManager:
                 
                 if existing_data:
                     # 既存データがある場合は気象データフィールドのみ部分更新
-                    update_pipe.json().set(weather_key, ".weather_reportdatetime", data.get("weather_reportdatetime", ""))
                     update_pipe.json().set(weather_key, ".area_name", data.get("area_name", ""))
                     update_pipe.json().set(weather_key, ".weather", data.get("weather", []))
                     update_pipe.json().set(weather_key, ".temperature", data.get("temperature", []))
