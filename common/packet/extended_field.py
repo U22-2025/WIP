@@ -345,8 +345,8 @@ class ExtendedField:
                 if bytes_needed > self.MAX_EXTENDED_LENGTH:
                     raise BitFieldError(f"値が大きすぎます: {bytes_needed} バイト")
                 
-                # ヘッダー構造（バイト長を上位、キーを下位）
-                header = ((bytes_needed & self.MAX_EXTENDED_LENGTH) << self.EXTENDED_HEADER_KEY) | (key_int & self.MAX_EXTENDED_KEY)
+                # ヘッダー構造（キーを上位、バイト長を下位）
+                header = ((key_int & self.MAX_EXTENDED_KEY) << self.EXTENDED_HEADER_LENGTH) | (bytes_needed & self.MAX_EXTENDED_LENGTH)
                 value_bits = int.from_bytes(value_bytes, byteorder='little')
                 
                 # 値を上位ビットに、ヘッダーを下位ビットに配置
@@ -389,9 +389,9 @@ class ExtendedField:
                     break
                 
                 header = extract_bits(bitstr, current_pos, cls.EXTENDED_HEADER_TOTAL)
-                # ビット配置を統一（バイト長を上位、キーを下位）
-                bytes_length = (header >> cls.EXTENDED_HEADER_KEY) & cls.MAX_EXTENDED_LENGTH
-                key = header & cls.MAX_EXTENDED_KEY
+                # ビット配置を統一（キーを上位、バイト長を下位）
+                key = (header >> cls.EXTENDED_HEADER_LENGTH) & cls.MAX_EXTENDED_KEY
+                bytes_length = header & cls.MAX_EXTENDED_LENGTH
                 bits_length = bytes_length * 8
                 
                 # ヘッダーが0の場合（無効なレコード）はスキップ
