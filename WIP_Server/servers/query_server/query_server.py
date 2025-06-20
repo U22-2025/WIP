@@ -8,6 +8,9 @@ import sys
 import os
 from pathlib import Path
 from datetime import datetime
+import schedule
+import threading
+import time
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -22,6 +25,7 @@ from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
 from common.packet import Request, Response, BitFieldError
 from common.utils.config_loader import ConfigLoader
+from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 
 
 class QueryServer(BaseServer):
@@ -64,6 +68,9 @@ class QueryServer(BaseServer):
         # 各コンポーネントの初期化
         self._init_components()
         
+        # スケジューラーを開始
+        self._start_weather_update_scheduler()
+
         if self.debug:
             print(f"\n[クエリサーバー] 設定:")
             print(f"  Server: {host}:{port}")
@@ -313,6 +320,45 @@ class QueryServer(BaseServer):
         # WeatherDataManagerのクリーンアップ
         if hasattr(self, 'weather_manager'):
             self.weather_manager.close()
+
+    def _start_weather_update_scheduler(self):
+        """
+        気象データ更新のスケジューラーを開始
+        """
+        update_times_str = self.config.get('schedule', 'weather_update_time', '03:00')
+        update_times = [t.strip() for t in update_times_str.split(',')]
+        
+        if self.debug:
+            print(f"[クエリサーバー] 気象データ更新を毎日 {', '.join(update_times)} にスケジュールします。")
+        
+        for update_time in update_times:
+            schedule.every().day.at(update_time).do(self.update_weather_data_scheduled)
+        
+        # スケジュールを実行するスレッドを開始
+        def run_scheduler():
+            while True:
+                schedule.run_pending()
+                time.sleep(30) # 30秒ごとにチェック
+
+        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+        scheduler_thread.start()
+
+    def update_weather_data_scheduled(self):
+        """
+        スケジュールされた気象データ更新処理
+        """
+        if self.debug:
+            print(f"[クエリサーバー] スケジュールされた気象データ更新を実行中...")
+        try:
+            # WIP_Server/scripts/update_weather_data.py の関数を呼び出す
+            updated_count = update_redis_weather_data(debug=self.debug)
+            if self.debug:
+                print(f"[クエリサーバー] 気象データ更新完了。{updated_count} エリアが更新されました。")
+        except Exception as e:
+            print(f"[クエリサーバー] 気象データ更新エラー: {e}")
+            if self.debug:
+                import traceback
+                traceback.print_exc()
 
 
 if __name__ == "__main__":
