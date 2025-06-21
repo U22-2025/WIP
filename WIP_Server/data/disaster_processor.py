@@ -18,6 +18,7 @@ import os
 import json
 import xml.etree.ElementTree as ET
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor # 追加
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple, Any
 
@@ -174,9 +175,29 @@ class DisasterXMLProcessor(XMLBaseProcessor):
                         if time_based_kind not in area_kind_mapping[area_code]:
                             area_kind_mapping[area_code].append(time_based_kind)
     
+    def _process_single_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        単一URLからXMLデータを取得し、処理するヘルパーメソッド
+        """
+        xml_data = self.fetch_xml(url)
+        if xml_data is None:
+            return None
+        
+        root = self.parse_xml(xml_data, '<Report')
+        if root is None:
+            return None
+        
+        # ReportDateTimeの抽出
+        report_date_time_elem = root.find('.//jmx_eb:ReportDateTime', self.ns)
+        report_date_time = report_date_time_elem.text if report_date_time_elem is not None else None
+
+        result = self.process_xml_data(xml_data)
+        result["report_date_time"] = report_date_time # ReportDateTimeを追加
+        return result
+
     def process_multiple_urls(self, url_list: List[str]) -> Dict[str, Any]:
         """
-        複数XMLファイルから災害情報を取得・統合
+        複数XMLファイルから災害情報を取得・統合（並列処理）
         
         Args:
             url_list: 処理するXMLファイルURLリスト
@@ -188,41 +209,41 @@ class DisasterXMLProcessor(XMLBaseProcessor):
         all_volcano_coords = defaultdict(list)
         area_report_times = {}  # エリアコード別のReportDateTime格納
         
-        # 各XMLファイルを順次処理
-        for url in url_list:
-            xml_data = self.fetch_xml(url)
-            if xml_data is None:
-                continue
+        # 最大スレッド数を設定（例: CPUコア数 * 2 または固定値）
+        max_workers = 10 # 適切な値に調整可能
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 各URLの処理を並列実行
+            # mapは順序を保持して結果を返す
+            results = executor.map(self._process_single_url, url_list)
             
-            # XMLからReportDateTimeを取得
-            root = self.parse_xml(xml_data, '<Report')
-            if root is None:
-                continue
-            
-            result = self.process_xml_data(xml_data)
-            area_mapping = result["area_kind_mapping"]
-            volcano_coords = result["volcano_coordinates"]
-            
-            # エリア-災害種別マッピングの統合
-            for area_code, kind_names in area_mapping.items():
-                # ReportDateTimeを保存（最新のものを保持）
+            for result in results:
+                if result is None:
+                    continue
                 
-                for kind_name in kind_names:
-                    if kind_name not in all_area_mapping[area_code]:
-                        all_area_mapping[area_code].append(kind_name)
-            
-            # 火山座標データの統合
-            for area_code, coordinates in volcano_coords.items():
+                area_mapping = result["area_kind_mapping"]
+                volcano_coords = result["volcano_coordinates"]
+                report_date_time = result.get("report_date_time")
+                
+                # エリア-災害種別マッピングの統合
+                for area_code, kind_names in area_mapping.items():
+                    for kind_name in kind_names:
+                        if kind_name not in all_area_mapping[area_code]:
+                            all_area_mapping[area_code].append(kind_name)
+                
                 # ReportDateTimeを保存（最新のものを保持）
-                    
-                for coordinate in coordinates:
-                    if coordinate not in all_volcano_coords[area_code]:
-                        all_volcano_coords[area_code].append(coordinate)
+                # ReportDateTimeは最終的なフォーマット処理でまとめて設定される
+
+                # 火山座標データの統合
+                for area_code, coordinates in volcano_coords.items():
+                    for coordinate in coordinates:
+                        if coordinate not in all_volcano_coords[area_code]:
+                            all_volcano_coords[area_code].append(coordinate)
         
         return {
             "area_kind_mapping": dict(all_area_mapping),
             "volcano_coordinates": dict(all_volcano_coords),
-            "area_report_times": area_report_times
+            "area_report_times": area_report_times # 空の辞書として返される
         }
 
 

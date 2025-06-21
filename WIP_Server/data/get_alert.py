@@ -8,8 +8,14 @@
     python get_alert.py
 """
 import json
-from .alert_processor import AlertDataProcessor, AlertXMLProcessor
-from .redis_manager import create_redis_manager
+import sys
+import os
+
+# パスを追加して直接実行にも対応
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from WIP_Server.data.alert_processor import AlertDataProcessor, AlertXMLProcessor
+from WIP_Server.data.redis_manager import create_redis_manager
 
 
 def main():
