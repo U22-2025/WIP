@@ -16,6 +16,7 @@ from collections import defaultdict
 from typing import Dict, List, Any, Optional
 from .xml_base import XMLBaseProcessor
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 class AlertXMLProcessor(XMLBaseProcessor):
     """
@@ -97,9 +98,24 @@ class AlertXMLProcessor(XMLBaseProcessor):
                 area_codes.append(code_elem.text)
         return area_codes
     
+    def _process_single_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        単一のURLから警報・注意報情報を取得・処理
+        
+        Args:
+            url: 処理対象のXML URL
+            
+        Returns:
+            処理結果（エリアコード別の警報・注意報情報）またはNone
+        """
+        xml_data = self.fetch_xml(url)
+        if xml_data is None:
+            return None
+        return self.process_xml_data(xml_data)
+    
     def process_multiple_urls(self, url_list: List[str]) -> Dict[str, Any]:
         """
-        複数のXMLファイルから警報・注意報情報を統合処理
+        複数のXMLファイルから警報・注意報情報を統合処理（並列化版）
         
         Args:
             url_list: 処理するXMLファイルURLのリスト
@@ -108,24 +124,24 @@ class AlertXMLProcessor(XMLBaseProcessor):
             統合された警報・注意報情報
         """
         output = {
-            "alert_pulldatetime" : datetime.now().isoformat(timespec='seconds') + '+09:00',
+            "alert_pulldatetime": datetime.now().isoformat(timespec='seconds') + '+09:00',
         }
         
-        for url in url_list:
-            xml_data = self.fetch_xml(url)
-            if xml_data is None:
-                continue
+        # スレッドプールで並列処理
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            # 各URLの処理を非同期で実行
+            results = executor.map(self._process_single_url, url_list)
             
-            result = self.process_xml_data(xml_data)
-            
-            for area_code, alert_kinds in result.items():
-                # area_alert_mapping内にエリアコードが存在しない場合、リストを初期化
-                if area_code not in output:
-                    output[area_code] = {"alert_info": []}
-                # 警報・注意報情報を統合（重複回避）
-                for kind in alert_kinds:
-                    if kind not in output[area_code]["alert_info"]:
-                        output[area_code]["alert_info"].append(kind)
+            # 結果を統合
+            for result in results:
+                if result is None:
+                    continue
+                for area_code, alert_kinds in result.items():
+                    if area_code not in output:
+                        output[area_code] = {"alert_info": []}
+                    for kind in alert_kinds:
+                        if kind not in output[area_code]["alert_info"]:
+                            output[area_code]["alert_info"].append(kind)
         return output
 
     def get_alert_xml_list(self) -> List[str]:
