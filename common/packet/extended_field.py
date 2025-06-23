@@ -265,7 +265,7 @@ class ExtendedField:
         if key in ['alert', 'disaster']:
             if isinstance(value, list):
                 # リストの要素を結合
-                processed_value = self.to_csv_line(value)
+                processed_value = ExtendedField.to_csv_line(value)
                 
             elif isinstance(value, str):
                 processed_value = value.strip()
@@ -304,10 +304,11 @@ class ExtendedField:
         return value
 
     # CSVとして安全にカンマ区切り文字列に変換
-    def to_csv_line(value_list):
+    @staticmethod
+    def to_csv_line(value):
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow([str(item).strip() for item in value_list if str(item).strip()])
+        writer.writerow([str(item).strip() for item in value if str(item).strip()])
         return output.getvalue().strip()  # .strip()で末尾の改行削除
     
     def to_bits(self) -> int:

@@ -237,7 +237,10 @@ class QueryServer(BaseServer):
             
             # alert/disasterを追加（ExtendedFieldのsetメソッドを使用）
             if request.alert_flag and 'warnings' in weather_data:
-                response.ex_field.set('alert', weather_data['warnings'])
+                warnings = weather_data['warnings']
+                if not isinstance(warnings, list):
+                    warnings = [warnings]
+                response.ex_field.set('alert', warnings)
                 response.ex_flag = 1
             
             if request.disaster_flag and 'disaster_info' in weather_data:

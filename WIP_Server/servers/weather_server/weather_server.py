@@ -28,6 +28,8 @@ from common.packet import (
 from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
+from common.utils.cache import Cache
+from datetime import timedelta
 
 
 class WeatherServer(BaseServer):
@@ -64,8 +66,9 @@ class WeatherServer(BaseServer):
         # サーバー名を設定
         self.server_name = "WeatherServer (Enhanced)"
         
-        # プロトコルバージョンを設定から取得
-        self.version = self.config.getint('system', 'protocol_version', 1)
+        # プロトコルバージョンを設定から取得（4ビット値に制限）
+        version = self.config.getint('system', 'protocol_version', 1)
+        self.version = version & 0x0F  # 4ビットにマスク
         
         # 他のサーバーへの接続設定を読み込む
         self.location_resolver_host = self.config.get('connections', 'location_server_host', 'localhost')
@@ -76,6 +79,9 @@ class WeatherServer(BaseServer):
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
+        # キャッシュストレージの初期化（30分TTL付き）
+        self.weather_cache = Cache(default_ttl=timedelta(minutes=30))
+        
         if self.debug:
             print(f"\n[天気サーバー] 設定:")
             print(f"  Server: {host}:{port}")
@@ -83,6 +89,7 @@ class WeatherServer(BaseServer):
             print(f"  Query Generator: {self.query_generator_host}:{self.query_generator_port}")
             print(f"  Protocol Version: {self.version}")
             print(f"  専用パケットクラスを使用して処理を改善しています")
+            print(f"  キャッシュ機能が有効化されました")
         
         # クライアントの初期化（改良版）
         self.location_client = LocationClient(
@@ -270,6 +277,56 @@ class WeatherServer(BaseServer):
                     data_types = request.get_requested_data_types()
                     print(f"  Requested data: {data_types}")
             
+            # キャッシュキーの生成: 地域コード + リクエストの日付
+            cache_key = f"{request.area_code}_{request.day}"
+            
+            # キャッシュチェック
+            cached_data = self.weather_cache.get(cache_key)
+            if cached_data:
+                if self.debug:
+                    print(f"  キャッシュヒット: {cache_key}")
+                    print(f"  キャッシュデータをクライアントに返します")
+
+                weather_response = WeatherResponse(
+                    version=self.version,  # 正規化されたバージョン
+                    packet_id=request.packet_id,
+                    type = 3,
+                    area_code=cached_data["area_code"],
+                    day=request.day,
+                    timestamp=int(datetime.now().timestamp()),
+                    weather_flag=request.weather_flag,
+                    temperature_flag=request.temperature_flag,
+                    pop_flag=request.pop_flag,
+                    alert_flag=request.alert_flag,
+                    disaster_flag=request.disaster_flag,
+                    ex_flag=0  # 初期値は0
+                )
+
+                if weather_response.weather_flag:
+                    weather_response.weather_code=cached_data["weather_code"]
+                if weather_response.temperature_flag:
+                    weather_response.temperature=int(cached_data["temperature"])+100
+                if weather_response.pop_flag:
+                    weather_response.pop=cached_data["pop"]
+                if weather_response.disaster_flag or weather_response.alert_flag:
+                    weather_response.ex_flag =1
+                    weather_response.ex_field=cached_data.get("ex_field")
+                
+                # レスポンスを送信
+                response_data = weather_response.to_bytes()
+                self.sock.sendto(response_data, addr)
+                
+                if self.debug:
+                    print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
+                    print(f"  パケットサイズ: {len(response_data)} バイト")
+                    print(f"  レスポンス成功フラグ: True")
+                
+                return  # キャッシュヒット時はここで終了
+            
+            if self.debug:
+                print(f"  キャッシュミス: {cache_key}")
+                print(f"  バックエンドサーバーにリクエストを転送します")
+            
             # 専用クラスを使用してQueryRequestに変換
             if isinstance(request, WeatherRequest):
                 # WeatherRequestからQueryRequestに変換
@@ -314,6 +371,34 @@ class WeatherServer(BaseServer):
                     summary = response.get_response_summary()
                     print(f"  Summary: {summary}")
             
+            # 成功レスポンスでキャッシュミスの場合のみキャッシュに保存
+            if response.is_success():
+                # キャッシュキーの生成: 地域コード + 日付
+                cache_key = f"{response.area_code}_{response.day}"
+                
+                # キャッシュが存在しない場合のみ更新
+                if not self.weather_cache.get(cache_key):
+                    # キャッシュデータの作成
+                    cache_data = {
+                        "timestamp": datetime.now(),
+                        "area_code": response.area_code,
+                        "weather_code": response.get_weather_code(),
+                        "temperature": response.get_temperature_celsius(),
+                        "pop": response.get_precipitation(),  # precipitation_prob -> pop に変更
+                        "ex_field": response.ex_field.to_dict()  # 元のex_fieldデータ
+                    }
+                    
+                    # キャッシュに保存（TTLはデフォルトの30分）
+                    self.weather_cache.set(cache_key, cache_data)
+                    
+                    if self.debug:
+                        print(f"  キャッシュを更新しました: {cache_key}")
+                        print(f"  キャッシュ内容: {cache_data}")
+                        print(f"  キャッシュエントリ数: {self.weather_cache.size()}")
+                else:
+                    if self.debug:
+                        print(f"  キャッシュが既に存在するため更新をスキップ: {cache_key}")
+            
             # 専用クラスのメソッドでsource情報を取得
             source_info = response.get_source_info()
             if source_info:
@@ -321,10 +406,14 @@ class WeatherServer(BaseServer):
                 dest_addr = (host, int(port))
                 
                 if self.debug:
-                    print(f"  {dest_addr} へ天気レスポンスを転送中")
-                    print(f"  Weather data: {response.get_weather_data()}")
+                    status = "成功" if response.is_success() else "失敗"
+                    print(f"  {dest_addr} へ天気レスポンス({status})を転送中")
+                    if response.is_success():
+                        print(f"  Weather data: {response.get_weather_data()}")
+                    else:
+                        print(f"  エラーコード: {response.get_error_code()}")
                     print(f"  パケットサイズ: {len(data)} バイト")
-                    print(f"  送信元情報が保存されました: {source_info}")
+                    print(f"  送信元情報: {source_info}")
                 
                 # source情報を変数に格納したので拡張フィールドから削除
                 if hasattr(response, 'ex_field') and response.ex_field:
@@ -345,15 +434,22 @@ class WeatherServer(BaseServer):
                         print(f"  拡張フィールド（変更後）: {response.ex_field.to_dict()}")
                         print(f"  拡張フィールドフラグ: {response.ex_field.flag}")
                 
-                # WeatherResponseに変換
-                weather_response = WeatherResponse.from_query_response(response)
-                final_data = weather_response.to_bytes()
-                
-                # 元のクライアントに送信
-                bytes_sent = self.sock.sendto(final_data, dest_addr)
-                
-                if self.debug:
-                    print(f"  クライアントに {bytes_sent} バイトを送信しました")
+                try:
+                    # WeatherResponseに変換（バージョンを現在のサーバーバージョンで設定）
+                    weather_response = WeatherResponse.from_query_response(response)
+                    weather_response.version = self.version  # バージョンを正規化
+                    final_data = weather_response.to_bytes()
+                    
+                    # 元のクライアントに送信
+                    bytes_sent = self.sock.sendto(final_data, dest_addr)
+                    
+                    if self.debug:
+                        print(f"  クライアントに {bytes_sent} バイトを送信しました")
+                except Exception as conv_e:
+                    print(f"[天気サーバー] レスポンス変換エラー: {conv_e}")
+                    if self.debug:
+                        import traceback
+                        traceback.print_exc()
             else:
                 print("[天気サーバー] エラー: 天気レスポンスに送信元情報がありません")
                 if self.debug and hasattr(response, 'ex_field'):
@@ -367,68 +463,6 @@ class WeatherServer(BaseServer):
     def _handle_bad_response(self, data, addr,):
         """エラーレスポンスの処理（Type ？）"""
         return
-        # try:
-        #     # 専用クラスでレスポンスをパース
-        #     response = QueryResponse.from_bytes(data)
-            
-        #     if self.debug:
-        #         print(f"\n[Weather Server Enhanced] Type 3: Processing weather response")
-        #         print(f"  Success: {response.is_success()}")
-        #         if hasattr(response, 'get_response_summary'):
-        #             summary = response.get_response_summary()
-        #             print(f"  Summary: {summary}")
-            
-        #     # 専用クラスのメソッドでsource情報を取得
-        #     source_info = response.get_source_info()
-        #     if source_info:
-        #         host, port = source_info.split(':')
-        #         dest_addr = (host, int(port))
-                
-        #         if self.debug:
-        #             print(f"  Forwarding weather response to {dest_addr}")
-        #             print(f"  Weather data: {response.get_weather_data()}")
-        #             print(f"  Packet size: {len(data)} bytes")
-        #             print(f"  Source info stored: {source_info}")
-                
-        #         # source情報を変数に格納したので拡張フィールドから削除
-        #         if hasattr(response, 'ex_field') and response.ex_field:
-        #             if self.debug:
-        #                 print(f"  Removing source from extended field")
-        #                 print(f"  Extended field before: {response.ex_field.to_dict()}")
-                    
-        #             # sourceフィールドを削除
-        #             response.ex_field.remove('source')
-                    
-        #             # 拡張フィールドが空になった場合はフラグを0にする
-        #             if response.ex_field.is_empty():
-        #                 if self.debug:
-        #                     print(f"  Extended field is now empty, setting flag to 0")
-        #                 response.ex_field.flag = 0
-                    
-        #             if self.debug:
-        #                 print(f"  Extended field after: {response.ex_field.to_dict()}")
-        #                 print(f"  Extended field flag: {response.ex_field.flag}")
-                
-        #         # WeatherResponseに変換
-        #         weather_response = WeatherResponse.from_query_response(response)
-        #         final_data = weather_response.to_bytes()
-                
-        #         # 元のクライアントに送信
-        #         bytes_sent = self.sock.sendto(final_data, dest_addr)
-                
-        #         if self.debug:
-        #             print(f"  Sent {bytes_sent} bytes to client")
-        #     else:
-        #         print("[Weather Server Enhanced] Error: No source information in weather response")
-        #         if self.debug and hasattr(response, 'ex_field'):
-        #             print(f"  ex_field content: {response.ex_field.to_dict()}")
-                
-        # except Exception as e:
-        #     print(f"[Weather Server Enhanced] Error handling weather response: {e}")
-        #     if self.debug:
-        #         import traceback
-        #         traceback.print_exc()
-    
     
     def create_response(self, request):
         """
