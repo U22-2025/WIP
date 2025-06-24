@@ -253,6 +253,11 @@ def update_redis_weather_data(debug=False):
         print("気象情報の取得を開始します")
         start_time = time.time()
 
+    # エリアコードをJSONファイルから読み込む
+    area_codes = []
+    with open("wip/json/area_codes.json", "r", encoding="utf-8") as f:
+        area_codes = list(json.load(f).keys())
+
     # 気象データを取得し、直接Redisに保存
     weather_data = get_data(area_codes, debug=debug, save_to_redis=True)
 
