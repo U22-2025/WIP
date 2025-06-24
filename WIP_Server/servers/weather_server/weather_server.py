@@ -171,6 +171,8 @@ class WeatherServer(BaseServer):
             elif request.type == 3:
                 # Type 3: 気象データレスポンス
                 self._handle_weather_response(data, addr)
+            elif request.type == 7:  # エラーパケット処理を追加
+                self._handle_error_packet(request, addr)
             else:
                 if self.debug:
                     print(f"不明なパケットタイプ: {request.type}")
@@ -481,9 +483,36 @@ class WeatherServer(BaseServer):
             if self.debug:
                 import traceback
                 traceback.print_exc()
-    def _handle_bad_response(self, data, addr,):
-        """エラーレスポンスの処理（Type ？）"""
-        return
+    def _handle_error_packet(self, request, addr):
+        """エラーパケットの処理（Type 7）"""
+        try:
+            if self.debug:
+                print(f"\n[天気サーバー] タイプ7: エラーパケットを処理中")
+                print(f"  エラーコード: {request.error_code}")
+                print(f"  送信元アドレス: {addr}")
+            
+            # 拡張フィールドからsource_ipを取得
+            if request.ex_field and 'source_ip' in request.ex_field:
+                source_ip = request.ex_field['source_ip']
+                if self.debug:
+                    print(f"  ソースIPを取得: {source_ip}")
+                
+                # エラーパケットを送信
+                self.sock.sendto(request.to_bytes(), (source_ip, 4000))
+                
+                if self.debug:
+                    print(f"  エラーパケットを {source_ip}:4000 に送信しました")
+            else:
+                print(f"[天気サーバー] エラー: エラーパケットにsource_ipが含まれていません")
+                if self.debug:
+                    print(f"  拡張フィールド: {request.ex_field.to_dict() if request.ex_field else 'なし'}")
+                    
+        except Exception as e:
+            print(f"[天気サーバー] エラーパケット処理中にエラーが発生しました: {e}")
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+    
     
     def create_response(self, request):
         """
@@ -526,6 +555,9 @@ class WeatherServer(BaseServer):
         elif packet_type == 3:
             # 気象データレスポンス
             return QueryResponse.from_bytes(data)
+        elif packet_type == 7:  # エラーパケット
+            from common.packet.error_response import ErrorResponse
+            return ErrorResponse.from_bytes(data)
         else:
             # 不明なタイプの場合は基本クラスを返す
             return temp_request
