@@ -49,7 +49,7 @@ class LocationRequest(Request):
             ...     latitude=35.6895,
             ...     longitude=139.6917,
             ...     packet_id=123,
-            ...     source="192.168.1.100:12345",
+            ...     source=("192.168.1.100", 12345),
             ...     preserve_flags={
             ...         'weather_flag': 1,
             ...         'temperature_flag': 1,
