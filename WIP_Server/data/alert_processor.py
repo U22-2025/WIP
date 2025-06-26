@@ -9,16 +9,29 @@
 - 報告時刻の取得
 - JSON形式での出力
 """
+import sys
+from pathlib import Path
+import sys
+import os
+
+# プロジェクトルートをパスに追加 (モジュールとして実行時も有効)
+current_file = Path(__file__).absolute()
+project_root = str(current_file.parent.parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# xml_baseモジュールのインポート用に追加パス設定
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import xml.etree.ElementTree as ET
-import json
 from collections import defaultdict
 from typing import Dict, List, Any, Optional
-from .xml_base import XMLBaseProcessor
+from WIP_Server.data.xml_base import XMLBaseProcessor
+
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-class AlertXMLProcessor(XMLBaseProcessor):
+class AlertProcessor(XMLBaseProcessor):
     """
     警報・注意報情報処理クラス
     
@@ -101,17 +114,20 @@ class AlertXMLProcessor(XMLBaseProcessor):
     def _process_single_url(self, url: str) -> Optional[Dict[str, Any]]:
         """
         単一のURLから警報・注意報情報を取得・処理
-        
+
         Args:
             url: 処理対象のXML URL
             
         Returns:
             処理結果（エリアコード別の警報・注意報情報）またはNone
         """
-        xml_data = self.fetch_xml(url)
-        if xml_data is None:
+        # 基本処理を親クラスで実行
+        base_result = super()._process_single_url_base(url)
+        if base_result is None:
             return None
-        return self.process_xml_data(xml_data)
+            
+        # 警報特有の処理を実行
+        return self.process_xml_data(base_result["xml_data"])
     
     def process_multiple_urls(self, url_list: List[str]) -> Dict[str, Any]:
         """
@@ -167,7 +183,7 @@ class AlertDataProcessor:
     """
     
     def __init__(self):
-        self.xml_processor = AlertXMLProcessor()
+        self.xml_processor = AlertProcessor()
 
     def get_alert_info(self, url_list: List[str], output_json_path: Optional[str] = None) -> str:
         """
@@ -197,7 +213,7 @@ def main():
         
         # Step 1: XMLファイルリストの取得
         print("Step 1: Getting XML file list...")
-        url_list = processor.get_alert_xml_list()
+        url_list = processor.xml_processor.get_alert_xml_list()
         print(f"Found {len(url_list)} URLs")
         if not url_list:
             print("No URLs found. Exiting.")

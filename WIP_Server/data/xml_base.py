@@ -159,7 +159,7 @@ class XMLBaseProcessor(ABC):
     def process_multiple_urls(self, url_list: list[str]) -> Dict[str, Any]:
         """
         複数URLの処理（継承先で実装）
-        
+
         Args:
             url_list: 処理するURLのリスト
             
@@ -167,3 +167,22 @@ class XMLBaseProcessor(ABC):
             統合された処理結果
         """
         pass
+
+    def _process_single_url_base(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        単一URL処理の共通実装 (基底クラス)
+
+        Args:
+            url: 処理対象のXML URL
+            
+        Returns:
+            基本処理結果 (xml_dataを含む辞書) またはNone
+        """
+        xml_data = self.fetch_xml(url)
+        if xml_data is None:
+            return None
+            
+        return {
+            "xml_data": xml_data,
+            "report_time": self.get_report_time(self.parse_xml(xml_data))
+        }

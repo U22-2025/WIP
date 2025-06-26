@@ -12,46 +12,49 @@
 - 火山座標データの処理
 """
 
+from pathlib import Path
 import re
 import sys
-import os
 import json
-import xml.etree.ElementTree as ET
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor # 追加
-from datetime import datetime
-from typing import Optional, Dict, List, Tuple, Any
+import os
 
-# パスを追加して直接実行にも対応
+# プロジェクトルートをパスに追加 (モジュールとして実行時も有効)
+current_file = Path(__file__).absolute()
+project_root = str(current_file.parent.parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# xml_baseモジュールのインポート用に追加パス設定
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from .xml_base import XMLBaseProcessor
-from common.clients.location_client import LocationClient
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from typing import Optional, Dict, List, Tuple, Any
+from common.clients.location_client import LocationClient  # モジュールとして実行時
 from common.packet import LocationRequest, LocationResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 
+from WIP_Server.data.xml_base import XMLBaseProcessor
 
-class DisasterXMLProcessor(XMLBaseProcessor):
+class DisasterProcessor(XMLBaseProcessor):
     """
-    災害XML処理専用クラス
+    災害情報処理クラス
     
-    役割:
-    - 気象庁XMLデータの取得
-    - XML要素の解析・抽出
-    - 災害種別とエリアコードの抽出
-    - 火山座標データの抽出
-    - 各XMLセクション（Information、VolcanoInfo、AshInfo）の処理
+    気象庁の災害XMLデータを処理し、
+    エリアコード別に災害情報と火山座標データを整理する。
     """
     
     def process_xml_data(self, xml_data: str) -> Dict[str, Any]:
         """
-        単一XMLファイルの完全処理
+        単一XMLファイルから災害情報を抽出し、エリアコード別のマッピングと火山座標データを返す
         
         Args:
             xml_data: 処理するXMLデータ
             
         Returns:
-            (エリア-災害種別マッピング, 火山座標データ)を含む辞書
+            エリアコード別の災害情報と火山座標データを含む辞書
         """
         root = self.parse_xml(xml_data, '<Report')
         if root is None:
@@ -178,45 +181,42 @@ class DisasterXMLProcessor(XMLBaseProcessor):
     def _process_single_url(self, url: str) -> Optional[Dict[str, Any]]:
         """
         単一URLからXMLデータを取得し、処理するヘルパーメソッド
+        
+        Args:
+            url: 処理対象のXML URL
+            
+        Returns:
+            処理結果またはNone
         """
-        xml_data = self.fetch_xml(url)
-        if xml_data is None:
+        # 基本処理を親クラスで実行
+        base_result = super()._process_single_url_base(url)
+        if base_result is None:
             return None
-        
-        root = self.parse_xml(xml_data, '<Report')
-        if root is None:
-            return None
-        
-        # ReportDateTimeの抽出
-        report_date_time_elem = root.find('.//jmx_eb:ReportDateTime', self.ns)
-        report_date_time = report_date_time_elem.text if report_date_time_elem is not None else None
-
-        result = self.process_xml_data(xml_data)
-        result["report_date_time"] = report_date_time # ReportDateTimeを追加
+            
+        # 災害特有の処理を実行
+        result = self.process_xml_data(base_result["xml_data"])
+        result["report_date_time"] = base_result["report_time"]
         return result
 
     def process_multiple_urls(self, url_list: List[str]) -> Dict[str, Any]:
         """
-        複数XMLファイルから災害情報を取得・統合（並列処理）
+        複数のXMLファイルから災害情報を統合処理（並列化版）
         
         Args:
-            url_list: 処理するXMLファイルURLリスト
+            url_list: 処理するXMLファイルURLのリスト
             
         Returns:
-            統合された災害情報（ReportDateTime付き）
+            統合された災害情報
         """
-        all_area_mapping = defaultdict(list)
-        all_volcano_coords = defaultdict(list)
-        area_report_times = {}  # エリアコード別のReportDateTime格納
+        all_area_kind_mapping = defaultdict(list)
+        all_volcano_coordinates = defaultdict(list)
+        all_area_report_times = {}
         
-        # 最大スレッド数を設定（例: CPUコア数 * 2 または固定値）
-        max_workers = 10 # 適切な値に調整可能
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=10) as executor:
             # 各URLの処理を並列実行
-            # mapは順序を保持して結果を返す
             results = executor.map(self._process_single_url, url_list)
             
+            # 結果を統合
             for result in results:
                 if result is None:
                     continue
@@ -228,235 +228,25 @@ class DisasterXMLProcessor(XMLBaseProcessor):
                 # エリア-災害種別マッピングの統合
                 for area_code, kind_names in area_mapping.items():
                     for kind_name in kind_names:
-                        if kind_name not in all_area_mapping[area_code]:
-                            all_area_mapping[area_code].append(kind_name)
+                        if kind_name not in all_area_kind_mapping[area_code]:
+                            all_area_kind_mapping[area_code].append(kind_name)
+                    if report_date_time:
+                        all_area_report_times[area_code] = report_date_time
                 
-                # ReportDateTimeを保存（最新のものを保持）
-                # ReportDateTimeは最終的なフォーマット処理でまとめて設定される
-
                 # 火山座標データの統合
                 for area_code, coordinates in volcano_coords.items():
                     for coordinate in coordinates:
-                        if coordinate not in all_volcano_coords[area_code]:
-                            all_volcano_coords[area_code].append(coordinate)
+                        if coordinate not in all_volcano_coordinates[area_code]:
+                            all_volcano_coordinates[area_code].append(coordinate)
+                    if report_date_time:
+                        all_area_report_times[area_code] = report_date_time
         
         return {
-            "area_kind_mapping": dict(all_area_mapping),
-            "volcano_coordinates": dict(all_volcano_coords),
-            "area_report_times": area_report_times # 空の辞書として返される
+            "area_kind_mapping": dict(all_area_kind_mapping),
+            "volcano_coordinates": dict(all_volcano_coordinates),
+            "area_report_times": all_area_report_times,
+            "disaster_pulldatetime": datetime.now().isoformat(timespec='seconds') + '+09:00',
         }
-
-
-class TimeProcessor:
-    """
-    時間処理専用クラス
-    
-    役割:
-    - 災害種別名からの時間情報抽出
-    - 複数時間の範囲統合
-    - 時間フォーマットの変換
-    - 時間ベースのデータ統合
-    """
-    
-    @staticmethod
-    def parse_time_from_kind_name(kind_name: str) -> Tuple[Optional[str], Optional[str]]:
-        """
-        災害種別名から基本名と時間情報を分離
-        
-        Args:
-            kind_name: 災害種別名（時間付きの可能性あり）
-            
-        Returns:
-            (基本災害名, 時間情報)のタプル、時間なしの場合は(None, None)
-        """
-        time_pattern = r'^(.+)_(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2})$'
-        time_match = re.match(time_pattern, kind_name)
-        if time_match:
-            return time_match.group(1), time_match.group(2)
-        return None, None
-    
-    @staticmethod
-    def create_time_range(times: List[str]) -> str:
-        """
-        時間リストから統合された時間範囲文字列を作成
-        
-        Args:
-            times: ISO形式の時間文字列リスト
-            
-        Returns:
-            統合された時間範囲文字列
-        """
-        if len(times) == 1:
-            return times[0]
-        
-        try:
-            parsed_times = [datetime.fromisoformat(time_str) for time_str in times]
-            parsed_times.sort()
-            
-            earliest_str = parsed_times[0].strftime("%Y/%m/%d-%H:%M")
-            latest_str = parsed_times[-1].strftime("%Y/%m/%d-%H:%M")
-            
-            return f"{earliest_str}から{latest_str}まで"
-        except Exception:
-            return times[0]  # エラー時は最初の時間を返す
-    
-    @staticmethod
-    def consolidate_time_ranges(area_kind_mapping: Dict[str, List[str]]) -> Dict[str, List[str]]:
-        """
-        エリア別災害種別データの時間範囲統合
-        
-        Args:
-            area_kind_mapping: {エリアコード: [災害種別名リスト]}
-            
-        Returns:
-            時間統合済みの{エリアコード: [統合災害種別名リスト]}
-        """
-        consolidated_mapping = {}
-        
-        for area_code, kind_names in area_kind_mapping.items():
-            kind_groups = defaultdict(list)  # 災害種別ごとの時間グループ
-            non_time_kinds = []  # 時間情報なしの災害種別
-            
-            # 災害種別を時間付きと時間なしに分類
-            for kind_name in kind_names:
-                base_name, time_info = TimeProcessor.parse_time_from_kind_name(kind_name)
-                
-                if base_name and time_info:
-                    kind_groups[base_name].append(time_info)
-                else:
-                    non_time_kinds.append(kind_name)
-            
-            consolidated_kinds = []
-            time_based_kinds = set(kind_groups.keys())
-            
-            # 時間なしの災害種別を追加（重複回避）
-            for non_time_kind in non_time_kinds:
-                if non_time_kind not in time_based_kinds:
-                    consolidated_kinds.append(non_time_kind)
-            
-            # 時間付きの災害種別を統合処理
-            for base_name, time_list in kind_groups.items():
-                unique_times = list(set(time_list))  # 重複時間を除去
-                time_range = TimeProcessor.create_time_range(unique_times)
-                consolidated_kinds.append(f"{base_name}_{time_range}")
-            
-            consolidated_mapping[area_code] = consolidated_kinds
-        
-        return consolidated_mapping
-
-
-class AreaCodeValidator:
-    """
-    エリアコード検証・変換クラス
-    
-    役割:
-    - エリアコードの有効性検証
-    - 子コードから親コードへのマッピング
-    - 火山コードとエリアコードの統合検証
-    - 無効コードの特定
-    """
-    
-    @staticmethod
-    def is_valid_area_code(code: str, area_codes_data: Dict, volcano_coordinates: Dict) -> bool:
-        """
-        エリアコードの有効性を検証
-        
-        Args:
-            code: 検証対象のコード
-            area_codes_data: 正式エリアコードデータ
-            volcano_coordinates: 火山座標データ
-            
-        Returns:
-            有効な場合True、無効な場合False
-        """
-        # 火山座標に存在する場合は有効
-        if code in volcano_coordinates:
-            return True
-        
-        # area_codes_dataに存在するかチェック
-        for office_data in area_codes_data.values():
-            for area_code, children_codes in office_data.items():
-                if code == area_code or code in children_codes:
-                    return True
-        return False
-    
-    @staticmethod
-    def find_area_code_mapping(child_code: str, area_codes_data: Dict) -> Optional[str]:
-        """
-        子コードに対応する親エリアコードを検索
-        
-        Args:
-            child_code: 検索する子コード
-            area_codes_data: エリアコード階層データ
-            
-        Returns:
-            対応する親エリアコード、見つからない場合はNone
-        """
-        for office_data in area_codes_data.values():
-            for area_code, children_codes in office_data.items():
-                if child_code in children_codes:
-                    return area_code
-        return None
-
-
-class VolcanoCoordinateProcessor:
-    """
-    火山座標処理クラス
-    
-    役割:
-    - 火山座標文字列の解析
-    - 緯度経度への変換
-    - LocationClientとの連携
-    """
-    
-    @staticmethod
-    def parse_volcano_coordinates(coord_str: str) -> Tuple[Optional[float], Optional[float]]:
-        """
-        火山座標文字列を緯度経度に変換
-        
-        Args:
-            coord_str: 座標文字列 (例: "+2938.30+12942.83+796/")
-            
-        Returns:
-            (緯度, 経度)のタプル、解析失敗時は(None, None)
-        """
-        try:
-            # 座標文字列の形式: "+DDMM.MM+DDDMM.MM+標高/"
-            # 最後の「/」を除去
-            coord_str = coord_str.rstrip('/')
-            
-            # 正規表現で緯度、経度、標高を抽出
-            pattern = r'([+-]\d{4}\.\d{2})([+-]\d{5}\.\d{2})([+-]\d+)'
-            match = re.match(pattern, coord_str)
-            
-            if not match:
-                print(f"座標文字列の形式が不正です: {coord_str}")
-                return None, None
-            
-            lat_str, lon_str, alt_str = match.groups()
-            
-            # 緯度の変換 (DDMM.MM -> DD.DDDD)
-            lat_sign = 1 if lat_str[0] == '+' else -1
-            lat_abs = lat_str[1:]
-            lat_degrees = int(lat_abs[:2])
-            lat_minutes = float(lat_abs[2:])
-            latitude = lat_sign * (lat_degrees + lat_minutes / 60.0)
-            latitude = round(latitude, 6)
-            
-            # 経度の変換 (DDDMM.MM -> DDD.DDDD)
-            lon_sign = 1 if lon_str[0] == '+' else -1
-            lon_abs = lon_str[1:]
-            lon_degrees = int(lon_abs[:3])
-            lon_minutes = float(lon_abs[3:])
-            longitude = lon_sign * (lon_degrees + lon_minutes / 60.0)
-            longitude = round(longitude, 6)
-            
-            return latitude, longitude
-            
-        except Exception as e:
-            print(f"座標解析エラー: {e}, 座標文字列: {coord_str}")
-            return None, None
-
 
 class DisasterDataProcessor:
     """
@@ -472,7 +262,7 @@ class DisasterDataProcessor:
     
     def __init__(self):
         # 各専門クラスのインスタンス化
-        self.xml_processor = DisasterXMLProcessor()
+        self.xml_processor = DisasterProcessor()
         self.time_processor = TimeProcessor()
         self.validator = AreaCodeValidator()
         self.volcano_processor = VolcanoCoordinateProcessor()
@@ -686,6 +476,215 @@ class DisasterDataProcessor:
         
         return disaster_data, volcano_locations
 
+class TimeProcessor:
+    """
+    時間処理専用クラス
+    
+    役割:
+    - 災害種別名からの時間情報抽出
+    - 複数時間の範囲統合
+    - 時間フォーマットの変換
+    - 時間ベースのデータ統合
+    """
+    
+    @staticmethod
+    def parse_time_from_kind_name(kind_name: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        災害種別名から基本名と時間情報を分離
+        
+        Args:
+            kind_name: 災害種別名（時間付きの可能性あり）
+            
+        Returns:
+            (基本災害名, 時間情報)のタプル、時間なしの場合は(None, None)
+        """
+        time_pattern = r'^(.+)_(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2})$'
+        time_match = re.match(time_pattern, kind_name)
+        if time_match:
+            return time_match.group(1), time_match.group(2)
+        return None, None
+    
+    @staticmethod
+    def create_time_range(times: List[str]) -> str:
+        """
+        時間リストから統合された時間範囲文字列を作成
+        
+        Args:
+            times: ISO形式の時間文字列リスト
+            
+        Returns:
+            統合された時間範囲文字列
+        """
+        if len(times) == 1:
+            return times[0]
+        
+        try:
+            parsed_times = [datetime.fromisoformat(time_str) for time_str in times]
+            parsed_times.sort()
+            
+            earliest_str = parsed_times[0].strftime("%Y/%m/%d-%H:%M")
+            latest_str = parsed_times[-1].strftime("%Y/%m/%d-%H:%M")
+            
+            return f"{earliest_str}から{latest_str}まで"
+        except Exception:
+            return times[0]  # エラー時は最初の時間を返す
+    
+    @staticmethod
+    def consolidate_time_ranges(area_kind_mapping: Dict[str, List[str]]) -> Dict[str, List[str]]:
+        """
+        エリア別災害種別データの時間範囲統合
+        
+        Args:
+            area_kind_mapping: {エリアコード: [災害種別名リスト]}
+            
+        Returns:
+            時間統合済みの{エリアコード: [統合災害種別名リスト]}
+        """
+        consolidated_mapping = {}
+        
+        for area_code, kind_names in area_kind_mapping.items():
+            kind_groups = defaultdict(list)  # 災害種別ごとの時間グループ
+            non_time_kinds = []  # 時間情報なしの災害種別
+            
+            # 災害種別を時間付きと時間なしに分類
+            for kind_name in kind_names:
+                base_name, time_info = TimeProcessor.parse_time_from_kind_name(kind_name)
+                
+                if base_name and time_info:
+                    kind_groups[base_name].append(time_info)
+                else:
+                    non_time_kinds.append(kind_name)
+            
+            consolidated_kinds = []
+            time_based_kinds = set(kind_groups.keys())
+            
+            # 時間なしの災害種別を追加（重複回避）
+            for non_time_kind in non_time_kinds:
+                if non_time_kind not in time_based_kinds:
+                    consolidated_kinds.append(non_time_kind)
+            
+            # 時間付きの災害種別を統合処理
+            for base_name, time_list in kind_groups.items():
+                unique_times = list(set(time_list))  # 重複時間を除去
+                time_range = TimeProcessor.create_time_range(unique_times)
+                consolidated_kinds.append(f"{base_name}_{time_range}")
+            
+            consolidated_mapping[area_code] = consolidated_kinds
+        
+        return consolidated_mapping
+
+
+class AreaCodeValidator:
+    """
+    エリアコード検証・変換クラス
+    
+    役割:
+    - エリアコードの有効性検証
+    - 子コードから親コードへのマッピング
+    - 火山コードとエリアコードの統合検証
+    - 無効コードの特定
+    """
+    
+    @staticmethod
+    def is_valid_area_code(code: str, area_codes_data: Dict, volcano_coordinates: Dict) -> bool:
+        """
+        エリアコードの有効性を検証
+        
+        Args:
+            code: 検証対象のコード
+            area_codes_data: 正式エリアコードデータ
+            volcano_coordinates: 火山座標データ
+            
+        Returns:
+            有効な場合True、無効な場合False
+        """
+        # 火山座標に存在する場合は有効
+        if code in volcano_coordinates:
+            return True
+        
+        # area_codes_dataに存在するかチェック
+        for office_data in area_codes_data.values():
+            for area_code, children_codes in office_data.items():
+                if code == area_code or code in children_codes:
+                    return True
+        return False
+    
+    @staticmethod
+    def find_area_code_mapping(child_code: str, area_codes_data: Dict) -> Optional[str]:
+        """
+        子コードに対応する親エリアコードを検索
+        
+        Args:
+            child_code: 検索する子コード
+            area_codes_data: エリアコード階層データ
+            
+        Returns:
+            対応する親エリアコード、見つからない場合はNone
+        """
+        for office_data in area_codes_data.values():
+            for area_code, children_codes in office_data.items():
+                if child_code in children_codes:
+                    return area_code
+        return None
+
+
+class VolcanoCoordinateProcessor:
+    """
+    火山座標処理クラス
+    
+    役割:
+    - 火山座標文字列の解析
+    - 緯度経度への変換
+    - LocationClientとの連携
+    """
+    
+    @staticmethod
+    def parse_volcano_coordinates(coord_str: str) -> Tuple[Optional[float], Optional[float]]:
+        """
+        火山座標文字列を緯度経度に変換
+        
+        Args:
+            coord_str: 座標文字列 (例: "+2938.30+12942.83+796/")
+            
+        Returns:
+            (緯度, 経度)のタプル、解析失敗時は(None, None)
+        """
+        try:
+            # 座標文字列の形式: "+DDMM.MM+DDDMM.MM+標高/"
+            # 最後の「/」を除去
+            coord_str = coord_str.rstrip('/')
+            
+            # 正規表現で緯度、経度、標高を抽出
+            pattern = r'([+-]\d{4}\.\d{2})([+-]\d{5}\.\d{2})([+-]\d+)'
+            match = re.match(pattern, coord_str)
+            
+            if not match:
+                print(f"座標文字列の形式が不正です: {coord_str}")
+                return None, None
+            
+            lat_str, lon_str, alt_str = match.groups()
+            
+            # 緯度の変換 (DDMM.MM -> DD.DDDD)
+            lat_sign = 1 if lat_str[0] == '+' else -1
+            lat_abs = lat_str[1:]
+            lat_degrees = int(lat_abs[:2])
+            lat_minutes = float(lat_abs[2:])
+            latitude = lat_sign * (lat_degrees + lat_minutes / 60.0)
+            latitude = round(latitude, 6)
+            
+            # 経度の変換 (DDDMM.MM -> DDD.DDDD)
+            lon_sign = 1 if lon_str[0] == '+' else -1
+            lon_abs = lon_str[1:]
+            lon_degrees = int(lon_abs[:3])
+            lon_minutes = float(lon_abs[3:])
+            longitude = lon_sign * (lon_degrees + lon_minutes / 60.0)
+            longitude = round(longitude, 6)
+            
+            return latitude, longitude
+            
+        except Exception as e:
+            print(f"座標解析エラー: {e}, 座標文字列: {coord_str}")
+            return None, None
 
 def main():
     """
@@ -748,6 +747,29 @@ def main():
         import traceback
         traceback.print_exc()
 
-
+# プロジェクトルートをパスに追加 (直接実行時のみ)
 if __name__ == "__main__":
-    main()
+    current_file = Path(__file__).absolute()
+    project_root = str(current_file.parent.parent.parent)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    
+    # xml_baseモジュールのインポート用に追加パス設定
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "--test":
+        # 簡易テストモード
+        if len(sys.argv) < 3:
+            print("テストURLを指定してください")
+            print("使用例: python disaster_processor.py --test [URL]")
+            sys.exit(1)
+            
+        processor = DisasterProcessor()
+        result = processor._process_single_url(sys.argv[2])
+        print(f"テスト結果:\n{json.dumps(result, ensure_ascii=False, indent=2)}")
+    else:
+        # 通常のmain関数実行
+        main()
