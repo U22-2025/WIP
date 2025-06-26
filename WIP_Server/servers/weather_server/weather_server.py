@@ -139,7 +139,7 @@ class WeatherServer(BaseServer):
             is_valid, error_msg = self.validate_request(request)
             if not is_valid:
                 # type0でclientに返す
-                self._handle_bad_response(request, addr)
+                self._handle_error_packet(request, addr)
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
