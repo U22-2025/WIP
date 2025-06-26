@@ -24,7 +24,7 @@ def test_weather_packet():
     print(f"Weather Request (by coordinates):")
     print(f"  Type: {weather_req.type}")
     print(f"  Flags: weather={weather_req.weather_flag}, temp={weather_req.temperature_flag}")
-    print(f"  Coordinates: {weather_req.ex_field.get('latitude')}, {weather_req.ex_field.get('longitude')}")
+    print(f"  Coordinates: {weather_req.ex_field.latitude}, {weather_req.ex_field.longitude}")
     print(f"  Summary: {weather_req.get_request_summary()}")
     
     # エリアコードからの天気リクエスト
@@ -48,7 +48,7 @@ def test_weather_packet():
     # 復元テスト
     restored = WeatherRequest.from_bytes(data)
     print(f"Restored type: {restored.type}")
-    print(f"Restored coordinates: {restored.ex_field.get('latitude')}, {restored.ex_field.get('longitude')}")
+    print(f"Restored coordinates: {restored.ex_field.latitude}, {restored.ex_field.longitude}")
 
 
 def test_location_packet():

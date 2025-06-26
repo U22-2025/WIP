@@ -146,8 +146,27 @@ query = QueryPacket(
 | `longitude` | 34 | float | 経度座標 |
 | `source` | 40 | str | 送信元情報 |
 
-### 拡張フィールドの使用例
+### 拡張フィールドの使用例 (新旧方式)
 
+#### 新しいプロパティアクセス方式 (推奨)
+```python
+packet = Format(
+    version=1,
+    packet_id=789,
+    ex_flag=1,
+    timestamp=int(datetime.now().timestamp()),
+    area_code=13101
+)
+
+# プロパティとして直接アクセス
+packet.ex_field.alert = ["津波警報", "土砂災害警戒情報"]
+packet.ex_field.disaster = ["土砂崩れ", "河川氾濫"]
+packet.ex_field.latitude = 35.6895
+packet.ex_field.longitude = 139.6917
+packet.ex_field.source = "気象庁データセンター"
+```
+
+#### 旧方式 (非推奨)
 ```python
 packet = Format(
     version=1,
@@ -163,7 +182,15 @@ packet = Format(
         'source': "気象庁データセンター"
     }
 )
+
+# プロパティアクセス方式 (推奨)
+packet.ex_field.alert = ["津波警報", "土砂災害警戒情報"]
+alerts = packet.ex_field.alert
 ```
+
+> **非推奨について**
+> `.get()`/`.set()`メソッドは非推奨となり、将来のバージョンで削除される予定です。
+> 新しいプロパティアクセス方式に移行してください。
 
 ## 🛠️ ユーティリティ
 

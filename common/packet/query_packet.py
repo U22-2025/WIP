@@ -137,7 +137,7 @@ class QueryRequest(Request):
         # 既存のsource情報を取得
         existing_source = None
         if hasattr(weather_request, 'ex_field') and weather_request.ex_field:
-            existing_source = weather_request.ex_field.get('source')
+            existing_source = weather_request.ex_field.source
         
         # source情報を決定（引数優先、次に既存、最後にNone）
         final_source = source or existing_source
@@ -163,7 +163,7 @@ class QueryRequest(Request):
             送信元情報またはNone
         """
         if hasattr(self, 'ex_field') and self.ex_field:
-            return self.ex_field.get('source')
+            return self.ex_field.source
         return None
     
     def get_requested_data_types(self) -> List[str]:
@@ -297,7 +297,7 @@ class QueryResponse(Response):
             送信元情報またはNone
         """
         if hasattr(self, 'ex_field') and self.ex_field:
-            return self.ex_field.get('source')
+            return self.ex_field.source
         return None
     
     def get_temperature_celsius(self) -> Optional[int]:
@@ -341,7 +341,7 @@ class QueryResponse(Response):
             警報情報のリスト
         """
         if self.alert_flag and hasattr(self, 'ex_field') and self.ex_field:
-            alert = self.ex_field.get('alert', [])
+            alert = self.ex_field.alert if hasattr(self.ex_field, 'alert') else []
             return alert if isinstance(alert, list) else [alert] if alert else []
         return []
     
@@ -353,7 +353,7 @@ class QueryResponse(Response):
             災害情報のリスト
         """
         if self.disaster_flag and hasattr(self, 'ex_field') and self.ex_field:
-            disaster = self.ex_field.get('disaster', [])
+            disaster = self.ex_field.disaster if hasattr(self.ex_field, 'disaster') else []
             return disaster if isinstance(disaster, list) else [disaster] if disaster else []
         return []
     

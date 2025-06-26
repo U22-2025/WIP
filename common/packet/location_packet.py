@@ -102,8 +102,8 @@ class LocationRequest(Request):
             LocationRequestインスタンス
         """
         # 元のリクエストの拡張フィールドを取得
-        latitude = weather_request.ex_field.get('latitude') if weather_request.ex_field else None
-        longitude = weather_request.ex_field.get('longitude') if weather_request.ex_field else None
+        latitude = weather_request.ex_field.latitude if weather_request.ex_field else None
+        longitude = weather_request.ex_field.longitude if weather_request.ex_field else None
         
         if latitude is None or longitude is None:
             raise ValueError("Weather request must contain latitude and longitude")
@@ -135,8 +135,8 @@ class LocationRequest(Request):
             (latitude, longitude) のタプルまたはNone
         """
         if self.ex_field:
-            lat = self.ex_field.get('latitude')
-            lon = self.ex_field.get('longitude')
+            lat = self.ex_field.latitude
+            lon = self.ex_field.longitude
             if lat is not None and lon is not None:
                 return (lat, lon)
         return None
@@ -149,7 +149,7 @@ class LocationRequest(Request):
             送信元情報またはNone
         """
         if self.ex_field:
-            return self.ex_field.get('source')
+            return self.ex_field.source
         return None
 
 
@@ -224,7 +224,7 @@ class LocationResponse(Response):
             送信元情報またはNone
         """
         if hasattr(self, 'ex_field') and self.ex_field:
-            return self.ex_field.get('source')
+            return self.ex_field.source
         return None
     
     def get_preserved_flags(self) -> Dict[str, int]:
