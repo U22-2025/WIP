@@ -128,8 +128,8 @@ def response_processing_example():
     print(f"  天気コード: {sample_response.weather_code}")
     print(f"  降水確率: {sample_response.pop}%")
     if hasattr(sample_response, 'ex_field') and sample_response.ex_field:
-        alerts = sample_response.ex_field.get('alert', [])
-        print(f"  警報: {alerts}")
+        alert = sample_response.ex_field.get('alert', [])
+        print(f"  警報: {alert}")
     
     # バイト列に変換して新しいクラスで処理
     response_bytes = sample_response.to_bytes()

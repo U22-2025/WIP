@@ -225,8 +225,8 @@ class WeatherResponse(Response):
             警報情報（文字列）またはNone
         """
         if self.alert_flag and hasattr(self, 'ex_field') and self.ex_field:
-            alerts = self.ex_field.get('alert')
-            return str(alerts) if alerts is not None else None
+            alert = self.ex_field.get('alert')
+            return str(alert) if alert is not None else None
         return None
     
     def get_disaster_info(self) -> Optional[str]:
