@@ -21,10 +21,15 @@ class BaseServer(ABC):
         
         Args:
             host: サーバーホスト
-            port: サーバーポート
+            port: サーバーポート (1-65535の範囲)
             debug: デバッグモードフラグ
             max_workers: スレッドプールのワーカー数（Noneの場合はCPU数*2）
+        
+        Raises:
+            ValueError: ポート番号が無効な場合
         """
+        if not (1 <= port <= 65535):
+            raise ValueError(f"Invalid port number: {port}. Must be between 1-65535")
         # 環境変数を読み込む
         load_dotenv()
         

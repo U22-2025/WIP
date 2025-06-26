@@ -19,6 +19,12 @@ PIDG = PacketIDGenerator12Bit()
 class QueryClient:
     """Query Serverと通信するクライアント（専用パケットクラス使用）"""
     
+    def close(self):
+        """クライアントのリソースを解放する"""
+        # 現在の実装ではメソッドごとにsocketを作成・クローズしているため、
+        # このメソッドは空実装とする
+        pass
+    
     def __init__(self, host=os.getenv('QUERY_GENERATOR_HOST'), port=int(os.getenv('QUERY_GENERATOR_PORT')), debug=False):
         """
         初期化

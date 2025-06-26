@@ -193,7 +193,7 @@ class WeatherServer(BaseServer):
     def _handle_location_request(self, request, addr):
         """座標解決リクエストの処理（Type 0・改良版）"""
         try:
-            source_info = f"{addr[0]}:{addr[1]}"
+            source_info = (addr[0], addr[1])  # タプル形式で保持
             
             if self.debug:
                 print(f"\n[天気サーバー] タイプ0: 位置情報リクエストを処理中")
@@ -270,7 +270,7 @@ class WeatherServer(BaseServer):
     def _handle_weather_request(self, request, addr):
         """気象データリクエストの処理（Type 2・改良版）"""
         try:
-            source_info = f"{addr[0]}:{addr[1]}"
+            source_info = (addr[0], addr[1])  # タプル形式で保持
             
             if self.debug:
                 print(f"\n[天気サーバー] タイプ2: 天気リクエストを処理中")
@@ -425,8 +425,20 @@ class WeatherServer(BaseServer):
             # 専用クラスのメソッドでsource情報を取得
             source_info = response.get_source_info()
             if source_info:
-                host, port = source_info.split(':')
-                dest_addr = (host, int(port))
+                # 既にタプル形式なのでそのまま使用
+                if isinstance(source_info, tuple) and len(source_info) == 2:
+                    host, port = source_info
+                    try:
+                        port = int(port)  # ポート番号のバリデーション
+                        if not (0 < port <= 65535):
+                            raise ValueError("Invalid port number")
+                        dest_addr = (host, port)
+                    except (ValueError, TypeError) as e:
+                        print(f"[天気サーバー] 不正なポート番号: {port}")
+                        return
+                else:
+                    print(f"[天気サーバー] 不正なsource_info形式: {source_info}")
+                    return
                 
                 if self.debug:
                     status = "成功" if response.is_success() else "失敗"
@@ -498,8 +510,17 @@ class WeatherServer(BaseServer):
                     print(f"  ソースを取得: {source}")
                 
                 # エラーパケットを送信
-                host, port = source.split(':')
-                self.sock.sendto(request.to_bytes(), (host, int(port)))
+                if isinstance(source, tuple) and len(source) == 2:
+                    host, port = source
+                    try:
+                        port = int(port)  # ポート番号のバリデーション
+                        if not (0 < port <= 65535):
+                            raise ValueError("Invalid port number")
+                        self.sock.sendto(request.to_bytes(), (host, port))
+                    except (ValueError, TypeError) as e:
+                        print(f"[天気サーバー] 不正なポート番号: {port}")
+                else:
+                    print(f"[天気サーバー] 不正なsource形式: {source}")
                 
                 if self.debug:
                     print(f"  エラーパケットを {source} に送信しました")
