@@ -269,40 +269,6 @@ def update_redis_weather_data(debug=False):
     # return len(weather_data)
     return skip_area
 
-def redis_set_data(key, data):
-    """
-    個別の気象データをRedisに保存
-
-    Args:
-        key: エリアコード
-        data: 気象データ
-    """
-    try:
-        redis_manager = create_redis_manager()
-        redis_manager.update_weather_data(key, data)
-        redis_manager.close()
-    except Exception as e:
-        print(f"Redis保存エラー ({key}): {e}")
-
-def redis_get_data(key):
-    """
-    個別の気象データをRedisから取得
-
-    Args:
-        key: エリアコード
-
-    Returns:
-        気象データ、存在しない場合はNone
-    """
-    try:
-        redis_manager = create_redis_manager()
-        data = redis_manager.get_weather_data(key)
-        redis_manager.close()
-        return data
-    except Exception as e:
-        print(f"Redis取得エラー ({key}): {e}")
-        return None
-
 if __name__ == "__main__":
     area_codes = []
     with open("wip/json/area_codes.json", "r", encoding="utf-8") as f:
