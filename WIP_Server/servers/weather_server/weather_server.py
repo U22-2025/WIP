@@ -491,19 +491,20 @@ class WeatherServer(BaseServer):
                 print(f"  エラーコード: {request.error_code}")
                 print(f"  送信元アドレス: {addr}")
             
-            # 拡張フィールドからsource_ipを取得
-            if request.ex_field and 'source_ip' in request.ex_field:
-                source_ip = request.ex_field['source_ip']
+            # 拡張フィールドからsourceを取得
+            if request.ex_field and 'source' in request.ex_field:
+                source = request.ex_field['source']
                 if self.debug:
-                    print(f"  ソースIPを取得: {source_ip}")
+                    print(f"  ソースを取得: {source}")
                 
                 # エラーパケットを送信
-                self.sock.sendto(request.to_bytes(), (source_ip, 4000))
+                host, port = source.split(':')
+                self.sock.sendto(request.to_bytes(), (host, int(port)))
                 
                 if self.debug:
-                    print(f"  エラーパケットを {source_ip}:4000 に送信しました")
+                    print(f"  エラーパケットを {source} に送信しました")
             else:
-                print(f"[天気サーバー] エラー: エラーパケットにsource_ipが含まれていません")
+                print(f"[天気サーバー] エラー: エラーパケットにsourceが含まれていません")
                 if self.debug:
                     print(f"  拡張フィールド: {request.ex_field.to_dict() if request.ex_field else 'なし'}")
                     

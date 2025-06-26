@@ -185,7 +185,7 @@ class QueryServer(BaseServer):
                 response.ex_field.set('source', source)
                 response.ex_flag = 1  # ex_fieldがあるのでフラグを1に
                 if self.debug:
-                    print(f"[クエリサーバー] 送信元をレスポンスにコピーしました: {source}")
+                    print(f"[クエリサーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
         else:
             if self.debug:
                 print("[クエリサーバー] 警告: リクエストに ex_field がありません！")
@@ -286,6 +286,8 @@ class QueryServer(BaseServer):
         # ex_fieldの詳細を表示
         if hasattr(parsed, 'ex_field'):
             print(f"\nExtended Field content: {parsed.ex_field}")
+            if hasattr(parsed.ex_field, 'source') and parsed.ex_field.source:
+                print(f"  Source: {parsed.ex_field.source[0]}:{parsed.ex_field.source[1]}")
         else:
             print("\nパースされたリクエストに ex_field 属性がありません！")
         
@@ -314,6 +316,8 @@ class QueryServer(BaseServer):
                 print(f"precipitation_prob: {resp_obj.pop}%")
             if hasattr(resp_obj, 'ex_field') and resp_obj.ex_field:
                 print(f"Extended Fields: {resp_obj.ex_field}")
+                if hasattr(resp_obj.ex_field, 'source') and resp_obj.ex_field.source:
+                    print(f"  Source: {resp_obj.ex_field.source[0]}:{resp_obj.ex_field.source[1]}")
         except:
             pass
         

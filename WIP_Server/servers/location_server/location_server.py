@@ -223,6 +223,8 @@ class LocationServer(BaseServer):
             source = request.ex_field.get('source')
             if source:
                 response.ex_field.set('source', source)
+                if self.debug:
+                    print(f"[位置情報サーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
         
         return response.to_bytes()
     

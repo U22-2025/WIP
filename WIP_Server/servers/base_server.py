@@ -166,15 +166,16 @@ class BaseServer(ABC):
             addr: 送信元アドレス
         """
         try:
-            # ソースIP取得（送信元アドレスから）
+            # ソース情報取得（送信元アドレスから）
             source_ip = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
+            source_port = addr[1] if isinstance(addr, tuple) else 0
             
             # ErrorResponseパケットの生成
             from common.packet.error_response import ErrorResponse
             err_pkt = ErrorResponse()
             err_pkt.packet_id = original_packet.packet_id
             err_pkt.error_code = error_code
-            err_pkt.ex_field.set('source_ip', source_ip)
+            err_pkt.ex_field.set('source', (source_ip, source_port))
             
             # パケットをシリアライズ
             response_data = err_pkt.serialize()

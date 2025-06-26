@@ -240,12 +240,55 @@ class ExtendedField:
         self.set('longitude', value)
 
     @property
-    def source(self) -> Union[str, None]:
-        return self.get('source')
+    def source(self) -> Optional[tuple[str, int]]:
+        """sourceフィールドのゲッター
+        Returns:
+            tuple: (ip, port)形式のタプル
+            None: 未設定の場合
+        """
+        value = self.get('source')
+        if value is None:
+            return None
+        if isinstance(value, tuple):
+            return value
+        if isinstance(value, str) and ":" in value:
+            ip, port = value.split(":")
+            return (ip, int(port))
+        raise ValueError(f"Invalid source format: {value}")
 
     @source.setter
-    def source(self, value: str) -> None:
-        self.set('source', value)
+    def source(self, value: Union[str, tuple[str, Union[str, int]]]) -> None:
+        """sourceフィールドのセッター
+        Args:
+            value: 設定する値
+                str: "ip:port"形式の文字列
+                tuple: (ip, port)形式のタプル（portは文字列または数値）
+        """
+        if isinstance(value, str):
+            if ":" not in value:
+                raise ValueError("source文字列は'ip:port'形式である必要があります")
+            ip, port_str = value.split(":")
+            try:
+                port = int(port_str)
+            except ValueError:
+                raise ValueError(f"無効なポート番号: {port_str}")
+            value = (ip, port)
+        
+        if not isinstance(value, tuple) or len(value) != 2:
+            raise ValueError("sourceは(ip, port)形式のタプルである必要があります")
+        
+        ip, port = value
+        if not isinstance(ip, str) or not ip:
+            raise ValueError("IPアドレスは空でない文字列である必要があります")
+        
+        try:
+            port = int(port)
+            if not (0 <= port <= 65535):
+                raise ValueError("ポート番号は0-65535の範囲である必要があります")
+        except ValueError:
+            raise ValueError(f"無効なポート番号: {port}")
+        
+        self.set('source', (ip, port))
 
     def _validate_value(self, key: str, value: Any) -> Any:
         """
@@ -293,12 +336,31 @@ class ExtendedField:
         
         # sourceフィールドの検証
         elif key == 'source':
-            if not isinstance(value, str):
-                raise ValueError("sourceは文字列である必要があります")
-            processed_value = value.strip()
-            if not processed_value:
-                raise ValueError("sourceは空文字列であってはなりません")
-            return processed_value
+            if isinstance(value, str):
+                if ":" not in value:
+                    raise ValueError("source文字列は'ip:port'形式である必要があります")
+                ip, port_str = value.split(":")
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    raise ValueError(f"無効なポート番号: {port_str}")
+                value = (ip, port)
+            
+            if not isinstance(value, tuple) or len(value) != 2:
+                raise ValueError("sourceは(ip, port)形式のタプルである必要があります")
+            
+            ip, port = value
+            if not isinstance(ip, str) or not ip:
+                raise ValueError("IPアドレスは空でない文字列である必要があります")
+            
+            try:
+                port = int(port)
+                if not (0 <= port <= 65535):
+                    raise ValueError("ポート番号は0-65535の範囲である必要があります")
+            except ValueError:
+                raise ValueError(f"無効なポート番号: {port}")
+            
+            return (ip, port)
         
         # その他の未知のキーはそのまま返す
         return value
@@ -334,7 +396,12 @@ class ExtendedField:
                 # _validate_valueで既に正規化されているため、直接valueを使用
                 values_to_process = value
                 
-                if isinstance(values_to_process, str):
+                if key == 'source':
+                    # sourceフィールドは"ip:port"形式でシリアライズ
+                    ip, port = values_to_process
+                    value_str = f"{ip}:{port}"
+                    value_bytes = value_str.encode('utf-8')
+                elif isinstance(values_to_process, str):
                     value_bytes = values_to_process.encode('utf-8')
                 elif key in ['latitude', 'longitude']:
                     # 座標値の変換
@@ -418,9 +485,18 @@ class ExtendedField:
                 
                 try:
                     value_bytes = value_bits.to_bytes(bytes_length, byteorder='little')
-                    if key in ExtendedFieldType.STRING_LIST_FIELDS or key == ExtendedFieldType.SOURCE:
+                    if key in ExtendedFieldType.STRING_LIST_FIELDS:
                         # 文字列の末尾の余分な文字を削除
                         value = value_bytes.decode('utf-8').rstrip('\x00#')
+                    elif key == ExtendedFieldType.SOURCE:
+                        # sourceフィールドは"ip:port"形式でデシリアライズ
+                        value_str = value_bytes.decode('utf-8').rstrip('\x00#')
+                        if ":" in value_str:
+                            ip, port_str = value_str.split(":")
+                            try:
+                                value = (ip, int(port_str))
+                            except ValueError:
+                                value = value_str  # 互換性のため文字列も保持
                     elif key in ExtendedFieldType.COORDINATE_FIELDS:
                         # 4バイト符号付き整数として復元し、10^6で割って浮動小数点数に戻す
                         if bytes_length == 4:
