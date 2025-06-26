@@ -182,7 +182,7 @@ class QueryServer(BaseServer):
             # sourceがある場合は必ずコピー
             source = request.ex_field.get('source')
             if source:
-                response.ex_field.set('source', source)
+                response.ex_field.source = source
                 response.ex_flag = 1  # ex_fieldがあるのでフラグを1に
                 if self.debug:
                     print(f"[クエリサーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
@@ -240,11 +240,11 @@ class QueryServer(BaseServer):
                 warnings = weather_data['warnings']
                 if not isinstance(warnings, list):
                     warnings = [warnings]
-                response.ex_field.set('alert', warnings)
+                response.ex_field.alert = warnings
                 response.ex_flag = 1
             
             if request.disaster_flag and 'disaster' in weather_data:
-                response.ex_field.set('disaster', weather_data['disaster'])
+                response.ex_field.disaster = weather_data['disaster']
                 response.ex_flag = 1
         else:
             # デフォルト値を設定

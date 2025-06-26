@@ -39,7 +39,7 @@ def traditional_usage_example():
     print(f"  コード行数: 15行")
     print(f"  Type: {request.type}")
     print(f"  Flags: {request.weather_flag}, {request.temperature_flag}, {request.pop_flag}")
-    print(f"  Coordinates: {request.ex_field.get('latitude')}, {request.ex_field.get('longitude')}")
+    print(f"  Coordinates: {request.ex_field.latitude}, {request.ex_field.longitude}")
     
     # エリアコードから天気情報を取得（従来方式）
     request2 = Request(
@@ -128,7 +128,7 @@ def response_processing_example():
     print(f"  天気コード: {sample_response.weather_code}")
     print(f"  降水確率: {sample_response.pop}%")
     if hasattr(sample_response, 'ex_field') and sample_response.ex_field:
-        alert = sample_response.ex_field.get('alert', [])
+        alert = sample_response.ex_field.alert if hasattr(sample_response.ex_field, 'alert') else []
         print(f"  警報: {alert}")
     
     # バイト列に変換して新しいクラスで処理
@@ -196,7 +196,7 @@ def compatibility_test():
     
     print("新→従来 互換性:")
     print(f"  Type: {traditional_req.type}")
-    print(f"  Coordinates: {traditional_req.ex_field.get('latitude')}, {traditional_req.ex_field.get('longitude')}")
+    print(f"  Coordinates: {traditional_req.ex_field.latitude}, {traditional_req.ex_field.longitude}")
     
     # 従来のクラスで作成したパケットが新しいクラスで読める
     old_req = Request(

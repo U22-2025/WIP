@@ -1,5 +1,21 @@
 """
-拡張フィールドの独立クラス
+拡張フィールド管理クラス
+
+拡張フィールドのデータを管理し、ビット列との相互変換を提供します。
+
+新しいプロパティアクセス方式:
+    # プロパティとして直接アクセス (推奨)
+    ex_field.alert = ["津波警報"]
+    alerts = ex_field.alert
+
+非推奨のget/setメソッド:
+    # 非推奨: 将来のバージョンで削除予定
+    ex_field.set('alert', ["津波警報"])
+    alerts = ex_field.get('alert')
+
+注意:
+    get()/set()メソッドを使用するとDeprecationWarningが発生します。
+    新しいプロパティアクセス方式に移行してください。
 """
 from typing import Optional, Dict, Any, List, Union, Callable
 from .exceptions import BitFieldError
@@ -7,6 +23,7 @@ from .bit_utils import extract_bits
 
 import csv
 import io
+import warnings
 
 class ExtendedFieldType:
     """拡張フィールドタイプの定数定義"""
@@ -93,6 +110,11 @@ class ExtendedField:
         Raises:
             ValueError: 不正なキーまたは値の場合
         """
+        warnings.warn(
+            "set()メソッドは非推奨です。プロパティ代入を使用してください",
+            DeprecationWarning,
+            stacklevel=2
+        )
         # キーの検証
         if key not in self.FIELD_MAPPING_STR:
             raise ValueError(f"不正なキー: '{key}'")
@@ -117,6 +139,11 @@ class ExtendedField:
         Returns:
             フィールド値（存在しない場合はdefault）
         """
+        warnings.warn(
+            "get()メソッドは非推奨です。プロパティアクセスを使用してください",
+            DeprecationWarning,
+            stacklevel=2
+        )
         return self._data.get(key, default)
     
     def update(self, data: Dict[str, Any]) -> None:

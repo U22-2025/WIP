@@ -213,7 +213,7 @@ class WeatherServer(BaseServer):
             else:
                 # 既にLocationRequestの場合は、source情報を追加
                 location_request = request
-                location_request.ex_field.set('source', source_info)
+                location_request.ex_field.source = source_info
             
             if self.debug:
                 print(f"  LocationRequest に変換しました")
@@ -357,7 +357,7 @@ class WeatherServer(BaseServer):
             else:
                 # 既にQueryRequestの場合は、source情報を追加
                 query_request = request
-                query_request.ex_field.set('source', source_info)
+                query_request.ex_field.source = source_info
             
             if self.debug:
                 print(f"  QueryRequest に変換しました")

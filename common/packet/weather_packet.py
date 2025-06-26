@@ -163,8 +163,8 @@ class WeatherRequest(Request):
             summary['requested_data'].append('disaster')
         
         if self.type == 0 and self.ex_field:
-            summary['latitude'] = self.ex_field.get('latitude')
-            summary['longitude'] = self.ex_field.get('longitude')
+            summary['latitude'] = self.ex_field.latitude
+            summary['longitude'] = self.ex_field.longitude
         elif self.type == 2:
             summary['area_code'] = self.area_code
         
@@ -225,7 +225,7 @@ class WeatherResponse(Response):
             警報情報（文字列）またはNone
         """
         if self.alert_flag and hasattr(self, 'ex_field') and self.ex_field:
-            alert = self.ex_field.get('alert')
+            alert = self.ex_field.alert
             return str(alert) if alert is not None else None
         return None
     
@@ -237,7 +237,7 @@ class WeatherResponse(Response):
             災害情報（文字列）またはNone
         """
         if self.disaster_flag and hasattr(self, 'ex_field') and self.ex_field:
-            disaster = self.ex_field.get('disaster')
+            disaster = self.ex_field.disaster
             return str(disaster) if disaster is not None else None
         return None
     
