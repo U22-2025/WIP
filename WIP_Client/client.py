@@ -18,20 +18,20 @@ load_dotenv()
 class Client:
     """WIP Client - Weather Server通信用のシンプルなクライアント（状態管理型）"""
     
-    def __init__(self, server_ip=os.getenv('WEATHER_SERVER_HOST'), server_port=int(os.getenv('WEATHER_SERVER_PORT')), debug=False, 
+    def __init__(self, host=os.getenv('WEATHER_SERVER_HOST'), server_port=int(os.getenv('WEATHER_SERVER_PORT')), debug=False,
                  latitude=None, longitude=None, area_code=None):
         """
         初期化
         
         Args:
-            server_ip (str): Weather ServerのIPアドレス（デフォルト: 'localhost'）
+            host (str): Weather Serverのホスト名またはIPアドレス（デフォルト: 'localhost'）
             server_port (int): Weather Serverのポート番号（デフォルト: 4110）
             debug (bool): デバッグモードの有効/無効（デフォルト: False）
             latitude (float, optional): 初期緯度
             longitude (float, optional): 初期経度
             area_code (str, optional): 初期エリアコード
         """
-        self.server_ip = server_ip
+        self.host = host
         self.server_port = server_port
         self.debug = debug
         
@@ -43,13 +43,13 @@ class Client:
         
         # 内部でWeatherClientを使用
         self._weather_client = WeatherClient(
-            host=self.server_ip,
+            host=self.host,
             port=self.server_port,
             debug=self.debug
         )
         
         if self.debug:
-            print(f"WIP Client initialized - Server: {self.server_ip}:{self.server_port}")
+            print(f"WIP Client initialized - Server: {self.host}:{self.server_port}")
             print(f"Initial state - Latitude: {self._latitude}, Longitude: {self._longitude}, Area Code: {self._area_code}")
     
     @property
@@ -224,32 +224,32 @@ class Client:
             'longitude': self._longitude,
             'area_code': self._area_code,
             'coordinates_changed': self._coordinates_changed,
-            'server_ip': self.server_ip,
+            'host': self.host,
             'server_port': self.server_port
         }
     
-    def set_server(self, server_ip, server_port=None):
+    def set_server(self, host, server_port=None):
         """
         Weather Serverの接続情報を変更
         
         Args:
-            server_ip (str): 新しいIPアドレス
+            host (str): 新しいホスト名またはIPアドレス
             server_port (int, optional): 新しいポート番号（指定なしの場合は変更しない）
         """
-        self.server_ip = server_ip
+        self.host = host
         if server_port is not None:
             self.server_port = server_port
             
         # WeatherClientを再初期化
         self._weather_client.close()
         self._weather_client = WeatherClient(
-            host=self.server_ip,
+            host=self.host,
             port=self.server_port,
             debug=self.debug
         )
         
         if self.debug:
-            print(f"Server updated - New server: {self.server_ip}:{self.server_port}")
+            print(f"Server updated - New server: {self.host}:{self.server_port}")
     
     def close(self):
         """
