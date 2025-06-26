@@ -93,10 +93,10 @@ class QueryClient:
             if pop is not None:
                 print(f"Precipitation: {pop}%")
                 
-        if hasattr(response, 'get_alerts'):
-            alerts = response.get_alerts()
-            if alerts:
-                print(f"Alerts: {alerts}")
+        if hasattr(response, 'get_alert'):
+            alert = response.get_alert()
+            if alert:
+                print(f"Alert: {alert}")
                 
         if hasattr(response, 'get_disaster_info'):
             disaster = response.get_disaster_info()
@@ -108,7 +108,7 @@ class QueryClient:
         print("==============================\n")
 
     def get_weather_data(self, area_code, weather=False, temperature=False, 
-                        precipitation_prob=False, alerts=False, disaster=False, 
+                        precipitation_prob=False, alert=False, disaster=False,
                         source=None, timeout=5.0):
         """
         指定されたエリアの気象データを取得する（改良版）
@@ -118,7 +118,7 @@ class QueryClient:
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
+            alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             source: 送信元情報（プロキシルーティング用）
             timeout: タイムアウト時間（秒）
@@ -140,7 +140,7 @@ class QueryClient:
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
-                alerts=alerts,
+                alert=alert,
                 disaster=disaster,
                 source=source,
                 version=self.VERSION
@@ -216,7 +216,7 @@ class QueryClient:
             weather=True,
             temperature=True,
             precipitation_prob=True,
-            alerts=include_all,
+            alert=include_all,
             disaster=include_all,
             timeout=timeout
         )
@@ -332,7 +332,7 @@ def main():
         weather=True,
         temperature=True,
         precipitation_prob=True,
-        alerts=True,
+        alert=True,
         disaster=True,
         source="query_client_test"
     )
@@ -343,8 +343,8 @@ def main():
         print(f"Weather Code: {result.get('weather_code')}")
         print(f"Temperature: {result.get('temperature')}°C")
         print(f"precipitation_prob: {result.get('precipitation_prob')}%")
-        if result.get('alerts'):
-            print(f"Alerts: {result.get('alerts')}")
+        if result.get('alert'):
+            print(f"Alert: {result.get('alert')}")
         if result.get('disaster'):
             print(f"Disaster Info: {result.get('disaster')}")
     else:

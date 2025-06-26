@@ -26,7 +26,7 @@ class WeatherRequest(Request):
         weather: bool = True,
         temperature: bool = True,
         precipitation_prob: bool = True,
-        alerts: bool = False,
+        alert: bool = False,
         disaster: bool = False,
         day: int = 0,
         version: int = 1
@@ -41,7 +41,7 @@ class WeatherRequest(Request):
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
+            alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
             version: プロトコルバージョン
@@ -65,7 +65,7 @@ class WeatherRequest(Request):
             weather_flag=1 if weather else 0,
             temperature_flag=1 if temperature else 0,
             pop_flag=1 if precipitation_prob else 0,
-            alert_flag=1 if alerts else 0,
+            alert_flag=1 if alert else 0,
             disaster_flag=1 if disaster else 0,
             ex_flag=1,  # 拡張フィールドを使用
             day=day,
@@ -85,7 +85,7 @@ class WeatherRequest(Request):
         weather: bool = True,
         temperature: bool = True,
         precipitation_prob: bool = True,
-        alerts: bool = False,
+        alert: bool = False,
         disaster: bool = False,
         day: int = 0,
         version: int = 1
@@ -99,7 +99,7 @@ class WeatherRequest(Request):
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
+            alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
             version: プロトコルバージョン
@@ -113,7 +113,7 @@ class WeatherRequest(Request):
             ...     packet_id=456,
             ...     weather=True,
             ...     temperature=True,
-            ...     alerts=True
+            ...     alert=True
             ... )
         """
         # エリアコードを6桁の文字列に正規化
@@ -129,7 +129,7 @@ class WeatherRequest(Request):
             weather_flag=1 if weather else 0,
             temperature_flag=1 if temperature else 0,
             pop_flag=1 if precipitation_prob else 0,
-            alert_flag=1 if alerts else 0,
+            alert_flag=1 if alert else 0,
             disaster_flag=1 if disaster else 0,
             ex_flag=0,  # Type 2では基本的に拡張フィールド不要
             day=day,
@@ -158,7 +158,7 @@ class WeatherRequest(Request):
         if self.pop_flag:
             summary['requested_data'].append('precipitation_prob')
         if self.alert_flag:
-            summary['requested_data'].append('alerts')
+            summary['requested_data'].append('alert')
         if self.disaster_flag:
             summary['requested_data'].append('disaster')
         
@@ -217,7 +217,7 @@ class WeatherResponse(Response):
             return self.pop
         return None
     
-    def get_alerts(self) -> Optional[str]:
+    def get_alert(self) -> Optional[str]:
         """
         警報情報を取得
         
@@ -271,9 +271,9 @@ class WeatherResponse(Response):
             data['precipitation_prob'] = self.get_precipitation_prob()
         
         # 拡張データ
-        alerts = self.get_alerts()
-        if alerts:
-            data['alerts'] = alerts
+        alert = self.get_alert()
+        if alert:
+            data['alert'] = alert
         
         disaster_info = self.get_disaster_info()
         if disaster_info:
@@ -300,7 +300,7 @@ class WeatherResponse(Response):
             has_data = True
         if self.pop_flag and self.get_precipitation_prob() is not None:
             has_data = True
-        if self.alert_flag and self.get_alerts():
+        if self.alert_flag and self.get_alert():
             has_data = True
         if self.disaster_flag and self.get_disaster_info():
             has_data = True

@@ -16,7 +16,7 @@ client = Client(area_code=460010, debug=True)
 print("\n1. Getting weather by coordinates (Tokyo)")
 print("-" * 30)
 # client.set_coordinates(35.6895, 139.6917)
-result = client.get_weather(alerts=True, disaster=True)
+result = client.get_weather(alert=True, disaster=True)
 
 if result:
     print("\n✓ Success!")
@@ -28,8 +28,8 @@ if result:
         print(f"Temperature: {result['temperature']}°C")
     if 'precipitation_prob' in result:
         print(f"precipitation_prob: {result['precipitation_prob']}%")
-    if 'alerts' in result:
-        print(f"alerts: {result['alerts']}")
+    if 'alert' in result:
+        print(f"alert: {result['alert']}")
     if 'disaster' in result:
         print(f"disaster: {result['disaster']}")
     

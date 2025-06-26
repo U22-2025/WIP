@@ -119,10 +119,10 @@ class WeatherClient:
                 if pop is not None:
                     print(f"precipitation_prob: {pop}%")
                     
-            if hasattr(response, 'get_alerts'):
-                alerts = response.get_alerts()
-                if alerts:
-                    print(f"Alerts: {alerts}")
+            if hasattr(response, 'get_alert'):
+                alert = response.get_alert()
+                if alert:
+                    print(f"Alert: {alert}")
                     
             if hasattr(response, 'get_disaster_info'):
                 disaster = response.get_disaster_info()
@@ -135,7 +135,7 @@ class WeatherClient:
         
     def get_weather_by_coordinates(self, latitude, longitude, 
                                   weather=True, temperature=True, 
-                                  precipitation_prob=True, alerts=False, disaster=False,
+                                  precipitation_prob=True, alert=False, disaster=False,
                                   day=0):
         """
         座標から天気情報を取得（Type 0 → Type 3）
@@ -146,7 +146,7 @@ class WeatherClient:
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
+            alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
             
@@ -164,7 +164,7 @@ class WeatherClient:
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
-                alerts=alerts,
+                alert=alert,
                 disaster=disaster,
                 day=day,
                 version=self.VERSION
@@ -209,7 +209,7 @@ class WeatherClient:
         
     def get_weather_by_area_code(self, area_code, 
                                 weather=True, temperature=True, 
-                                precipitation_prob=True, alerts=False, disaster=False,
+                                precipitation_prob=True, alert=False, disaster=False,
                                 day=0):
         """
         エリアコードから天気情報を取得（Type 2 → Type 3）
@@ -219,7 +219,7 @@ class WeatherClient:
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
+            alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
             
@@ -236,7 +236,7 @@ class WeatherClient:
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
-                alerts=alerts,
+                alert=alert,
                 disaster=disaster,
                 day=day,
                 version=self.VERSION
@@ -326,7 +326,7 @@ def main():
             weather=True,
             temperature=True,
             precipitation_prob=True,
-            alerts=True,
+            alert=True,
             disaster=True
         )
         
@@ -340,8 +340,8 @@ def main():
                 print(f"Temperature: {result['temperature']}°C")
             if 'precipitation_prob' in result:
                 print(f"precipitation_prob: {result['precipitation_prob']}%")
-            if 'alerts' in result:
-                print(f"Alerts: {result['alerts']}")
+            if 'alert' in result:
+                print(f"Alert: {result['alert']}")
             if 'disaster' in result:
                 print(f"Disaster Info: {result['disaster']}")
         else:

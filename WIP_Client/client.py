@@ -110,7 +110,7 @@ class Client:
             print(f"Coordinates updated: ({latitude}, {longitude})")
     
     def get_weather(self, weather=True, temperature=True, precipitation_prob=True, 
-                   alerts=False, disaster=False, day=0):
+                   alert=False, disaster=False, day=0):
         """
         現在の状態（座標またはエリアコード）から天気情報を取得
         
@@ -118,7 +118,7 @@ class Client:
             weather (bool): 天気データを取得するか（デフォルト: True）
             temperature (bool): 気温データを取得するか（デフォルト: True）
             precipitation_prob (bool): 降水確率データを取得するか（デフォルト: True）
-            alerts (bool): 警報データを取得するか（デフォルト: False）
+            alert (bool): 警報データを取得するか（デフォルト: False）
             disaster (bool): 災害情報データを取得するか（デフォルト: False）
             day (int): 予報日（0: 今日, 1: 明日, ...）（デフォルト: 0）
             
@@ -136,7 +136,7 @@ class Client:
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
-                alerts=alerts,
+                alert=alert,
                 disaster=disaster,
                 day=day
             )
@@ -150,7 +150,7 @@ class Client:
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
-                alerts=alerts,
+                alert=alert,
                 disaster=disaster,
                 day=day
             )
@@ -165,7 +165,7 @@ class Client:
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
-                alerts=alerts,
+                alert=alert,
                 disaster=disaster,
                 day=day
             )

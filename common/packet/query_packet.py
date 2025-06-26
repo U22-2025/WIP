@@ -25,7 +25,7 @@ class QueryRequest(Request):
         weather: bool = True,
         temperature: bool = True,
         precipitation_prob: bool = True,
-        alerts: bool = False,
+        alert: bool = False,
         disaster: bool = False,
         day: int = 0,
         source: Optional[str] = None,
@@ -40,7 +40,7 @@ class QueryRequest(Request):
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
+            alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日
             source: 送信元情報（プロキシルーティング用）
@@ -77,7 +77,7 @@ class QueryRequest(Request):
             weather_flag=1 if weather else 0,
             temperature_flag=1 if temperature else 0,
             pop_flag=1 if precipitation_prob else 0,
-            alert_flag=1 if alerts else 0,
+            alert_flag=1 if alert else 0,
             disaster_flag=1 if disaster else 0,
             ex_flag=1 if ex_field else 0,
             day=day,
@@ -111,7 +111,7 @@ class QueryRequest(Request):
             weather=bool(location_response.weather_flag),
             temperature=bool(location_response.temperature_flag),
             precipitation_prob=bool(location_response.pop_flag),
-            alerts=bool(location_response.alert_flag),
+            alert=bool(location_response.alert_flag),
             disaster=bool(location_response.disaster_flag),
             day=location_response.day,
             source=final_source,
@@ -148,7 +148,7 @@ class QueryRequest(Request):
             weather=bool(weather_request.weather_flag),
             temperature=bool(weather_request.temperature_flag),
             precipitation_prob=bool(weather_request.pop_flag),
-            alerts=bool(weather_request.alert_flag),
+            alert=bool(weather_request.alert_flag),
             disaster=bool(weather_request.disaster_flag),
             day=weather_request.day,
             source=final_source,
@@ -181,7 +181,7 @@ class QueryRequest(Request):
         if self.pop_flag:
             types.append('precipitation_prob')
         if self.alert_flag:
-            types.append('alerts')
+            types.append('alert')
         if self.disaster_flag:
             types.append('disaster')
         return types
@@ -218,7 +218,7 @@ class QueryResponse(Response):
             ...     'weather': 100,
             ...     'temperature': 25,
             ...     'precipitation_prob': 30,
-            ...     'warnings': ['大雨警報'],
+            ...     'alert': ['大雨警報'],
             ...     'disaster_info': ['土砂災害警戒']
             ... }
             >>> response = QueryResponse.create_weather_data_response(
@@ -264,8 +264,8 @@ class QueryResponse(Response):
                     pop = int(pop_value) if pop_value else 0
             
             # 警報・災害情報を拡張フィールドに追加
-            if request.alert_flag and 'warnings' in weather_data:
-                ex_field['alert'] = weather_data['warnings']
+            if request.alert_flag and 'alert' in weather_data:
+                ex_field['alert'] = weather_data['alert']
             
             if request.disaster_flag and 'disaster_info' in weather_data:
                 ex_field['disaster'] = weather_data['disaster_info']
@@ -333,7 +333,7 @@ class QueryResponse(Response):
             return self.pop
         return None
     
-    def get_alerts(self) -> List[str]:
+    def get_alert(self) -> List[str]:
         """
         警報情報を取得
         
@@ -341,8 +341,8 @@ class QueryResponse(Response):
             警報情報のリスト
         """
         if self.alert_flag and hasattr(self, 'ex_field') and self.ex_field:
-            alerts = self.ex_field.get('alert', [])
-            return alerts if isinstance(alerts, list) else [alerts] if alerts else []
+            alert = self.ex_field.get('alert', [])
+            return alert if isinstance(alert, list) else [alert] if alert else []
         return []
     
     def get_disaster_info(self) -> List[str]:
@@ -381,9 +381,9 @@ class QueryResponse(Response):
             data['precipitation_prob'] = self.get_precipitation()
         
         # 拡張データ
-        alerts = self.get_alerts()
-        if alerts:
-            data['alerts'] = alerts
+        alert = self.get_alert()
+        if alert:
+            data['alert'] = alert
         
         disaster_info = self.get_disaster_info()
         if disaster_info:
@@ -414,7 +414,7 @@ class QueryResponse(Response):
             has_data = True
         if self.pop_flag and self.get_precipitation() is not None:
             has_data = True
-        if self.alert_flag and self.get_alerts():
+        if self.alert_flag and self.get_alert():
             has_data = True
         if self.disaster_flag and self.get_disaster_info():
             has_data = True
