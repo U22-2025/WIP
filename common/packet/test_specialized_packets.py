@@ -120,7 +120,7 @@ def test_query_packet():
         'temperature': 25,
         'precipitation_prob': 30,
         'warnings': ['大雨警報', '洪水注意報'],
-        'disaster_info': ['土砂災害警戒']
+        'disaster': ['土砂災害警戒']
     }
     
     query_resp = QueryResponse.create_weather_data_response(

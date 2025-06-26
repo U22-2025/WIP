@@ -9,13 +9,15 @@ import time
 print("Weather Client Example")
 print("=" * 50)
 
-# client = Client(area_code=460010, debug=True)
-client = Client( debug=True)
-
 # 例1: 座標から天気情報を取得
 print("\n1. Getting weather by coordinates (Tokyo)")
 print("-" * 30)
+
+# client = Client(area_code=460020, debug=True)
+
+client = Client( debug=True)
 client.set_coordinates(35.6895, 139.6917)
+
 result = client.get_weather(alert=True, disaster=True)
 
 if result:

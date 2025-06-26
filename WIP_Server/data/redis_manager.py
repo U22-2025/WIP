@@ -239,14 +239,14 @@ class WeatherRedisManager:
                     created_count += 1
 
                 # 災害情報を追加
-                new_data['disaster_info'] = disaster_info.get('disaster_info', [])
+                new_data['disaster'] = disaster_info.get('disaster', [])
 
                 if self.update_weather_data(area_code, new_data):
                     if self.debug:
                         if existing_data:
-                            print(f"災害更新成功: {area_code} - {len(new_data['disaster_info'])}件")
+                            print(f"災害更新成功: {area_code} - {len(new_data['disaster'])}件")
                         else:
-                            print(f"災害新規成功: {area_code} - {len(new_data['disaster_info'])}件")
+                            print(f"災害新規成功: {area_code} - {len(new_data['disaster'])}件")
                 else:
                     if self.debug:
                         print(f"災害更新失敗: {area_code}")

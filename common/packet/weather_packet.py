@@ -275,9 +275,9 @@ class WeatherResponse(Response):
         if alert:
             data['alert'] = alert
         
-        disaster_info = self.get_disaster_info()
-        if disaster_info:
-            data['disaster'] = disaster_info
+        disaster = self.get_disaster_info()
+        if disaster:
+            data['disaster'] = disaster
         
         return data
     

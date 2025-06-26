@@ -128,8 +128,10 @@ class WeatherDataManager:
                 result['warnings'] = weather_data['warnings']
             
             # 災害情報
-            if disaster_flag and 'disaster_info' in weather_data:
-                result['disaster_info'] = weather_data['disaster_info']
+            if disaster_flag:
+                disaster_data = weather_data.get('disaster') or weather_data.get('disaster_info')
+                if disaster_data:
+                    result['disaster'] = disaster_data
             
             if self.debug:
                 print(f"Extracted data: {result}")

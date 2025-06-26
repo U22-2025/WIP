@@ -243,8 +243,8 @@ class QueryServer(BaseServer):
                 response.ex_field.set('alert', warnings)
                 response.ex_flag = 1
             
-            if request.disaster_flag and 'disaster_info' in weather_data:
-                response.ex_field.set('disaster', weather_data['disaster_info'])
+            if request.disaster_flag and 'disaster' in weather_data:
+                response.ex_field.set('disaster', weather_data['disaster'])
                 response.ex_flag = 1
         else:
             # デフォルト値を設定

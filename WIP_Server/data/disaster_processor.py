@@ -602,7 +602,7 @@ class DisasterDataProcessor:
         for area_code, disaster_list in area_kind_mapping.items():
             # ユーザーの例の形式に合わせる
             final_output[area_code] = {
-                "disaster_info": disaster_list # 災害情報
+                "disaster": disaster_list # 災害情報
             }
             
         print(final_output)

@@ -106,8 +106,8 @@ class ResponseBuilder:
             response.ex_field.set('alert', weather_data['warnings'])
         
         # 災害情報
-        if request.disaster_flag and weather_data and 'disaster_info' in weather_data:
-            response.ex_field.set('disaster', weather_data['disaster_info'])
+        if request.disaster_flag and weather_data and 'disaster' in weather_data:
+            response.ex_field.set('disaster', weather_data['disaster'])
     
     def build_error_response(self, request, error_code, error_message):
         """

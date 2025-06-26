@@ -219,7 +219,7 @@ class QueryResponse(Response):
             ...     'temperature': 25,
             ...     'precipitation_prob': 30,
             ...     'alert': ['大雨警報'],
-            ...     'disaster_info': ['土砂災害警戒']
+            ...     'disaster': ['土砂災害警戒']
             ... }
             >>> response = QueryResponse.create_weather_data_response(
             ...     request=query_request,
@@ -267,8 +267,8 @@ class QueryResponse(Response):
             if request.alert_flag and 'alert' in weather_data:
                 ex_field['alert'] = weather_data['alert']
             
-            if request.disaster_flag and 'disaster_info' in weather_data:
-                ex_field['disaster'] = weather_data['disaster_info']
+            if request.disaster_flag and 'disaster' in weather_data:
+                ex_field['disaster'] = weather_data['disaster']
         
         return cls(
             version=version,
