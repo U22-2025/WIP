@@ -21,10 +21,15 @@ class BaseServer(ABC):
         
         Args:
             host: サーバーホスト
-            port: サーバーポート
+            port: サーバーポート (1-65535の範囲)
             debug: デバッグモードフラグ
             max_workers: スレッドプールのワーカー数（Noneの場合はCPU数*2）
+        
+        Raises:
+            ValueError: ポート番号が無効な場合
         """
+        if not (1 <= port <= 65535):
+            raise ValueError(f"Invalid port number: {port}. Must be between 1-65535")
         # 環境変数を読み込む
         load_dotenv()
         
@@ -166,15 +171,16 @@ class BaseServer(ABC):
             addr: 送信元アドレス
         """
         try:
-            # ソースIP取得（送信元アドレスから）
+            # ソース情報取得（送信元アドレスから）
             source_ip = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
+            source_port = addr[1] if isinstance(addr, tuple) else 0
             
             # ErrorResponseパケットの生成
             from common.packet.error_response import ErrorResponse
             err_pkt = ErrorResponse()
             err_pkt.packet_id = original_packet.packet_id
             err_pkt.error_code = error_code
-            err_pkt.ex_field.set('source_ip', source_ip)
+            err_pkt.ex_field.set('source', (source_ip, source_port))
             
             # パケットをシリアライズ
             response_data = err_pkt.serialize()
