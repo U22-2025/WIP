@@ -102,7 +102,7 @@ class LocationServer(BaseServer):
         self._init_cache(max_cache_size)
         
         # Weather server configuration
-        self.weather_server_ip = "127.0.0.1"  # Default to localhost
+        self.weather_host = "127.0.0.1"  # Default to localhost
         
         if self.debug:
             print(f"\n[位置情報サーバー] 設定:")
@@ -319,7 +319,7 @@ class LocationServer(BaseServer):
         except:
             pass
         
-        print(f"Weather Server IP: {self.weather_server_ip}")
+        print(f"Weather Server IP: {self.weather_host}")
         print("\nRaw Packet:")
         print(self._hex_dump(response))
         print("============================\n")

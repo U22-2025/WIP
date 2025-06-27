@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import os
 from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
+import traceback
 
 PIDG = PacketIDGenerator12Bit()
 load_dotenv()
@@ -153,9 +154,8 @@ class LocationClient:
             return response, total_time
 
         except Exception as e:
-            print(f"Error communicating with location resolver: {e}")
+            print(f"800: Error communicating with location resolver: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
             return None, 0
 
@@ -174,6 +174,7 @@ class LocationClient:
         response, _ = self.get_location_info(latitude, longitude, source)
         if response and response.is_valid():
             return response.get_area_code()
+        print("800: 800: Error communicating with location resolver")
         return None
 
     def close(self):

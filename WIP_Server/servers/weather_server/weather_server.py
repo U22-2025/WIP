@@ -9,6 +9,7 @@ import os
 import threading
 from datetime import datetime
 from pathlib import Path
+import traceback
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -47,7 +48,14 @@ class WeatherServer(BaseServer):
         """
         # 設定ファイルを読み込む
         config_path = Path(__file__).parent / 'config.ini'
-        self.config = ConfigLoader(config_path)
+        try:
+            self.config = ConfigLoader(config_path)
+        except Exception as e:
+            error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+            raise RuntimeError(f"設定ファイル読み込みエラー: {str(e)}")
         
         # サーバー設定を取得（引数優先、なければ設定ファイル、なければデフォルト）
         if host is None:
@@ -94,16 +102,31 @@ class WeatherServer(BaseServer):
             print(f"  キャッシュ機能が有効化されました")
         
         # クライアントの初期化（改良版）
-        self.location_client = LocationClient(
-            host=self.location_resolver_host,
-            port=self.location_resolver_port,
-            debug=self.debug
-        )
-        self.query_client = QueryClient(
-            host=self.query_generator_host,
-            port=self.query_generator_port,
-            debug=self.debug
-        )
+        try:
+            self.location_client = LocationClient(
+                host=self.location_resolver_host,
+                port=self.location_resolver_port,
+                debug=self.debug
+            )
+        except Exception as e:
+            error_msg = f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}"
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+            raise RuntimeError(f"ロケーションクライアント初期化エラー: {str(e)}")
+
+        try:
+            self.query_client = QueryClient(
+                host=self.query_generator_host,
+                port=self.query_generator_port,
+                debug=self.debug
+            )
+        except Exception as e:
+            error_msg = f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}"
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+            raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
         
     def handle_request(self, data, addr):
         """
@@ -117,13 +140,18 @@ class WeatherServer(BaseServer):
         start_time = time.time()
         
         if self.debug:
-            print(f"\n[天気サーバー] {addr} から {len(data)} バイトを受信しました")
-            print(f"生データ（最初の20バイト）: {' '.join(f'{b:02x}' for b in data[:min(20, len(data))])}")
-        
+                print(f"\n[天気サーバー] {addr} から {len(data)} バイトを受信しました")
+                print(f"生データ（最初の20バイト）: {' '.join(f'{b:02x}' for b in data[:min(20, len(data))])}")
         try:
             # リクエストカウントを増加（スレッドセーフ）
-            with self.lock:
-                self.request_count += 1
+            try:
+                with self.lock:
+                    self.request_count += 1
+            except Exception as e:
+                error_msg = f"リクエストカウントの更新に失敗しました - {str(e)}"
+                if self.debug:
+                    traceback.print_exc()
+                raise RuntimeError(f"755: レート制限超過: {str(e)}")
             
             # リクエストをパース（専用パケットクラス使用）
             try:
@@ -135,9 +163,8 @@ class WeatherServer(BaseServer):
                         summary = request.get_request_summary()
                         print(f"[天気サーバー] リクエスト概要: {summary}")
             except Exception as e:
-                print(f"[天気サーバー] リクエストのパース中にエラーが発生しました: {e}")
+                print(f"701: [天気サーバー] リクエストのパース中にエラーが発生しました: {e}")
                 if self.debug:
-                    import traceback
                     traceback.print_exc()
                 return
             
@@ -145,14 +172,14 @@ class WeatherServer(BaseServer):
             self._debug_print_request(data, request)
             
             # リクエストの妥当性をチェック
-            is_valid, error_msg = self.validate_request(request)
+            is_valid, error_code, error_msg = self.validate_request(request)
             if not is_valid:
                 # type0でclientに返す
                 self._handle_bad_response(request, addr)
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
-                    print(f"[{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
+                    print(f"7{error_code}: [{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
                 return
             
             # パケットタイプによる分岐処理（専用クラス対応）
@@ -175,7 +202,7 @@ class WeatherServer(BaseServer):
                 self._handle_error_packet(request, addr)
             else:
                 if self.debug:
-                    print(f"不明なパケットタイプ: {request.type}")
+                    print(f"703: 不明なパケットタイプ: {request.type}")
                     
             # タイミング情報を出力
             timing_info['total'] = time.time() - start_time
@@ -185,9 +212,8 @@ class WeatherServer(BaseServer):
         except Exception as e:
             with self.lock:
                 self.error_count += 1
-            print(f"[{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
+            print(f"708: [{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
     
     def _handle_location_request(self, request, addr):
@@ -226,12 +252,19 @@ class WeatherServer(BaseServer):
                 print(f"  パケットサイズ: {len(packet_data)} バイト")
                 
             # メインソケットを使用して送信
-            bytes_sent = self.send_udp_packet(packet_data, self.location_resolver_host, self.location_resolver_port)
+            try:
+                bytes_sent = self.send_udp_packet(packet_data, self.location_resolver_host, self.location_resolver_port)
+                if bytes_sent != len(packet_data):
+                    raise RuntimeError(f"006: 送信バイト数不一致 (expected: {len(packet_data)}, sent: {bytes_sent})")
+            except Exception as e:
+                # error_msg = f"ロケーションリクエストの転送に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}"
+                if self.debug:
+                    traceback.print_exc()
+                raise RuntimeError(f"007: パケット転送エラー: {str(e)}")
             
         except Exception as e:
-            print(f"[天気サーバー] 位置情報リクエストの処理中にエラーが発生しました: {e}")
+            print(f"008: [天気サーバー] 位置情報リクエストの処理中にエラーが発生しました: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
     
     def _handle_location_response(self, data, addr):
@@ -260,11 +293,12 @@ class WeatherServer(BaseServer):
                 
             # メインソケットを使用して送信
             bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
+            if bytes_sent != len(packet_data):
+                raise RuntimeError(f"106: 送信バイト数不一致 (expected: {len(packet_data)}, sent: {bytes_sent})")
             
         except Exception as e:
-            print(f"[天気サーバー] 位置情報レスポンスの処理中にエラーが発生しました: {e}")
+            print(f"107: [天気サーバー] 位置情報レスポンスの処理中にエラーが発生しました: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
     
     def _handle_weather_request(self, request, addr):
@@ -285,7 +319,13 @@ class WeatherServer(BaseServer):
             cache_key = f"{request.area_code}_{request.day}"
             
             # キャッシュチェック
-            cached_data = self.cache.get(cache_key)
+            try:
+                cached_data = self.cache.get(cache_key)
+            except Exception as e:
+                error_msg = f"キャッシュからのデータ取得に失敗しました: {cache_key} - {str(e)}"
+                if self.debug:
+                    traceback.print_exc()
+                raise RuntimeError(f"{error_msg}")
             if cached_data:
                 # キャッシュの有効期限を確認
                 cache_expiration = timedelta(seconds=self.cache_ttl)
@@ -295,7 +335,13 @@ class WeatherServer(BaseServer):
                     if self.debug:
                         print(f"  キャッシュ有効期限切れ: {cache_key} (age: {cache_age}, expiration: {cache_expiration})")
                     # 古いキャッシュを削除
-                    self.cache.delete(cache_key)
+                    try:
+                        self.cache.delete(cache_key)
+                    except Exception as e:
+                        error_msg = f"古いキャッシュの削除に失敗しました: {cache_key} - {str(e)}"
+                        if self.debug:
+                            traceback.print_exc()
+                        raise RuntimeError(f"{error_msg}")
                     cached_data = None
                 else:
                     try:
@@ -370,12 +416,19 @@ class WeatherServer(BaseServer):
                 print(f"  パケットサイズ: {len(packet_data)} バイト")
                 
             # メインソケットを使用して送信
-            bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
+            try:
+                bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
+                if bytes_sent != len(packet_data):
+                    raise RuntimeError(f"206: 送信バイト数不一致 (expected: {len(packet_data)}, sent: {bytes_sent})")
+            except Exception as e:
+                error_msg = f"クエリリクエストの転送に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}"
+                if self.debug:
+                    traceback.print_exc()
+                raise RuntimeError(f"207: パケット転送エラー: {str(e)}")
             
         except Exception as e:
-            print(f"[天気サーバー] 天気リクエストの処理中にエラーが発生しました: {e}")
+            print(f"207: [天気サーバー] 天気リクエストの処理中にエラーが発生しました: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
     
     def _handle_weather_response(self, data, addr):
@@ -412,7 +465,14 @@ class WeatherServer(BaseServer):
                     }
                     
                     # キャッシュに保存（TTLはデフォルトの30分）
-                    self.cache.set(cache_key, cache_data, timedelta(seconds=self.cache_ttl))
+                    try:
+                        self.cache.set(cache_key, cache_data, timedelta(seconds=self.cache_ttl))
+                    except Exception as e:
+                        error_msg = f"キャッシュへのデータ保存に失敗しました: {cache_key} - {str(e)}"
+                        if self.debug:
+                            import traceback
+                            traceback.print_exc()
+                        raise RuntimeError(error_msg)
                     
                     if self.debug:
                         print(f"  キャッシュを更新しました: {cache_key}")
@@ -464,25 +524,32 @@ class WeatherServer(BaseServer):
                     final_data = weather_response.to_bytes()
                     
                     # 元のクライアントに送信
-                    bytes_sent = self.sock.sendto(final_data, dest_addr)
+                    try:
+                        bytes_sent = self.sock.sendto(final_data, dest_addr)
+                        if bytes_sent != len(final_data):
+                            raise RuntimeError(f"306: 送信バイト数不一致 (expected: {len(final_data)}, sent: {bytes_sent})")
+                    except Exception as e:
+                        error_msg = f"クライアントへのレスポンス転送に失敗しました: {dest_addr} - {str(e)}"
+                        if self.debug:
+                            traceback.print_exc()
+                        raise RuntimeError(f"307: パケット転送エラー: {str(e)}")
                     
                     if self.debug:
                         print(f"  クライアントに {bytes_sent} バイトを送信しました")
                 except Exception as conv_e:
-                    print(f"[天気サーバー] レスポンス変換エラー: {conv_e}")
+                    print(f"308: [天気サーバー] レスポンス変換エラー: {conv_e}")
                     if self.debug:
-                        import traceback
                         traceback.print_exc()
             else:
-                print("[天気サーバー] エラー: 天気レスポンスに送信元情報がありません")
+                print("307: [天気サーバー] エラー: 天気レスポンスに送信元情報がありません")
                 if self.debug and hasattr(response, 'ex_field'):
                     print(f"  ex_field の内容: {response.ex_field.to_dict()}")
                 
         except Exception as e:
-            print(f"[天気サーバー] 天気レスポンスの処理中にエラーが発生しました: {e}")
+            print(f"309: [天気サーバー] 天気レスポンスの処理中にエラーが発生しました: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
+
     def _handle_error_packet(self, request, addr):
         """エラーパケットの処理（Type 7）"""
         try:
@@ -573,20 +640,20 @@ class WeatherServer(BaseServer):
             tuple: (is_valid, error_message)
         """
         if request.version != self.version:
-            return False, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, "02", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック（0-3が有効）
         if request.type not in [0, 1, 2, 3]:
-            return False, f"不正なパケットタイプ: {request.type}"
+            return False, "03", f"不正なパケットタイプ: {request.type}"
         
         # エリアコードのチェック
         if request.type != 0 and (not request.area_code or request.area_code == "000000"): 
-            return False, "エリアコードが未設定"
+            return False, "04", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
         if hasattr(request, 'is_valid') and callable(getattr(request, 'is_valid')):
             if not request.is_valid():
-                return False, "専用クラスのバリデーションに失敗"
+                return False, "05", "専用クラスのバリデーションに失敗"
         
         return True, None
     

@@ -210,7 +210,7 @@ python WIP_Server/main.py
 ```python
 from client import WeatherClient
 
-client = WeatherClient(server_ip="127.0.0.1")
+client = WeatherClient(host="127.0.0.1")
 response = client.get_weather(
     latitude=35.6895,
     longitude=139.6917,
