@@ -10,7 +10,7 @@ import concurrent.futures
 import os
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
-
+import traceback
 
 class BaseServer(ABC):
     """UDPサーバーの基底クラス"""
@@ -154,7 +154,7 @@ class BaseServer(ABC):
         Returns:
             tuple: (is_valid, error_message)
         """
-        return True, None
+        return True, None, None
     
     def _handle_error(self, error_code, original_packet, addr):
         """
@@ -188,7 +188,6 @@ class BaseServer(ABC):
         except Exception as e:
             print(f"[{threading.current_thread().name}] Failed to send error response: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
 
     def handle_request(self, data, addr):
@@ -252,7 +251,6 @@ class BaseServer(ABC):
                 self.error_count += 1
             print(f"[{threading.current_thread().name}] Error processing request from {addr}: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
             
             # エラーが発生した場合、元のリクエストをパースできているかどうかで処理を分ける
@@ -313,7 +311,6 @@ class BaseServer(ABC):
         except Exception as e:
             print(f"[{self.server_name}] Error sending packet to {host}:{port}: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
             raise
     

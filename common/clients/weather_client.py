@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import WeatherRequest, WeatherResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
-
+import traceback
 PIDG = PacketIDGenerator12Bit()
 
 
@@ -194,16 +194,15 @@ class WeatherClient:
                 return result
             else:
                 if self.debug:
-                    print("Response indicates failure")
+                    print("420: クライアントエラー: クエリサーバが見つからない")
                 return None
             
         except socket.timeout:
-            print("Timeout waiting for response")
+            print("421: クライアントエラー: クエリサーバ接続タイムアウト")
             return None
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
             return None
         
@@ -266,16 +265,15 @@ class WeatherClient:
                 return result
             else:
                 if self.debug:
-                    print("Response indicates failure")
+                    print("420: クライアントエラー: クエリサーバが見つからない")
                 return None
             
         except socket.timeout:
-            print("Timeout waiting for response")
+            print("421: クライアントエラー:  クエリサーバ接続タイムアウト")
             return None
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
             return None
         

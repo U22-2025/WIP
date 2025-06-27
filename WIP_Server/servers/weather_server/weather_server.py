@@ -53,7 +53,6 @@ class WeatherServer(BaseServer):
         except Exception as e:
             error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
             if self.debug:
-                import traceback
                 traceback.print_exc()
             raise RuntimeError(f"設定ファイル読み込みエラー: {str(e)}")
         
@@ -111,7 +110,6 @@ class WeatherServer(BaseServer):
         except Exception as e:
             error_msg = f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}"
             if self.debug:
-                import traceback
                 traceback.print_exc()
             raise RuntimeError(f"ロケーションクライアント初期化エラー: {str(e)}")
 
@@ -124,7 +122,6 @@ class WeatherServer(BaseServer):
         except Exception as e:
             error_msg = f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}"
             if self.debug:
-                import traceback
                 traceback.print_exc()
             raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
         
@@ -179,7 +176,7 @@ class WeatherServer(BaseServer):
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
-                    print(f"7{error_code}: [{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
+                    print(f"{error_code}: [{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
                 return
             
             # パケットタイプによる分岐処理（専用クラス対応）
@@ -255,12 +252,12 @@ class WeatherServer(BaseServer):
             try:
                 bytes_sent = self.send_udp_packet(packet_data, self.location_resolver_host, self.location_resolver_port)
                 if bytes_sent != len(packet_data):
-                    raise RuntimeError(f"006: 送信バイト数不一致 (expected: {len(packet_data)}, sent: {bytes_sent})")
+                    raise RuntimeError(f"404: 不正なパケット長 (expected: {len(packet_data)}, sent: {bytes_sent})")
             except Exception as e:
                 # error_msg = f"ロケーションリクエストの転送に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}"
                 if self.debug:
                     traceback.print_exc()
-                raise RuntimeError(f"007: パケット転送エラー: {str(e)}")
+                raise RuntimeError(f"410: サーバエラー: 座標解決サーバが見つからない: {str(e)}")
             
         except Exception as e:
             print(f"008: [天気サーバー] 位置情報リクエストの処理中にエラーが発生しました: {e}")
@@ -294,7 +291,7 @@ class WeatherServer(BaseServer):
             # メインソケットを使用して送信
             bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
             if bytes_sent != len(packet_data):
-                raise RuntimeError(f"106: 送信バイト数不一致 (expected: {len(packet_data)}, sent: {bytes_sent})")
+                raise RuntimeError(f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})")
             
         except Exception as e:
             print(f"107: [天気サーバー] 位置情報レスポンスの処理中にエラーが発生しました: {e}")
@@ -419,15 +416,15 @@ class WeatherServer(BaseServer):
             try:
                 bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
                 if bytes_sent != len(packet_data):
-                    raise RuntimeError(f"206: 送信バイト数不一致 (expected: {len(packet_data)}, sent: {bytes_sent})")
+                    raise RuntimeError(f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})")
             except Exception as e:
                 error_msg = f"クエリリクエストの転送に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}"
                 if self.debug:
                     traceback.print_exc()
-                raise RuntimeError(f"207: パケット転送エラー: {str(e)}")
+                raise RuntimeError(f"420: クエリサーバが見つからない: {str(e)}")
             
         except Exception as e:
-            print(f"207: [天気サーバー] 天気リクエストの処理中にエラーが発生しました: {e}")
+            print(f"420: クエリサーバが見つからない: {e}")
             if self.debug:
                 traceback.print_exc()
     
@@ -470,7 +467,6 @@ class WeatherServer(BaseServer):
                     except Exception as e:
                         error_msg = f"キャッシュへのデータ保存に失敗しました: {cache_key} - {str(e)}"
                         if self.debug:
-                            import traceback
                             traceback.print_exc()
                         raise RuntimeError(error_msg)
                     
@@ -527,26 +523,26 @@ class WeatherServer(BaseServer):
                     try:
                         bytes_sent = self.sock.sendto(final_data, dest_addr)
                         if bytes_sent != len(final_data):
-                            raise RuntimeError(f"306: 送信バイト数不一致 (expected: {len(final_data)}, sent: {bytes_sent})")
+                            raise RuntimeError(f"404: パケット長エラー: (expected: {len(final_data)}, sent: {bytes_sent})")
                     except Exception as e:
                         error_msg = f"クライアントへのレスポンス転送に失敗しました: {dest_addr} - {str(e)}"
                         if self.debug:
                             traceback.print_exc()
-                        raise RuntimeError(f"307: パケット転送エラー: {str(e)}")
+                        raise RuntimeError(f"530: 気象サーバでの処理エラー: クライアントへの転送に失敗 {str(e)}")
                     
                     if self.debug:
                         print(f"  クライアントに {bytes_sent} バイトを送信しました")
                 except Exception as conv_e:
-                    print(f"308: [天気サーバー] レスポンス変換エラー: {conv_e}")
+                    print(f"530: 気象サーバでの処理エラー: {conv_e}")
                     if self.debug:
                         traceback.print_exc()
             else:
-                print("307: [天気サーバー] エラー: 天気レスポンスに送信元情報がありません")
+                print("530: 気象サーバでの処理エラー: 天気レスポンスに送信元情報がありません")
                 if self.debug and hasattr(response, 'ex_field'):
                     print(f"  ex_field の内容: {response.ex_field.to_dict()}")
                 
         except Exception as e:
-            print(f"309: [天気サーバー] 天気レスポンスの処理中にエラーが発生しました: {e}")
+            print(f"708: [天気サーバー] 基本エラー: リクエスト処理失敗: {e}")
             if self.debug:
                 traceback.print_exc()
 
@@ -577,7 +573,6 @@ class WeatherServer(BaseServer):
         except Exception as e:
             print(f"[天気サーバー] エラーパケット処理中にエラーが発生しました: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
     
     
@@ -640,22 +635,22 @@ class WeatherServer(BaseServer):
             tuple: (is_valid, error_message)
         """
         if request.version != self.version:
-            return False, "02", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, "400", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック（0-3が有効）
         if request.type not in [0, 1, 2, 3]:
-            return False, "03", f"不正なパケットタイプ: {request.type}"
+            return False, "403", f"不正なパケットタイプ: {request.type}"
         
         # エリアコードのチェック
         if request.type != 0 and (not request.area_code or request.area_code == "000000"): 
-            return False, "04", "エリアコードが未設定"
+            return False, "402", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
         if hasattr(request, 'is_valid') and callable(getattr(request, 'is_valid')):
             if not request.is_valid():
-                return False, "05", "専用クラスのバリデーションに失敗"
+                return False, "403", "専用クラスのバリデーションに失敗"
         
-        return True, None
+        return True, None, None
     
     def _debug_print_request(self, data, parsed):
         """リクエストのデバッグ情報を出力（改良版・専用クラス対応）"""
