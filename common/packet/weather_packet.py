@@ -293,9 +293,10 @@ class WeatherResponse(Response):
         if disaster:
             data['disaster'] = disaster
 
-        # 座標データを追加
-        lat, long = self.get_coordinates()
-        if lat and long:
+        # 座標データを追加 (Noneの場合はフィールドを追加しない)
+        coordinates = self.get_coordinates()
+        if coordinates:
+            lat, long = coordinates
             data['latitude'] = lat
             data['longitude'] = long
         

@@ -161,7 +161,7 @@ class WeatherServer(BaseServer):
             is_valid, error_code, error_msg = self.validate_request(request)
             if not is_valid:
                 # type0でclientに返す
-                self._handle_bad_response(request, addr)
+                self._handle_bad_response(request, addr, error_code, error_msg)
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
@@ -260,7 +260,7 @@ class WeatherServer(BaseServer):
         
         return True
 
-    def _create_response_from_cache(self, cached_data, packet_id, area_code, day, flags):
+    def _create_response_from_cache(self, cached_data, packet_id, area_code, day, flags, lat, long):
         """キャッシュデータからWeatherResponseを生成"""
 
         weather_response = WeatherResponse(
@@ -294,6 +294,10 @@ class WeatherServer(BaseServer):
                     filtered_ex_field["alert"] = ex_data["alert"]
                 if weather_response.disaster_flag and "disaster" in ex_data:
                     filtered_ex_field["disaster"] = ex_data["disaster"]
+                if lat is not None:
+                    filtered_ex_field['latitude'] = lat
+                if long is not None:
+                    filtered_ex_field['longitude'] = long
                 weather_response.ex_field = filtered_ex_field
 
         return weather_response
@@ -341,17 +345,10 @@ class WeatherServer(BaseServer):
                         response.packet_id,
                         response.area_code,
                         response.day,
-                        flags
+                        flags,
+                        lat if not None else None,
+                        long if not None else None
                     )
-
-                    # 含まれていれば座標をセット
-                    lat, long = response.get_coordinates()
-                    if lat and long:
-                        if not hasattr(weather_response, 'ex_field'):
-                            from common.packet.extended_field import ExtendedField
-                            weather_response.ex_field = ExtendedField()
-                        weather_response.ex_field.set('latitude', lat)
-                        weather_response.ex_field.set('longitude', long)
 
                     if self.debug:
                         print(f"  WeatherResponse生成完了")
