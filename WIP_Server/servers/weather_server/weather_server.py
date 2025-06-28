@@ -215,7 +215,7 @@ class WeatherServer(BaseServer):
             cache_expiration_for_area = timedelta(seconds=self.cache_ttl_area)
             
             if cached_data and (datetime.now() - cached_data["timestamp"]) < cache_expiration_for_area:
-                print("キャッシュヒット！")
+                print("キャッシュヒット！\nweather_requestを作成します。")
                 try:
                     # キャッシュからWeatherRequestを生成
                     weather_request = WeatherRequest(
@@ -231,7 +231,7 @@ class WeatherServer(BaseServer):
                         alert_flag=False,
                         disaster_flag=False,
                         ex_flag=1,
-                        source=source_info
+                        ex_field={'source': source_info}
                     )
                     
                     # _handle_weather_requestに処理を移譲

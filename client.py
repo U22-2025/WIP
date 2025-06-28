@@ -2,6 +2,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# コマンドライン引数解析
+use_coordinates = "--coord" in sys.argv
+
 from WIP_Client import Client
 import time
 
@@ -13,10 +16,11 @@ print("=" * 50)
 print("\n1. Getting weather by coordinates (Tokyo)")
 print("-" * 30)
 
-client = Client(area_code=460020, debug=True)
-
-# client = Client( debug=True)
-# client.set_coordinates(35.6895, 139.6917)
+if use_coordinates:
+    client = Client(debug=True)
+    client.set_coordinates(35.6895, 139.6917)
+else:
+    client = Client(area_code=460020, debug=True)
 
 result = client.get_weather(alert=True, disaster=True)
 

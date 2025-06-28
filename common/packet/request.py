@@ -52,21 +52,33 @@ class Request(FormatBase):
         
         Args:
             ex_field: 拡張フィールド（辞書またはExtendedFieldオブジェクト）
-            **kwargs: 基本フィールドのパラメータ
+            **kwargs: 基本フィールドのパラメータと拡張フィールドのパラメータ
             
         Raises:
             BitFieldError: フィールド値が不正な場合
         """
+        # 拡張フィールド用のパラメータを抽出
+        ex_field_params = {}
+        base_kwargs = {}
+        for key, value in kwargs.items():
+            if key in ['source', 'alert', 'disaster', 'latitude', 'longitude']:
+                ex_field_params[key] = value
+            else:
+                base_kwargs[key] = value
+        
         # 拡張フィールドの初期化
         if isinstance(ex_field, dict):
-            self._ex_field = ExtendedField(ex_field)
+            ex_field_params.update(ex_field)
+            self._ex_field = ExtendedField(ex_field_params)
         elif isinstance(ex_field, ExtendedField):
             self._ex_field = ex_field
+            for key, value in ex_field_params.items():
+                self._ex_field[key] = value
         else:
-            self._ex_field = ExtendedField()
+            self._ex_field = ExtendedField(ex_field_params)
         
         # 親クラスの初期化
-        super().__init__(**kwargs)
+        super().__init__(**base_kwargs)
         
         # 拡張フィールドの変更を監視してチェックサムを再計算
         self._ex_field.add_observer(self._on_ex_field_changed)
