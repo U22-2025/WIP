@@ -171,11 +171,11 @@ class LocationServer(BaseServer):
         """
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
-            return False, "403", "不正なパケット"
+            return False, "400", "不正なパケット"
         
         # 緯度経度が必要
         if not hasattr(request, 'ex_field') or not request.ex_field:
-            return False, "403", "不正なパケット"
+            return False, "400", "不正なパケット"
         
         # ExtendedFieldオブジェクトのgetメソッドを使用
         latitude = request.ex_field.get("latitude")

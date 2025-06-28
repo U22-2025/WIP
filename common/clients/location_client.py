@@ -157,7 +157,7 @@ class LocationClient:
                 traceback.print_exc()
             return None, 0
         except (ValueError, struct.error) as e:
-            print(f"403: クライアントエラー: 不正なパケット: {e}")
+            print(f"400: クライアントエラー: 不正なパケット: {e}")
             if self.debug:
                 traceback.print_exc()
             return None, 0
@@ -182,7 +182,7 @@ class LocationClient:
         response, _ = self.get_location_info(latitude, longitude, source)
         if response and response.is_valid():
             return response.get_area_code()
-        print("403: クライアントエラー: 不正なパケット")
+        print("400: クライアントエラー: 不正なパケット")
         return None
 
     def close(self):
@@ -223,7 +223,7 @@ def main():
             print(f"Area Code (convenience method): {area_code}")
             
         else:
-            print("403: クライアントエラー: 不正なパケット")
+            print("400: クライアントエラー: 不正なパケット")
             if response:
                 print(f"Response valid: {response.is_valid()}")
                 

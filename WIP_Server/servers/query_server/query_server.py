@@ -129,11 +129,11 @@ class QueryServer(BaseServer):
         """
         # バージョンのチェック
         if request.version != self.version:
-            return False, "400", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック
         if request.type != 2:
-            return False, "403", f"不正なパケットタイプ: {request.type}"
+            return False, "400", f"不正なパケットタイプ: {request.type}"
         
         # 地域コードのチェック
         if not request.area_code or request.area_code == "000000":
@@ -142,7 +142,7 @@ class QueryServer(BaseServer):
         # フラグのチェック（少なくとも1つは必要）
         if not any([request.weather_flag, request.temperature_flag, 
                    request.pop_flag, request.alert_flag, request.disaster_flag]):
-            return False, "403", "不正なパケット"
+            return False, "400", "不正なパケット"
         
         return True, None, None
     

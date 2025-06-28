@@ -214,12 +214,12 @@ class BaseServer(ABC):
             self._debug_print_request(data, request)
             
             # リクエストの妥当性をチェック
-            is_valid, error_msg = self.validate_request(request)
+            is_valid, error_code,error_msg = self.validate_request(request)
             if not is_valid:
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
-                    print(f"[{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
+                    print(f"{error_code}: [{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
                 # バリデーションエラーの場合はエラーパケットを送信
                 self._handle_error(0x0001, request, addr)  # 0x0001は無効なパケット形式エラー
                 return
