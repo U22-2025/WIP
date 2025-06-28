@@ -169,7 +169,7 @@ class WeatherRequest(Request):
             summary['area_code'] = self.area_code
         
         return summary
-
+    
 
 class WeatherResponse(Response):
     """
@@ -205,6 +205,7 @@ class WeatherResponse(Response):
         if self.weather_flag and hasattr(self, 'weather_code'):
             return self.weather_code
         return None
+    
     
     def get_precipitation_prob(self) -> Optional[int]:
         """
@@ -247,7 +248,7 @@ class WeatherResponse(Response):
         
         Returns:
             天気データの辞書
-            
+             
         Examples:
             >>> response = WeatherResponse.from_bytes(data)
             >>> data = response.get_weather_data()
@@ -278,6 +279,13 @@ class WeatherResponse(Response):
         disaster = self.get_disaster_info()
         if disaster:
             data['disaster'] = disaster
+
+        # 座標データを追加 (Noneの場合はフィールドを追加しない)
+        coordinates = self.get_coordinates()
+        if coordinates:
+            lat, long = coordinates
+            data['latitude'] = lat
+            data['longitude'] = long
         
         return data
     

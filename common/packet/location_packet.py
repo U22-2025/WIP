@@ -127,19 +127,6 @@ class LocationRequest(Request):
             version=weather_request.version
         )
     
-    def get_coordinates(self) -> Optional[tuple[float, float]]:
-        """
-        座標を取得
-        
-        Returns:
-            (latitude, longitude) のタプルまたはNone
-        """
-        if self.ex_field:
-            lat = self.ex_field.latitude
-            lon = self.ex_field.longitude
-            if lat is not None and lon is not None:
-                return (lat, lon)
-        return None
     
     def get_source_info(self) -> Optional[str]:
         """
@@ -188,8 +175,13 @@ class LocationResponse(Response):
         # 拡張フィールドの準備（sourceのみ引き継ぐ）
         ex_field = {}
         source = request.get_source_info()
+        latitude, longitude = request.get_coordinates()
         if source:
             ex_field["source"] = source
+        if latitude:
+            ex_field['latitude'] = latitude
+        if longitude:
+            ex_field['longitude'] = longitude
         
         return cls(
             version=version,
@@ -227,6 +219,7 @@ class LocationResponse(Response):
             return self.ex_field.source
         return None
     
+    
     def get_preserved_flags(self) -> Dict[str, int]:
         """
         保持されたフラグ情報を取得
@@ -245,7 +238,7 @@ class LocationResponse(Response):
     def to_weather_request(self, request_type: int = 2) -> Request:
         """
         このLocationResponseからWeatherRequest（Type 2）を生成
-        
+
         Args:
             request_type: リクエストタイプ（通常は2）
             
@@ -257,6 +250,12 @@ class LocationResponse(Response):
         source = self.get_source_info()
         if source:
             ex_field["source"] = source
+        
+        # 座標情報を確実に引き継ぐ
+        coordinates = self.get_coordinates()
+        if coordinates:
+            ex_field["latitude"] = coordinates[0]
+            ex_field["longitude"] = coordinates[1]
         
         return Request(
             version=self.version,

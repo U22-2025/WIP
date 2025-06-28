@@ -35,6 +35,18 @@ class Response(FormatBase):
         - longitude: 経度 (数値)
         - source: 送信元情報 (文字列)
     """
+
+    def get_coordinates(self) -> Optional[tuple[float, float]]:
+        """
+        拡張フィールドから緯度経度を取得する
+        
+        Returns:
+            緯度経度のタプル (latitude, longitude)、存在しない場合はNone
+        """
+        ex_dict = self.ex_field.to_dict()
+        if 'latitude' in ex_dict and 'longitude' in ex_dict:
+            return (float(ex_dict['latitude']), float(ex_dict['longitude']))
+        return None
     
     # 固定長拡張フィールドの長さ定義
     FIXED_FIELD_LENGTH = {

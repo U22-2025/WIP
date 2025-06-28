@@ -6,11 +6,11 @@
 import psycopg2
 from psycopg2 import pool
 import time
-from collections import OrderedDict
 import sys
 import os
 from pathlib import Path
 from datetime import datetime
+from common.utils.cache import Cache
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -21,29 +21,6 @@ if __name__ == "__main__":
 from ..base_server import BaseServer
 from common.packet import Request, Response, BitFieldError
 from common.utils.config_loader import ConfigLoader
-
-
-class LRUCache:
-    """LRU（Least Recently Used）キャッシュの実装"""
-    
-    def __init__(self, maxsize=1000):
-        self.cache = OrderedDict()
-        self.maxsize = maxsize
-
-    def __getitem__(self, key):
-        value = self.cache.pop(key)
-        self.cache[key] = value  # Move to end (most recently used)
-        return value
-
-    def __setitem__(self, key, value):
-        if key in self.cache:
-            self.cache.pop(key)
-        elif len(self.cache) >= self.maxsize:
-            self.cache.popitem(last=False)  # Remove least recently used
-        self.cache[key] = value
-
-    def __contains__(self, key):
-        return key in self.cache
 
 
 class LocationServer(BaseServer):
@@ -143,9 +120,9 @@ class LocationServer(BaseServer):
     
     def _init_cache(self, max_cache_size):
         """キャッシュを初期化"""
-        self.cache = LRUCache(maxsize=max_cache_size)
+        self.cache = Cache()
         if self.debug:
-            print(f"最大サイズ {max_cache_size} のLRUキャッシュを初期化しました")
+            print(f"TTLベースのキャッシュを初期化しました")
     
     def parse_request(self, data):
         """
@@ -225,6 +202,14 @@ class LocationServer(BaseServer):
                 response.ex_field.source = source
                 if self.debug:
                     print(f"[位置情報サーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
+
+            latitude = request.ex_field.get('latitude')
+            longitude = request.ex_field.get('longitude')
+            if latitude and longitude:
+                response.ex_field.latitude = latitude
+                response.ex_field.longitude = longitude
+                if self.debug:
+                    print ("座標解決レスポンスに座標を追加しました")
         
         return response.to_bytes()
     
@@ -243,10 +228,11 @@ class LocationServer(BaseServer):
         cache_key = f"{longitude},{latitude}"
         
         # Check cache first
-        if cache_key in self.cache:
+        cached_value = self.cache.get(cache_key)
+        if cached_value is not None:
             if self.debug:
                 print("キャッシュヒット！")
-            return self.cache[cache_key]
+            return cached_value
         
         conn = None
         try:
@@ -268,7 +254,7 @@ class LocationServer(BaseServer):
             district_code = result[0] if result else None
             
             # Store in cache
-            self.cache[cache_key] = district_code
+            self.cache.set(cache_key, district_code)
             
             if self.debug:
                 print(f"({longitude}, {latitude}) のクエリ結果: {district_code}")
@@ -348,7 +334,7 @@ class LocationServer(BaseServer):
         # キャッシュの統計情報を追加
         if hasattr(self, 'cache'):
             print(f"\n=== キャッシュ統計 ===")
-            print(f"Cache size: {len(self.cache.cache)}/{self.cache.maxsize}")
+            print(f"Cache size: {self.cache.size()}")
             print("========================\n")
     
     def _cleanup(self):

@@ -59,7 +59,6 @@ class Client:
         self._latitude = latitude
         self._longitude = longitude
         self._area_code = area_code
-        self._coordinates_changed = True  # 座標変更フラグ
         
         # 内部でWeatherClientを使用
         try:
@@ -82,10 +81,9 @@ class Client:
     
     @latitude.setter
     def latitude(self, value):
-        """緯度を設定（座標変更フラグをセット）"""
+        """緯度を設定"""
         if value != self._latitude:
             self._latitude = value
-            self._coordinates_changed = True
             if self.debug:
                 print(f"Latitude updated: {value}")
     
@@ -96,10 +94,9 @@ class Client:
     
     @longitude.setter
     def longitude(self, value):
-        """経度を設定（座標変更フラグをセット）"""
+        """経度を設定"""
         if value != self._longitude:
             self._longitude = value
-            self._coordinates_changed = True
             if self.debug:
                 print(f"Longitude updated: {value}")
     
@@ -113,7 +110,6 @@ class Client:
         """エリアコードを設定（手動設定）"""
         if value != self._area_code:
             self._area_code = value
-            self._coordinates_changed = False  # 手動設定なので座標変更フラグをクリア
             if self.debug:
                 print(f"Area code manually updated: {value}")
     
@@ -133,7 +129,6 @@ class Client:
             
         self._latitude = latitude
         self._longitude = longitude
-        self._coordinates_changed = True
         
         if self.debug:
             print(f"Coordinates updated: ({latitude}, {longitude})")
@@ -161,22 +156,8 @@ class Client:
         """
         if self._latitude is None and self._longitude is None and self._area_code is None:
             raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
-        # 座標が変更されている場合は座標からエリアコード解決
-        if self._coordinates_changed and self._latitude is not None and self._longitude is not None:
-            if self.debug:
-                print("Coordinates changed, resolving area code first...")
-            return self._weather_client.get_weather_by_coordinates(
-                latitude=self._latitude,
-                longitude=self._longitude,
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alert=alert,
-                disaster=disaster,
-                day=day
-            )
         
-        # エリアコードが利用可能な場合はエリアコードから取得（効率的）
+        # エリアコードが利用可能な場合はエリアコードから取得
         if self._area_code is not None:
             if self.debug:
                 print(f"Using area code for weather request: {self._area_code}")
@@ -190,7 +171,7 @@ class Client:
                 day=day
             )
         
-        # 座標のみ利用可能な場合は座標から取得
+        # 座標が利用可能な場合は座標から取得
         elif self._latitude is not None and self._longitude is not None:
             if self.debug:
                 print(f"Using coordinates for weather request: ({self._latitude}, {self._longitude})")
@@ -252,13 +233,12 @@ class Client:
         現在の状態を取得
         
         Returns:
-            dict: 現在の状態（latitude, longitude, area_code, coordinates_changed）
+            dict: 現在の状態（latitude, longitude, area_code）
         """
         return {
             'latitude': self._latitude,
             'longitude': self._longitude,
             'area_code': self._area_code,
-            'coordinates_changed': self._coordinates_changed,
             'host': self.host,
             'server_port': self.server_port
         }
@@ -307,10 +287,10 @@ def main():
     client = Client(debug=True)
     
     try:
-        # 座標を設定（自動的にエリアコード解決される）
+        # 座標を設定
         client.set_coordinates(latitude=35.6895, longitude=139.6917)
         
-        # 状態から天気情報を取得（エリアコードが使用される）
+        # 状態から天気情報を取得
         result = client.get_weather()
         
         if result:

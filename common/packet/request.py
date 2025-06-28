@@ -20,6 +20,18 @@ class Request(FormatBase):
         - longitude: 経度 (数値)
         - source: 送信元情報 (文字列)
     """
+
+    def get_coordinates(self) -> Optional[tuple[float, float]]:
+        """
+        拡張フィールドから緯度経度を取得する
+        
+        Returns:
+            緯度経度のタプル (latitude, longitude)、存在しない場合はNone
+        """
+        ex_dict = self.ex_field.to_dict()
+        if 'latitude' in ex_dict and 'longitude' in ex_dict:
+            return (float(ex_dict['latitude']), float(ex_dict['longitude']))
+        return None
     
     # 可変長拡張フィールドの開始位置
     VARIABLE_FIELD_START = 128  # 基本フィールドの後から開始
@@ -40,21 +52,33 @@ class Request(FormatBase):
         
         Args:
             ex_field: 拡張フィールド（辞書またはExtendedFieldオブジェクト）
-            **kwargs: 基本フィールドのパラメータ
+            **kwargs: 基本フィールドのパラメータと拡張フィールドのパラメータ
             
         Raises:
             BitFieldError: フィールド値が不正な場合
         """
+        # 拡張フィールド用のパラメータを抽出
+        ex_field_params = {}
+        base_kwargs = {}
+        for key, value in kwargs.items():
+            if key in ['source', 'alert', 'disaster', 'latitude', 'longitude']:
+                ex_field_params[key] = value
+            else:
+                base_kwargs[key] = value
+        
         # 拡張フィールドの初期化
         if isinstance(ex_field, dict):
-            self._ex_field = ExtendedField(ex_field)
+            ex_field_params.update(ex_field)
+            self._ex_field = ExtendedField(ex_field_params)
         elif isinstance(ex_field, ExtendedField):
             self._ex_field = ex_field
+            for key, value in ex_field_params.items():
+                self._ex_field[key] = value
         else:
-            self._ex_field = ExtendedField()
+            self._ex_field = ExtendedField(ex_field_params)
         
         # 親クラスの初期化
-        super().__init__(**kwargs)
+        super().__init__(**base_kwargs)
         
         # 拡張フィールドの変更を監視してチェックサムを再計算
         self._ex_field.add_observer(self._on_ex_field_changed)
