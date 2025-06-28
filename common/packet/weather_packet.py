@@ -169,7 +169,7 @@ class WeatherRequest(Request):
             summary['area_code'] = self.area_code
         
         return summary
-
+    
 
 class WeatherResponse(Response):
     """
@@ -206,19 +206,6 @@ class WeatherResponse(Response):
             return self.weather_code
         return None
     
-    def get_coordinates(self) -> Optional[tuple[float, float]]:
-        """
-        座標を取得
-        
-        Returns:
-            (latitude, longitude) のタプルまたはNone
-        """
-        if self.ex_field:
-            lat = self.ex_field.latitude
-            lon = self.ex_field.longitude
-            if lat is not None and lon is not None:
-                return (lat, lon)
-        return None
     
     def get_precipitation_prob(self) -> Optional[int]:
         """

@@ -86,9 +86,11 @@ class WeatherServer(BaseServer):
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
-        # キャッシュストレージの初期化（設定ファイルからTTLを取得、デフォルト10分）
-        self.cache_ttl = self.config.getint('cache', 'expiration_time', 600)
-        self.cache = Cache(default_ttl=timedelta(seconds=self.cache_ttl))
+        # キャッシュストレージの初期化（設定ファイルからTTLを取得）
+        self.cache_ttl_weather = self.config.getint('cache', 'expiration_time_weather', 600)
+        self.cache_ttl_area = self.config.getint('cache', 'expiration_time_area', 604800)
+        self.cache_weather = Cache(default_ttl=timedelta(seconds=self.cache_ttl_weather))
+        self.cache_area = Cache(default_ttl=timedelta(seconds=self.cache_ttl_area))
         
         
         # サーバー設定情報のデバッグ出力を削除
@@ -202,10 +204,45 @@ class WeatherServer(BaseServer):
     
     def _handle_location_request(self, request, addr):
         """座標解決リクエストの処理（Type 0・改良版）"""
+        source_info = (addr[0], addr[1])  # タプル形式で保持
         try:
-            source_info = (addr[0], addr[1])  # タプル形式で保持
+            # 気象キャッシュ処理
+            lat, long = request.get_coordinates()
+            cache_key = f"{lat}_{long}"
+            cached_data = self.cache_area.get(cache_key)
+
+            # キャッシュの有効期限チェック
+            cache_expiration_for_area = timedelta(seconds=self.cache_ttl_area)
             
-            # 位置情報リクエスト処理の詳細なデバッグ出力を削除
+            if cached_data and (datetime.now() - cached_data["timestamp"]) < cache_expiration_for_area:
+                print("キャッシュヒット！")
+                try:
+                    # キャッシュからWeatherRequestを生成
+                    weather_request = WeatherRequest(
+                        version=self.version,
+                        packet_id=request.packet_id,
+                        type=2,  # WeatherRequest
+                        area_code=cached_data["area_code"],
+                        day=0,  # 当日
+                        timestamp=int(datetime.now().timestamp()),
+                        weather_flag=True,
+                        temperature_flag=True,
+                        pop_flag=True,
+                        alert_flag=False,
+                        disaster_flag=False,
+                        ex_flag=1,
+                        source=source_info
+                    )
+                    
+                    # _handle_weather_requestに処理を移譲
+                    return self._handle_weather_request(weather_request, addr)
+                    
+                except Exception as e:
+                    print(f"キャッシュデータの処理中にエラーが発生しました: {e}")
+                    if self.debug:
+                        traceback.print_exc()
+                    # エラーが発生した場合はキャッシュを削除して通常処理を続行
+                    self.cache_area.delete(cache_key)
             
             # 専用クラスを使用してLocationRequestに変換
             if isinstance(request, WeatherRequest):
@@ -312,7 +349,27 @@ class WeatherServer(BaseServer):
             
             # 専用クラスでレスポンスをパース
             response = LocationResponse.from_bytes(data)
+
+            lat, long = response.get_coordinates()
             
+            # エリアキャッシュ処理
+            # キャッシュキーの生成: 緯度_経度
+            cache_key = f"{lat}_{long}"
+            
+            # キャッシュが存在しないか有効期限切れの場合に更新
+            cached_data = self.cache_area.get(cache_key)
+            cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_weather', 1800))
+            
+            if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
+                # キャッシュデータの作成
+                cache_data = {
+                    "timestamp": datetime.now(),
+                    "area_code": response.area_code
+                }
+                
+                # キャッシュに保存（デフォルトTTLを使用）
+                self.cache_area.set(cache_key, cache_data)
+
             if self.debug:
                 print(f"\n[天気サーバー] タイプ1: 位置情報レスポンスを天気リクエストに変換中")
                 print(f"  Area code: {response.get_area_code()}")
@@ -323,13 +380,10 @@ class WeatherServer(BaseServer):
                 print(f"  タイプ: {response.type}")
                 print(f"  タイムスタンプ: {response.timestamp}")
             
-            # キャッシュ処理
+            # 気象キャッシュ処理
             cache_key = f"{response.area_code}_{response.day}"
-            cached_data = self.cache.get(cache_key)
+            cached_data = self.cache_weather.get(cache_key)
 
-            lat, long = response.get_coordinates()
-            print(f"   lat:{lat}, long:{long}")
-            
             if cached_data:
                 try:
                     flags = {
@@ -395,7 +449,7 @@ class WeatherServer(BaseServer):
                     if self.debug:
                         print(f'キャッシュデータの処理中にエラーが発生しました: {str(e)}')
                         print('キャッシュデータを削除して新しいリクエストを処理します')
-                    self.cache.delete(cache_key)
+                    self.cache_weather.delete(cache_key)
                     print(f"[WARNING] キャッシュデータが不完全です: {str(e)}")  # loggerが使えない場合の代替
                     # キャッシュが不完全でもクエリサーバーへリクエストを継続
                     return self._send_weather_request(response)
@@ -438,7 +492,7 @@ class WeatherServer(BaseServer):
             
             # キャッシュ処理
             cache_key = f"{request.area_code}_{request.day}"
-            cached_data = self.cache.get(cache_key)
+            cached_data = self.cache_weather.get(cache_key)
             
             if cached_data:
                 try:
@@ -460,7 +514,9 @@ class WeatherServer(BaseServer):
                         request.packet_id,
                         request.area_code,
                         request.day,
-                        flags
+                        flags,
+                        None, # lat
+                        None # long
                     )
                     
                     response_data = weather_response.to_bytes()
@@ -477,7 +533,7 @@ class WeatherServer(BaseServer):
                     if self.debug:
                         print(f'キャッシュデータの処理中にエラーが発生しました: {str(e)}')
                         print('キャッシュデータを削除して新しいリクエストを処理します')
-                    self.cache.delete(cache_key)
+                    self.cache_weather.delete(cache_key)
             
             if self.debug:
                 if not cached_data:
@@ -540,8 +596,8 @@ class WeatherServer(BaseServer):
                 cache_key = f"{response.area_code}_{response.day}"
                 
                 # キャッシュが存在しないか有効期限切れの場合に更新
-                cached_data = self.cache.get(cache_key)
-                cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time', 1800))
+                cached_data = self.cache_weather.get(cache_key)
+                cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_weather', 1800))
                 
                 if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
                     # キャッシュデータの作成
@@ -556,7 +612,7 @@ class WeatherServer(BaseServer):
                     
                     # キャッシュに保存（デフォルトTTLを使用）
                     try:
-                        self.cache.set(cache_key, cache_data)
+                        self.cache_weather.set(cache_key, cache_data)
                     except Exception as e:
                         error_msg = f"キャッシュへのデータ保存に失敗しました: {cache_key} - {str(e)}"
                         if self.debug:
@@ -566,7 +622,7 @@ class WeatherServer(BaseServer):
                     if self.debug:
                         print(f"  キャッシュを更新しました: {cache_key}")
                         print(f"  キャッシュ内容: {cache_data}")
-                        print(f"  キャッシュエントリ数: {self.cache.size()}")
+                        print(f"  キャッシュエントリ数: {self.cache_weather.size()}")
                 else:
                     if self.debug:
                         print(f"  キャッシュが既に存在するため更新をスキップ: {cache_key}")

@@ -127,19 +127,6 @@ class LocationRequest(Request):
             version=weather_request.version
         )
     
-    def get_coordinates(self) -> Optional[tuple[float, float]]:
-        """
-        座標を取得
-        
-        Returns:
-            (latitude, longitude) のタプルまたはNone
-        """
-        if self.ex_field:
-            lat = self.ex_field.latitude
-            lon = self.ex_field.longitude
-            if lat is not None and lon is not None:
-                return (lat, lon)
-        return None
     
     def get_source_info(self) -> Optional[str]:
         """
@@ -232,19 +219,6 @@ class LocationResponse(Response):
             return self.ex_field.source
         return None
     
-    def get_coordinates(self) -> Optional[tuple[float, float]]:
-        """
-        座標を取得
-        
-        Returns:
-            (latitude, longitude) のタプルまたはNone
-        """
-        if self.ex_field:
-            lat = self.ex_field.latitude
-            lon = self.ex_field.longitude
-            if lat is not None and lon is not None:
-                return (lat, lon)
-        return None
     
     def get_preserved_flags(self) -> Dict[str, int]:
         """
