@@ -202,6 +202,14 @@ class LocationServer(BaseServer):
                 response.ex_field.source = source
                 if self.debug:
                     print(f"[位置情報サーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
+
+            latitude = request.ex_field.get('latitude')
+            longitude = request.ex_field.get('longitude')
+            if latitude and longitude:
+                response.ex_field.latitude = latitude
+                response.ex_field.longitude = longitude
+                if self.debug:
+                    print ("座標解決レスポンスに座標を追加しました")
         
         return response.to_bytes()
     

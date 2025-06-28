@@ -188,8 +188,13 @@ class LocationResponse(Response):
         # 拡張フィールドの準備（sourceのみ引き継ぐ）
         ex_field = {}
         source = request.get_source_info()
+        latitude, longitude = request.get_coordinates()
         if source:
             ex_field["source"] = source
+        if latitude:
+            ex_field['latitude'] = latitude
+        if longitude:
+            ex_field['longitude'] = longitude
         
         return cls(
             version=version,
@@ -245,7 +250,7 @@ class LocationResponse(Response):
     def to_weather_request(self, request_type: int = 2) -> Request:
         """
         このLocationResponseからWeatherRequest（Type 2）を生成
-        
+
         Args:
             request_type: リクエストタイプ（通常は2）
             
@@ -257,6 +262,13 @@ class LocationResponse(Response):
         source = self.get_source_info()
         if source:
             ex_field["source"] = source
+        
+        # 座標情報を引き継ぐ
+        if hasattr(self, 'ex_field') and self.ex_field:
+            if hasattr(self.ex_field, 'latitude'):
+                ex_field["latitude"] = self.ex_field.latitude
+            if hasattr(self.ex_field, 'longitude'):
+                ex_field["longitude"] = self.ex_field.longitude
         
         return Request(
             version=self.version,
