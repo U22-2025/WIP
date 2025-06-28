@@ -34,8 +34,9 @@ if result:
         print(f"alert: {result['alert']}")
     if 'disaster' in result:
         print(f"disaster: {result['disaster']}")
-    # print(f"latitude: {result['latitude']}")
-    # print(f"longitude: {result['longitude']}")
+    if 'latitude' in result and 'longitude' in result:
+        print(f"latitude: {result['latitude']}")
+        print(f"longitude: {result['longitude']}")
     
 else:
     print("\n✗ Failed to get weather data")

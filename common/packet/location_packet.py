@@ -232,6 +232,20 @@ class LocationResponse(Response):
             return self.ex_field.source
         return None
     
+    def get_coordinates(self) -> Optional[tuple[float, float]]:
+        """
+        座標を取得
+        
+        Returns:
+            (latitude, longitude) のタプルまたはNone
+        """
+        if self.ex_field:
+            lat = self.ex_field.latitude
+            lon = self.ex_field.longitude
+            if lat is not None and lon is not None:
+                return (lat, lon)
+        return None
+    
     def get_preserved_flags(self) -> Dict[str, int]:
         """
         保持されたフラグ情報を取得
@@ -263,12 +277,11 @@ class LocationResponse(Response):
         if source:
             ex_field["source"] = source
         
-        # 座標情報を引き継ぐ
-        if hasattr(self, 'ex_field') and self.ex_field:
-            if hasattr(self.ex_field, 'latitude'):
-                ex_field["latitude"] = self.ex_field.latitude
-            if hasattr(self.ex_field, 'longitude'):
-                ex_field["longitude"] = self.ex_field.longitude
+        # 座標情報を確実に引き継ぐ
+        coordinates = self.get_coordinates()
+        if coordinates:
+            ex_field["latitude"] = coordinates[0]
+            ex_field["longitude"] = coordinates[1]
         
         return Request(
             version=self.version,

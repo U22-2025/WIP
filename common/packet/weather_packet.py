@@ -206,6 +206,20 @@ class WeatherResponse(Response):
             return self.weather_code
         return None
     
+    def get_coordinates(self) -> Optional[tuple[float, float]]:
+        """
+        座標を取得
+        
+        Returns:
+            (latitude, longitude) のタプルまたはNone
+        """
+        if self.ex_field:
+            lat = self.ex_field.latitude
+            lon = self.ex_field.longitude
+            if lat is not None and lon is not None:
+                return (lat, lon)
+        return None
+    
     def get_precipitation_prob(self) -> Optional[int]:
         """
         降水確率を取得
@@ -247,7 +261,7 @@ class WeatherResponse(Response):
         
         Returns:
             天気データの辞書
-            
+             
         Examples:
             >>> response = WeatherResponse.from_bytes(data)
             >>> data = response.get_weather_data()
@@ -278,6 +292,12 @@ class WeatherResponse(Response):
         disaster = self.get_disaster_info()
         if disaster:
             data['disaster'] = disaster
+
+        # 座標データを追加
+        lat, long = self.get_coordinates()
+        if lat and long:
+            data['latitude'] = lat
+            data['longitude'] = long
         
         return data
     

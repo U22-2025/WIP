@@ -296,10 +296,6 @@ class WeatherServer(BaseServer):
                     filtered_ex_field["disaster"] = ex_data["disaster"]
                 weather_response.ex_field = filtered_ex_field
 
-        if self.debug:
-            print(f"  WeatherResponse生成完了")
-            print(f"  生成されたオブジェクト: {weather_response}")
-
         return weather_response
 
     def _handle_location_response(self, data, addr):
@@ -309,7 +305,6 @@ class WeatherServer(BaseServer):
                 print(f"\n[天気サーバー] タイプ1: 位置情報レスポンス処理開始")
                 print(f"  受信データサイズ: {len(data)}バイト")
                 print(f"  受信アドレス: {addr}")
-                print(f"  生データ(先頭16バイト): {data[:16].hex()}")
             
             # 専用クラスでレスポンスをパース
             response = LocationResponse.from_bytes(data)
@@ -319,6 +314,8 @@ class WeatherServer(BaseServer):
                 print(f"  Area code: {response.get_area_code()}")
                 print(f"  Source: {response.get_source_info()}")
                 print(f"  Valid: {response.is_valid()}")
+                lat, long = response.get_coordinates()
+                print(f"   lat:{lat}, long:{long}")
                 print(f"  パケットID: {response.packet_id}")
                 print(f"  バージョン: {response.version}")
                 print(f"  タイプ: {response.type}")
@@ -336,8 +333,6 @@ class WeatherServer(BaseServer):
                         'pop': response.pop_flag,
                         'alert': response.alert_flag,
                         'disaster': response.disaster_flag,
-                        'latitude': response.ex_field.latitude if hasattr(response, 'ex_field') and hasattr(response.ex_field, 'latitude') else None,
-                        'longitude': response.ex_field.longitude if hasattr(response, 'ex_field') and hasattr(response.ex_field, 'longitude') else None
                     }
                     self._validate_cache_data(cached_data, flags)
                     
@@ -348,7 +343,24 @@ class WeatherServer(BaseServer):
                         response.day,
                         flags
                     )
-                    
+
+                    # 含まれていれば座標をセット
+                    lat, long = response.get_coordinates()
+                    if lat and long:
+                        if not hasattr(weather_response, 'ex_field'):
+                            from common.packet.extended_field import ExtendedField
+                            weather_response.ex_field = ExtendedField()
+                        weather_response.ex_field.set('latitude', lat)
+                        weather_response.ex_field.set('longitude', long)
+
+                    if self.debug:
+                        print(f"  WeatherResponse生成完了")
+                        print(f"  生成されたオブジェクト: {weather_response}")
+                        print(f"  座標情報: {weather_response.get_coordinates()}")
+                        if hasattr(weather_response, 'ex_field'):
+                            print(f"  ex_field内容: {weather_response.ex_field.to_dict()}")
+
+                    print (weather_response.get_coordinates())
                     # レスポンスを送信
                     response_data = weather_response.to_bytes()
                     source_info = response.get_source_info()
@@ -365,11 +377,6 @@ class WeatherServer(BaseServer):
                         if self.debug:
                             print(f"  キャッシュレスポンスを送信: {len(response_data)}バイト")
                             print(f"  送信先アドレス: {source_addr}")
-                            print(f"  パケット先頭16バイト: {response_data[:16].hex()}")
-                            print(f"  ソケット状態: {self.sock}")
-                        
-                        if not self.sock:
-                            raise RuntimeError("ソケットが初期化されていません")
                         
                         bytes_sent = self.sock.sendto(response_data, source_addr)
                         if bytes_sent != len(response_data):
