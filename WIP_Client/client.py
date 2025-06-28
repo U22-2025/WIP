@@ -30,10 +30,30 @@ class Client:
             latitude (float, optional): 初期緯度
             longitude (float, optional): 初期経度
             area_code (str, optional): 初期エリアコード
+            
+        Raises:
+            ValueError: 無効なポート番号または初期化失敗時
+            RuntimeError: 環境変数読み込み失敗時
         """
-        self.host = host
-        self.server_port = server_port
-        self.debug = debug
+        try:
+            if not host:
+                raise ValueError("110: 環境変数読み込み失敗 - WEATHER_SERVER_HOSTが設定されていません")
+                
+            if not 1 <= server_port <= 65535:
+                raise ValueError("112: 無効なポート番号")
+                
+            self.host = host
+            self.server_port = server_port
+            self.debug = debug
+            
+        except ValueError as ve:
+            if self.debug:
+                print(f"初期化エラー: {str(ve)}")
+            raise
+        except Exception as e:
+            if self.debug:
+                print(f"予期せぬ初期化エラー: {str(e)}")
+            raise RuntimeError(f"154: 予期せぬエラー - {str(e)}")
         
         # 状態管理用の内部変数
         self._latitude = latitude
@@ -42,11 +62,14 @@ class Client:
         self._coordinates_changed = True  # 座標変更フラグ
         
         # 内部でWeatherClientを使用
-        self._weather_client = WeatherClient(
-            host=self.host,
-            port=self.server_port,
-            debug=self.debug
-        )
+        try:
+            self._weather_client = WeatherClient(
+                host=self.host,
+                port=self.server_port,
+                debug=self.debug
+            )
+        except Exception as e:
+            raise RuntimeError(f"111: クライアント初期化失敗 - {str(e)}")
         
         if self.debug:
             print(f"WIP Client initialized - Server: {self.host}:{self.server_port}")
@@ -99,9 +122,15 @@ class Client:
         座標を設定
         
         Args:
-            latitude (float): 緯度
-            longitude (float): 経度
+            latitude (float): 緯度 (-90 to 90)
+            longitude (float): 経度 (-180 to 180)
+            
+        Raises:
+            ValueError: 無効な座標値の場合
         """
+        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            raise ValueError("120: 無効な座標値")
+            
         self._latitude = latitude
         self._longitude = longitude
         self._coordinates_changed = True
@@ -109,7 +138,7 @@ class Client:
         if self.debug:
             print(f"Coordinates updated: ({latitude}, {longitude})")
     
-    def get_weather(self, weather=True, temperature=True, precipitation_prob=True, 
+    def get_weather(self, weather=True, temperature=True, precipitation_prob=True,
                    alert=False, disaster=False, day=0):
         """
         現在の状態（座標またはエリアコード）から天気情報を取得
@@ -124,8 +153,14 @@ class Client:
             
         Returns:
             dict: 天気情報
-            None: 取得失敗時
+            
+        Raises:
+            ValueError: 必要なデータが未設定の場合 (133)
+            RuntimeError: サーバー接続失敗 (130) またはタイムアウト (131)
+            Exception: その他のエラー (154)
         """
+        if self._latitude is None and self._longitude is None and self._area_code is None:
+            raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
         # 座標が変更されている場合は座標からエリアコード解決
         if self._coordinates_changed and self._latitude is not None and self._longitude is not None:
             if self.debug:

@@ -102,7 +102,7 @@ class LocationServer(BaseServer):
         self._init_cache(max_cache_size)
         
         # Weather server configuration
-        self.weather_server_ip = "127.0.0.1"  # Default to localhost
+        self.weather_host = "127.0.0.1"  # Default to localhost
         
         if self.debug:
             print(f"\n[位置情報サーバー] 設定:")
@@ -171,19 +171,19 @@ class LocationServer(BaseServer):
         """
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
-            return False, "Extended field is required"
+            return False, "400", "不正なパケット"
         
         # 緯度経度が必要
         if not hasattr(request, 'ex_field') or not request.ex_field:
-            return False, "Extended field is empty"
+            return False, "400", "不正なパケット"
         
         # ExtendedFieldオブジェクトのgetメソッドを使用
         latitude = request.ex_field.get("latitude")
         longitude = request.ex_field.get("longitude")
         if not latitude or not longitude:
-            return False, "Latitude and longitude are required"
+            return False, "401", "無効な座標"
         
-        return True, None
+        return True, None, None
     
     def create_response(self, request):
         """
@@ -321,7 +321,7 @@ class LocationServer(BaseServer):
         except:
             pass
         
-        print(f"Weather Server IP: {self.weather_server_ip}")
+        print(f"Weather Server IP: {self.weather_host}")
         print("\nRaw Packet:")
         print(self._hex_dump(response))
         print("============================\n")

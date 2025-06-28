@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-
+import traceback
 PIDG = PacketIDGenerator12Bit()
 
 
@@ -193,15 +193,17 @@ class QueryClient:
                 
                 return result
             else:
+                print("420: クライアントエラー: クエリサーバが見つからない")
                 return {'error': 'Query request failed', 'response_type': response.type}
             
         except socket.timeout:
+            print("421: クライアントエラー: クエリサーバ接続タイムアウト")
             return {'error': 'Request timeout', 'timeout': timeout}
         except Exception as e:
             if self.debug:
-                import traceback
                 traceback.print_exc()
-            return {'error': str(e)}
+            print(f"420: クライアントエラー: クエリサーバが見つからない: {e}")
+            return {'420': str(e)}
         finally:
             sock.close()
 

@@ -10,7 +10,7 @@ import concurrent.futures
 import os
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
-
+import traceback
 
 class BaseServer(ABC):
     """UDPサーバーの基底クラス"""
@@ -159,7 +159,7 @@ class BaseServer(ABC):
         Returns:
             tuple: (is_valid, error_message)
         """
-        return True, None
+        return True, None, None
     
     def _handle_error(self, error_code, original_packet, addr):
         """
@@ -194,7 +194,6 @@ class BaseServer(ABC):
         except Exception as e:
             print(f"[{threading.current_thread().name}] Failed to send error response: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
 
     def handle_request(self, data, addr):
@@ -221,12 +220,12 @@ class BaseServer(ABC):
             self._debug_print_request(data, request)
             
             # リクエストの妥当性をチェック
-            is_valid, error_msg = self.validate_request(request)
+            is_valid, error_code,error_msg = self.validate_request(request)
             if not is_valid:
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
-                    print(f"[{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
+                    print(f"{error_code}: [{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
                 # バリデーションエラーの場合はエラーパケットを送信
                 self._handle_error(0x0001, request, addr)  # 0x0001は無効なパケット形式エラー
                 return
@@ -258,7 +257,6 @@ class BaseServer(ABC):
                 self.error_count += 1
             print(f"[{threading.current_thread().name}] Error processing request from {addr}: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
             
             # エラーが発生した場合、元のリクエストをパースできているかどうかで処理を分ける
@@ -319,7 +317,6 @@ class BaseServer(ABC):
         except Exception as e:
             print(f"[{self.server_name}] Error sending packet to {host}:{port}: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
             raise
     

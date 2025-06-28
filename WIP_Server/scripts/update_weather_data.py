@@ -5,6 +5,7 @@ import concurrent.futures
 import threading
 import sys
 import os
+import traceback
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
@@ -194,7 +195,6 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
         except Exception as e:
             print(f"エラー ({area_code}): {e}")
             if debug:
-                import traceback
                 print(traceback.format_exc())
 
     # 並列処理の実行 - ワーカー数を明示的に設定
@@ -232,7 +232,6 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
         except Exception as e:
             print(f"Redisへの一括保存エラー: {e}")
             if debug:
-                import traceback
                 print(traceback.format_exc())
 
     if debug:

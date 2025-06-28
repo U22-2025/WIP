@@ -11,6 +11,7 @@ from datetime import datetime
 import schedule
 import threading
 import time
+import traceback
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -126,20 +127,24 @@ class QueryServer(BaseServer):
         Returns:
             tuple: (is_valid, error_message)
         """
-        # バージョンとタイプのチェック
-        if request.version != self.version or request.type != 2:
-            return False, "Invalid version or type"
+        # バージョンのチェック
+        if request.version != self.version:
+            return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+        
+        # タイプのチェック
+        if request.type != 2:
+            return False, "400", f"不正なパケットタイプ: {request.type}"
         
         # 地域コードのチェック
         if not request.area_code or request.area_code == "000000":
-            return False, "Invalid area code"
+            return False, "402", "エリアコードが未設定"
         
         # フラグのチェック（少なくとも1つは必要）
         if not any([request.weather_flag, request.temperature_flag, 
                    request.pop_flag, request.alert_flag, request.disaster_flag]):
-            return False, "No data flags set"
+            return False, "400", "不正なパケット"
         
-        return True, None
+        return True, None, None
     
     def create_response(self, request):
         """
@@ -151,109 +156,113 @@ class QueryServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
-        # デバッグ：リクエストの状態を確認
-        if self.debug:
-            print(f"\n[クエリサーバー] リクエストに対するレスポンスを作成中:")
-            print(f"  Area code: {request.area_code}")
-            print(f"  ex_flag: {request.ex_flag}")
-            if hasattr(request, 'ex_field'):
-                print(f"  ex_field: {request.ex_field}")
-            else:
-                print("  ex_field 属性がありません！")
-        
-        # レスポンスオブジェクトを作成
-        response = Response(
-            version=self.version,
-            packet_id=request.packet_id,
-            type=3,  # Response type (Type 3 for weather data response)
-            area_code=request.area_code,
-            day=request.day,
-            timestamp=int(datetime.now().timestamp()),
-            weather_flag=request.weather_flag,
-            temperature_flag=request.temperature_flag,
-            pop_flag=request.pop_flag,
-            alert_flag=request.alert_flag,
-            disaster_flag=request.disaster_flag,
-            ex_flag=0  # 初期値は0
-        )
-        
-        # ex_fieldの処理（ExtendedFieldオブジェクトはResponseコンストラクタで自動作成される）
-        if hasattr(request, 'ex_field') and request.ex_field:
-            # sourceがある場合は必ずコピー
-            source = request.ex_field.get('source')
-            if source:
-                response.ex_field.source = source
-                response.ex_flag = 1  # ex_fieldがあるのでフラグを1に
-                if self.debug:
-                    print(f"[クエリサーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
-        else:
+        try:
+            # デバッグ：リクエストの状態を確認
             if self.debug:
-                print("[クエリサーバー] 警告: リクエストに ex_field がありません！")
-        
-        # 気象データを取得
-        weather_data = self.weather_manager.get_weather_data(
-            area_code=request.area_code,
-            weather_flag=request.weather_flag,
-            temperature_flag=request.temperature_flag,
-            pop_flag=request.pop_flag,
-            alert_flag=request.alert_flag,
-            disaster_flag=request.disaster_flag,
-            day=request.day
-        )
-        
-        # 気象データをレスポンスに設定
-        if weather_data:
-            if request.weather_flag and 'weather' in weather_data:
-                # 文字列を整数に変換（リストの場合は最初の要素）
-                weather_value = weather_data['weather']
-                if isinstance(weather_value, list):
-                    response.weather_code = int(weather_value[0]) if weather_value else 0
+                print(f"\n[クエリサーバー] リクエストに対するレスポンスを作成中:")
+                print(f"  Area code: {request.area_code}")
+                print(f"  ex_flag: {request.ex_flag}")
+                if hasattr(request, 'ex_field'):
+                    print(f"  ex_field: {request.ex_field}")
                 else:
-                    response.weather_code = int(weather_value) if weather_value else 0
-            else:
-                response.weather_code = 0
+                    print("  ex_field 属性がありません！")
             
-            if request.temperature_flag and 'temperature' in weather_data:
-                # 文字列を整数に変換（リストの場合は最初の要素）
-                temp_data = weather_data['temperature']
-                if isinstance(temp_data, list):
-                    actual_temp = int(temp_data[0]) if temp_data else 25
+            # レスポンスオブジェクトを作成
+            response = Response(
+                version=self.version,
+                packet_id=request.packet_id,
+                type=3,  # Response type (Type 3 for weather data response)
+                area_code=request.area_code,
+                day=request.day,
+                timestamp=int(datetime.now().timestamp()),
+                weather_flag=request.weather_flag,
+                temperature_flag=request.temperature_flag,
+                pop_flag=request.pop_flag,
+                alert_flag=request.alert_flag,
+                disaster_flag=request.disaster_flag,
+                ex_flag=0  # 初期値は0
+            )
+            
+            # ex_fieldの処理（ExtendedFieldオブジェクトはResponseコンストラクタで自動作成される）
+            if hasattr(request, 'ex_field') and request.ex_field:
+                # sourceがある場合は必ずコピー
+                source = request.ex_field.get('source')
+                if source:
+                    response.ex_field.set('source', source)
+                    response.ex_flag = 1  # ex_fieldがあるのでフラグを1に
+                    if self.debug:
+                        print(f"[クエリサーバー] 送信元をレスポンスにコピーしました: {source}")
+            else:
+                if self.debug:
+                    print("[クエリサーバー] 警告: リクエストに ex_field がありません！")
+            
+            # 気象データを取得
+            weather_data = self.weather_manager.get_weather_data(
+                area_code=request.area_code,
+                weather_flag=request.weather_flag,
+                temperature_flag=request.temperature_flag,
+                pop_flag=request.pop_flag,
+                alert_flag=request.alert_flag,
+                disaster_flag=request.disaster_flag,
+                day=request.day
+            )
+            
+            # 気象データをレスポンスに設定
+            if weather_data:
+                if request.weather_flag and 'weather' in weather_data:
+                    # 文字列を整数に変換（リストの場合は最初の要素）
+                    weather_value = weather_data['weather']
+                    if isinstance(weather_value, list):
+                        response.weather_code = int(weather_value[0]) if weather_value else 0
+                    else:
+                        response.weather_code = int(weather_value) if weather_value else 0
                 else:
-                    actual_temp = int(temp_data) if temp_data else 25
-                # パケットフォーマットに合わせて変換（実際の温度 + 100）
-                response.temperature = actual_temp + 100
-            else:
-                response.temperature = 100  # 0℃
-            
-            if request.pop_flag and 'precipitation_prob' in weather_data:
-                # 文字列を整数に変換（リストの場合は最初の要素）
-                pop_value = weather_data['precipitation_prob']
-                if isinstance(pop_value, list):
-                    response.pop = int(pop_value[0]) if pop_value else 0
+                    response.weather_code = 0
+                
+                if request.temperature_flag and 'temperature' in weather_data:
+                    # 文字列を整数に変換（リストの場合は最初の要素）
+                    temp_data = weather_data['temperature']
+                    if isinstance(temp_data, list):
+                        actual_temp = int(temp_data[0]) if temp_data else 25
+                    else:
+                        actual_temp = int(temp_data) if temp_data else 25
+                    # パケットフォーマットに合わせて変換（実際の温度 + 100）
+                    response.temperature = actual_temp + 100
                 else:
-                    response.pop = int(pop_value) if pop_value else 0
+                    response.temperature = 100  # 0℃
+                
+                if request.pop_flag and 'precipitation_prob' in weather_data:
+                    # 文字列を整数に変換（リストの場合は最初の要素）
+                    pop_value = weather_data['precipitation_prob']
+                    if isinstance(pop_value, list):
+                        response.pop = int(pop_value[0]) if pop_value else 0
+                    else:
+                        response.pop = int(pop_value) if pop_value else 0
+                else:
+                    response.pop = 0
+                
+                # alert/disasterを追加（ExtendedFieldのsetメソッドを使用）
+                if request.alert_flag and 'warnings' in weather_data:
+                    warnings = weather_data['warnings']
+                    if not isinstance(warnings, list):
+                        warnings = [warnings]
+                    response.ex_field.set('alert', warnings)
+                    response.ex_flag = 1
+                
+                if request.disaster_flag and 'disaster' in weather_data:
+                    response.ex_field.set('disaster', weather_data['disaster'])
+                    response.ex_flag = 1
             else:
-                response.pop = 0
-            
-            # alert/disasterを追加（ExtendedFieldのsetメソッドを使用）
-            if request.alert_flag and 'warnings' in weather_data:
-                warnings = weather_data['warnings']
-                if not isinstance(warnings, list):
-                    warnings = [warnings]
-                response.ex_field.alert = warnings
-                response.ex_flag = 1
-            
-            if request.disaster_flag and 'disaster' in weather_data:
-                response.ex_field.disaster = weather_data['disaster']
-                response.ex_flag = 1
-        else:
-            # デフォルト値を設定
-            if request.weather_flag:
-                response.weather_code = 0
-            if request.temperature_flag:
-                response.temperature = 100  # 0℃
-            if request.pop_flag:
-                response.pop = 0
+                # デフォルト値を設定
+                if request.weather_flag:
+                    response.weather_code = 0
+                if request.temperature_flag:
+                    response.temperature = 100  # 0℃
+                if request.pop_flag:
+                    response.pop = 0
+        except :
+            print ("520: クエリサーバでの処理エラー")
+
         
         # 最終確認
         if self.debug:
@@ -373,7 +382,6 @@ class QueryServer(BaseServer):
         except Exception as e:
             print(f"[クエリサーバー] 気象データ更新エラー: {e}")
             if self.debug:
-                import traceback
                 traceback.print_exc()
 
     def check_and_update_skip_area_scheduled(self):
@@ -396,7 +404,6 @@ class QueryServer(BaseServer):
             except Exception as e:
                 print(f"[クエリサーバー] skip_area更新エラー: {e}")
                 if self.debug:
-                    import traceback
                     traceback.print_exc()
         else:
             if self.debug:

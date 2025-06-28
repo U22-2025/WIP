@@ -6,14 +6,13 @@ Location Serverとの通信を行うクライアント（サーバー間通信�
 import json
 import socket
 import struct
-import ipaddress
 import time
-import random
 from datetime import datetime
 from dotenv import load_dotenv
 import os
 from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
+import traceback
 
 PIDG = PacketIDGenerator12Bit()
 load_dotenv()
@@ -152,10 +151,19 @@ class LocationClient:
 
             return response, total_time
 
-        except Exception as e:
-            print(f"Error communicating with location resolver: {e}")
+        except socket.timeout:
+            print(f"411: クライアントエラー: 座標解決サーバ接続タイムアウト")
             if self.debug:
-                import traceback
+                traceback.print_exc()
+            return None, 0
+        except (ValueError, struct.error) as e:
+            print(f"400: クライアントエラー: 不正なパケット: {e}")
+            if self.debug:
+                traceback.print_exc()
+            return None, 0
+        except Exception as e:
+            print(f"410: クライアントエラー: 座標解決サーバが見つからない: {e}")
+            if self.debug:
                 traceback.print_exc()
             return None, 0
 
@@ -174,6 +182,7 @@ class LocationClient:
         response, _ = self.get_location_info(latitude, longitude, source)
         if response and response.is_valid():
             return response.get_area_code()
+        print("400: クライアントエラー: 不正なパケット")
         return None
 
     def close(self):
@@ -214,7 +223,7 @@ def main():
             print(f"Area Code (convenience method): {area_code}")
             
         else:
-            print("\nLocation request failed")
+            print("400: クライアントエラー: 不正なパケット")
             if response:
                 print(f"Response valid: {response.is_valid()}")
                 
