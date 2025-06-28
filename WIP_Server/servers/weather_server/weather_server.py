@@ -318,8 +318,6 @@ class WeatherServer(BaseServer):
                 print(f"  Area code: {response.get_area_code()}")
                 print(f"  Source: {response.get_source_info()}")
                 print(f"  Valid: {response.is_valid()}")
-                lat, long = response.get_coordinates()
-                print(f"   lat:{lat}, long:{long}")
                 print(f"  パケットID: {response.packet_id}")
                 print(f"  バージョン: {response.version}")
                 print(f"  タイプ: {response.type}")
@@ -328,6 +326,9 @@ class WeatherServer(BaseServer):
             # キャッシュ処理
             cache_key = f"{response.area_code}_{response.day}"
             cached_data = self.cache.get(cache_key)
+
+            lat, long = response.get_coordinates()
+            print(f"   lat:{lat}, long:{long}")
             
             if cached_data:
                 try:
@@ -346,8 +347,8 @@ class WeatherServer(BaseServer):
                         response.area_code,
                         response.day,
                         flags,
-                        lat if not None else None,
-                        long if not None else None
+                        lat,
+                        long
                     )
 
                     if self.debug:
@@ -401,6 +402,7 @@ class WeatherServer(BaseServer):
 
             # 専用クラスの変換メソッドを使用
             weather_request = response.to_weather_request()
+            print(f"\n\n=====================これがweather_requestです。===================\n{weather_request}")
             
             if self.debug:
                 print(f"  WeatherRequest (タイプ2) に変換しました")

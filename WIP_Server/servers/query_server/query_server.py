@@ -192,6 +192,17 @@ class QueryServer(BaseServer):
                     response.ex_flag = 1  # ex_fieldがあるのでフラグを1に
                     if self.debug:
                         print(f"[クエリサーバー] 送信元をレスポンスにコピーしました: {source}")
+
+                lat = request.ex_field.get('latitude')
+                long = request.ex_field.get('longitude')
+                # lat, long = request.get_coordinates()
+                if lat and long:
+                    response.ex_field.set('latitude', lat)
+                    response.ex_field.set('longitude', long)
+                    response.ex_flag = 1  # ex_fieldがあるのでフラグを1に
+                    if self.debug:
+                        print(f"[クエリサーバー] 座標をレスポンスにコピーしました: {lat},{long}")
+
             else:
                 if self.debug:
                     print("[クエリサーバー] 警告: リクエストに ex_field がありません！")
