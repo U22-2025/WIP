@@ -86,9 +86,9 @@ class WeatherServer(BaseServer):
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
-        # キャッシュストレージの初期化（30分TTL付き）
+        # キャッシュストレージの初期化（設定ファイルからTTLを取得、デフォルト10分）
         self.cache_ttl = self.config.getint('cache', 'expiration_time', 600)
-        self.cache = Cache(default_ttl=self.cache_ttl)
+        self.cache = Cache(default_ttl=timedelta(seconds=self.cache_ttl))
         
         
         # サーバー設定情報のデバッグ出力を削除
@@ -307,22 +307,10 @@ class WeatherServer(BaseServer):
         return weather_response
 
     def _get_valid_cache_data(self, cache_key):
-        """有効なキャッシュデータを取得（期限切れチェック付き）"""
+        """有効なキャッシュデータを取得（Cacheクラスが自動的に期限切れチェック）"""
         try:
             cached_data = self.cache.get(cache_key)
-            if not cached_data:
-                return None
-
-            cache_expiration = timedelta(seconds=self.cache_ttl)
-            cache_age = datetime.now() - cached_data["timestamp"]
-            
-            if cache_age > cache_expiration:
-                if self.debug:
-                    print(f"  キャッシュ有効期限切れ: {cache_key} (age: {cache_age}, expiration: {cache_expiration})")
-                self.cache.delete(cache_key)
-                return None
-            
-            if self.debug:
+            if cached_data and self.debug:
                 print(f"  キャッシュヒット: {cache_key}")
             return cached_data
             
@@ -354,7 +342,7 @@ class WeatherServer(BaseServer):
                 print(f"  タイプ: {response.type}")
                 print(f"  タイムスタンプ: {response.timestamp}")
             
-            # キャッシュ処理
+            # キャッシュ処理 (新しいCacheクラスを使用)
             cache_key = self._get_cache_key(response.area_code, response.day)
             cached_data = self._get_valid_cache_data(cache_key)
             
@@ -452,7 +440,7 @@ class WeatherServer(BaseServer):
                     data_types = request.get_requested_data_types()
                     print(f"  Requested data: {data_types}")
             
-            # キャッシュ処理
+            # キャッシュ処理 (新しいCacheクラスを使用)
             cache_key = self._get_cache_key(request.area_code, request.day)
             cached_data = self._get_valid_cache_data(cache_key)
             
@@ -492,22 +480,9 @@ class WeatherServer(BaseServer):
                         print('キャッシュデータを削除して新しいリクエストを処理します')
                     self.cache.delete(cache_key)
                 
-                if cache_age > cache_expiration:
-                    if self.debug:
-                        print(f"  キャッシュ有効期限切れ: {cache_key} (age: {cache_age}, expiration: {cache_expiration})")
-                    # 古いキャッシュを削除
-                    try:
-                        self.cache.delete(cache_key)
-                    except Exception as e:
-                        error_msg = f"古いキャッシュの削除に失敗しました: {cache_key} - {str(e)}"
-                        if self.debug:
-                            traceback.print_exc()
-                        raise RuntimeError(f"{error_msg}")
-                    cached_data = None
-                else:
-                    if self.debug:
-                        print(f"  キャッシュヒット: {cache_key}")
-                        print(f"  キャッシュデータをクライアントに返します")
+                if cached_data and self.debug:
+                    print(f"  キャッシュヒット: {cache_key}")
+                    print(f"  キャッシュデータをクライアントに返します")
 
                     try:
                         # キャッシュデータの必須フィールドをチェック
@@ -642,9 +617,9 @@ class WeatherServer(BaseServer):
                         "ex_field": response.ex_field.to_dict()  # 元のex_fieldデータ
                     }
                     
-                    # キャッシュに保存（TTLはデフォルトの30分）
+                    # キャッシュに保存（デフォルトTTLを使用）
                     try:
-                        self.cache.set(cache_key, cache_data, timedelta(seconds=self.cache_ttl))
+                        self.cache.set(cache_key, cache_data)
                     except Exception as e:
                         error_msg = f"キャッシュへのデータ保存に失敗しました: {cache_key} - {str(e)}"
                         if self.debug:
