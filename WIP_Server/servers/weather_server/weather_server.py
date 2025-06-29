@@ -495,6 +495,66 @@ class WeatherServer(BaseServer):
             if self.debug:
                 import traceback
                 traceback.print_exc()
+    def _handle_bad_response(self, request, addr):
+        """
+        不正なレスポンスを処理（天気サーバー固有のエラーハンドリング）
+        
+        Args:
+            request: リクエストオブジェクト
+            addr: 送信元アドレス (host, port)
+        """
+        try:
+            from common.packet.error_response import ErrorResponse
+            
+            # エラーコードを天気サーバー範囲(256-511)に設定
+            error_code = 256  # デフォルト値
+            
+            if hasattr(request, 'error_code'):
+                error_code = request.error_code
+                # ErrorResponseクラスの検証メソッドを使用
+                if not ErrorResponse()._validate_error_code_range(error_code, 'weather'):
+                    error_code = 256  # 範囲外の場合はデフォルトにリセット
+                    if self.debug:
+                        print(f"[天気サーバー] 警告: エラーコードが範囲外です: {request.error_code} -> 256にリセット")
+
+            # 詳細なログ出力 (スレッドセーフ)
+            with self.lock:
+                error_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                log_msg = (f"[{error_time}] 転送失敗 - "
+                          f"Type: {request.type}, "
+                          f"From: {addr[0]}:{addr[1]}, "
+                          f"ErrorCode: {error_code:03d}, "
+                          f"RequestID: {getattr(request, 'packet_id', 'N/A')}, "
+                          f"Version: {getattr(request, 'version', 'N/A')}")
+                
+                print(log_msg)
+                
+                # エラーレスポンスを作成
+                error_response = ErrorResponse(
+                    version=getattr(request, 'version', 1),
+                    packet_id=getattr(request, 'packet_id', 0),
+                    error_code=error_code
+                )
+                error_response.set_source_ip(addr[0], addr[1])
+                
+                # ベースクラスのエラーハンドリングを呼び出し
+                super()._handle_error(error_code, request, addr)
+                
+                if self.debug:
+                    print(f"[天気サーバー] エラーレスポンスを {addr} に送信しました")
+                    print(f"ErrorResponse: {error_response}")
+                    if hasattr(request, 'get_request_summary'):
+                        print(f"リクエスト概要: {request.get_request_summary()}")
+                    print(f"エラーメッセージ: {error_response.get_error_message()}")
+
+        except Exception as e:
+            with self.lock:
+                self.error_count += 1
+            print(f"[天気サーバー] エラーハンドリング中に例外が発生: {e}")
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+
     def _handle_error_packet(self, request, addr):
         """エラーパケットの処理（Type 7）"""
         try:
@@ -594,16 +654,29 @@ class WeatherServer(BaseServer):
         Returns:
             tuple: (is_valid, error_message)
         """
+        # バージョンチェック
         if request.version != self.version:
             return False, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # タイプのチェック（0-3が有効）
-        if request.type not in [0, 1, 2, 3]:
+        # タイプのチェック（0-7が有効）
+        if request.type not in [0, 1, 2, 3, 7]:
             return False, f"不正なパケットタイプ: {request.type}"
         
         # エリアコードのチェック
-        if request.type != 0 and (not request.area_code or request.area_code == "000000"): 
+        if request.type not in [0,7] and (not request.area_code or request.area_code == "000000"):
             return False, "エリアコードが未設定"
+
+        # チェックサム検証
+        if hasattr(request, 'validate_checksum'):
+            try:
+                if not request.validate_checksum():
+                    if self.debug:
+                        print(f"[チェックサム検証失敗] 計算値: {request.calc_checksum12(request.to_bytes())}, パケット値: {request.checksum}")
+                    return False, "チェックサムが不正です"
+            except BitFieldError as e:
+                if self.debug:
+                    print(f"[チェックサム検証エラー] {e}")
+                return False, f"チェックサム検証エラー: {e}"
 
         # 専用クラスのバリデーションメソッドを使用
         if hasattr(request, 'is_valid') and callable(getattr(request, 'is_valid')):

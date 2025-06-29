@@ -25,6 +25,22 @@ from .location_packet import LocationRequest, LocationResponse
 from .query_packet import QueryRequest, QueryResponse
 from .error_response import ErrorResponse  # エラーパケット追加
 
+# パケットタイプ定義
+PACKET_TYPES = {
+    0: "Request",
+    1: "Response",
+    2: "Query",
+    3: "Location",
+    7: "ErrorResponse"  # エラーパケット追加
+}
+
+def _handle_packet(data, addr):
+    """パケット処理関数 (エラーパケット対応追加)"""
+    packet = Format.from_bytes(data)
+    if packet.type == 7:  # エラーパケット
+        return packet, packet.ex_field.source
+    return packet, addr
+
 __version__ = "1.1.0"
 __all__ = [
     # 基本クラス
@@ -42,4 +58,6 @@ __all__ = [
     "QueryRequest",
     "QueryResponse",
     "ErrorResponse",  # エラーパケット追加
+    # パケット処理関数
+    "_handle_packet"
 ]

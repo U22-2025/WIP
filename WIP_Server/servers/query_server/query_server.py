@@ -128,16 +128,28 @@ class QueryServer(BaseServer):
         """
         # バージョンとタイプのチェック
         if request.version != self.version or request.type != 2:
-            return False, "Invalid version or type"
+            return False, "バージョンまたはタイプが不正です"
         
         # 地域コードのチェック
         if not request.area_code or request.area_code == "000000":
-            return False, "Invalid area code"
+            return False, "地域コードが不正です"
         
         # フラグのチェック（少なくとも1つは必要）
-        if not any([request.weather_flag, request.temperature_flag, 
+        if not any([request.weather_flag, request.temperature_flag,
                    request.pop_flag, request.alert_flag, request.disaster_flag]):
-            return False, "No data flags set"
+            return False, "データフラグが設定されていません"
+        
+        # チェックサムの検証
+        if hasattr(request, 'validate_checksum'):
+            try:
+                if not request.validate_checksum():
+                    if self.debug:
+                        print(f"[チェックサム検証失敗] 計算値: {request.calc_checksum12(request.to_bytes())}, パケット値: {request.checksum}")
+                    return False, "チェックサムが不正です"
+            except Exception as e:
+                if self.debug:
+                    print(f"[チェックサム検証エラー] {e}")
+                return False, "チェックサム検証中にエラーが発生しました"
         
         return True, None
     

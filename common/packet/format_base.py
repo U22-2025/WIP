@@ -84,7 +84,11 @@ class FormatBase:
         area_code: Union[int, str] = 0,
         checksum: int = 0,
         # ビット列
-        bitstr: Optional[int] = None
+        bitstr: Optional[int] = None,
+        # エンディアン設定
+        header_endian: str = 'little',  # ヘッダー部(1-26バイト)のエンディアン
+        data_endian: str = 'little',   # データ部(27バイト以降)のエンディアン
+        needs_endian_conversion: bool = False
     ) -> None:
         """
         共通フィールドの初期化
@@ -112,6 +116,16 @@ class FormatBase:
         try:
             # チェックサム自動計算フラグ
             self._auto_checksum = True
+            # エンディアン設定
+            if header_endian not in ('little', 'big'):
+                raise BitFieldError(f"無効なヘッダーエンディアン: {header_endian}")
+            if data_endian not in ('little', 'big'):
+                raise BitFieldError(f"無効なデータエンディアン: {data_endian}")
+            
+            self._header_endian = header_endian
+            self._data_endian = data_endian
+            self._needs_endian_conversion = needs_endian_conversion
+            self._raw_data = None  # 生データ保持用
             
             # ビット列が提供された場合はそれを解析
             if bitstr is not None:
@@ -415,6 +429,50 @@ class FormatBase:
         except Exception as e:
             raise BitFieldError(f"ビット列への変換中にエラーが発生しました: {e}")
             
+    def _convert_header_endian(self, data: bytes) -> bytes:
+        """
+        ヘッダー部(1-26バイト)のエンディアン変換を行う
+        
+        Args:
+            data: 変換対象のバイト列
+            
+        Returns:
+            変換後のバイト列
+        """
+        if len(data) < 26:
+            return data
+            
+        header = data[:26]
+        if self._header_endian != self._data_endian:
+            # ヘッダー部のみエンディアン変換
+            header = int.from_bytes(header, self._header_endian)
+            header = header.to_bytes(26, self._data_endian)
+            
+        return header + data[26:]
+
+    def _convert_data_endian(self, data: bytes) -> bytes:
+        """
+        データ部(27バイト以降)のエンディアン変換を行う
+        
+        Args:
+            data: 変換対象のバイト列
+            
+        Returns:
+            変換後のバイト列
+        """
+        if len(data) <= 26:
+            return data
+            
+        header = data[:26]
+        data_part = data[26:]
+        
+        if self._header_endian != self._data_endian:
+            # データ部のみエンディアン変換
+            data_part = int.from_bytes(data_part, self._header_endian)
+            data_part = data_part.to_bytes(len(data_part), self._data_endian)
+            
+        return header + data_part
+
     def to_bytes(self) -> bytes:
         """
         ビット列をバイト列に変換する
@@ -438,11 +496,20 @@ class FormatBase:
             required_bytes = (bitstr.bit_length() + 7) // 8
             min_packet_size = self.get_min_packet_size()
             
-            # リトルエンディアンでバイト列に変換
+            # 生データを保持
             if required_bytes > 0:
-                bytes_data = bitstr.to_bytes(required_bytes, byteorder='little')
+                bytes_data = bitstr.to_bytes(required_bytes, byteorder=self._header_endian)
+                self._raw_data = bytes_data  # 変換前データを保持
             else:
                 bytes_data = b''
+                self._raw_data = b''
+            
+            # エンディアン変換が必要な場合
+            if self._needs_endian_conversion:
+                print(f"[DEBUG] Before endian conversion: {bytes_data.hex()}")
+                bytes_data = self._convert_header_endian(bytes_data)
+                bytes_data = self._convert_data_endian(bytes_data)
+                print(f"[DEBUG] After endian conversion: {bytes_data.hex()}")
             
             # パケットタイプに応じた最小サイズまでパディング
             if len(bytes_data) < min_packet_size:
@@ -522,9 +589,40 @@ class FormatBase:
         """デバッグ用の表示"""
         return self.__str__()
         
+    def validate_checksum(self, data: bytes, expected_checksum: int) -> bool:
+        """
+        チェックサムを検証する
+
+        Args:
+            data: 検証対象データ
+            expected_checksum: 期待するチェックサム値
+            
+        Returns:
+            チェックサムが一致すればTrue
+            
+        Raises:
+            BitFieldError: チェックサムが不一致の場合、または不正な値の場合
+        """
+        # 0xFFFは不正なチェックサム値として扱う
+        if expected_checksum == 0xFFF:
+            raise BitFieldError("不正なチェックサム値 (0xFFF) が指定されました")
+
+        calculated = self.calc_checksum12(data)
+        
+        # デバッグログ (デバッグモード時のみ出力)
+        if getattr(self, '_debug_mode', False):
+            print(f"[DEBUG] validate_checksum: expected={expected_checksum:03x}, calculated={calculated:03x}")
+        
+        if calculated != expected_checksum:
+            raise BitFieldError(
+                f"チェックサム不一致: 計算値={calculated:03x}, 期待値={expected_checksum:03x}"
+            )
+        return True
+        
     def calc_checksum12(self, data: bytes) -> int:
         """
         12ビットチェックサムを計算する
+        エンディアン変換が必要な場合はバイト順序を考慮
         
         Args:
             data: チェックサム計算対象のバイト列
@@ -533,51 +631,143 @@ class FormatBase:
             12ビットチェックサム値
         """
         sum = 0
+        needs_conversion = getattr(self, '_needs_endian_conversion', False)
         
-        # 1バイトずつ加算
+        # エンディアン変換が必要な場合はバイト順序を反転
+        if needs_conversion:
+            data = data[::-1]
+        
+        # 1バイトずつ加算（16ビットで計算）
         for byte in data:
             sum += byte
+            if sum > 0xFFFF:  # 16ビットオーバーフロー防止
+                sum = (sum & 0xFFFF) + (sum >> 16)
             
-        # キャリーを12ビットに折り返し
-        while sum >> 12:
-            sum = (sum & 0xFFF) + (sum >> 12)
+        # 12ビットに折り返し
+        sum = (sum & 0xFFF) + (sum >> 12)
+        sum = (sum & 0xFFF) + (sum >> 12)
             
         # 1の補数を返す（12ビットマスク）
-        checksum = (~sum) & 0xFFF
-        return checksum
+        checksum = ~sum & 0xFFF
+        return checksum if checksum != 0xFFF else 0  # 0xFFFを0として扱う
         
+    def _zero_out_checksum(self, data: bytes) -> bytes:
+        """チェックサムフィールドをゼロクリア"""
+        # バイト列をビット列に変換
+        bitstr = int.from_bytes(data, byteorder='little')
+        byte_size = len(data)
+        total_bits = byte_size * 8
+        
+        # チェックサム位置を計算 (最上位ビット基準)
+        checksum_start = total_bits - 128 - 12
+        checksum_length = 12
+        checksum_mask = ((1 << checksum_length) - 1) << checksum_start
+        
+        # チェックサムフィールドをゼロクリア
+        bitstr_without_checksum = bitstr & ~checksum_mask
+        
+        # バイト列に戻して返す
+        return bitstr_without_checksum.to_bytes(byte_size, byteorder='little')
+
+    def _normalize_bit_order(self, bitstr: int, byte_size: int) -> int:
+        """
+        ビット順序を正規化する（リトルエンディアン ↔ ビッグエンディアン変換）
+        
+        Args:
+            bitstr: 正規化するビット列
+            byte_size: バイトサイズ
+            
+        Returns:
+            正規化されたビット列
+        """
+        # リトルエンディアン ↔ ビッグエンディアン変換
+        bytes_data = bitstr.to_bytes(byte_size, byteorder='little')
+        return int.from_bytes(bytes_data, byteorder='big')
+
     def verify_checksum12(self, data_with_checksum: bytes) -> bool:
         """
         12ビットチェックサムを検証する
-        
+
         Args:
             data_with_checksum: チェックサムを含むバイト列
-            
+
         Returns:
             チェックサムが正しければTrue
         """
         try:
             # データからビット列を復元（リトルエンディアン）
             bitstr = int.from_bytes(data_with_checksum, byteorder='little')
+            byte_size = len(data_with_checksum)
+            total_bits = byte_size * 8
             
-            # チェックサム部分を抽出
-            checksum_start, checksum_length = self._BIT_FIELDS['checksum']
+            # ビット列をリトルエンディアンに変換
+            try:
+                byte_length = (bitstr.bit_length() + 7) // 8
+                bitstr = int.from_bytes(
+                    bitstr.to_bytes(byte_length, 'little'),
+                    'little'
+                )
+            except Exception as e:
+                raise BitFieldError(f"ビット列変換エラー: {str(e)}")
+
+            # チェックサム部分を抽出 (最上位ビット基準で計算)
+            total_bits = byte_size * 8
+            checksum_start = total_bits - 128 - 12  # 最上位ビット基準で計算
+            checksum_length = 12
             stored_checksum = extract_bits(bitstr, checksum_start, checksum_length)
             
             # チェックサム部分を0にしたデータを作成
             checksum_mask = ((1 << checksum_length) - 1) << checksum_start
             bitstr_without_checksum = bitstr & ~checksum_mask
             
-            # チェックサム部分を0にしたバイト列を生成（リトルエンディアン）
-            data_without_checksum = bitstr_without_checksum.to_bytes(len(data_with_checksum), byteorder='little')
+            # チェックサムフィールドをゼロクリアしたデータを生成
+            data_without_checksum = self._zero_out_checksum(
+                bitstr_without_checksum.to_bytes(byte_size, byteorder='little')
+            )
             
-            # チェックサムを計算
-            calculated_checksum = self.calc_checksum12(data_without_checksum)
+            # デバッグ情報
+            print(f"[DEBUG] Checksum position (adjusted): start={checksum_start}, end={checksum_start+checksum_length}")
             
-            # 計算されたチェックサムと格納されたチェックサムを比較
+            # 詳細なデバッグ情報
+            print(f"[DEBUG] Total bits: {total_bits}")
+            print(f"[DEBUG] Checksum position: start={checksum_start}, end={checksum_start+checksum_length}")
+            print(f"[DEBUG] Endian conversion needed: {self._needs_endian_conversion}")
+            
+            # 詳細なデバッグ情報
+            print("[DEBUG] checksum calculation details:")
+            print(f"  - original: {bin(bitstr)}")
+            print(f"  - mask: {bin(checksum_mask)}")
+            print(f"  - masked: {bin(bitstr_without_checksum)}")
+            print(f"  - stored checksum: {stored_checksum}")
+            
+            # チェックサム計算用データを生成
+            # 常にリトルエンディアンで計算（パケットフォーマット仕様）
+            data_without_checksum = bitstr_without_checksum.to_bytes(byte_size, byteorder='little')
+            
+            # デバッグ用にバイト順序を表示
+            print(f"[DEBUG] Byte order: {'big' if self._needs_endian_conversion else 'little'}")
+            print(f"[DEBUG] Data for checksum (hex): {data_without_checksum.hex()}")
+            
+            # デバッグ情報
+            print(f"[DEBUG] checksum bit position: start={checksum_start}, length={checksum_length}")
+            print(f"[DEBUG] stored_checksum: {stored_checksum:03x}")
+            print(f"[DEBUG] original bitstr: {bitstr:0{total_bits//4}x}")
+            print(f"[DEBUG] checksum_mask: {checksum_mask:0{total_bits//4}x}")
+            print(f"[DEBUG] bitstr after mask: {bitstr_without_checksum:0{total_bits//4}x}")
+            print(f"[DEBUG] data for checksum calc: {data_without_checksum.hex()}")
+            
+            # チェックサムを計算 (12ビットにマスク)
+            calculated_checksum = self.calc_checksum12(data_without_checksum) & 0xFFF
+            
+            print(f"[DEBUG] verify_checksum12 result:")
+            print(f"  - stored:    {stored_checksum:03x}")
+            print(f"  - calculated: {calculated_checksum:03x}")
+            print(f"  - match:     {calculated_checksum == stored_checksum}")
+            
             return calculated_checksum == stored_checksum
             
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] verify_checksum12 failed: {e}")
             return False
         
     def as_dict(self) -> Dict[str, Any]:

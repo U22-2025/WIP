@@ -161,6 +161,33 @@ class BaseServer(ABC):
         """
         return True, None
     
+    def _map_exception_to_error_code(self, exception):
+        """
+        例外を適切なエラーコードにマッピング
+        
+        Args:
+            exception: 発生した例外オブジェクト
+            
+        Returns:
+            int: エラーコード (0x0001-0xFFFF)
+        """
+        from common.packet.exceptions import (
+            InvalidPacketException, UnsupportedPacketException,
+            ServerInternalError, ResourceExhaustedError, TimeoutError
+        )
+        
+        # 基本エラーコードマッピング
+        if isinstance(exception, InvalidPacketException):
+            return 0x0001  # 無効なパケット形式
+        elif isinstance(exception, UnsupportedPacketException):
+            return 0x0002  # サポートされないパケットタイプ
+        elif isinstance(exception, ResourceExhaustedError):
+            return 0x0004  # リソース不足
+        elif isinstance(exception, TimeoutError):
+            return 0x0005  # タイムアウト
+        else:
+            return 0x0003  # サーバー内部エラー (デフォルト)
+
     def _handle_error(self, error_code, original_packet, addr):
         """
         エラーパケットを生成して送信
@@ -178,12 +205,25 @@ class BaseServer(ABC):
             # ErrorResponseパケットの生成
             from common.packet.error_response import ErrorResponse
             err_pkt = ErrorResponse()
-            err_pkt.packet_id = original_packet.packet_id
+            
+            # パケットID設定（元パケットから継承、ない場合は自動生成）
+            if hasattr(original_packet, 'packet_id') and original_packet.packet_id is not None:
+                err_pkt.packet_id = original_packet.packet_id
+            else:
+                from common.clients.utils.packet_id_generator import generate_packet_id
+                err_pkt.packet_id = generate_packet_id()
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] Generated new packet_id: {err_pkt.packet_id}")
+            
             err_pkt.error_code = error_code
-            err_pkt.ex_field.set('source', (source_ip, source_port))
+            err_pkt.set_source_ip(source_ip, source_port)
             
             # パケットをシリアライズ
             response_data = err_pkt.serialize()
+            
+            # 天気サーバー転送失敗時の特別処理
+            if 256 <= error_code <= 511:  # 天気サーバー関連エラー
+                print(f"[{threading.current_thread().name}] Weather server error (code: {error_code}) - {err_pkt.get_error_message()}")
             
             # エラーレスポンスを送信
             self.sock.sendto(response_data, addr)
@@ -398,3 +438,54 @@ class BaseServer(ABC):
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理（オーバーライド可能）"""
         pass
+
+
+class MockServer(BaseServer):
+    """テスト用モックサーバークラス"""
+    
+    def __init__(self, host='localhost', port=4000, debug=False, max_workers=None):
+        super().__init__(host, port, debug, max_workers)
+        self.server_name = "MockServer"
+    
+    def parse_request(self, data):
+        """
+        テスト用のダミーリクエストパース処理
+        常に固定のパケットIDとダミーデータを返す
+        
+        Args:
+            data: 受信したバイナリデータ
+            
+        Returns:
+            MagicMock: パースされたリクエストオブジェクト
+        """
+        from unittest.mock import MagicMock
+        mock_request = MagicMock()
+        mock_request.packet_id = 0x1234  # 固定パケットID
+        mock_request.addr = ('127.0.0.1', 12345)  # 固定送信元アドレス
+        return mock_request
+    
+    def create_response(self, request):
+        """
+        テスト用のダミーレスポンス生成処理
+        常に固定のレスポンスデータを返す
+        
+        Args:
+            request: リクエストオブジェクト
+            
+        Returns:
+            bytes: 固定レスポンスデータ
+        """
+        return b'\x01\x02\x03\x04' + b'\x00'*124  # テスト用固定レスポンス
+    
+    def validate_request(self, request):
+        """
+        テスト用のリクエストバリデーション
+        常にTrueを返す
+        
+        Args:
+            request: リクエストオブジェクト
+            
+        Returns:
+            tuple: (True, None) 常に有効
+        """
+        return True, None

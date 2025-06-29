@@ -70,6 +70,7 @@ class WeatherRequest(Request):
             ex_flag=1,  # 拡張フィールドを使用
             day=day,
             timestamp=int(datetime.now().timestamp()),
+            needs_endian_conversion=True,
             ex_field={
                 "latitude": latitude,
                 "longitude": longitude
@@ -134,6 +135,7 @@ class WeatherRequest(Request):
             ex_flag=0,  # Type 2では基本的に拡張フィールド不要
             day=day,
             timestamp=int(datetime.now().timestamp()),
+            needs_endian_conversion=True,
             area_code=area_code_str
         )
     
@@ -338,4 +340,4 @@ class WeatherResponse(Response):
         """
         # QueryResponseのバイト列を取得してWeatherResponseで再パース
         query_bytes = query_response.to_bytes()
-        return cls.from_bytes(query_bytes)
+        return cls.from_bytes(query_bytes, needs_endian_conversion=True)

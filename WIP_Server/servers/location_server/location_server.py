@@ -171,17 +171,29 @@ class LocationServer(BaseServer):
         """
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
-            return False, "Extended field is required"
+            return False, "拡張フィールドが必要です"
         
         # 緯度経度が必要
         if not hasattr(request, 'ex_field') or not request.ex_field:
-            return False, "Extended field is empty"
+            return False, "拡張フィールドが空です"
         
         # ExtendedFieldオブジェクトのgetメソッドを使用
         latitude = request.ex_field.get("latitude")
         longitude = request.ex_field.get("longitude")
         if not latitude or not longitude:
-            return False, "Latitude and longitude are required"
+            return False, "緯度と経度が必要です"
+
+        # チェックサムの検証
+        if hasattr(request, 'validate_checksum'):
+            try:
+                if not request.validate_checksum():
+                    if self.debug:
+                        print(f"[チェックサム検証失敗] 計算値: {request.calc_checksum12(request.to_bytes())}, パケット値: {request.checksum}")
+                    return False, "チェックサムが不正です"
+            except Exception as e:
+                if self.debug:
+                    print(f"[チェックサム検証エラー] {e}")
+                return False, "チェックサム検証中にエラーが発生しました"
         
         return True, None
     
