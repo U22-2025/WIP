@@ -197,9 +197,8 @@ class WeatherClient:
                         print("422: クライアントエラー: パケットサイズ不足 (typeフィールド取得不可)")
                     return None
                     
-                # リトルエンディアンでビット位置17-19からタイプを抽出
-                bitstr = int.from_bytes(response_data[:3], byteorder='little')
-                response_type = (bitstr >> 16) & 0x07  # ビット16-18 (17-19bit目)
+                # リトルエンディアンで3バイト目の下位3ビットからタイプを抽出 (ビット17-19)
+                response_type = (response_data[2] & 0x07)  # 下位3ビット
                 
                 if self.debug:
                     print(f"Raw bits (first 3 bytes): {bitstr:024b}")
@@ -335,13 +334,10 @@ class WeatherClient:
                     print("422: クライアントエラー: パケットサイズ不足 (typeフィールド取得不可)")
                 return None
              
-            # リトルエンディアンでビット位置17-19からタイプを抽出
-            bitstr = int.from_bytes(response_data[:3], byteorder='little')
-            response_type = (bitstr >> 16) & 0x07  # ビット16-18 (17-19bit目)
+            # ビッグエンディアンで先頭バイトからタイプを抽出 (ビット5-7)
+            response_type = (response_data[2] & 0x07)  # 上位3ビット
              
             if self.debug:
-                print(f"Raw bits (first 3 bytes): {bitstr:024b}")
-                print(f"Type bits (16-18): {(bitstr >> 16) & 0x07:03b}")
                 print(f"Extracted type: {response_type}")
                 print(f"Expected position: bits 16-18 (little endian)")
             

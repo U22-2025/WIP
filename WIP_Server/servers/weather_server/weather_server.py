@@ -166,16 +166,28 @@ class WeatherServer(BaseServer):
                 raise RuntimeError(f"755: レート制限超過: {str(e)}")
             
             # リクエストをパース（専用パケットクラス使用）
+            request = None
             try:
                 request, parse_time = self._measure_time(self.parse_request, data)
                 timing_info['parse'] = parse_time
                 # リクエストパース成功のデバッグ出力を削除
             except Exception as e:
+                # パケットIDを生データから抽出する試み
+                packet_id = 0
+                try:
+                    # パケット構造: バージョン(4bit) + タイプ(4bit) + パケットID(4byte)
+                    if len(data) >= 5:  # ヘッダー部分のみあれば抽出可能
+                        # リトルエンディアン対応
+                        packet_id = int.from_bytes(data[1:5], byteorder='little')
+                except Exception as id_error:
+                    if self.debug:
+                        print(f"パケットID抽出エラー: {id_error}")
+                
                 print(f"530: [天気サーバー] リクエストのパース中にエラーが発生しました: {e}")
                 if self.debug:
                     traceback.print_exc()
                 self._send_error_response(
-                    packet_id=request.packet_id,
+                    packet_id=packet_id,  # 抽出したパケットIDを使用
                     error_code=530,
                     addr=addr,
                     debug_msg=f"[{threading.current_thread().name}] リクエストパースエラー: {e}"
@@ -361,7 +373,7 @@ class WeatherServer(BaseServer):
     def _create_response_from_cache(self, cached_data, packet_id, area_code, day, flags, lat=None, long=None):
         """キャッシュデータからWeatherResponseを生成"""
 
-        weather_response = WeatherResponse(
+        weather_response = QueryResponse(
             version=self.version,
             packet_id=packet_id,
             type=3,
@@ -626,23 +638,29 @@ class WeatherServer(BaseServer):
                         print(f"  キャッシュデータをクライアントに返します")
                     
                     self._validate_cache_data(cached_data, flags)
-                    weather_response = self._create_response_from_cache(
+                    response = self._create_response_from_cache(
                         cached_data,
                         request.packet_id,
                         request.area_code,
                         request.day,
-                        flags,
+                        flags
                     )
+
+                    # WeatherResponseに変換（バージョンを現在のサーバーバージョンで設定）
+                    weather_response = WeatherResponse.from_query_response(response)
+                    weather_response.version = self.version  # バージョンを正規化
+                    weather_response.type = 3
+                    final_data = weather_response.to_bytes()
                     
-                    response_data = weather_response.to_bytes()
-                    self.sock.sendto(response_data, addr)
+                    # 元のクライアントに送信
+                    bytes_sent = self.sock.sendto(final_data, addr)
                     
                     if self.debug:
                         print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
-                        print(f"  パケットサイズ: {len(response_data)} バイト")
+                        print(f"  パケットサイズ: {len(final_data)} バイト")
                         print(f"  レスポンス成功フラグ: True")
                         print(weather_response.type)
-                        print(response_data)
+                        print(final_data)
                     
                     return  # キャッシュヒット時はここで終了
                     
@@ -837,6 +855,7 @@ class WeatherServer(BaseServer):
                 # WeatherResponseに変換（バージョンを現在のサーバーバージョンで設定）
                 weather_response = WeatherResponse.from_query_response(response)
                 weather_response.version = self.version  # バージョンを正規化
+                weather_response.type = 3
                 final_data = weather_response.to_bytes()
                 
                 # 元のクライアントに送信
@@ -851,6 +870,7 @@ class WeatherServer(BaseServer):
                 
                 if self.debug:
                     print(f"  クライアントに {bytes_sent} バイトを送信しました")
+                    print(final_data)
             except Exception as conv_e:
                 print(f"530: 気象サーバでの処理エラー: {conv_e}")
                 if self.debug:
