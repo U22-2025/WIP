@@ -197,9 +197,6 @@ class Client:
             if isinstance(result, dict) and result.get('type') == 'error':
                 if self.debug:
                     print(f"Received error response: {result}")
-                return {
-                    'error_code': result['error_code'],
-                }
             
             return result
             

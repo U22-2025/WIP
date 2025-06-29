@@ -171,25 +171,29 @@ class BaseServer(ABC):
             addr: 送信元アドレス
         """
         try:
-            # ソース情報取得（送信元アドレスから）
-            source_ip = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
-            source_port = addr[1] if isinstance(addr, tuple) else 0
-            
-            # ErrorResponseパケットの生成
             from common.packet.error_response import ErrorResponse
-            err_pkt = ErrorResponse()
-            err_pkt.packet_id = original_packet.packet_id
-            err_pkt.error_code = error_code
-            err_pkt.ex_field.set('source', (source_ip, source_port))
             
-            # パケットをシリアライズ
-            response_data = err_pkt.serialize()
+            # ErrorResponseオブジェクトを作成
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=getattr(original_packet, 'packet_id', 0),
+                error_code=error_code,
+            )
+            """
+            TODO:"sourceフィールドを保持させる必要がある"
+            """
+            
+            # バイト列に変換
+            response_bytes = error_response.to_bytes()
+            
+            # デバッグ出力
+            self._debug_print_response(response_bytes, original_packet)
             
             # エラーレスポンスを送信
-            self.sock.sendto(response_data, addr)
+            self.sock.sendto(response_bytes, addr)
             
             if self.debug:
-                print(f"[{threading.current_thread().name}] Sent error response to {addr}, code: {error_code}")
+                print(f"[{threading.current_thread().name}] Sent error response to {addr}")
                 
         except Exception as e:
             print(f"[{threading.current_thread().name}] Failed to send error response: {e}")
@@ -220,12 +224,12 @@ class BaseServer(ABC):
             self._debug_print_request(data, request)
             
             # リクエストの妥当性をチェック
-            is_valid, error_code,error_msg = self.validate_request(request)
+            is_valid, error_code, error_msg = self.validate_request(request)
             if not is_valid:
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
-                    print(f"{error_code}: [{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
+                    print(f"{error_code}: [{threading.current_thread().name}] Invalid request from {addr}")
                 # バリデーションエラーの場合はエラーパケットを送信
                 self._handle_error(0x0001, request, addr)  # 0x0001は無効なパケット形式エラー
                 return

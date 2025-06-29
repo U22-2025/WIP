@@ -158,7 +158,7 @@ class QueryServer(BaseServer):
             レスポンスのバイナリデータ
         """
         # リクエストのバリデーション
-        is_valid, error_code = self.validate_request(request)
+        is_valid, error_code, error_msg = self.validate_request(request)
         if not is_valid:
             # ErrorResponseを作成して返す
             error_response = ErrorResponse(

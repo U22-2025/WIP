@@ -186,7 +186,7 @@ class WeatherServer(BaseServer):
             self._debug_print_request(data, request)
             
             # リクエストの妥当性をチェック
-            is_valid, error_code = self.validate_request(request)
+            is_valid, error_code, error_msg = self.validate_request(request)
             if not is_valid:
                 # ErrorResponseを作成して返す
                 self._send_error_response(
@@ -641,6 +641,8 @@ class WeatherServer(BaseServer):
                         print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
                         print(f"  パケットサイズ: {len(response_data)} バイト")
                         print(f"  レスポンス成功フラグ: True")
+                        print(weather_response.type)
+                        print(response_data)
                     
                     return  # キャッシュヒット時はここで終了
                     

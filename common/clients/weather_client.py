@@ -9,7 +9,7 @@ from datetime import datetime
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from common.packet import WeatherRequest, WeatherResponse, ErrorResponse
+from common.packet import WeatherRequest, WeatherResponse, ErrorResponse, LocationResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
@@ -102,7 +102,13 @@ class WeatherClient:
         print(f"Packet ID: {response.packet_id}")
         print(f"Timestamp: {time.ctime(response.timestamp)}")
         
-        if response.type == 3:
+        if response.type == 1:
+            # 座標解決レスポンス
+            print(f"\nArea Code: {response.area_code}")
+            print(f"Location Name: {response.location_name}")
+            print(f"Success: {response.is_valid()}")
+            
+        elif response.type == 3:
             # 気象データレスポンス（専用メソッド使用）
             if hasattr(response, 'get_weather_code'):
                 weather_code = response.get_weather_code()
@@ -133,12 +139,12 @@ class WeatherClient:
         print(self._hex_dump(response.to_bytes()))
         print("==============================\n")
         
-    def get_weather_by_coordinates(self, latitude, longitude, 
-                                  weather=True, temperature=True, 
+    def get_weather_by_coordinates(self, latitude, longitude,
+                                  weather=True, temperature=True,
                                   precipitation_prob=True, alert=False, disaster=False,
                                   day=0):
         """
-        座標から天気情報を取得（Type 0 → Type 3）
+        座標から天気情報を取得（Type 0 → Type 1 → Type 3）
         
         Args:
             latitude: 緯度
@@ -178,46 +184,94 @@ class WeatherClient:
             # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
             
-            # パケットタイプに基づいて適切なレスポンスクラスを選択
-            response_type = int.from_bytes(response_data[1:2], byteorder='big')
-            
-            if response_type == 3:  # 天気レスポンス
-                response = WeatherResponse.from_bytes(response_data)
-                self._debug_print_response(response)
+            # パケットタイプの解析とバリデーション
+            if len(response_data) < 2:
+                if self.debug:
+                    print("422: クライアントエラー: パケットサイズ不足")
+                return None
                 
-                if response.is_success():
-                    result = response.get_weather_data()
-                    
-                    total_time = time.time() - start_time
+            try:
+                # パケットサイズチェック (最小3バイト必要)
+                if len(response_data) < 3:
                     if self.debug:
-                        print("\n=== TIMING INFORMATION ===")
-                        print(f"Total operation time: {total_time*1000:.2f}ms")
-                        print("========================\n")
-                    
-                    return result
-                else:
-                    if self.debug:
-                        print("420: クライアントエラー: クエリサーバが見つからない")
+                        print("422: クライアントエラー: パケットサイズ不足 (typeフィールド取得不可)")
                     return None
                     
-            elif response_type == 7:  # エラーレスポンス
-                response = ErrorResponse.from_bytes(response_data)
-                if self.debug:
-                    print("\n=== ERROR RESPONSE ===")
-                    print(f"Error Code: {response.error_code}")
-                    print("=====================\n")
+                # LSB基準で3バイト目の最後の3ビットを抽出 (typeフィールド)
+                type_byte = response_data[2]
+                response_type = type_byte & 0x07  # 最後の3ビットを抽出
                 
-                return {
-                    'type': 'error',
-                    'error_code': response.error_code,
-                }
-            else:
                 if self.debug:
-                    print(f"不明なパケットタイプ: {response_type}")
+                    print(f"Type byte (3rd byte): {type_byte:02x}")
+                    print(f"Binary: {type_byte:08b}")
+                    print(f"Extracted type bits: {response_type} (mask: 0x07)")
+                    print(f"Expected position: last 3 bits in byte 2 (LSB first)")
+                if self.debug:
+                    print(f"Detected packet type: {response_type} (Hex: {response_data[1:2].hex()})")
+                    print(f"Full packet header: {response_data[:4].hex()}")
+                    
+                if response_type == 1:  # 座標解決レスポンス
+                    response = LocationResponse.from_bytes(response_data)
+                    self._debug_print_response(response)
+                    
+                    if response.is_valid():
+                        # タイプ2リクエストを自動送信
+                        return self.get_weather_by_area_code(
+                            area_code=response.area_code,
+                            weather=weather,
+                            temperature=temperature,
+                            precipitation_prob=precipitation_prob,
+                            alert=alert,
+                            disaster=disaster,
+                            day=day
+                        )
+                    if self.debug:
+                        print("422: クライアントエラー: 無効な座標解決レスポンス")
+                    return None
+                        
+                elif response_type == 3:  # 天気レスポンス
+                    response = WeatherResponse.from_bytes(response_data)
+                    self._debug_print_response(response)
+                    
+                    if response.is_success():
+                        result = response.get_weather_data()
+                        
+                        total_time = time.time() - start_time
+                        if self.debug:
+                            print("\n=== TIMING INFORMATION ===")
+                            print(f"Total operation time: {total_time*1000:.2f}ms")
+                            print("========================\n")
+                        
+                        return result
+                    else:
+                        if self.debug:
+                            print("420: クライアントエラー: クエリサーバが見つからない")
+                        return None
+                        
+                elif response_type == 7:  # エラーレスポンス
+                    return self._handle_error_response(response_data)
+                    
+                else:
+                    if self.debug:
+                        print(f"不明なパケットタイプ: {response_type}")
+                        print("Raw Data:", self._hex_dump(response_data))
+                    return None
+                    
+            except ValueError as e:
+                if self.debug:
+                    print(f"パケット解析エラー (ValueError): {str(e)}")
+                    print("Raw Data:", self._hex_dump(response_data))
+                return None
+            except Exception as e:
+                if self.debug:
+                    print(f"予期せぬパケット解析エラー: {str(e)}")
+                    traceback.print_exc()
                 return None
             
-        except socket.timeout:
-            print("421: クライアントエラー: クエリサーバ接続タイムアウト")
+        except socket.timeout as e:
+            print(f"421: クライアントエラー: クエリサーバ接続タイムアウト - {e}")
+            if self.debug:
+                traceback.print_exc()
             return None
         except Exception as e:
             print(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
@@ -268,8 +322,29 @@ class WeatherClient:
             # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
             
-            # パケットタイプに基づいて適切なレスポンスクラスを選択
-            response_type = int.from_bytes(response_data[1:2], byteorder='little')
+            # パケットタイプに基づいて適切なレスポンスクラスを選択 (little endianに統一)
+            # パケットサイズチェック (最小3バイト必要)
+            if len(response_data) < 3:
+                if self.debug:
+                    print("422: クライアントエラー: パケットサイズ不足 (typeフィールド取得不可)")
+                return None
+                
+            # パケットタイプを正しく判定 (3バイト目の上位3ビット(5-7ビット)から抽出)
+            if len(response_data) < 3:
+                if self.debug:
+                    print("422: クライアントエラー: パケットサイズ不足 (typeフィールド取得不可)")
+                return None
+             
+            type_byte = response_data[2]
+            # LSB基準で最後の3ビットを抽出 (0x07マスク使用)
+            response_type = type_byte & 0x07
+             
+            if self.debug:
+                print(f"Packet header (3 bytes): {response_data[:3].hex()}")
+                print(f"3rd byte: {type_byte:02x} (binary: {type_byte:08b})")
+                print(f"Mask applied: 0x07 (binary: 00000111)")
+                print(f"Result: {response_type} (binary: {response_type:03b})")
+                print(f"Detected packet type: {response_type} (last 3 bits in byte 2, LSB first)")
             
             if response_type == 3:  # 天気レスポンス
                 response = WeatherResponse.from_bytes(response_data)
@@ -291,16 +366,7 @@ class WeatherClient:
                     return None
                     
             elif response_type == 7:  # エラーレスポンス
-                response = ErrorResponse.from_bytes(response_data)
-                if self.debug:
-                    print("\n=== ERROR RESPONSE ===")
-                    print(f"Error Code: {response.error_code}")
-                    print("=====================\n")
-                
-                return {
-                    'type': 'error',
-                    'error_code': response.error_code,
-                }
+                return self._handle_error_response(response_data)
             else:
                 if self.debug:
                     print(f"不明なパケットタイプ: {response_type}")
@@ -315,6 +381,82 @@ class WeatherClient:
                 traceback.print_exc()
             return None
         
+    def _handle_error_response(self, response_data):
+        """エラーレスポンスを処理するヘルパー関数
+        
+        Args:
+            response_data: 受信した生のレスポンスデータ
+            
+        Returns:
+            dict: エラー情報を含む辞書
+        """
+        # 基本的なエラーレスポンス構造
+        error_response = {
+            'type': 'error',
+            'error_code': 500,
+            'packet_id': 0,
+            'message': 'Unknown error',
+            'raw_data': self._hex_dump(response_data) if self.debug else None
+        }
+
+        # 基本的なパケットバリデーション
+        if len(response_data) < 3:  # 最小ヘッダサイズチェック (typeフィールドまで)
+            if self.debug:
+                print(f"422: クライアントエラー: パケットサイズ不足 ({len(response_data)} bytes)")
+            error_response.update({
+                'error_code': 422,
+                'message': 'Invalid packet size'
+            })
+            return error_response
+            
+        if self.debug:
+            print("\n=== RAW ERROR PACKET ===")
+            print(self._hex_dump(response_data))
+            print("======================")
+            
+        # packet_idを抽出 (失敗時は0を使用)
+        try:
+            packet_id = int.from_bytes(response_data[0:2], byteorder='little', signed=False)
+            if not (0 <= packet_id <= 0xFFF):  # 12-bit範囲チェック
+                if self.debug:
+                    print(f"422: 無効なpacket_id: {packet_id}, デフォルト値0を使用")
+                packet_id = 0
+            error_response['packet_id'] = packet_id
+        except Exception as e:
+            if self.debug:
+                print(f"packet_id抽出エラー: {str(e)}, デフォルト値0を使用")
+
+        # エラーコードを抽出 (3バイト目のビット3-7)
+        try:
+            error_code = (response_data[2] & 0xF8) >> 3  # ビット3-7を抽出
+            error_response['error_code'] = error_code
+        except Exception as e:
+            if self.debug:
+                print(f"error_code抽出エラー: {str(e)}")
+
+        # 可能ならErrorResponseクラスで解析を試みる
+        try:
+            response = ErrorResponse.from_bytes(response_data)
+            error_response.update({
+                'error_code': response.error_code,
+                'message': getattr(response, 'message', 'Unknown error')
+            })
+        except Exception as e:
+            if self.debug:
+                print("\n=== ERROR PACKET DECODE FAILED ===")
+                print(f"Error: {str(e)}")
+                print("===============================\n")
+            error_response['message'] = f"Invalid error packet: {str(e)}"
+
+        if self.debug:
+            print("\n=== FINAL ERROR RESPONSE ===")
+            print(f"Error Code: {error_response['error_code']}")
+            print(f"Packet ID: {error_response['packet_id']}")
+            print(f"Message: {error_response['message']}")
+            print("===========================\n")
+            
+        return error_response
+
     def close(self):
         """ソケットを閉じる"""
         self.sock.close()
