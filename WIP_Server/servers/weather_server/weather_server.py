@@ -716,7 +716,6 @@ class WeatherServer(BaseServer):
                     if not (0 < port <= 65535):
                         raise ValueError("Invalid port number")
                     dest_addr = (host, port)
-                    print(f"[天気サーバー] 不正なポート番号: {port}")
                     # ErrorResponseを作成して返す
                     self._send_error_response(
                         packet_id=request.packet_id,
@@ -810,8 +809,6 @@ class WeatherServer(BaseServer):
             if not (0 < port <= 65535):
                 raise ValueError("Invalid port number")
             dest_addr = (host, port)
-
-            print(f"[天気サーバー] 不正なポート番号: {port}")
             # ErrorResponseを作成して返す
             error_response = ErrorResponse(
                 version=self.version,
@@ -900,7 +897,6 @@ class WeatherServer(BaseServer):
                 if not (0 < port <= 65535):
                     raise ValueError("Invalid port number")
                 dest_addr = (host, port)
-                print(f"[天気サーバー] 不正なポート番号: {port}")
                 # ErrorResponseを作成して返す
                 self._send_error_response(
                     packet_id=response.packet_id,

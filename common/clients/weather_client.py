@@ -201,10 +201,11 @@ class WeatherClient:
                 response_type = (response_data[2] & 0x07)  # 下位3ビット
                 
                 if self.debug:
-                    print(f"Raw bits (first 3 bytes): {bitstr:024b}")
-                    print(f"Type bits (16-18): {(bitstr >> 16) & 0x07:03b}")
-                    print(f"Extracted type: {response_type}")
-                    print(f"Expected position: bits 16-18 (little endian)")
+                    # 生のパケットデータをバイナリ形式で出力
+                    print(f"Full packet data (binary): {''.join(f'{b:08b}' for b in response_data[:4])}")
+                    print(f"Byte[2] (binary): {response_data[2]:08b}")
+                    print(f"Extracted type: {response_type:03b} (binary)")
+                    print(f"Expected position: bits 16-18 (little endian) - should be lower 3 bits of byte[2]")
                 if self.debug:
                     print(f"Detected packet type: {response_type} (Hex: {response_data[1:2].hex()})")
                     print(f"Full packet header: {response_data[:4].hex()}")
@@ -338,8 +339,11 @@ class WeatherClient:
             response_type = (response_data[2] & 0x07)  # 上位3ビット
              
             if self.debug:
-                print(f"Extracted type: {response_type}")
-                print(f"Expected position: bits 16-18 (little endian)")
+                # 生のパケットデータをバイナリ形式で出力
+                print(f"Full packet data (binary): {''.join(f'{b:08b}' for b in response_data[:4])}")
+                print(f"Byte[2] (binary): {response_data[2]:08b}")
+                print(f"Extracted type: {response_type:03b} (binary)")
+                print(f"Expected position: bits 16-18 (little endian) - should be lower 3 bits of byte[2]")
             
             if response_type == 3:  # 天気レスポンス
                 response = WeatherResponse.from_bytes(response_data)
