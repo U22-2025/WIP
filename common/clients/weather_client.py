@@ -197,15 +197,15 @@ class WeatherClient:
                         print("422: クライアントエラー: パケットサイズ不足 (typeフィールド取得不可)")
                     return None
                     
-                # LSB基準で3バイト目の最後の3ビットを抽出 (typeフィールド)
-                type_byte = response_data[2]
-                response_type = type_byte & 0x07  # 最後の3ビットを抽出
+                # リトルエンディアンでビット位置17-19からタイプを抽出
+                bitstr = int.from_bytes(response_data[:3], byteorder='little')
+                response_type = (bitstr >> 16) & 0x07  # ビット16-18 (17-19bit目)
                 
                 if self.debug:
-                    print(f"Type byte (3rd byte): {type_byte:02x}")
-                    print(f"Binary: {type_byte:08b}")
-                    print(f"Extracted type bits: {response_type} (mask: 0x07)")
-                    print(f"Expected position: last 3 bits in byte 2 (LSB first)")
+                    print(f"Raw bits (first 3 bytes): {bitstr:024b}")
+                    print(f"Type bits (16-18): {(bitstr >> 16) & 0x07:03b}")
+                    print(f"Extracted type: {response_type}")
+                    print(f"Expected position: bits 16-18 (little endian)")
                 if self.debug:
                     print(f"Detected packet type: {response_type} (Hex: {response_data[1:2].hex()})")
                     print(f"Full packet header: {response_data[:4].hex()}")
@@ -335,16 +335,15 @@ class WeatherClient:
                     print("422: クライアントエラー: パケットサイズ不足 (typeフィールド取得不可)")
                 return None
              
-            type_byte = response_data[2]
-            # LSB基準で最後の3ビットを抽出 (0x07マスク使用)
-            response_type = type_byte & 0x07
+            # リトルエンディアンでビット位置17-19からタイプを抽出
+            bitstr = int.from_bytes(response_data[:3], byteorder='little')
+            response_type = (bitstr >> 16) & 0x07  # ビット16-18 (17-19bit目)
              
             if self.debug:
-                print(f"Packet header (3 bytes): {response_data[:3].hex()}")
-                print(f"3rd byte: {type_byte:02x} (binary: {type_byte:08b})")
-                print(f"Mask applied: 0x07 (binary: 00000111)")
-                print(f"Result: {response_type} (binary: {response_type:03b})")
-                print(f"Detected packet type: {response_type} (last 3 bits in byte 2, LSB first)")
+                print(f"Raw bits (first 3 bytes): {bitstr:024b}")
+                print(f"Type bits (16-18): {(bitstr >> 16) & 0x07:03b}")
+                print(f"Extracted type: {response_type}")
+                print(f"Expected position: bits 16-18 (little endian)")
             
             if response_type == 3:  # 天気レスポンス
                 response = WeatherResponse.from_bytes(response_data)
