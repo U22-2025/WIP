@@ -4,6 +4,7 @@ from .extended_field import ExtendedField
 class ErrorResponse(Response):
     def __init__(self):
         super().__init__()
+        self.version = 1
         self.type = 7  # エラーパケットタイプ
         self.weather_code = 0  # エラーコード格納用
         self.ex_field = ExtendedField()  # ソースIP格納用

@@ -158,38 +158,54 @@ class Client:
             raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
         
         # エリアコードが利用可能な場合はエリアコードから取得
-        if self._area_code is not None:
+        try:
+            if self._area_code is not None:
+                if self.debug:
+                    print(f"Using area code for weather request: {self._area_code}")
+                result = self._weather_client.get_weather_by_area_code(
+                    area_code=self._area_code,
+                    weather=weather,
+                    temperature=temperature,
+                    precipitation_prob=precipitation_prob,
+                    alert=alert,
+                    disaster=disaster,
+                    day=day
+                )
+            
+            # 座標が利用可能な場合は座標から取得
+            elif self._latitude is not None and self._longitude is not None:
+                if self.debug:
+                    print(f"Using coordinates for weather request: ({self._latitude}, {self._longitude})")
+                result = self._weather_client.get_weather_by_coordinates(
+                    latitude=self._latitude,
+                    longitude=self._longitude,
+                    weather=weather,
+                    temperature=temperature,
+                    precipitation_prob=precipitation_prob,
+                    alert=alert,
+                    disaster=disaster,
+                    day=day
+                )
+            
+            # 座標もエリアコードも設定されていない場合
+            else:
+                if self.debug:
+                    print("Error: No coordinates or area code available")
+                return None
+            
+            # エラーレスポンスの処理
+            if isinstance(result, dict) and result.get('type') == 'error':
+                if self.debug:
+                    print(f"Received error response: {result}")
+                return {
+                    'error_code': result['error_code'],
+                }
+            
+            return result
+            
+        except Exception as e:
             if self.debug:
-                print(f"Using area code for weather request: {self._area_code}")
-            return self._weather_client.get_weather_by_area_code(
-                area_code=self._area_code,
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alert=alert,
-                disaster=disaster,
-                day=day
-            )
-        
-        # 座標が利用可能な場合は座標から取得
-        elif self._latitude is not None and self._longitude is not None:
-            if self.debug:
-                print(f"Using coordinates for weather request: ({self._latitude}, {self._longitude})")
-            return self._weather_client.get_weather_by_coordinates(
-                latitude=self._latitude,
-                longitude=self._longitude,
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alert=alert,
-                disaster=disaster,
-                day=day
-            )
-        
-        # 座標もエリアコードも設定されていない場合
-        else:
-            if self.debug:
-                print("Error: No coordinates or area code available")
+                print(f"Error in get_weather: {str(e)}")
             return None
     
     def get_weather_by_coordinates(self, latitude, longitude, **kwargs):

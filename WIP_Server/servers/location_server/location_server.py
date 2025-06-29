@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 from common.utils.cache import Cache
+from common.packet.error_response import ErrorResponse
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -144,24 +145,24 @@ class LocationServer(BaseServer):
             request: リクエストオブジェクト
             
         Returns:
-            tuple: (is_valid, error_message)
+            tuple: (is_valid, error_code)
         """
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
-            return False, "400", "不正なパケット"
+            return False, "400"
         
         # 緯度経度が必要
         if not hasattr(request, 'ex_field') or not request.ex_field:
-            return False, "400", "不正なパケット"
+            return False, "400"
         
         # ExtendedFieldオブジェクトのgetメソッドを使用
         latitude = request.ex_field.get("latitude")
         longitude = request.ex_field.get("longitude")
         if not latitude or not longitude:
-            return False, "401", "無効な座標"
+            return False, "401"
         
         return True, None, None
-    
+
     def create_response(self, request):
         """
         レスポンスを作成
@@ -172,46 +173,73 @@ class LocationServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
+        # リクエストのバリデーション
+        is_valid, error_code = self.validate_request(request)
+        if not is_valid:
+            # ErrorResponseを作成して返す
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=request.packet_id,
+                type=7,  # Error response type
+                error_code=error_code,
+                timestamp=int(datetime.now().timestamp())
+            )
+            return error_response.to_bytes()
+    
         # 位置情報から地域コードを取得
-        area_code = self.get_district_code(
-            request.ex_field.get("longitude"),
-            request.ex_field.get("latitude")
-        )
-        
-        # レスポンスを作成
-        response = Response(
-            version=self.version,
-            packet_id=request.packet_id,
-            type=1,  # Response type
-            day=request.day,
-            weather_flag=request.weather_flag,
-            temperature_flag=request.temperature_flag,
-            pop_flag=request.pop_flag,
-            alert_flag=request.alert_flag,
-            disaster_flag=request.disaster_flag,
-            ex_flag=1,
-            timestamp=int(datetime.now().timestamp()),
-            area_code=int(area_code) if area_code else 0
-        )
-        
-        # sourceのみを引き継ぐ（座標は破棄）
-        # ExtendedFieldオブジェクトはResponseコンストラクタで自動作成される
-        if hasattr(request, 'ex_field') and request.ex_field:
-            source = request.ex_field.get('source')
-            if source:
-                response.ex_field.source = source
-                if self.debug:
-                    print(f"[位置情報サーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
+        try:
+            area_code = self.get_district_code(
+                request.ex_field.get("longitude"),
+                request.ex_field.get("latitude")
+            )
+            
+            # レスポンスを作成
+            response = Response(
+                version=self.version,
+                packet_id=request.packet_id,
+                type=1,  # Response type
+                day=request.day,
+                weather_flag=request.weather_flag,
+                temperature_flag=request.temperature_flag,
+                pop_flag=request.pop_flag,
+                alert_flag=request.alert_flag,
+                disaster_flag=request.disaster_flag,
+                ex_flag=1,
+                timestamp=int(datetime.now().timestamp()),
+                area_code=int(area_code) if area_code else 0
+            )
+            
+            # sourceのみを引き継ぐ（座標は破棄）
+            # ExtendedFieldオブジェクトはResponseコンストラクタで自動作成される
+            if hasattr(request, 'ex_field') and request.ex_field:
+                source = request.ex_field.get('source')
+                if source:
+                    response.ex_field.source = source
+                    if self.debug:
+                        print(f"[位置情報サーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
 
-            latitude = request.ex_field.get('latitude')
-            longitude = request.ex_field.get('longitude')
-            if latitude and longitude:
-                response.ex_field.latitude = latitude
-                response.ex_field.longitude = longitude
-                if self.debug:
-                    print ("座標解決レスポンスに座標を追加しました")
-        
-        return response.to_bytes()
+                latitude = request.ex_field.get('latitude')
+                longitude = request.ex_field.get('longitude')
+                if latitude and longitude:
+                    response.ex_field.latitude = latitude
+                    response.ex_field.longitude = longitude
+                    if self.debug:
+                        print ("座標解決レスポンスに座標を追加しました")
+            
+            return response.to_bytes()
+            
+        except Exception as e:
+            # 内部エラー発生時は500エラーを返す
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=request.packet_id,
+                type=7,  # Error response type
+                error_code="510",
+                timestamp=int(datetime.now().timestamp())
+            )
+            if self.debug:
+                print(f"510: [位置情報サーバー] エラーレスポンスを生成: {error_response.error_code}")
+            return error_response.to_bytes()
     
     def get_district_code(self, longitude, latitude):
         """

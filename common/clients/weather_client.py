@@ -9,7 +9,7 @@ from datetime import datetime
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from common.packet import WeatherRequest, WeatherResponse
+from common.packet import WeatherRequest, WeatherResponse, ErrorResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
@@ -175,26 +175,45 @@ class WeatherClient:
             # リクエスト送信
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             
-            # Type 3: 気象データレスポンスを受信（専用クラス使用）
+            # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
-            response = WeatherResponse.from_bytes(response_data)
             
-            self._debug_print_response(response)
+            # パケットタイプに基づいて適切なレスポンスクラスを選択
+            response_type = int.from_bytes(response_data[1:2], byteorder='big')
             
-            # 専用クラスのメソッドで結果を簡単に取得
-            if response.is_success():
-                result = response.get_weather_data()
+            if response_type == 3:  # 天気レスポンス
+                response = WeatherResponse.from_bytes(response_data)
+                self._debug_print_response(response)
                 
-                total_time = time.time() - start_time
+                if response.is_success():
+                    result = response.get_weather_data()
+                    
+                    total_time = time.time() - start_time
+                    if self.debug:
+                        print("\n=== TIMING INFORMATION ===")
+                        print(f"Total operation time: {total_time*1000:.2f}ms")
+                        print("========================\n")
+                    
+                    return result
+                else:
+                    if self.debug:
+                        print("420: クライアントエラー: クエリサーバが見つからない")
+                    return None
+                    
+            elif response_type == 7:  # エラーレスポンス
+                response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    print("\n=== TIMING INFORMATION ===")
-                    print(f"Total operation time: {total_time*1000:.2f}ms")
-                    print("========================\n")
+                    print("\n=== ERROR RESPONSE ===")
+                    print(f"Error Code: {response.error_code}")
+                    print("=====================\n")
                 
-                return result
+                return {
+                    'type': 'error',
+                    'error_code': response.error_code,
+                }
             else:
                 if self.debug:
-                    print("420: クライアントエラー: クエリサーバが見つからない")
+                    print(f"不明なパケットタイプ: {response_type}")
                 return None
             
         except socket.timeout:
@@ -246,26 +265,45 @@ class WeatherClient:
             # リクエスト送信
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             
-            # Type 3: 気象データレスポンスを受信（専用クラス使用）
+            # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
-            response = WeatherResponse.from_bytes(response_data)
             
-            self._debug_print_response(response)
+            # パケットタイプに基づいて適切なレスポンスクラスを選択
+            response_type = int.from_bytes(response_data[1:2], byteorder='little')
             
-            # 専用クラスのメソッドで結果を簡単に取得
-            if response.is_success():
-                result = response.get_weather_data()
+            if response_type == 3:  # 天気レスポンス
+                response = WeatherResponse.from_bytes(response_data)
+                self._debug_print_response(response)
                 
-                total_time = time.time() - start_time
+                if response.is_success():
+                    result = response.get_weather_data()
+                    
+                    total_time = time.time() - start_time
+                    if self.debug:
+                        print("\n=== TIMING INFORMATION ===")
+                        print(f"Total operation time: {total_time*1000:.2f}ms")
+                        print("========================\n")
+                    
+                    return result
+                else:
+                    if self.debug:
+                        print("420: クライアントエラー: クエリサーバが見つからない")
+                    return None
+                    
+            elif response_type == 7:  # エラーレスポンス
+                response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    print("\n=== TIMING INFORMATION ===")
-                    print(f"Total operation time: {total_time*1000:.2f}ms")
-                    print("========================\n")
+                    print("\n=== ERROR RESPONSE ===")
+                    print(f"Error Code: {response.error_code}")
+                    print("=====================\n")
                 
-                return result
+                return {
+                    'type': 'error',
+                    'error_code': response.error_code,
+                }
             else:
                 if self.debug:
-                    print("420: クライアントエラー: クエリサーバが見つからない")
+                    print(f"不明なパケットタイプ: {response_type}")
                 return None
             
         except socket.timeout:
