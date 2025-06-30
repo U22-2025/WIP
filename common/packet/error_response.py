@@ -10,7 +10,7 @@ class ErrorResponse(Response):
         *,
         version: int = 1,
         packet_id: int = 0,
-        error_code: int = 0,
+        error_code: Union[int, str] = 0,
         timestamp: Optional[int] = None,
         ex_field: Optional[Union[Dict[str, Any], ExtendedField]] = None,
         **kwargs,
@@ -25,7 +25,7 @@ class ErrorResponse(Response):
             type=type_val,
             ex_flag=ex_flag_val,
             timestamp=timestamp or 0,
-            weather_code=error_code,
+            weather_code=int(error_code),
             ex_field=ex_field,
             **kwargs,
         )
@@ -35,6 +35,6 @@ class ErrorResponse(Response):
         return self.weather_code
 
     @error_code.setter
-    def error_code(self, value: int) -> None:
-        self.weather_code = value
+    def error_code(self, value: Union[int, str]) -> None:
+        self.weather_code = int(value)
 
