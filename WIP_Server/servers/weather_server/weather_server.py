@@ -840,8 +840,8 @@ class WeatherServer(BaseServer):
                 print(f"  送信元アドレス: {addr}")
             
             # 拡張フィールドからsourceを取得
-            if request.ex_field and 'source' in request.ex_field:
-                source = request.ex_field['source']
+            if request.ex_field and request.ex_field.contains('source'):
+                source = request.ex_field.source
                 if self.debug:
                     print(f"  ソースを取得: {source}")
                 

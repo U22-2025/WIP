@@ -145,8 +145,8 @@ class LocationServer(BaseServer):
         try:
             req = self.parse_request(data)
             if req.type == 7:
-                if req.ex_field and 'source' in req.ex_field:
-                    source = req.ex_field['source']
+                if req.ex_field and req.ex_field.contains('source'):
+                    source = req.ex_field.source
                     if isinstance(source, tuple) and len(source) == 2:
                         host, port = source
                         try:
