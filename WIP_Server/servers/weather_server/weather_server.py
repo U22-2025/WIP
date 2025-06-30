@@ -159,7 +159,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=0,  # パースエラー時はpacket_id=0
-                    type=7,  # Error response type
                     error_code=530,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -176,7 +175,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version = self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= error_code,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -211,7 +209,6 @@ class WeatherServer(BaseServer):
                     error_response = ErrorResponse(
                         version=self.version,
                         packet_id=request.packet_id,
-                        type=7,  # Error response type
                         error_code= 405,
                         timestamp=int(datetime.now().timestamp())
                     )
@@ -233,7 +230,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=packet_id,
-                type=7,  # Error response type
                 error_code=530,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -321,7 +317,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 410,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -336,7 +331,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 530,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -546,7 +540,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=response.packet_id,
-                type=7,  # Error response type
                 error_code= 107,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -649,7 +642,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 420,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -664,7 +656,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code= 420,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -791,7 +782,6 @@ class WeatherServer(BaseServer):
                     error_response = ErrorResponse(
                         version=self.version,
                         packet_id=response.packet_id,
-                        type=7,  # Error response type
                         error_code= 530,
                         timestamp=int(datetime.now().timestamp())
                     )
@@ -809,7 +799,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=response.packet_id,
-                    type=7,  # Error response type
                     error_code= 530,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -824,7 +813,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=response.packet_id,
-                type=7,  # Error response type
                 error_code= 530,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -872,7 +860,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code= 530,
                 timestamp=int(datetime.now().timestamp())
             )

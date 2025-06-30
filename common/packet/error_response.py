@@ -15,11 +15,15 @@ class ErrorResponse(Response):
         ex_field: Optional[Union[Dict[str, Any], ExtendedField]] = None,
         **kwargs,
     ) -> None:
+        # 呼び出し元から type や ex_flag が渡された場合は取り除く
+        type_val = kwargs.pop("type", 7)
+        ex_flag_val = kwargs.pop("ex_flag", 1)
+
         super().__init__(
             version=version,
             packet_id=packet_id,
-            type=7,
-            ex_flag=1,
+            type=type_val,
+            ex_flag=ex_flag_val,
             timestamp=timestamp or 0,
             weather_code=error_code,
             ex_field=ex_field,

@@ -204,7 +204,6 @@ class LocationServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -257,7 +256,6 @@ class LocationServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code="510",
                 timestamp=int(datetime.now().timestamp())
             )
