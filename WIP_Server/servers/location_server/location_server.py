@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 from common.utils.cache import Cache
-from common.packet.error_response import ErrorResponse
+from common.packet import ErrorResponse
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -135,7 +135,31 @@ class LocationServer(BaseServer):
         Returns:
             Request: パースされたリクエスト
         """
-        return Request.from_bytes(data)
+        temp_request = Request.from_bytes(data)
+        if temp_request.type == 7:
+            return ErrorResponse.from_bytes(data)
+        return temp_request
+
+    def handle_request(self, data, addr):
+        """エラーパケットを中継"""
+        try:
+            req = self.parse_request(data)
+            if req.type == 7:
+                if req.ex_field and req.ex_field.contains('source'):
+                    source = req.ex_field.source
+                    if isinstance(source, tuple) and len(source) == 2:
+                        host, port = source
+                        try:
+                            port = int(port)
+                            self.sock.sendto(data, (host, port))
+                            if self.debug:
+                                print(f"[位置情報サーバー] エラーパケットを {host}:{port} に転送しました")
+                        except Exception as e:
+                            print(f"[位置情報サーバー] エラーパケット転送失敗: {e}")
+                return
+        except Exception:
+            pass
+        super().handle_request(data, addr)
     
     def validate_request(self, request):
         """
@@ -180,7 +204,6 @@ class LocationServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -233,7 +256,6 @@ class LocationServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code="510",
                 timestamp=int(datetime.now().timestamp())
             )

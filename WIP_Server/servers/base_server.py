@@ -11,6 +11,7 @@ import os
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
 import traceback
+from common.packet import ErrorResponse
 
 class BaseServer(ABC):
     """UDPサーバーの基底クラス"""
@@ -176,10 +177,10 @@ class BaseServer(ABC):
             source_port = addr[1] if isinstance(addr, tuple) else 0
             
             # ErrorResponseパケットの生成
-            from common.packet.error_response import ErrorResponse
             err_pkt = ErrorResponse()
             err_pkt.packet_id = original_packet.packet_id
             err_pkt.error_code = error_code
+            err_pkt.ex_flag = 1
             err_pkt.ex_field.set('source', (source_ip, source_port))
             
             # パケットをシリアライズ
