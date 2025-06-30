@@ -30,7 +30,7 @@ from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 from common.utils.cache import Cache
-from common.packet.error_response import ErrorResponse
+from common.packet import ErrorResponse
 from datetime import timedelta
 
 
@@ -941,14 +941,14 @@ class WeatherServer(BaseServer):
             print("1")
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # タイプのチェック（0-3が有効）
-        if request.type not in [0, 1, 2, 3]:
+        # タイプのチェック（0-3,7が有効）
+        if request.type not in [0, 1, 2, 3, 7]:
             print(f"2: {request.type}")
             return False, "400", f"不正なパケットタイプ: {request.type}"
-        
-        # エリアコードのチェック
-        if request.type != 0 and (not request.area_code or request.area_code == "000000"):
-            print("3") 
+
+        # エリアコードのチェック (タイプ0と7は除外)
+        if request.type not in [0, 7] and (not request.area_code or request.area_code == "000000"):
+            print("3")
             return False, "402", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
