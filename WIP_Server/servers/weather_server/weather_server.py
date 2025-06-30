@@ -30,7 +30,7 @@ from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 from common.utils.cache import Cache
-from common.packet.error_response import ErrorResponse
+from common.packet import ErrorResponse
 from datetime import timedelta
 
 
@@ -159,7 +159,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=0,  # パースエラー時はpacket_id=0
-                    type=7,  # Error response type
                     error_code=530,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -176,7 +175,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version = self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= error_code,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -211,7 +209,6 @@ class WeatherServer(BaseServer):
                     error_response = ErrorResponse(
                         version=self.version,
                         packet_id=request.packet_id,
-                        type=7,  # Error response type
                         error_code= 405,
                         timestamp=int(datetime.now().timestamp())
                     )
@@ -233,7 +230,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=packet_id,
-                type=7,  # Error response type
                 error_code=530,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -321,7 +317,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 410,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -336,7 +331,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 530,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -546,7 +540,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=response.packet_id,
-                type=7,  # Error response type
                 error_code= 107,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -649,7 +642,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 420,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -664,7 +656,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code= 420,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -791,7 +782,6 @@ class WeatherServer(BaseServer):
                     error_response = ErrorResponse(
                         version=self.version,
                         packet_id=response.packet_id,
-                        type=7,  # Error response type
                         error_code= 530,
                         timestamp=int(datetime.now().timestamp())
                     )
@@ -809,7 +799,6 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=response.packet_id,
-                    type=7,  # Error response type
                     error_code= 530,
                     timestamp=int(datetime.now().timestamp())
                 )
@@ -824,7 +813,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=response.packet_id,
-                type=7,  # Error response type
                 error_code= 530,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -840,8 +828,8 @@ class WeatherServer(BaseServer):
                 print(f"  送信元アドレス: {addr}")
             
             # 拡張フィールドからsourceを取得
-            if request.ex_field and 'source' in request.ex_field:
-                source = request.ex_field['source']
+            if request.ex_field and request.ex_field.contains('source'):
+                source = request.ex_field.source
                 if self.debug:
                     print(f"  ソースを取得: {source}")
                 
@@ -872,7 +860,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code= 530,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -941,14 +928,14 @@ class WeatherServer(BaseServer):
             print("1")
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # タイプのチェック（0-3が有効）
-        if request.type not in [0, 1, 2, 3]:
+        # タイプのチェック（0-3,7が有効）
+        if request.type not in [0, 1, 2, 3, 7]:
             print(f"2: {request.type}")
             return False, "400", f"不正なパケットタイプ: {request.type}"
-        
-        # エリアコードのチェック
-        if request.type != 0 and (not request.area_code or request.area_code == "000000"):
-            print("3") 
+
+        # エリアコードのチェック (タイプ0と7は除外)
+        if request.type not in [0, 7] and (not request.area_code or request.area_code == "000000"):
+            print("3")
             return False, "402", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
