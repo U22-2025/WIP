@@ -412,6 +412,15 @@ class WeatherApp {
             noData.innerHTML = `<i class="fas fa-exclamation-triangle"></i><p>${message}</p>`;
             noData.style.display = 'block';
         }
+
+        // 週間予報をクリア
+        this.hideWeeklyForecast();
+        const weeklyDataContainer = document.getElementById('weekly-data');
+        if (weeklyDataContainer) {
+            weeklyDataContainer.innerHTML = '';
+        }
+        this.weeklyDataForChart = null;
+
         const sampleData = {
             status: 'ok',
             weather: {
@@ -1252,6 +1261,7 @@ class WeatherApp {
 
         weeklyDataContainer.innerHTML = errorHTML;
         weeklyDataContainer.style.display = 'block';
+        this.weeklyDataForChart = null;
     }
 }
 

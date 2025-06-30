@@ -87,9 +87,14 @@ async def weather_code():
     return await send_from_directory('templates', 'weather_code.json')
 
 # エラーコードJSONを提供するルート
+from pathlib import Path
+
+# error_code.json の配置ディレクトリ
+ERROR_CODE_DIR = Path(__file__).resolve().parents[2] / 'common' / 'packet'
+
 @app.route('/error_code.json')
 async def error_code_json():
-    return await send_from_directory('templates', 'error_code.json')
+    return await send_from_directory(ERROR_CODE_DIR, 'error_code.json')
 
 @app.route('/click', methods=['POST'])
 async def click():

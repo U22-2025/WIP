@@ -33,7 +33,7 @@ def test_weather_packet():
         packet_id=456,
         weather=True,
         temperature=True,
-        alerts=True
+        alert=True
     )
     
     print(f"\nWeather Request (by area code):")
@@ -104,7 +104,7 @@ def test_query_packet():
         weather=True,
         temperature=True,
         precipitation_prob=True,
-        alerts=True,
+        alert=True,
         source="192.168.1.100:12345"
     )
     
@@ -133,7 +133,7 @@ def test_query_packet():
     print(f"  Weather Code: {query_resp.get_weather_code()}")
     print(f"  Temperature: {query_resp.get_temperature_celsius()}℃")
     print(f"  precipitation_prob: {query_resp.get_precipitation()}%")
-    print(f"  Alerts: {query_resp.get_alerts()}")
+    print(f"  Alerts: {query_resp.get_alert()}")
     print(f"  Disaster Info: {query_resp.get_disaster_info()}")
     print(f"  Success: {query_resp.is_success()}")
     print(f"  Summary: {query_resp.get_response_summary()}")
@@ -154,7 +154,7 @@ def test_interoperability():
     
     location_req = LocationRequest.from_weather_request(
         weather_req,
-        source="test_source"
+        source="127.0.0.1:12345"
     )
     
     print(f"WeatherRequest → LocationRequest conversion:")
@@ -169,7 +169,7 @@ def test_interoperability():
     
     query_req = QueryRequest.from_location_response(
         location_resp,
-        source="updated_source"
+        source="127.0.0.1:23456"
     )
     
     print(f"\nLocationResponse → QueryRequest conversion:")

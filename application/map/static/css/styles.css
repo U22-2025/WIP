@@ -1121,6 +1121,15 @@ button:focus,
     color: var(--text-secondary);
 }
 
+/* 週間予報エラーメッセージ */
+.weekly-error {
+    text-align: center;
+    padding: var(--space-lg);
+    color: var(--text-secondary);
+    background: var(--surface-secondary);
+    border-radius: var(--radius-md);
+}
+
 .loading-spinner-small {
     width: 20px;
     height: 20px;
