@@ -503,8 +503,9 @@ class WeatherServer(BaseServer):
             cache_key = f"{lat}_{long}"
             
             # キャッシュが存在しないか有効期限切れの場合に更新
+            # TTLは地域キャッシュ設定(expiration_time_area)を参照
             cached_data = self.cache_area.get(cache_key)
-            cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_weather', 1800))
+            cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_area', 604800))
             
             if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
                 # キャッシュデータの作成
