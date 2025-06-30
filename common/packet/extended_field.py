@@ -17,7 +17,7 @@
     get()/set()メソッドを使用するとDeprecationWarningが発生します。
     新しいプロパティアクセス方式に移行してください。
 """
-from typing import Optional, Dict, Any, List, Union, Callable
+from typing import Optional, Dict, Any, List, Union, Callable, Tuple
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
 
@@ -465,6 +465,56 @@ class ExtendedField:
                 raise BitFieldError(f"キー '{key}' の処理中にエラー: {e}")
         
         return result_bits
+
+    @classmethod
+    def _parse_header(cls, bitstr: int, pos: int, total_bits: int) -> Optional[Tuple[Optional[int], int, int]]:
+        """ヘッダー情報を解析してキーとバイト長を取得"""
+        if total_bits - pos < cls.EXTENDED_HEADER_TOTAL:
+            return None
+
+        header = extract_bits(bitstr, pos, cls.EXTENDED_HEADER_TOTAL)
+        key = (header >> cls.EXTENDED_HEADER_LENGTH) & cls.MAX_EXTENDED_KEY
+        bytes_length = header & cls.MAX_EXTENDED_LENGTH
+        bits_length = bytes_length * 8
+
+        if header == 0 or bytes_length == 0:
+            return (None, bytes_length, bits_length)
+
+        required_bits = cls.EXTENDED_HEADER_TOTAL + bits_length
+        if pos + required_bits > total_bits:
+            return None
+
+        return key, bytes_length, bits_length
+
+    @classmethod
+    def _decode_value(cls, key: int, value_bits: int, bytes_length: int) -> Any:
+        """値部分のビット列をデコード"""
+        try:
+            value_bytes = value_bits.to_bytes(bytes_length, byteorder='little')
+            if key in ExtendedFieldType.STRING_LIST_FIELDS:
+                return value_bytes.decode('utf-8').rstrip('\x00#')
+            if key == ExtendedFieldType.SOURCE:
+                value_str = value_bytes.decode('utf-8').rstrip('\x00#')
+                if ':' in value_str:
+                    ip, port_str = value_str.split(':')
+                    try:
+                        return (ip, int(port_str))
+                    except ValueError:
+                        return value_str
+                return value_str
+            if key in ExtendedFieldType.COORDINATE_FIELDS:
+                if bytes_length == 4:
+                    int_value = int.from_bytes(value_bytes, byteorder='little', signed=True)
+                    return int_value / ExtendedFieldType.COORDINATE_SCALE
+                try:
+                    decoded_str = value_bytes.decode('utf-8').rstrip('\x00#')
+                    return float(decoded_str)
+                except (UnicodeDecodeError, ValueError):
+                    return int.from_bytes(value_bytes, byteorder='little')
+        except UnicodeDecodeError:
+            return value_bits
+
+        return value_bits
     
     @classmethod
     def from_bits(cls, bitstr: int, total_bits: Optional[int] = None) -> 'ExtendedField':
@@ -490,61 +540,22 @@ class ExtendedField:
             total_bits = total_bits if total_bits is not None else bitstr.bit_length()
             
             while current_pos < total_bits:
-                if total_bits - current_pos < cls.EXTENDED_HEADER_TOTAL:
+                parsed = cls._parse_header(bitstr, current_pos, total_bits)
+                if not parsed:
                     break
-                
-                header = extract_bits(bitstr, current_pos, cls.EXTENDED_HEADER_TOTAL)
-                # ビット配置を統一（キーを上位、バイト長を下位）
-                key = (header >> cls.EXTENDED_HEADER_LENGTH) & cls.MAX_EXTENDED_KEY
-                bytes_length = header & cls.MAX_EXTENDED_LENGTH
-                bits_length = bytes_length * 8
-                
-                # ヘッダーが0の場合（無効なレコード）はスキップ
-                if header == 0 or bytes_length == 0:
+
+                key, bytes_length, bits_length = parsed
+                if key is None:
                     current_pos += cls.EXTENDED_HEADER_TOTAL
                     continue
-                
-                required_bits = cls.EXTENDED_HEADER_TOTAL + bits_length
-                if current_pos + required_bits > total_bits:
-                    break
-                
+
                 value_bits = extract_bits(bitstr, current_pos + cls.EXTENDED_HEADER_TOTAL, bits_length)
-                
-                try:
-                    value_bytes = value_bits.to_bytes(bytes_length, byteorder='little')
-                    if key in ExtendedFieldType.STRING_LIST_FIELDS:
-                        # 文字列の末尾の余分な文字を削除
-                        value = value_bytes.decode('utf-8').rstrip('\x00#')
-                    elif key == ExtendedFieldType.SOURCE:
-                        # sourceフィールドは"ip:port"形式でデシリアライズ
-                        value_str = value_bytes.decode('utf-8').rstrip('\x00#')
-                        if ":" in value_str:
-                            ip, port_str = value_str.split(":")
-                            try:
-                                value = (ip, int(port_str))
-                            except ValueError:
-                                value = value_str  # 互換性のため文字列も保持
-                    elif key in ExtendedFieldType.COORDINATE_FIELDS:
-                        # 4バイト符号付き整数として復元し、10^6で割って浮動小数点数に戻す
-                        if bytes_length == 4:
-                            int_value = int.from_bytes(value_bytes, byteorder='little', signed=True)
-                            value = int_value / ExtendedFieldType.COORDINATE_SCALE
-                        else:
-                            # 互換性のため、従来の文字列形式もサポート
-                            try:
-                                decoded_str = value_bytes.decode('utf-8').rstrip('\x00#')
-                                value = float(decoded_str)
-                            except (UnicodeDecodeError, ValueError):
-                                value = int.from_bytes(value_bytes, byteorder='little')
-                    else:
-                        value = value_bits
-                except UnicodeDecodeError:
-                    value = value_bits
-                
+                value = cls._decode_value(key, value_bits, bytes_length)
+
                 if field_key := cls.FIELD_MAPPING_INT.get(key):
                     result.append({field_key: value})
-                
-                current_pos += required_bits
+
+                current_pos += cls.EXTENDED_HEADER_TOTAL + bits_length
             
             # 結果を辞書に変換
             converted_dict = cls._extended_field_to_dict(result)

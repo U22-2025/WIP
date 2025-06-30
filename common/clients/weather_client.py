@@ -5,6 +5,7 @@ Weather Serverプロキシと通信するクライアント
 
 import socket
 import time
+import logging
 from datetime import datetime
 import sys
 import os
@@ -32,6 +33,9 @@ class WeatherClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(10.0)
         self.debug = debug
+        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
         self.PIDG = PacketIDGenerator12Bit()
         
@@ -43,95 +47,91 @@ class WeatherClient:
         
     def _debug_print_request(self, request, request_type):
         """リクエストのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
-            
-        print("\n=== SENDING REQUEST PACKET ===")
-        print(f"Request Type: {request_type}")
-        print(f"Total Length: {len(request.to_bytes())} bytes")
+
+        self.logger.debug("\n=== SENDING REQUEST PACKET ===")
+        self.logger.debug(f"Request Type: {request_type}")
+        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
         
         # 専用クラスのサマリー情報を使用
         if hasattr(request, 'get_request_summary'):
             summary = request.get_request_summary()
-            print(f"\nRequest Summary: {summary}")
+            self.logger.debug(f"\nRequest Summary: {summary}")
         
-        print("\nHeader:")
-        print(f"Version: {request.version}")
-        print(f"Type: {request.type}")
-        print(f"Packet ID: {request.packet_id}")
-        print(f"Timestamp: {time.ctime(request.timestamp)}")
+        self.logger.debug("\nHeader:")
+        self.logger.debug(f"Version: {request.version}")
+        self.logger.debug(f"Type: {request.type}")
+        self.logger.debug(f"Packet ID: {request.packet_id}")
+        self.logger.debug(f"Timestamp: {time.ctime(request.timestamp)}")
         
         if request.type == 0:
             # 座標解決リクエスト
             if hasattr(request, 'ex_field') and request.ex_field:
-                print(f"Latitude: {request.ex_field.get('latitude')}")
-                print(f"Longitude: {request.ex_field.get('longitude')}")
+                self.logger.debug(f"Latitude: {request.ex_field.get('latitude')}")
+                self.logger.debug(f"Longitude: {request.ex_field.get('longitude')}")
         elif request.type == 2:
             # 気象データリクエスト
-            print(f"Area Code: {request.area_code}")
-            print("\nFlags:")
-            print(f"Weather: {request.weather_flag}")
-            print(f"Temperature: {request.temperature_flag}")
-            print(f"pop: {request.pop_flag}")
-            print(f"Alert: {request.alert_flag}")
-            print(f"Disaster: {request.disaster_flag}")
+            self.logger.debug(f"Area Code: {request.area_code}")
+            self.logger.debug("\nFlags:")
+            self.logger.debug(f"Weather: {request.weather_flag}")
+            self.logger.debug(f"Temperature: {request.temperature_flag}")
+            self.logger.debug(f"pop: {request.pop_flag}")
+            self.logger.debug(f"Alert: {request.alert_flag}")
+            self.logger.debug(f"Disaster: {request.disaster_flag}")
             
-        print("\nRaw Packet:")
-        print(self._hex_dump(request.to_bytes()))
-        print("============================\n")
+        self.logger.debug("\nRaw Packet:")
+        self.logger.debug(self._hex_dump(request.to_bytes()))
+        self.logger.debug("============================\n")
         
     def _debug_print_response(self, response):
         """レスポンスのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
-            
-        print("\n=== RECEIVED RESPONSE PACKET ===")
-        print(f"Response Type: {response.type}")
-        print(f"Total Length: {len(response.to_bytes())} bytes")
+
+        self.logger.debug("\n=== RECEIVED RESPONSE PACKET ===")
+        self.logger.debug(f"Response Type: {response.type}")
+        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
         
         # 専用クラスのメソッドを使用
         if hasattr(response, 'get_weather_data'):
             weather_data = response.get_weather_data()
-            print(f"\nWeather Data: {weather_data}")
-            print(f"Success: {response.is_success()}")
+            self.logger.debug(f"\nWeather Data: {weather_data}")
+            self.logger.debug(f"Success: {response.is_success()}")
         
-        print("\nHeader:")
-        print(f"Version: {response.version}")
-        print(f"Type: {response.type}")
-        print(f"Area Code: {response.area_code}")
-        print(f"Packet ID: {response.packet_id}")
-        print(f"Timestamp: {time.ctime(response.timestamp)}")
+        self.logger.debug("\nHeader:")
+        self.logger.debug(f"Version: {response.version}")
+        self.logger.debug(f"Type: {response.type}")
+        self.logger.debug(f"Area Code: {response.area_code}")
+        self.logger.debug(f"Packet ID: {response.packet_id}")
+        self.logger.debug(f"Timestamp: {time.ctime(response.timestamp)}")
         
         if response.type == 3:
             # 気象データレスポンス（専用メソッド使用）
             if hasattr(response, 'get_weather_code'):
                 weather_code = response.get_weather_code()
                 if weather_code is not None:
-                    print(f"\nWeather Code: {weather_code}")
+                    self.logger.debug(f"\nWeather Code: {weather_code}")
             
             if hasattr(response, 'get_temperature_celsius'):
                 temp = response.get_temperature_celsius()
                 if temp is not None:
-                    print(f"Temperature: {temp}℃")
+                    self.logger.debug(f"Temperature: {temp}℃")
             
             if hasattr(response, 'get_precipitation_prob'):
                 pop = response.get_precipitation_prob()
                 if pop is not None:
-                    print(f"precipitation_prob: {pop}%")
+                    self.logger.debug(f"precipitation_prob: {pop}%")
                     
             if hasattr(response, 'get_alert'):
                 alert = response.get_alert()
                 if alert:
-                    print(f"Alert: {alert}")
+                    self.logger.debug(f"Alert: {alert}")
                     
             if hasattr(response, 'get_disaster_info'):
                 disaster = response.get_disaster_info()
                 if disaster:
-                    print(f"Disaster Info: {disaster}")
+                    self.logger.debug(f"Disaster Info: {disaster}")
             
-        print("\nRaw Packet:")
-        print(self._hex_dump(response.to_bytes()))
-        print("==============================\n")
+        self.logger.debug("\nRaw Packet:")
+        self.logger.debug(self._hex_dump(response.to_bytes()))
+        self.logger.debug("==============================\n")
         
     def get_weather_by_coordinates(self, latitude, longitude, 
                                   weather=True, temperature=True, 
@@ -180,7 +180,7 @@ class WeatherClient:
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
-            print(response_data)
+            self.logger.debug(response_data)
             
             if response_type == 3:  # 天気レスポンス
                 response = WeatherResponse.from_bytes(response_data)
@@ -191,22 +191,22 @@ class WeatherClient:
                     
                     total_time = time.time() - start_time
                     if self.debug:
-                        print("\n=== TIMING INFORMATION ===")
-                        print(f"Total operation time: {total_time*1000:.2f}ms")
-                        print("========================\n")
+                        self.logger.debug("\n=== TIMING INFORMATION ===")
+                        self.logger.debug(f"Total operation time: {total_time*1000:.2f}ms")
+                        self.logger.debug("========================\n")
                     
                     return result
                 else:
                     if self.debug:
-                        print("420: クライアントエラー: クエリサーバが見つからない")
+                        self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
                     return None
                     
             elif response_type == 7:  # エラーレスポンス
                 response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    print("\n=== ERROR RESPONSE ===")
-                    print(f"Error Code: {response.error_code}")
-                    print("=====================\n")
+                    self.logger.error("\n=== ERROR RESPONSE ===")
+                    self.logger.error(f"Error Code: {response.error_code}")
+                    self.logger.error("=====================\n")
                 
                 return {
                     'type': 'error',
@@ -214,16 +214,16 @@ class WeatherClient:
                 }
             else:
                 if self.debug:
-                    print(f"不明なパケットタイプ: {response_type}")
+                    self.logger.error(f"不明なパケットタイプ: {response_type}")
                 return None
             
         except socket.timeout:
-            print("421: クライアントエラー: クエリサーバ接続タイムアウト")
+            self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
             return None
         except Exception as e:
-            print(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
+            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
             if self.debug:
-                traceback.print_exc()
+                self.logger.exception("Traceback:")
             return None
         
     def get_weather_by_area_code(self, area_code, 
@@ -268,7 +268,7 @@ class WeatherClient:
             
             # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
-            print(response_data)
+            self.logger.debug(response_data)
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
@@ -282,22 +282,22 @@ class WeatherClient:
                     
                     total_time = time.time() - start_time
                     if self.debug:
-                        print("\n=== TIMING INFORMATION ===")
-                        print(f"Total operation time: {total_time*1000:.2f}ms")
-                        print("========================\n")
+                        self.logger.debug("\n=== TIMING INFORMATION ===")
+                        self.logger.debug(f"Total operation time: {total_time*1000:.2f}ms")
+                        self.logger.debug("========================\n")
                     
                     return result
                 else:
                     if self.debug:
-                        print("420: クライアントエラー: クエリサーバが見つからない")
+                        self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
                     return None
                     
             elif response_type == 7:  # エラーレスポンス
                 response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    print("\n=== ERROR RESPONSE ===")
-                    print(f"Error Code: {response.error_code}")
-                    print("=====================\n")
+                    self.logger.error("\n=== ERROR RESPONSE ===")
+                    self.logger.error(f"Error Code: {response.error_code}")
+                    self.logger.error("=====================\n")
                 
                 return {
                     'type': 'error',
@@ -305,16 +305,16 @@ class WeatherClient:
                 }
             else:
                 if self.debug:
-                    print(f"不明なパケットタイプ: {response_type}")
+                    self.logger.error(f"不明なパケットタイプ: {response_type}")
                 return None
             
         except socket.timeout:
-            print("421: クライアントエラー:  クエリサーバ接続タイムアウト")
+            self.logger.error("421: クライアントエラー:  クエリサーバ接続タイムアウト")
             return None
         except Exception as e:
-            print(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
+            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
             if self.debug:
-                traceback.print_exc()
+                self.logger.exception("Traceback:")
             return None
         
     def close(self):
@@ -324,15 +324,17 @@ class WeatherClient:
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
-    print("Weather Client Example (Enhanced with Specialized Packet Classes)")
-    print("=" * 70)
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("Weather Client Example (Enhanced with Specialized Packet Classes)")
+    logger.info("=" * 70)
     
     client = WeatherClient(debug=True)
     
     try:
         # 例1: 座標から天気情報を取得
-        print("\n1. Getting weather by coordinates (Tokyo)")
-        print("-" * 30)
+        logger.info("\n1. Getting weather by coordinates (Tokyo)")
+        logger.info("-" * 30)
         
         result = client.get_weather_by_coordinates(
             latitude=35.6895,
@@ -343,21 +345,21 @@ def main():
         )
         
         if result:
-            print("\n✓ Success!")
-            print(f"Area Code: {result.get('area_code')}")
-            print(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
+            logger.info("\n✓ Success!")
+            logger.info(f"Area Code: {result.get('area_code')}")
+            logger.info(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
             if 'weather_code' in result:
-                print(f"Weather Code: {result['weather_code']}")
+                logger.info(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
-                print(f"Temperature: {result['temperature']}°C")
+                logger.info(f"Temperature: {result['temperature']}°C")
             if 'precipitation_prob' in result:
-                print(f"precipitation_prob: {result['precipitation_prob']}%")
+                logger.info(f"precipitation_prob: {result['precipitation_prob']}%")
         else:
-            print("\n✗ Failed to get weather data")
+            logger.error("\n✗ Failed to get weather data")
         
         # 例2: エリアコードから天気情報を取得
-        print("\n\n2. Getting weather by area code (Sapporo: 011000)")
-        print("-" * 30)
+        self.logger.info("\n\n2. Getting weather by area code (Sapporo: 011000)")
+        self.logger.info("-" * 30)
         
         result = client.get_weather_by_area_code(
             area_code="011000",
@@ -369,28 +371,28 @@ def main():
         )
         
         if result:
-            print("\n✓ Success!")
-            print(f"Area Code: {result.get('area_code')}")
-            print(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
+            self.logger.info("\n✓ Success!")
+            self.logger.info(f"Area Code: {result.get('area_code')}")
+            self.logger.info(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
             if 'weather_code' in result:
-                print(f"Weather Code: {result['weather_code']}")
+                self.logger.info(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
-                print(f"Temperature: {result['temperature']}°C")
+                self.logger.info(f"Temperature: {result['temperature']}°C")
             if 'precipitation_prob' in result:
-                print(f"precipitation_prob: {result['precipitation_prob']}%")
+                self.logger.info(f"precipitation_prob: {result['precipitation_prob']}%")
             if 'alert' in result:
-                print(f"Alert: {result['alert']}")
+                self.logger.info(f"Alert: {result['alert']}")
             if 'disaster' in result:
-                print(f"Disaster Info: {result['disaster']}")
+                self.logger.info(f"Disaster Info: {result['disaster']}")
         else:
-            print("\n✗ Failed to get weather data")
+            self.logger.error("\n✗ Failed to get weather data")
             
     finally:
         client.close()
         
-    print("\n" + "="*70)
-    print("Enhanced Weather Client Example completed")
-    print("✓ Using specialized packet classes for improved usability")
+    logger.info("\n" + "="*70)
+    logger.info("Enhanced Weather Client Example completed")
+    logger.info("✓ Using specialized packet classes for improved usability")
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ class LocationRequest(Request):
         longitude: float,
         *,
         packet_id: int,
-        source: Optional[str] = None,
+        source: Optional[tuple[str, int]] = None,
         preserve_flags: Optional[Dict[str, int]] = None,
         day: int = 0,
         version: int = 1
@@ -35,7 +35,7 @@ class LocationRequest(Request):
             latitude: 緯度
             longitude: 経度
             packet_id: パケットID
-            source: 送信元情報（プロキシルーティング用）
+            source: 送信元情報 (ip, port) のタプル
             preserve_flags: 元のリクエストのフラグを保持
             day: 予報日
             version: プロトコルバージョン
@@ -89,14 +89,14 @@ class LocationRequest(Request):
     def from_weather_request(
         cls,
         weather_request: Request,
-        source: Optional[str] = None
+        source: Optional[tuple[str, int]] = None
     ) -> 'LocationRequest':
         """
         WeatherRequestからLocationRequestを作成
         
         Args:
             weather_request: 元のWeatherRequest（Type 0）
-            source: 追加する送信元情報
+            source: 追加する送信元情報 (ip, port) のタプル
             
         Returns:
             LocationRequestインスタンス
@@ -128,12 +128,12 @@ class LocationRequest(Request):
         )
     
     
-    def get_source_info(self) -> Optional[str]:
+    def get_source_info(self) -> Optional[tuple[str, int]]:
         """
         送信元情報を取得
         
         Returns:
-            送信元情報またはNone
+            送信元情報 (ip, port) のタプルまたはNone
         """
         if self.ex_field:
             return self.ex_field.source
@@ -208,12 +208,12 @@ class LocationResponse(Response):
         """
         return self.area_code
     
-    def get_source_info(self) -> Optional[str]:
+    def get_source_info(self) -> Optional[tuple[str, int]]:
         """
         送信元情報を取得（プロキシルーティング用）
         
         Returns:
-            送信元情報またはNone
+            送信元情報 (ip, port) のタプルまたはNone
         """
         if hasattr(self, 'ex_field') and self.ex_field:
             return self.ex_field.source

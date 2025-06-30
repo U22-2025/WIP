@@ -28,7 +28,7 @@ class QueryRequest(Request):
         alert: bool = False,
         disaster: bool = False,
         day: int = 0,
-        source: Optional[str] = None,
+        source: Optional[tuple[str, int]] = None,
         version: int = 1
     ) -> 'QueryRequest':
         """
@@ -43,7 +43,7 @@ class QueryRequest(Request):
             alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日
-            source: 送信元情報（プロキシルーティング用）
+            source: 送信元情報 (ip, port) のタプル
             version: プロトコルバージョン
             
         Returns:
@@ -56,7 +56,7 @@ class QueryRequest(Request):
             ...     packet_id=123,
             ...     weather=True,
             ...     temperature=True,
-            ...     source="192.168.1.100:12345"
+            ...     source=("192.168.1.100", 12345)
             ... )
         """
         # エリアコードを6桁の文字列に正規化
@@ -90,14 +90,14 @@ class QueryRequest(Request):
     def from_location_response(
         cls,
         location_response: Response,
-        source: Optional[str] = None
+        source: Optional[tuple[str, int]] = None
     ) -> 'QueryRequest':
         """
         LocationResponseからQueryRequestを作成
         
         Args:
             location_response: LocationResponse（Type 1）
-            source: 追加する送信元情報
+            source: 追加する送信元情報 (ip, port) のタプル
             
         Returns:
             QueryRequestインスタンス
@@ -122,14 +122,14 @@ class QueryRequest(Request):
     def from_weather_request(
         cls,
         weather_request: Request,
-        source: Optional[str] = None
+        source: Optional[tuple[str, int]] = None
     ) -> 'QueryRequest':
         """
         WeatherRequest（Type 2）からQueryRequestを作成
         
         Args:
             weather_request: WeatherRequest（Type 2）
-            source: 追加する送信元情報
+            source: 追加する送信元情報 (ip, port) のタプル
             
         Returns:
             QueryRequestインスタンス
@@ -155,12 +155,12 @@ class QueryRequest(Request):
             version=weather_request.version
         )
     
-    def get_source_info(self) -> Optional[str]:
+    def get_source_info(self) -> Optional[tuple[str, int]]:
         """
         送信元情報を取得
         
         Returns:
-            送信元情報またはNone
+            送信元情報 (ip, port) のタプルまたはNone
         """
         if hasattr(self, 'ex_field') and self.ex_field:
             return self.ex_field.source
@@ -289,12 +289,12 @@ class QueryResponse(Response):
             ex_field=ex_field if ex_field else None
         )
     
-    def get_source_info(self) -> Optional[str]:
+    def get_source_info(self) -> Optional[tuple[str, int]]:
         """
         送信元情報を取得（プロキシルーティング用）
         
         Returns:
-            送信元情報またはNone
+            送信元情報 (ip, port) のタプルまたはNone
         """
         if hasattr(self, 'ex_field') and self.ex_field:
             return self.ex_field.source
