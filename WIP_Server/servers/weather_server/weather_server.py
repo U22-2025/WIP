@@ -459,6 +459,18 @@ class WeatherServer(BaseServer):
             # 専用クラスでレスポンスをパース
             response = LocationResponse.from_bytes(data)
 
+            # エリアコードが未解決 (000000) の場合はクライアントへエラー通知
+            if response.area_code == 0 or str(response.area_code).zfill(6) == "000000":
+                source = response.get_source_info()
+                if source:
+                    self._send_error_response(
+                        packet_id=response.packet_id,
+                        error_code=401,
+                        addr=source,
+                        debug_msg="無効な座標"
+                    )
+                return
+
             lat, long = response.get_coordinates()
             
             # エリアキャッシュ処理
@@ -1003,17 +1015,17 @@ class WeatherServer(BaseServer):
         if request.version != self.version:
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # タイプのチェック（0-3が有効）
-        if request.type not in [0, 1, 2, 3]:
+        # タイプのチェック（0-3,7が有効）
+        if request.type not in [0, 1, 2, 3, 7]:
             return False, "400", f"不正なパケットタイプ: {request.type}"
         
-        # エリアコードのチェック
-        if request.type != 0 and (not request.area_code or request.area_code == "000000"): 
+        # エリアコードのチェック (位置解決レスポンスは除外)
+        if request.type in [2, 3] and (not request.area_code or request.area_code == "000000"):
             return False, "402", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
         if hasattr(request, 'is_valid') and callable(getattr(request, 'is_valid')):
-            if not request.is_valid():
+            if request.type not in [1, 7] and not request.is_valid():
                 return False, "400", "専用クラスのバリデーションに失敗"
         
         return True, None, None
