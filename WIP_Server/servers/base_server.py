@@ -183,7 +183,7 @@ class BaseServer(ABC):
             err_pkt.ex_field.set('source', (source_ip, source_port))
             
             # パケットをシリアライズ
-            response_data = err_pkt.serialize()
+            response_data = err_pkt.to_bytes()
             
             # エラーレスポンスを送信
             self.sock.sendto(response_data, addr)

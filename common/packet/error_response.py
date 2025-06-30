@@ -19,7 +19,7 @@ class ErrorResponse(Response):
         
     def serialize(self):
         # 基本フィールドをシリアライズ
-        base_data = super().serialize()
+        base_data = super().to_bytes()
         # ex_fieldをシリアライズして追加
         ex_data = self.ex_field.serialize()
         return base_data + ex_data

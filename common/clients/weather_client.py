@@ -179,7 +179,8 @@ class WeatherClient:
             response_data, addr = self.sock.recvfrom(1024)
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
-            response_type = int.from_bytes(response_data[1:2], byteorder='big')
+            response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
+            print(response_data)
             
             if response_type == 3:  # 天気レスポンス
                 response = WeatherResponse.from_bytes(response_data)
@@ -267,9 +268,10 @@ class WeatherClient:
             
             # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
+            print(response_data)
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
-            response_type = int.from_bytes(response_data[1:2], byteorder='little')
+            response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
             
             if response_type == 3:  # 天気レスポンス
                 response = WeatherResponse.from_bytes(response_data)

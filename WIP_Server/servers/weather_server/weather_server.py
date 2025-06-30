@@ -170,11 +170,11 @@ class WeatherServer(BaseServer):
             self._debug_print_request(data, request)
             
             # リクエストの妥当性をチェック
-            is_valid, error_code = self.validate_request(request)
+            is_valid, error_code, error_msg = self.validate_request(request)
             if not is_valid:
                 # ErrorResponseを作成して返す
                 error_response = ErrorResponse(
-                    version=self.version,
+                    version = self.version,
                     packet_id=request.packet_id,
                     type=7,  # Error response type
                     error_code= error_code,
@@ -259,14 +259,14 @@ class WeatherServer(BaseServer):
                         version=self.version,
                         packet_id=request.packet_id,
                         type=2,  # WeatherRequest
-                        area_code=cached_data["area_code"],
-                        day=0,  # 当日
+                        area_code=request.area_code,
+                        day=request.day,  # 当日
                         timestamp=int(datetime.now().timestamp()),
-                        weather_flag=True,
-                        temperature_flag=True,
-                        pop_flag=True,
-                        alert_flag=False,
-                        disaster_flag=False,
+                        weather_flag=request.weather_flag,
+                        temperature_flag=request.temperature_flag,
+                        pop_flag=request.pop_flag,
+                        alert_flag=request.alert_flag,
+                        disaster_flag=request.disaster_flag,
                         ex_flag=1,
                         ex_field={'source': source_info}
                     )
@@ -799,6 +799,7 @@ class WeatherServer(BaseServer):
                 
                 if self.debug:
                     print(f"  クライアントに {bytes_sent} バイトを送信しました")
+                    print (final_data)
             except Exception as conv_e:
                 print(f"530: 気象サーバでの処理エラー: {conv_e}")
                 if self.debug:
@@ -869,7 +870,7 @@ class WeatherServer(BaseServer):
             # ErrorResponseを作成して返す
             error_response = ErrorResponse(
                 version=self.version,
-                packet_id=response.packet_id,
+                packet_id=request.packet_id,
                 type=7,  # Error response type
                 error_code= 530,
                 timestamp=int(datetime.now().timestamp())
@@ -936,19 +937,24 @@ class WeatherServer(BaseServer):
             tuple: (is_valid, error_message)
         """
         if request.version != self.version:
+            print("1")
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック（0-3が有効）
         if request.type not in [0, 1, 2, 3]:
+            print(f"2: {request.type}")
             return False, "400", f"不正なパケットタイプ: {request.type}"
         
         # エリアコードのチェック
-        if request.type != 0 and (not request.area_code or request.area_code == "000000"): 
+        if request.type != 0 and (not request.area_code or request.area_code == "000000"):
+            print("3") 
             return False, "402", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
         if hasattr(request, 'is_valid') and callable(getattr(request, 'is_valid')):
+            print("4")
             if not request.is_valid():
+                print("5")
                 return False, "400", "専用クラスのバリデーションに失敗"
         
         return True, None, None
