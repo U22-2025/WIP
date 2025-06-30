@@ -26,6 +26,7 @@ from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
 from common.packet import Request, Response, BitFieldError
 from common.utils.config_loader import ConfigLoader
+from common.packet import ErrorResponse
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 
 
@@ -156,6 +157,20 @@ class QueryServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
+        # リクエストのバリデーション
+        is_valid, error_code, error_msg = self.validate_request(request)
+        if not is_valid:
+            # ErrorResponseを作成して返す
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=request.packet_id,
+                error_code=error_code,
+                timestamp=int(datetime.now().timestamp())
+            )
+            if self.debug:
+                print(f"{error_code}: [クエリサーバー] エラーレスポンスを生成: {error_code}")
+            return error_response.to_bytes()
+
         try:
             # デバッグ：リクエストの状態を確認
             if self.debug:
@@ -271,9 +286,17 @@ class QueryServer(BaseServer):
                     response.temperature = 100  # 0℃
                 if request.pop_flag:
                     response.pop = 0
-        except :
-            print ("520: クエリサーバでの処理エラー")
-
+        except Exception as e:
+            # 内部エラー発生時は500エラーを返す
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=request.packet_id,
+                error_code="520",
+                timestamp=int(datetime.now().timestamp())
+            )
+            if self.debug:
+                print(f"520: [クエリサーバー] エラーレスポンスを生成: {error_code}")
+            return error_response.to_bytes()
         
         # 最終確認
         if self.debug:
