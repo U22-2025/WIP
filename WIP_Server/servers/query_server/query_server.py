@@ -26,7 +26,7 @@ from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
 from common.packet import Request, Response, BitFieldError
 from common.utils.config_loader import ConfigLoader
-from common.packet.error_response import ErrorResponse
+from common.packet import ErrorResponse
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 
 
