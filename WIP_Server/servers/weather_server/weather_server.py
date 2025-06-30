@@ -314,11 +314,13 @@ class WeatherServer(BaseServer):
                     ex_field_content['longitude'] = long
                     ex_flag_val = 1  # 座標を含むので常に1
                     
+                    # キャッシュされたエリアコードを使用
+                    cached_area_code = cached_data.get("area_code") if isinstance(cached_data, dict) else None
                     weather_request = WeatherRequest(
                         version=self.version,
                         packet_id=request.packet_id,
                         type=2,  # WeatherRequest
-                        area_code=request.area_code,
+                        area_code=cached_area_code if cached_area_code else request.area_code,
                         day=request.day,  # 当日
                         timestamp=int(datetime.now().timestamp()),
                         weather_flag=request.weather_flag,
