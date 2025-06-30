@@ -27,8 +27,12 @@ result = client.get_weather(alert=True, disaster=True)
 
 if result:
     print("\n✓ Success!")
-    print(f"Area Code: {result['area_code']}")
-    print(f"Timestamp: {time.ctime(result['timestamp'])}")
+    if 'area_code' in result:
+        print(f"Area Code: {result['area_code']}")
+    elif 'error_code' in result:
+        print(f"Area Code: {result['error_code']}")
+    if 'timestamp' in result:
+        print(f"Timestamp: {time.ctime(result['timestamp'])}")
     if 'weather_code' in result:
         print(f"Weather Code: {result['weather_code']}")
     if 'temperature' in result:
