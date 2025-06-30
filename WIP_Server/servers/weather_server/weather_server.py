@@ -784,7 +784,21 @@ class WeatherServer(BaseServer):
                 if self.debug:
                     print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
             return
-    
+
+    def _send_weather_request(self, location_response):
+        """LocationResponseからWeatherRequestを生成して処理する補助メソッド"""
+        try:
+            weather_request = location_response.to_weather_request()
+            source = location_response.get_source_info()
+            if source is None:
+                # source情報が無い場合は空タプルを渡す
+                source = ("", 0)
+            return self._handle_weather_request(weather_request, source)
+        except Exception:
+            if self.debug:
+                traceback.print_exc()
+            raise
+
     def _handle_weather_response(self, data, addr):
         """気象データレスポンスの処理（Type 3・改良版）"""
         try:
