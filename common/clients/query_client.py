@@ -9,6 +9,7 @@ import time
 import threading
 import concurrent.futures
 import os
+import logging
 from datetime import datetime
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
@@ -37,6 +38,9 @@ class QueryClient:
         self.host = host
         self.port = port
         self.debug = debug
+        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
         
     def _hex_dump(self, data):
@@ -47,71 +51,67 @@ class QueryClient:
         
     def _debug_print_request(self, request, area_code):
         """リクエストのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
-            
-        print("\n=== SENDING QUERY REQUEST PACKET ===")
-        print(f"Total Length: {len(request.to_bytes())} bytes")
-        print(f"Area Code: {area_code}")
+
+        self.logger.debug("\n=== SENDING QUERY REQUEST PACKET ===")
+        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
+        self.logger.debug(f"Area Code: {area_code}")
         
         # 専用クラスのメソッドを使用
         if hasattr(request, 'get_requested_data_types'):
             requested_data = request.get_requested_data_types()
-            print(f"Requested Data: {requested_data}")
+            self.logger.debug(f"Requested Data: {requested_data}")
             
         if hasattr(request, 'get_source_info'):
             source = request.get_source_info()
-            print(f"Source: {source}")
+            self.logger.debug(f"Source: {source}")
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(request.to_bytes()))
-        print("============================\n")
+        self.logger.debug("\nRaw Packet:")
+        self.logger.debug(self._hex_dump(request.to_bytes()))
+        self.logger.debug("============================\n")
         
     def _debug_print_response(self, response):
         """レスポンスのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
             
-        print("\n=== RECEIVED QUERY RESPONSE PACKET ===")
-        print(f"Total Length: {len(response.to_bytes())} bytes")
+        self.logger.debug("\n=== RECEIVED QUERY RESPONSE PACKET ===")
+        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
         
         # 専用クラスのメソッドを使用
         if hasattr(response, 'get_response_summary'):
             summary = response.get_response_summary()
-            print(f"\nResponse Summary: {summary}")
+            self.logger.debug(f"\nResponse Summary: {summary}")
             
         if hasattr(response, 'is_success'):
-            print(f"Success: {response.is_success()}")
+            self.logger.debug(f"Success: {response.is_success()}")
             
         # 気象データの詳細
         if hasattr(response, 'get_weather_code'):
             weather_code = response.get_weather_code()
             if weather_code is not None:
-                print(f"Weather Code: {weather_code}")
+                self.logger.debug(f"Weather Code: {weather_code}")
                 
         if hasattr(response, 'get_temperature_celsius'):
             temp = response.get_temperature_celsius()
             if temp is not None:
-                print(f"Temperature: {temp}℃")
+                self.logger.debug(f"Temperature: {temp}℃")
                 
         if hasattr(response, 'get_precipitation_prob'):
             pop = response.get_precipitation_prob()
             if pop is not None:
-                print(f"Precipitation: {pop}%")
+                self.logger.debug(f"Precipitation: {pop}%")
                 
         if hasattr(response, 'get_alert'):
             alert = response.get_alert()
             if alert:
-                print(f"Alert: {alert}")
+                self.logger.debug(f"Alert: {alert}")
                 
         if hasattr(response, 'get_disaster_info'):
             disaster = response.get_disaster_info()
             if disaster:
-                print(f"Disaster Info: {disaster}")
+                self.logger.debug(f"Disaster Info: {disaster}")
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(response.to_bytes()))
-        print("==============================\n")
+        self.logger.debug("\nRaw Packet:")
+        self.logger.debug(self._hex_dump(response.to_bytes()))
+        self.logger.debug("==============================\n")
 
     def get_weather_data(self, area_code, weather=False, temperature=False, 
                         precipitation_prob=False, alert=False, disaster=False,
@@ -184,25 +184,25 @@ class QueryClient:
                 }
                 
                 if self.debug:
-                    print("\n=== TIMING INFORMATION ===")
-                    print(f"Request creation time: {request_time*1000:.2f}ms")
-                    print(f"Network round-trip time: {network_time*1000:.2f}ms")
-                    print(f"Response parsing time: {parse_time*1000:.2f}ms")
-                    print(f"Total operation time: {total_time*1000:.2f}ms")
-                    print("========================\n")
+                    self.logger.debug("\n=== TIMING INFORMATION ===")
+                    self.logger.debug(f"Request creation time: {request_time*1000:.2f}ms")
+                    self.logger.debug(f"Network round-trip time: {network_time*1000:.2f}ms")
+                    self.logger.debug(f"Response parsing time: {parse_time*1000:.2f}ms")
+                    self.logger.debug(f"Total operation time: {total_time*1000:.2f}ms")
+                    self.logger.debug("========================\n")
                 
                 return result
             else:
-                print("420: クライアントエラー: クエリサーバが見つからない")
+                self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
                 return {'error': 'Query request failed', 'response_type': response.type}
             
         except socket.timeout:
-            print("421: クライアントエラー: クエリサーバ接続タイムアウト")
+            self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
             return {'error': 'Request timeout', 'timeout': timeout}
         except Exception as e:
             if self.debug:
-                traceback.print_exc()
-            print(f"420: クライアントエラー: クエリサーバが見つからない: {e}")
+                self.logger.exception("Traceback:")
+            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない: {e}")
             return {'420': str(e)}
         finally:
             sock.close()
@@ -285,7 +285,7 @@ class QueryClient:
             
             return thread_results, thread_errors
         
-        print(f"Starting concurrent test: {num_threads} threads, {requests_per_thread} requests each")
+        self.logger.info(f"Starting concurrent test: {num_threads} threads, {requests_per_thread} requests each")
         start_time = time.time()
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
@@ -326,14 +326,16 @@ class QueryClient:
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
-    print("Query Client Example (Enhanced with Specialized Packet Classes)")
-    print("=" * 70)
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("Query Client Example (Enhanced with Specialized Packet Classes)")
+    logger.info("=" * 70)
     
     client = QueryClient(debug=True)
     
     # 単一リクエストのテスト
-    print("\n1. Single Request Test")
-    print("-" * 30)
+    logger.info("\n1. Single Request Test")
+    logger.info("-" * 30)
     
     result = client.get_weather_data(
         area_code="011000",  # 札幌
@@ -346,21 +348,21 @@ def main():
     )
     
     if 'error' not in result:
-        print("✓ Request successful!")
-        print(f"Area Code: {result.get('area_code')}")
-        print(f"Weather Code: {result.get('weather_code')}")
-        print(f"Temperature: {result.get('temperature')}°C")
-        print(f"precipitation_prob: {result.get('precipitation_prob')}%")
+        logger.info("✓ Request successful!")
+        logger.info(f"Area Code: {result.get('area_code')}")
+        logger.info(f"Weather Code: {result.get('weather_code')}")
+        logger.info(f"Temperature: {result.get('temperature')}°C")
+        logger.info(f"precipitation_prob: {result.get('precipitation_prob')}%")
         if result.get('alert'):
-            print(f"Alert: {result.get('alert')}")
+            logger.info(f"Alert: {result.get('alert')}")
         if result.get('disaster'):
-            print(f"Disaster Info: {result.get('disaster')}")
+            logger.info(f"Disaster Info: {result.get('disaster')}")
     else:
-        print(f"✗ Request failed: {result['error']}")
+        logger.error(f"✗ Request failed: {result['error']}")
     
     # 簡便メソッドのテスト
-    print("\n2. Simple Method Test")
-    print("-" * 30)
+    logger.info("\n2. Simple Method Test")
+    logger.info("-" * 30)
     
     simple_result = client.get_weather_data_simple(
         area_code="130010",  # 東京
@@ -368,17 +370,17 @@ def main():
     )
     
     if 'error' not in simple_result:
-        print("✓ Simple request successful!")
-        print(f"Area Code: {simple_result.get('area_code')}")
-        print(f"Weather Code: {simple_result.get('weather_code')}")
-        print(f"Temperature: {simple_result.get('temperature')}°C")
-        print(f"precipitation_prob: {simple_result.get('precipitation_prob')}%")
+        logger.info("✓ Simple request successful!")
+        logger.info(f"Area Code: {simple_result.get('area_code')}")
+        logger.info(f"Weather Code: {simple_result.get('weather_code')}")
+        logger.info(f"Temperature: {simple_result.get('temperature')}°C")
+        logger.info(f"precipitation_prob: {simple_result.get('precipitation_prob')}%")
     else:
-        print(f"✗ Simple request failed: {simple_result['error']}")
+        logger.error(f"✗ Simple request failed: {simple_result['error']}")
     
     # 並列リクエストのテスト
-    print("\n3. Concurrent Request Test")
-    print("-" * 30)
+    logger.info("\n3. Concurrent Request Test")
+    logger.info("-" * 30)
     
     test_area_codes = ["011000", "012000", "013000", "014100", "015000"]  # 北海道の各地域
     
@@ -388,25 +390,25 @@ def main():
         requests_per_thread=3
     )
     
-    print(f"Total Requests: {test_result['total_requests']}")
-    print(f"Successful: {test_result['successful_requests']}")
-    print(f"Failed: {test_result['failed_requests']}")
-    print(f"Success Rate: {test_result['success_rate']:.1f}%")
-    print(f"Requests/Second: {test_result['requests_per_second']:.1f}")
-    print(f"Avg Response Time: {test_result['avg_response_time_ms']:.2f}ms")
-    print(f"Min Response Time: {test_result['min_response_time_ms']:.2f}ms")
-    print(f"Max Response Time: {test_result['max_response_time_ms']:.2f}ms")
+    logger.info(f"Total Requests: {test_result['total_requests']}")
+    logger.info(f"Successful: {test_result['successful_requests']}")
+    logger.info(f"Failed: {test_result['failed_requests']}")
+    logger.info(f"Success Rate: {test_result['success_rate']:.1f}%")
+    logger.info(f"Requests/Second: {test_result['requests_per_second']:.1f}")
+    logger.info(f"Avg Response Time: {test_result['avg_response_time_ms']:.2f}ms")
+    logger.info(f"Min Response Time: {test_result['min_response_time_ms']:.2f}ms")
+    logger.info(f"Max Response Time: {test_result['max_response_time_ms']:.2f}ms")
     
     if test_result['errors']:
-        print(f"\nErrors ({len(test_result['errors'])}):")
+        logger.info(f"\nErrors ({len(test_result['errors'])}):")
         for error in test_result['errors'][:5]:  # 最初の5個のエラーのみ表示
-            print(f"  Thread {error['thread_id']}, Request {error['request_id']}: {error['error']}")
+            logger.info(f"  Thread {error['thread_id']}, Request {error['request_id']}: {error['error']}")
     
-    print("\n" + "="*70)
-    print("Enhanced Query Client Example completed")
-    print("✓ Using specialized packet classes for improved usability")
-    print("✓ Simplified API with better error handling")
-    print("✓ Automatic data conversion and validation")
+    logger.info("\n" + "="*70)
+    logger.info("Enhanced Query Client Example completed")
+    logger.info("✓ Using specialized packet classes for improved usability")
+    logger.info("✓ Simplified API with better error handling")
+    logger.info("✓ Automatic data conversion and validation")
 
 
 if __name__ == "__main__":

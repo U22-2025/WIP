@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+import logging
 from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
@@ -33,6 +34,9 @@ class LocationClient:
         self.server_port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.debug = debug
+        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
 
     def _hex_dump(self, data):
@@ -43,52 +47,47 @@ class LocationClient:
 
     def _debug_print_request(self, request):
         """リクエストのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
-
-        print("\n=== SENDING LOCATION REQUEST PACKET ===")
-        print(f"Total Length: {len(request.to_bytes())} bytes")
+        self.logger.debug("\n=== SENDING LOCATION REQUEST PACKET ===")
+        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
         
         # 専用クラスのメソッドを使用
         coordinates = request.get_coordinates()
         source_info = request.get_source_info()
         
-        print(f"\nRequest Details:")
-        print(f"Type: {request.type}")
-        print(f"Packet ID: {request.packet_id}")
-        print(f"Coordinates: {coordinates}")
-        print(f"Source: {source_info}")
+        self.logger.debug("\nRequest Details:")
+        self.logger.debug(f"Type: {request.type}")
+        self.logger.debug(f"Packet ID: {request.packet_id}")
+        self.logger.debug(f"Coordinates: {coordinates}")
+        self.logger.debug(f"Source: {source_info}")
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(request.to_bytes()))
-        print("===========================\n")
+        self.logger.debug("\nRaw Packet:")
+        self.logger.debug(self._hex_dump(request.to_bytes()))
+        self.logger.debug("===========================\n")
 
     def _debug_print_response(self, response):
         """レスポンスのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
 
-        print("\n=== RECEIVED LOCATION RESPONSE PACKET ===")
-        print(f"Total Length: {len(response.to_bytes())} bytes")
+        self.logger.debug("\n=== RECEIVED LOCATION RESPONSE PACKET ===")
+        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
         
         # 専用クラスのメソッドを使用
         if hasattr(response, 'get_response_summary'):
             summary = response.get_response_summary()
             # summaryが辞書の場合、json.dumpsで安全に表示
             if isinstance(summary, dict):
-                print(f"\nResponse Summary: {json.dumps(summary, ensure_ascii=False, indent=2)}")
+                self.logger.debug(f"\nResponse Summary: {json.dumps(summary, ensure_ascii=False, indent=2)}")
             else:
-                print(f"\nResponse Summary: {summary}")
+                self.logger.debug(f"\nResponse Summary: {summary}")
         
-        print(f"\nResponse Details:")
-        print(f"Type: {response.type}")
-        print(f"Area Code: {response.get_area_code()}")
-        print(f"Valid: {response.is_valid()}")
-        print(f"Source: {response.get_source_info()}")
+        self.logger.debug("\nResponse Details:")
+        self.logger.debug(f"Type: {response.type}")
+        self.logger.debug(f"Area Code: {response.get_area_code()}")
+        self.logger.debug(f"Valid: {response.is_valid()}")
+        self.logger.debug(f"Source: {response.get_source_info()}")
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(response.to_bytes()))
-        print("============================\n")
+        self.logger.debug("\nRaw Packet:")
+        self.logger.debug(self._hex_dump(response.to_bytes()))
+        self.logger.debug("============================\n")
 
     def get_location_info(self, latitude, longitude, source=None, preserve_flags=None):
         """
@@ -123,13 +122,11 @@ class LocationClient:
             # リクエスト送信とレスポンス受信
             network_start = time.time()
             self.sock.sendto(request.to_bytes(), (self.server_host, self.server_port))
-            if self.debug:
-                print(f"Sent request to {self.server_host}:{self.server_port}")
+            self.logger.debug(f"Sent request to {self.server_host}:{self.server_port}")
 
             data, addr = self.sock.recvfrom(1024)
             network_time = time.time() - network_start
-            if self.debug:
-                print(f"Received response from {addr}")
+            self.logger.debug(f"Received response from {addr}")
 
             # 専用クラスでレスポンス解析
             parse_start = time.time()
@@ -141,30 +138,30 @@ class LocationClient:
             total_time = time.time() - start_time
 
             if self.debug:
-                print("\n=== TIMING INFORMATION ===")
-                print(f"Request creation time: {request_time*1000:.2f}ms")
-                print(f"Request send time: {(network_start - request_start)*1000:.2f}ms")
-                print(f"Network round-trip time: {network_time*1000:.2f}ms")
-                print(f"Response parsing time: {parse_time*1000:.2f}ms")
-                print(f"Total processing time: {total_time*1000:.2f}ms")
-                print("========================\n")
+                self.logger.debug("\n=== TIMING INFORMATION ===")
+                self.logger.debug(f"Request creation time: {request_time*1000:.2f}ms")
+                self.logger.debug(f"Request send time: {(network_start - request_start)*1000:.2f}ms")
+                self.logger.debug(f"Network round-trip time: {network_time*1000:.2f}ms")
+                self.logger.debug(f"Response parsing time: {parse_time*1000:.2f}ms")
+                self.logger.debug(f"Total processing time: {total_time*1000:.2f}ms")
+                self.logger.debug("========================\n")
 
             return response, total_time
 
         except socket.timeout:
-            print(f"411: クライアントエラー: 座標解決サーバ接続タイムアウト")
+            self.logger.error("411: クライアントエラー: 座標解決サーバ接続タイムアウト")
             if self.debug:
-                traceback.print_exc()
+                self.logger.exception("Traceback:")
             return None, 0
         except (ValueError, struct.error) as e:
-            print(f"400: クライアントエラー: 不正なパケット: {e}")
+            self.logger.error(f"400: クライアントエラー: 不正なパケット: {e}")
             if self.debug:
-                traceback.print_exc()
+                self.logger.exception("Traceback:")
             return None, 0
         except Exception as e:
-            print(f"410: クライアントエラー: 座標解決サーバが見つからない: {e}")
+            self.logger.error(f"410: クライアントエラー: 座標解決サーバが見つからない: {e}")
             if self.debug:
-                traceback.print_exc()
+                self.logger.exception("Traceback:")
             return None, 0
 
     def get_area_code_from_coordinates(self, latitude, longitude, source=None):
@@ -182,7 +179,7 @@ class LocationClient:
         response, _ = self.get_location_info(latitude, longitude, source)
         if response and response.is_valid():
             return response.get_area_code()
-        print("400: クライアントエラー: 不正なパケット")
+        self.logger.error("400: クライアントエラー: 不正なパケット")
         return None
 
     def close(self):
@@ -192,8 +189,10 @@ class LocationClient:
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
-    print("Location Client Example (Enhanced with Specialized Packet Classes)")
-    print("=" * 70)
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("Location Client Example (Enhanced with Specialized Packet Classes)")
+    logger.info("=" * 70)
     
     # 東京の座標を使用
     latitude = 35.6895
@@ -201,9 +200,9 @@ def main():
     
     client = LocationClient(debug=True)
     try:
-        print(f"\nTesting location resolution for coordinates:")
-        print(f"Latitude: {latitude}, Longitude: {longitude}")
-        print("-" * 50)
+        logger.info("\nTesting location resolution for coordinates:")
+        logger.info(f"Latitude: {latitude}, Longitude: {longitude}")
+        logger.info("-" * 50)
         
         # 改良版のメソッドを使用
         response, total_time = client.get_location_info(
@@ -213,26 +212,26 @@ def main():
         )
         
         if response and response.is_valid():
-            print(f"\nLocation request completed in {total_time*1000:.2f}ms")
-            print(f"Area Code: {response.get_area_code()}")
-            print(f"Response Summary: {response.get_response_summary()}")
+            logger.info(f"\nLocation request completed in {total_time*1000:.2f}ms")
+            logger.info(f"Area Code: {response.get_area_code()}")
+            logger.info(f"Response Summary: {response.get_response_summary()}")
             
             # 簡便メソッドのテスト
-            print(f"\n--- Testing convenience method ---")
+            logger.info(f"\n--- Testing convenience method ---")
             area_code = client.get_area_code_from_coordinates(latitude, longitude)
-            print(f"Area Code (convenience method): {area_code}")
+            logger.info(f"Area Code (convenience method): {area_code}")
             
         else:
-            print("400: クライアントエラー: 不正なパケット")
+            logger.error("400: クライアントエラー: 不正なパケット")
             if response:
-                print(f"Response valid: {response.is_valid()}")
+                logger.error(f"Response valid: {response.is_valid()}")
                 
     finally:
         client.close()
         
-    print("\n" + "="*70)
-    print("Enhanced Location Client Example completed")
-    print("Using specialized packet classes for improved usability")
+    logger.info("\n" + "="*70)
+    logger.info("Enhanced Location Client Example completed")
+    logger.info("Using specialized packet classes for improved usability")
 
 
 if __name__ == "__main__":
