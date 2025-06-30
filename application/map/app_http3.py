@@ -1,5 +1,6 @@
 from quart import Quart, render_template, request, jsonify, send_from_directory
 import sys, os
+from pathlib import Path
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 import time
@@ -86,6 +87,14 @@ async def index():
 async def weather_code():
     return await send_from_directory('templates', 'weather_code.json')
 
+# エラーコードJSONを提供するルート
+# error_code.json の配置ディレクトリ
+ERROR_CODE_DIR = Path(__file__).resolve().parents[2] / 'common' / 'packet'
+
+@app.route('/error_code.json')
+async def error_code_json():
+    return await send_from_directory(ERROR_CODE_DIR, 'error_code.json')
+
 @app.route('/click', methods=['POST'])
 async def click():
     data = await request.get_json()
@@ -98,8 +107,17 @@ async def click():
     # 天気情報を取得（非同期で実行）
     loop = asyncio.get_event_loop()
     weather_result = await loop.run_in_executor(None, client.get_weather)
-    
-    # レスポンスを構築
+
+    if not weather_result:
+        return jsonify({'status': 'error', 'message': '天気情報の取得に失敗しました'}), 500
+
+    if isinstance(weather_result, dict) and 'error_code' in weather_result:
+        return jsonify({
+            'status': 'error',
+            'error_code': weather_result['error_code'],
+            'message': 'エラーパケットを受信しました'
+        }), 500
+
     response_data = {
         'status': 'ok',
         'coordinates': {
@@ -108,7 +126,7 @@ async def click():
         },
         'weather': weather_result
     }
-    
+
     return jsonify(response_data)
 
 # 住所のみを取得するエンドポイント
@@ -155,7 +173,7 @@ async def weekly_forecast():
         """指定された日の天気データを取得する関数"""
         try:
             weather_result = client.get_weather(day=day)
-            if weather_result:
+            if weather_result and not ('error_code' in weather_result):
                 # 日付情報を追加
                 date = datetime.now() + timedelta(days=day)
                 weather_result['date'] = date.strftime('%Y-%m-%d')
