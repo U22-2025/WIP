@@ -539,56 +539,61 @@ class WeatherServer(BaseServer):
                         'alert': response.alert_flag,
                         'disaster': response.disaster_flag,
                     }
-                    self._validate_cache_data(cached_data, flags)
-                    
-                    weather_response = self._create_response_from_cache(
-                        cached_data,
-                        response.packet_id,
-                        response.area_code,
-                        response.day,
-                        flags,
-                        lat,
-                        long
-                    )
+                    is_valid = self._validate_cache_data(cached_data, flags)
+                    if is_valid:
+                        weather_response = self._create_response_from_cache(
+                            cached_data,
+                            response.packet_id,
+                            response.area_code,
+                            response.day,
+                            flags,
+                            lat,
+                            long
+                        )
 
-                    if self.debug:
-                        print(f"  WeatherResponse生成完了")
-                        print(f"  生成されたオブジェクト: {weather_response}")
-                        print(f"  座標情報: {weather_response.get_coordinates()}")
-                        if hasattr(weather_response, 'ex_field'):
-                            print(f"  ex_field内容: {weather_response.ex_field.to_dict()}")
+                        if self.debug:
+                            print(f"  WeatherResponse生成完了")
+                            print(f"  生成されたオブジェクト: {weather_response}")
+                            print(f"  座標情報: {weather_response.get_coordinates()}")
+                            if hasattr(weather_response, 'ex_field'):
+                                print(f"  ex_field内容: {weather_response.ex_field.to_dict()}")
 
-                    print (weather_response.get_coordinates())
-                    # レスポンスを送信
-                    response_data = weather_response.to_bytes()
-                    source_info = response.get_source_info()
-                    
-                    if source_info:
-                        # source_infoがタプルの場合と文字列の場合を処理
-                        if isinstance(source_info, tuple):
-                            host, port_str = source_info[0], str(source_info[1])
-                        else:
-                            host, port_str = source_info.split(':')
-                        port = int(port_str)
-                        source_addr = (host, port)
-                        
+                        print (weather_response.get_coordinates())
+                        # レスポンスを送信
+                        response_data = weather_response.to_bytes()
+                        source_info = response.get_source_info()
+
+                        if source_info:
+                            # source_infoがタプルの場合と文字列の場合を処理
+                            if isinstance(source_info, tuple):
+                                host, port_str = source_info[0], str(source_info[1])
+                            else:
+                                host, port_str = source_info.split(':')
+                            port = int(port_str)
+                            source_addr = (host, port)
+
+                            if self.debug:
+                                print(f"  キャッシュレスポンスを送信: {len(response_data)}バイト")
+                                print(f"  送信先アドレス: {source_addr}")
+
+                            bytes_sent = self.sock.sendto(response_data, source_addr)
+                            if bytes_sent != len(response_data):
+                                raise RuntimeError(f"送信バイト数不一致: {bytes_sent}/{len(response_data)}")
+
+                            if self.debug:
+                                print(f"  送信成功: {bytes_sent}バイト")
+                                print(f"  送信先ソケット: {source_addr}")
+                                print(f"  送信データサイズ: {len(response_data)}バイト")
+                                print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
+                                print(f"  レスポンス成功フラグ: True")
+
+                            return  # キャッシュヒット時はここで終了
+                        raise RuntimeError("source情報が見つかりません")
+                    else:
                         if self.debug:
-                            print(f"  キャッシュレスポンスを送信: {len(response_data)}バイト")
-                            print(f"  送信先アドレス: {source_addr}")
-                        
-                        bytes_sent = self.sock.sendto(response_data, source_addr)
-                        if bytes_sent != len(response_data):
-                            raise RuntimeError(f"送信バイト数不一致: {bytes_sent}/{len(response_data)}")
-                        
-                        if self.debug:
-                            print(f"  送信成功: {bytes_sent}バイト")
-                            print(f"  送信先ソケット: {source_addr}")
-                            print(f"  送信データサイズ: {len(response_data)}バイト")
-                            print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
-                            print(f"  レスポンス成功フラグ: True")
-                        
-                        return  # キャッシュヒット時はここで終了
-                    raise RuntimeError("source情報が見つかりません")
+                            print('  キャッシュデータのバリデーションに失敗しました')
+                        self.cache_weather.delete(cache_key)
+                        # 以降の処理でキャッシュミスとして扱う
                         
                 except Exception as e:
                     if self.debug:
@@ -667,24 +672,30 @@ class WeatherServer(BaseServer):
                         print(f"  キャッシュヒット: {cache_key}")
                         print(f"  キャッシュデータをクライアントに返します")
                     
-                    self._validate_cache_data(cached_data, flags)
-                    weather_response = self._create_response_from_cache(
-                        cached_data,
-                        request.packet_id,
-                        request.area_code,
-                        request.day,
-                        flags
-                    )
-                    
-                    response_data = weather_response.to_bytes()
-                    self.sock.sendto(response_data, addr)
-                    
-                    if self.debug:
-                        print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
-                        print(f"  パケットサイズ: {len(response_data)} バイト")
-                        print(f"  レスポンス成功フラグ: True")
-                    
-                    return  # キャッシュヒット時はここで終了
+                    is_valid = self._validate_cache_data(cached_data, flags)
+                    if is_valid:
+                        weather_response = self._create_response_from_cache(
+                            cached_data,
+                            request.packet_id,
+                            request.area_code,
+                            request.day,
+                            flags
+                        )
+
+                        response_data = weather_response.to_bytes()
+                        self.sock.sendto(response_data, addr)
+
+                        if self.debug:
+                            print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
+                            print(f"  パケットサイズ: {len(response_data)} バイト")
+                            print(f"  レスポンス成功フラグ: True")
+
+                        return  # キャッシュヒット時はここで終了
+                    else:
+                        if self.debug:
+                            print('  キャッシュデータのバリデーションに失敗しました')
+                        self.cache_weather.delete(cache_key)
+                        # キャッシュミスとして処理継続
                     
                 except Exception as e:
                     if self.debug:
