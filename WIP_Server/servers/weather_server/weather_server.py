@@ -301,8 +301,22 @@ class WeatherServer(BaseServer):
 
             # キャッシュの有効期限チェック
             cache_expiration_for_area = timedelta(seconds=self.cache_ttl_area)
-            
-            if cached_data and (datetime.now() - cached_data["timestamp"]) < cache_expiration_for_area:
+
+            if cached_data and cached_data.get("area_code") == "000000":
+                # 無効なキャッシュは削除
+                self.cache_area.delete(cache_key)
+                cached_data = None
+
+            area_code_valid = (
+                cached_data
+                and cached_data.get("area_code")
+                and cached_data.get("area_code") != "000000"
+            )
+
+            if (
+                area_code_valid
+                and (datetime.now() - cached_data["timestamp"]) < cache_expiration_for_area
+            ):
                 print("キャッシュヒット！\nweather_requestを作成します。")
                 try:
                     # キャッシュからWeatherRequestを生成 (source_infoがある場合のみsourceを含め、常に座標を含める)
@@ -515,9 +529,11 @@ class WeatherServer(BaseServer):
                     "timestamp": datetime.now(),
                     "area_code": response.area_code
                 }
-                
-                # キャッシュに保存（デフォルトTTLを使用）
-                self.cache_area.set(cache_key, cache_data)
+
+                # "000000" は無効とみなし、キャッシュしない
+                if response.area_code != "000000":
+                    # キャッシュに保存（デフォルトTTLを使用）
+                    self.cache_area.set(cache_key, cache_data)
 
             if self.debug:
                 print(f"\n[天気サーバー] タイプ1: 位置情報レスポンスを天気リクエストに変換中")
