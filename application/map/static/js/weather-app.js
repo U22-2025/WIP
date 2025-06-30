@@ -413,6 +413,12 @@ class WeatherApp {
             noData.style.display = 'block';
         }
 
+        // データ表示領域を非表示
+        const weatherContent = document.getElementById('weather-content');
+        if (weatherContent) {
+            weatherContent.style.display = 'none';
+        }
+
         // 週間予報をクリア
         this.hideWeeklyForecast();
         const weeklyDataContainer = document.getElementById('weekly-data');
@@ -421,6 +427,7 @@ class WeatherApp {
         }
         this.weeklyDataForChart = null;
 
+        // マーカーのポップアップのみ更新（ダミーデータ表示）
         const sampleData = {
             status: 'ok',
             weather: {
@@ -430,7 +437,6 @@ class WeatherApp {
             }
         };
 
-        this.displayWeatherInfo(sampleData, lat, lng);
         if (this.currentMarker) {
             this.currentMarker.bindPopup(this.createPopupContent(sampleData, lat, lng)).openPopup();
         }
