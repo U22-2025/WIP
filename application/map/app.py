@@ -70,6 +70,11 @@ def index():
 def weather_code():
     return send_from_directory('templates', 'weather_code.json')
 
+# エラーコードJSONを提供するルート
+@app.route('/error_code.json')
+def error_code_json():
+    return send_from_directory('templates', 'error_code.json')
+
 @app.route('/click', methods=['POST'])
 def click():
     data = request.get_json()
@@ -81,7 +86,17 @@ def click():
     
     # 天気情報を取得
     weather_result = client.get_weather()
-    
+
+    if not weather_result:
+        return jsonify({'status': 'error', 'message': '天気情報の取得に失敗しました'}), 500
+
+    if isinstance(weather_result, dict) and 'error_code' in weather_result:
+        return jsonify({
+            'status': 'error',
+            'error_code': weather_result['error_code'],
+            'message': 'エラーパケットを受信しました'
+        }), 500
+
     # レスポンスを構築
     response_data = {
         'status': 'ok',
@@ -91,7 +106,7 @@ def click():
         },
         'weather': weather_result
     }
-    
+
     return jsonify(response_data)
 
 # 住所のみを取得するエンドポイント
@@ -134,10 +149,20 @@ def weekly_forecast():
     
     # day=0（今日）を座標から取得してエリアコードを取得
     client.set_coordinates(lat, lng)
-    
+
     try:
         today_weather = client.get_weather(day=0)
-        if not today_weather or 'area_code' not in today_weather:
+        if not today_weather:
+            return jsonify({'status': 'error', 'message': '今日の天気データの取得に失敗しました'}), 500
+
+        if isinstance(today_weather, dict) and 'error_code' in today_weather:
+            return jsonify({
+                'status': 'error',
+                'error_code': today_weather['error_code'],
+                'message': 'エラーパケットを受信しました'
+            }), 500
+
+        if 'area_code' not in today_weather:
             return jsonify({'status': 'error', 'message': '今日の天気データまたはエリアコードの取得に失敗しました'}), 500
         
         area_code = today_weather['area_code']
@@ -156,7 +181,7 @@ def weekly_forecast():
         """エリアコードを使って指定された日の天気データを取得する関数（day=1~6用）"""
         try:
             weather_result = client.get_weather_by_area_code(area_code=area_code, day=day)
-            if weather_result:
+            if weather_result and not ('error_code' in weather_result):
                 # 日付情報を追加
                 date = datetime.now() + timedelta(days=day)
                 weather_result['date'] = date.strftime('%Y-%m-%d')
