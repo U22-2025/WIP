@@ -1,36 +1,40 @@
 from .response import Response
 from .extended_field import ExtendedField
+from typing import Optional, Union, Dict, Any
 
 class ErrorResponse(Response):
-    def __init__(self, version=1, packet_id=0, type=7, error_code=0, timestamp=None):
-        super().__init__()
-        self.version = version
-        self.packet_id = packet_id
-        self.type = type  # エラーパケットタイプ
-        self.weather_code = error_code  # エラーコード格納用
-        self.ex_field = ExtendedField()  # ソースIP格納用
-        if timestamp:
-            self.timestamp = timestamp
-        
+    """Type7 Error packet with optional source information."""
+
+    def __init__(
+        self,
+        *,
+        version: int = 1,
+        packet_id: int = 0,
+        error_code: Union[int, str] = 0,
+        timestamp: Optional[int] = None,
+        ex_field: Optional[Union[Dict[str, Any], ExtendedField]] = None,
+        **kwargs,
+    ) -> None:
+        # 呼び出し元から type や ex_flag が渡された場合は取り除く
+        type_val = kwargs.pop("type", 7)
+        ex_flag_val = kwargs.pop("ex_flag", 1)
+
+        super().__init__(
+            version=version,
+            packet_id=packet_id,
+            type=type_val,
+            ex_flag=ex_flag_val,
+            timestamp=timestamp or 0,
+            weather_code=int(error_code),
+            ex_field=ex_field,
+            **kwargs,
+        )
+
     @property
-    def error_code(self):
+    def error_code(self) -> int:
         return self.weather_code
-        
+
     @error_code.setter
-    def error_code(self, value):
-        self.weather_code = value
-        
-    def serialize(self):
-        # 基本フィールドをシリアライズ
-        base_data = super().to_bytes()
-        # ex_fieldをシリアライズして追加
-        ex_data = self.ex_field.serialize()
-        return base_data + ex_data
-        
-    def deserialize(self, data):
-        # 基本フィールドをデシリアライズ
-        base_len = super().deserialize(data)
-        # ex_fieldをデシリアライズ
-        ex_data = data[base_len:]
-        self.ex_field.deserialize(ex_data)
-        return base_len + len(ex_data)
+    def error_code(self, value: Union[int, str]) -> None:
+        self.weather_code = int(value)
+

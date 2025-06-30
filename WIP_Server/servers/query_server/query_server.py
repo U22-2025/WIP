@@ -26,7 +26,7 @@ from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
 from common.packet import Request, Response, BitFieldError
 from common.utils.config_loader import ConfigLoader
-from common.packet.error_response import ErrorResponse
+from common.packet import ErrorResponse
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 
 
@@ -164,7 +164,6 @@ class QueryServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -292,7 +291,6 @@ class QueryServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code="520",
                 timestamp=int(datetime.now().timestamp())
             )

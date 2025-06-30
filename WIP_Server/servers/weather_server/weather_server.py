@@ -30,7 +30,7 @@ from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 from common.utils.cache import Cache
-from common.packet.error_response import ErrorResponse
+from common.packet import ErrorResponse
 from datetime import timedelta
 
 
@@ -159,11 +159,12 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=0,  # パースエラー時はpacket_id=0
-                    type=7,  # Error response type
                     error_code=530,
                     timestamp=int(datetime.now().timestamp())
                 )
-                self.sock.sendto(error_response.to_bytes(), addr)
+                # パースエラー時は送信先が不明なため転送できない
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                 return
             
             # デバッグ出力（改良版）
@@ -174,17 +175,32 @@ class WeatherServer(BaseServer):
             if not is_valid:
                 # ErrorResponseを作成して返す
                 error_response = ErrorResponse(
-                    version = self.version,
+                    version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
-                    error_code= error_code,
+                    error_code=error_code,
                     timestamp=int(datetime.now().timestamp())
                 )
-                self.sock.sendto(error_response.to_bytes(), addr)
+                dest = None
+                if (
+                    hasattr(request, "ex_field")
+                    and request.ex_field
+                    and request.ex_field.contains("source")
+                ):
+                    candidate = request.ex_field.source
+                    if isinstance(candidate, tuple) and len(candidate) == 2:
+                        dest = candidate
+
+                if dest:
+                    error_response.ex_field.source = dest
+                    self.sock.sendto(error_response.to_bytes(), dest)
+                if self.debug:
+                    if dest:
+                        print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                    else:
+                        print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
+                    print(f"{error_code}: [{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
                 with self.lock:
                     self.error_count += 1
-                if self.debug:
-                    print(f"{error_code}: [{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
                 return
             
             # パケットタイプによる分岐処理（専用クラス対応）
@@ -211,11 +227,27 @@ class WeatherServer(BaseServer):
                     error_response = ErrorResponse(
                         version=self.version,
                         packet_id=request.packet_id,
-                        type=7,  # Error response type
                         error_code= 405,
                         timestamp=int(datetime.now().timestamp())
                     )
-                    self.sock.sendto(error_response.to_bytes(), addr)
+                    dest = None
+                    if (
+                        hasattr(request, "ex_field")
+                        and request.ex_field
+                        and request.ex_field.contains('source')
+                    ):
+                        candidate = request.ex_field.source
+                        if isinstance(candidate, tuple) and len(candidate) == 2:
+                            dest = candidate
+
+                    if dest:
+                        error_response.ex_field.source = dest
+                        self.sock.sendto(error_response.to_bytes(), dest)
+                        if self.debug:
+                            print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                    else:
+                        if self.debug:
+                            print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                     return
                     
             # タイミング情報を出力
@@ -233,11 +265,29 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=packet_id,
-                type=7,  # Error response type
                 error_code=530,
                 timestamp=int(datetime.now().timestamp())
             )
-            self.sock.sendto(error_response.to_bytes(), addr)
+
+            dest = None
+            if (
+                'request' in locals()
+                and hasattr(request, 'ex_field')
+                and request.ex_field
+                and request.ex_field.contains('source')
+            ):
+                candidate = request.ex_field.source
+                if isinstance(candidate, tuple) and len(candidate) == 2:
+                    dest = candidate
+
+            if dest:
+                error_response.ex_field.source = dest
+                self.sock.sendto(error_response.to_bytes(), dest)
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+            else:
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
             return
     
     def _handle_location_request(self, request, addr):
@@ -321,11 +371,27 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 410,
                     timestamp=int(datetime.now().timestamp())
                 )
-                self.sock.sendto(error_response.to_bytes(), addr)
+                dest = None
+                if (
+                    hasattr(request, 'ex_field')
+                    and request.ex_field
+                    and request.ex_field.contains('source')
+                ):
+                    cand = request.ex_field.source
+                    if isinstance(cand, tuple) and len(cand) == 2:
+                        dest = cand
+
+                if dest:
+                    error_response.ex_field.source = dest
+                    self.sock.sendto(error_response.to_bytes(), dest)
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                else:
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                 return
             
         except Exception as e:
@@ -336,11 +402,27 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 530,
                     timestamp=int(datetime.now().timestamp())
                 )
-                self.sock.sendto(error_response.to_bytes(), addr)
+                dest = None
+                if (
+                    hasattr(request, 'ex_field')
+                    and request.ex_field
+                    and request.ex_field.contains('source')
+                ):
+                    cand = request.ex_field.source
+                    if isinstance(cand, tuple) and len(cand) == 2:
+                        dest = cand
+
+                if dest:
+                    error_response.ex_field.source = dest
+                    self.sock.sendto(error_response.to_bytes(), dest)
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                else:
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                 return
     
     def _validate_cache_data(self, cached_data, flags):
@@ -546,11 +628,11 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=response.packet_id,
-                type=7,  # Error response type
-                error_code= 107,
+                error_code=107,
                 timestamp=int(datetime.now().timestamp())
             )
-            self.sock.sendto(error_response.to_bytes(), (source_ip,source_port))
+            error_response.ex_field.source = (source_ip, source_port)
+            self.sock.sendto(error_response.to_bytes(), (source_ip, source_port))
             return
     
     def _handle_weather_request(self, request, addr):
@@ -649,11 +731,27 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=request.packet_id,
-                    type=7,  # Error response type
                     error_code= 420,
                     timestamp=int(datetime.now().timestamp())
                 )
-                self.sock.sendto(error_response.to_bytes(), addr)
+                dest = None
+                if (
+                    hasattr(request, 'ex_field')
+                    and request.ex_field
+                    and request.ex_field.contains('source')
+                ):
+                    cand = request.ex_field.source
+                    if isinstance(cand, tuple) and len(cand) == 2:
+                        dest = cand
+
+                if dest:
+                    error_response.ex_field.source = dest
+                    self.sock.sendto(error_response.to_bytes(), dest)
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                else:
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                 return
             
         except Exception as e:
@@ -664,11 +762,27 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code= 420,
                 timestamp=int(datetime.now().timestamp())
             )
-            self.sock.sendto(error_response.to_bytes(), addr)
+            dest = None
+            if (
+                hasattr(request, 'ex_field')
+                and request.ex_field
+                and request.ex_field.contains('source')
+            ):
+                cand = request.ex_field.source
+                if isinstance(cand, tuple) and len(cand) == 2:
+                    dest = cand
+
+            if dest:
+                error_response.ex_field.source = dest
+                self.sock.sendto(error_response.to_bytes(), dest)
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+            else:
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
             return
     
     def _handle_weather_response(self, data, addr):
@@ -791,7 +905,6 @@ class WeatherServer(BaseServer):
                     error_response = ErrorResponse(
                         version=self.version,
                         packet_id=response.packet_id,
-                        type=7,  # Error response type
                         error_code= 530,
                         timestamp=int(datetime.now().timestamp())
                     )
@@ -809,10 +922,10 @@ class WeatherServer(BaseServer):
                 error_response = ErrorResponse(
                     version=self.version,
                     packet_id=response.packet_id,
-                    type=7,  # Error response type
                     error_code= 530,
                     timestamp=int(datetime.now().timestamp())
                 )
+                error_response.ex_field.source = dest_addr
                 self.sock.sendto(error_response.to_bytes(), dest_addr)
                 return
                 
@@ -824,7 +937,6 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=response.packet_id,
-                type=7,  # Error response type
                 error_code= 530,
                 timestamp=int(datetime.now().timestamp())
             )
@@ -840,8 +952,8 @@ class WeatherServer(BaseServer):
                 print(f"  送信元アドレス: {addr}")
             
             # 拡張フィールドからsourceを取得
-            if request.ex_field and 'source' in request.ex_field:
-                source = request.ex_field['source']
+            if request.ex_field and request.ex_field.contains('source'):
+                source = request.ex_field.source
                 if self.debug:
                     print(f"  ソースを取得: {source}")
                 
@@ -872,11 +984,27 @@ class WeatherServer(BaseServer):
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
-                type=7,  # Error response type
                 error_code= 530,
                 timestamp=int(datetime.now().timestamp())
             )
-            self.sock.sendto(error_response.to_bytes(), addr)
+            dest = None
+            if (
+                hasattr(request, 'ex_field')
+                and request.ex_field
+                and request.ex_field.contains('source')
+            ):
+                cand = request.ex_field.source
+                if isinstance(cand, tuple) and len(cand) == 2:
+                    dest = cand
+
+            if dest:
+                error_response.ex_field.source = dest
+                self.sock.sendto(error_response.to_bytes(), dest)
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+            else:
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
             return
     
     
@@ -941,14 +1069,14 @@ class WeatherServer(BaseServer):
             print("1")
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # タイプのチェック（0-3が有効）
-        if request.type not in [0, 1, 2, 3]:
+        # タイプのチェック（0-3,7が有効）
+        if request.type not in [0, 1, 2, 3, 7]:
             print(f"2: {request.type}")
             return False, "400", f"不正なパケットタイプ: {request.type}"
-        
-        # エリアコードのチェック
-        if request.type != 0 and (not request.area_code or request.area_code == "000000"):
-            print("3") 
+
+        # エリアコードのチェック (タイプ0と7は除外)
+        if request.type not in [0, 7] and (not request.area_code or request.area_code == "000000"):
+            print("3")
             return False, "402", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
