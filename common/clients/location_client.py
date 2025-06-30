@@ -96,7 +96,7 @@ class LocationClient:
         Args:
             latitude: 緯度
             longitude: 経度
-            source: 送信元情報（プロキシルーティング用）
+            source: 送信元情報 (ip, port) のタプル
             preserve_flags: 保持するフラグ情報
             
         Returns:
@@ -171,7 +171,7 @@ class LocationClient:
         Args:
             latitude: 緯度
             longitude: 経度
-            source: 送信元情報
+            source: 送信元情報 (ip, port) のタプル
             
         Returns:
             str: エリアコード（失敗時はNone）
@@ -206,9 +206,9 @@ def main():
         
         # 改良版のメソッドを使用
         response, total_time = client.get_location_info(
-            latitude=latitude, 
+            latitude=latitude,
             longitude=longitude,
-            source="location_client_test"
+            source=("127.0.0.1", 9999)
         )
         
         if response and response.is_valid():

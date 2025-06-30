@@ -25,7 +25,7 @@ class TestLocationPacket(unittest.TestCase):
             latitude=35.0,
             longitude=135.0,
             packet_id=1,
-            source="1.1.1.1:1000"
+            source=("1.1.1.1", 1000)
         )
         resp = LocationResponse.create_area_code_response(request=req, area_code="100000")
         self.assertEqual(resp.get_area_code(), "100000")

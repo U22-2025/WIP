@@ -44,7 +44,7 @@ class Format(FormatExtended):
         - disaster: 災害情報 (文字列のリスト)
         - latitude: 緯度 (数値)
         - longitude: 経度 (数値)
-        - source: 送信元情報 (文字列)
+        - source: 送信元情報 (ip, port) のタプル
     
     Example:
         # 基本的な使用方法
@@ -68,7 +68,7 @@ class Format(FormatExtended):
                 'disaster': ["土砂崩れ"],
                 'latitude': 35.6895,
                 'longitude': 139.6917,
-                'source': "127.0.0.1"
+                'source': ("127.0.0.1", 8080)
             }
         )
         

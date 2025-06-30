@@ -126,7 +126,7 @@ class QueryClient:
             precipitation_prob: 降水確率データを取得するか
             alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
-            source: 送信元情報（プロキシルーティング用）
+            source: 送信元情報 (ip, port) のタプル
             timeout: タイムアウト時間（秒）
             
         Returns:
@@ -344,7 +344,7 @@ def main():
         precipitation_prob=True,
         alert=True,
         disaster=True,
-        source="query_client_test"
+        source=("127.0.0.1", 9999)
     )
     
     if 'error' not in result:

@@ -18,7 +18,7 @@ class Request(FormatBase):
         - disaster: 災害情報 (文字列のリスト)
         - latitude: 緯度 (数値)
         - longitude: 経度 (数値)
-        - source: 送信元情報 (文字列)
+        - source: 送信元情報 (ip, port) のタプル
     """
 
     def get_coordinates(self) -> Optional[tuple[float, float]]:
