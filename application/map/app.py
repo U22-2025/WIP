@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import sys, os
+from pathlib import Path
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 import time
@@ -71,8 +72,6 @@ def weather_code():
     return send_from_directory('templates', 'weather_code.json')
 
 # エラーコードJSONを提供するルート
-from pathlib import Path
-
 # error_code.json の配置ディレクトリ
 ERROR_CODE_DIR = Path(__file__).resolve().parents[2] / 'common' / 'packet'
 
