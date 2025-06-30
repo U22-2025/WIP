@@ -155,12 +155,12 @@ class WeatherServer(BaseServer):
                 print(f"530: [天気サーバー] リクエストのパース中にエラーが発生しました: {e}")
                 if self.debug:
                     traceback.print_exc()
-                # ErrorResponseを作成して返す
+                # ErrorResponseを作成して返す（パースエラー時はpacket_id=0とする）
                 error_response = ErrorResponse(
                     version=self.version,
-                    packet_id=request.packet_id,
+                    packet_id=0,  # パースエラー時はpacket_id=0
                     type=7,  # Error response type
-                    error_code= 530,
+                    error_code=530,
                     timestamp=int(datetime.now().timestamp())
                 )
                 self.sock.sendto(error_response.to_bytes(), addr)
@@ -228,12 +228,13 @@ class WeatherServer(BaseServer):
             print(f"530: [{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
-            # ErrorResponseを作成して返す
+            # ErrorResponseを作成して返す（requestが未定義の場合の処理を追加）
+            packet_id = getattr(request, 'packet_id', 0)  # requestが未定義の場合は0
             error_response = ErrorResponse(
                 version=self.version,
-                packet_id=request.packet_id,
+                packet_id=packet_id,
                 type=7,  # Error response type
-                error_code= 530,
+                error_code=530,
                 timestamp=int(datetime.now().timestamp())
             )
             self.sock.sendto(error_response.to_bytes(), addr)
@@ -254,7 +255,15 @@ class WeatherServer(BaseServer):
             if cached_data and (datetime.now() - cached_data["timestamp"]) < cache_expiration_for_area:
                 print("キャッシュヒット！\nweather_requestを作成します。")
                 try:
-                    # キャッシュからWeatherRequestを生成
+                    # キャッシュからWeatherRequestを生成 (source_infoがある場合のみsourceを含め、常に座標を含める)
+                    ex_field_content = {}
+                    if source_info:
+                        ex_field_content['source'] = source_info
+                    # 座標を拡張フィールドに追加
+                    ex_field_content['latitude'] = lat
+                    ex_field_content['longitude'] = long
+                    ex_flag_val = 1  # 座標を含むので常に1
+                    
                     weather_request = WeatherRequest(
                         version=self.version,
                         packet_id=request.packet_id,
@@ -267,8 +276,8 @@ class WeatherServer(BaseServer):
                         pop_flag=request.pop_flag,
                         alert_flag=request.alert_flag,
                         disaster_flag=request.disaster_flag,
-                        ex_flag=1,
-                        ex_field={'source': source_info}
+                        ex_flag=ex_flag_val,
+                        ex_field=ex_field_content
                     )
                     
                     # _handle_weather_requestに処理を移譲
@@ -497,8 +506,7 @@ class WeatherServer(BaseServer):
                             print(f"  レスポンス成功フラグ: True")
                         
                         return  # キャッシュヒット時はここで終了
-                    else:
-                        raise RuntimeError("source情報が見つかりません")
+                    raise RuntimeError("source情報が見つかりません")
                         
                 except Exception as e:
                     if self.debug:
@@ -530,16 +538,20 @@ class WeatherServer(BaseServer):
             print(f"107: [天気サーバー] 位置情報レスポンスの処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
-            # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=response.packet_id,
-                    type=7,  # Error response type
-                    error_code= 107,
-                    timestamp=int(datetime.now().timestamp())
-                )
-                self.sock.sendto(error_response.to_bytes(), addr)
+            source_ip,source_port = data.get_source_info()
+            if not source_ip or not source_port:
+                print("error")
                 return
+            # ErrorResponseを作成して返す
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=response.packet_id,
+                type=7,  # Error response type
+                error_code= 107,
+                timestamp=int(datetime.now().timestamp())
+            )
+            self.sock.sendto(error_response.to_bytes(), (source_ip,source_port))
+            return
     
     def _handle_weather_request(self, request, addr):
         """気象データリクエストの処理（Type 2・改良版）"""
@@ -579,9 +591,7 @@ class WeatherServer(BaseServer):
                         request.packet_id,
                         request.area_code,
                         request.day,
-                        flags,
-                        # None, # lat
-                        # None # long
+                        flags
                     )
                     
                     response_data = weather_response.to_bytes()
@@ -717,15 +727,6 @@ class WeatherServer(BaseServer):
                 print("530: 気象サーバでの処理エラー: 天気レスポンスに送信元情報がありません")
                 if self.debug and hasattr(response, 'ex_field'):
                     print(f"  ex_field の内容: {response.ex_field.to_dict()}")
-                # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=response.packet_id,
-                    type=7,  # Error response type
-                    error_code= 530,
-                    timestamp=int(datetime.now().timestamp())
-                )
-                self.sock.sendto(error_response.to_bytes(), addr)
                 return
 
             # 既にタプル形式なのでそのまま使用
@@ -738,15 +739,6 @@ class WeatherServer(BaseServer):
                     dest_addr = (host, port)
                 except (ValueError, TypeError) as e:
                     print(f"[天気サーバー] 不正なポート番号: {port}")
-                    # ErrorResponseを作成して返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=response.packet_id,
-                        type=7,  # Error response type
-                        error_code= 400,
-                        timestamp=int(datetime.now().timestamp())
-                    )
-                    self.sock.sendto(error_response.to_bytes(), addr)
                     return
             else:
                 print(f"[天気サーバー] 不正なsource_info形式: {source_info}")
@@ -758,7 +750,7 @@ class WeatherServer(BaseServer):
                 if response.is_success():
                     print(f"  Weather data: {response.get_weather_data()}")
                 else:
-                    print(f"  エラーコード: {response.get_error_code()}")
+                    print(f"  エラーコード: {response.get_weather_code()}")
                 print(f"  パケットサイズ: {len(data)} バイト")
                 print(f"  送信元情報: {source_info}")
             
@@ -795,6 +787,15 @@ class WeatherServer(BaseServer):
                 except Exception as e:
                     if self.debug:
                         traceback.print_exc()
+                    # ErrorResponseを作成して返す
+                    error_response = ErrorResponse(
+                        version=self.version,
+                        packet_id=response.packet_id,
+                        type=7,  # Error response type
+                        error_code= 530,
+                        timestamp=int(datetime.now().timestamp())
+                    )
+                    self.sock.sendto(error_response.to_bytes(), dest_addr)
                     raise RuntimeError(f"気象サーバでの処理エラー: クライアントへの転送に失敗 {str(e)}")
                 
                 if self.debug:
@@ -812,7 +813,7 @@ class WeatherServer(BaseServer):
                     error_code= 530,
                     timestamp=int(datetime.now().timestamp())
                 )
-                self.sock.sendto(error_response.to_bytes(), addr)
+                self.sock.sendto(error_response.to_bytes(), dest_addr)
                 return
                 
         except Exception as e:
@@ -820,15 +821,15 @@ class WeatherServer(BaseServer):
             if self.debug:
                 traceback.print_exc()
             # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=response.packet_id,
-                    type=7,  # Error response type
-                    error_code= 530,
-                    timestamp=int(datetime.now().timestamp())
-                )
-                self.sock.sendto(error_response.to_bytes(), addr)
-                return
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=response.packet_id,
+                type=7,  # Error response type
+                error_code= 530,
+                timestamp=int(datetime.now().timestamp())
+            )
+            self.sock.sendto(error_response.to_bytes(), dest_addr)
+            return
 
     def _handle_error_packet(self, request, addr):
         """エラーパケットの処理（Type 7）"""

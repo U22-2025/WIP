@@ -2,12 +2,15 @@ from .response import Response
 from .extended_field import ExtendedField
 
 class ErrorResponse(Response):
-    def __init__(self):
+    def __init__(self, version=1, packet_id=0, type=7, error_code=0, timestamp=None):
         super().__init__()
-        self.version = 1
-        self.type = 7  # エラーパケットタイプ
-        self.weather_code = 0  # エラーコード格納用
+        self.version = version
+        self.packet_id = packet_id
+        self.type = type  # エラーパケットタイプ
+        self.weather_code = error_code  # エラーコード格納用
         self.ex_field = ExtendedField()  # ソースIP格納用
+        if timestamp:
+            self.timestamp = timestamp
         
     @property
     def error_code(self):
