@@ -26,14 +26,14 @@
 +        """
 +        try:
 +            # ソースIP取得（送信元アドレスから）
-+            source_ip = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
++            source = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
 +            
 +            # ErrorResponseパケットの生成
 +            from common.packet.error_response import ErrorResponse
 +            err_pkt = ErrorResponse()
 +            err_pkt.packet_id = original_packet.packet_id
 +            err_pkt.error_code = error_code
-+            err_pkt.ex_field.set('source_ip', source_ip)
++            err_pkt.ex_field.set('source', source)
 +            
 +            # パケットをシリアライズ
 +            response_data = err_pkt.serialize()
@@ -125,11 +125,11 @@
 -        #     if source_info:
 -        #         host, port = source_info.split(':')
 -        #         dest_addr = (host, int(port))
-+            # 拡張フィールドからsource_ipを取得
-+            if request.ex_field and 'source_ip' in request.ex_field:
-+                source_ip = request.ex_field['source_ip']
++            # 拡張フィールドからsourceを取得
++            if request.ex_field and 'source' in request.ex_field:
++                source = request.ex_field['source']
 +                if self.debug:
-+                    print(f"  ソースIPを取得: {source_ip}")
++                    print(f"  ソースIPを取得: {source}")
                  
 -        #         if self.debug:
 -        #             print(f"  Forwarding weather response to {dest_addr}")
@@ -137,7 +137,7 @@
 -        #             print(f"  Packet size: {len(data)} bytes")
 -        #             print(f"  Source info stored: {source_info}")
 +                # エラーパケットを送信
-+                self.sock.sendto(request.to_bytes(), (source_ip, 4000))
++                self.sock.sendto(request.to_bytes(), (source, 4000))
                  
 -        #         # source情報を変数に格納したので拡張フィールドから削除
 -        #         if hasattr(response, 'ex_field') and response.ex_field:
@@ -154,9 +154,9 @@
 -        #                     print(f"  Extended field is now empty, setting flag to 0")
 -        #                 response.ex_field.flag = 0
 +                if self.debug:
-+                    print(f"  エラーパケットを {source_ip}:4000 に送信しました")
++                    print(f"  エラーパケットを {source}:4000 に送信しました")
 +            else:
-+                print(f"[天気サーバー] エラー: エラーパケットにsource_ipが含まれていません")
++                print(f"[天気サーバー] エラー: エラーパケットにsourceが含まれていません")
 +                if self.debug:
 +                    print(f"  拡張フィールド: {request.ex_field.to_dict() if request.ex_field else 'なし'}")
                      
