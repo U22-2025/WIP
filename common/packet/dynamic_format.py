@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
 from .extended_field import ExtendedField
@@ -13,6 +14,17 @@ def _load_simple_yaml(text: str) -> Any:
     """pyyaml がない場合の簡易 YAML パーサ"""
     data: Dict[str, Any] = {}
     current_key: Optional[str] = None
+
+    def _parse(v: str) -> Any:
+        """文字列を整数・小数・文字列として解釈"""
+        if v.startswith("'") and v.endswith("'") or v.startswith('"') and v.endswith('"'):
+            return v[1:-1]
+        if re.fullmatch(r"-?\d+\.\d+", v):
+            return float(v)
+        if re.fullmatch(r"-?\d+", v):
+            return int(v)
+        return v
+
     for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
@@ -28,9 +40,7 @@ def _load_simple_yaml(text: str) -> Any:
                 k, v = part.split(':', 1)
                 k = k.strip()
                 v = v.strip()
-                if v.startswith("'") and v.endswith("'") or v.startswith('"') and v.endswith('"'):
-                    v = v[1:-1]
-                item[k] = int(v) if v.isdigit() else v
+                item[k] = _parse(v)
             data.setdefault(current_key, []).append(item)
         else:
             if ':' not in line:
@@ -42,9 +52,7 @@ def _load_simple_yaml(text: str) -> Any:
                 data[key] = []
                 current_key = key
             else:
-                if value.startswith("'") and value.endswith("'") or value.startswith('"') and value.endswith('"'):
-                    value = value[1:-1]
-                data[key] = int(value) if value.isdigit() else value
+                data[key] = _parse(value)
                 current_key = None
     return data
 
