@@ -16,6 +16,7 @@ WIP Packet - Weather Transport Protocol Packet Implementation
 from .exceptions import BitFieldError
 from .extended_field import ExtendedField, ExtendedFieldType
 from .format import Format
+from .dynamic_format import DynamicFormat
 from .request import Request
 from .response import Response
 
@@ -32,6 +33,7 @@ __all__ = [
     "ExtendedField",
     "ExtendedFieldType",
     "Format",
+    "DynamicFormat",
     "Request",
     "Response",
     # 専用パケットクラス

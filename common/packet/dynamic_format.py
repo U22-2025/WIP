@@ -67,7 +67,11 @@ class DynamicFormat:
             length = int(f['length'])
             self._positions[f['name']] = (pos, length)
             pos += length
+        self._base_bits = pos
         self.values: Dict[str, int] = {f['name']: 0 for f in self.field_defs}
+        self.ex_field = ExtendedField()
+        self.has_checksum = 'checksum' in self.values
+        self.has_ex_flag = 'ex_flag' in self.values
 
     @classmethod
     def load(cls, path: str) -> "DynamicFormat":
@@ -97,7 +101,11 @@ class DynamicFormat:
             if k in self.values:
                 self.values[k] = int(v)
 
-    def to_bits(self) -> int:
+    def set_extended(self, **kwargs: Any) -> None:
+        """拡張フィールドの値を設定"""
+        self.ex_field.update(kwargs)
+
+    def _build_bits(self) -> int:
         bitstr = 0
         for name, (pos, length) in self._positions.items():
             val = self.values.get(name, 0)
@@ -105,12 +113,31 @@ class DynamicFormat:
             if val < 0 or val > max_val:
                 raise ValueError(f"Field {name} out of range")
             bitstr |= int(val) << pos
+        if self.has_ex_flag and self.values.get('ex_flag', 0) == 1 and not self.ex_field.is_empty():
+            bitstr |= self.ex_field.to_bits() << self._base_bits
         return bitstr
 
+    def to_bits(self) -> int:
+        return self._build_bits()
+
     def to_bytes(self) -> bytes:
-        bitstr = self.to_bits()
-        required_bytes = (bitstr.bit_length() + 7) // 8 or 1
-        return bitstr.to_bytes(required_bytes, byteorder='little')
+        original_checksum = self.values.get('checksum', 0)
+        if self.has_checksum:
+            self.values['checksum'] = 0
+
+        bitstr = self._build_bits()
+        required_bytes = max((bitstr.bit_length() + 7) // 8, 16)
+        data = bitstr.to_bytes(required_bytes, byteorder='little')
+
+        if self.has_checksum:
+            checksum = self.calc_checksum12(data)
+            self.values['checksum'] = checksum
+            bitstr = self._build_bits()
+            data = bitstr.to_bytes(required_bytes, byteorder='little')
+        else:
+            self.values['checksum'] = original_checksum
+
+        return data
 
     @classmethod
     def from_bytes(cls, path: str, data: bytes) -> "DynamicFormat":
@@ -118,7 +145,36 @@ class DynamicFormat:
         bitstr = int.from_bytes(data, byteorder='little')
         for name, (pos, length) in inst._positions.items():
             inst.values[name] = (bitstr >> pos) & ((1 << length) - 1)
+
+        if inst.has_ex_flag and inst.values.get('ex_flag', 0) == 1:
+            total_bits = len(data) * 8
+            if total_bits > inst._base_bits:
+                ext_bits = bitstr >> inst._base_bits
+                inst.ex_field = ExtendedField.from_bits(ext_bits, total_bits - inst._base_bits)
+
+        if inst.has_checksum:
+            stored = inst.values.get('checksum', 0)
+            inst.values['checksum'] = 0
+            check_data = inst._build_bits()
+            check_bytes = check_data.to_bytes(len(data), byteorder='little')
+            calc = inst.calc_checksum12(check_bytes)
+            inst.values['checksum'] = stored
+            if calc != stored:
+                raise ValueError('checksum mismatch')
+
         return inst
 
     def to_dict(self) -> Dict[str, int]:
-        return dict(self.values)
+        result = dict(self.values)
+        if not self.ex_field.is_empty():
+            result['ex_field'] = self.ex_field.to_dict()
+        return result
+
+    @staticmethod
+    def calc_checksum12(data: bytes) -> int:
+        sum_val = 0
+        for b in data:
+            sum_val += b
+        while sum_val >> 12:
+            sum_val = (sum_val & 0xFFF) + (sum_val >> 12)
+        return (~sum_val) & 0xFFF
