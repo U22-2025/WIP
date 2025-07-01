@@ -865,8 +865,8 @@ class WeatherServer(BaseServer):
                         "temperature": response.get_temperature_celsius(),
                         "pop": response.get_precipitation(),  # precipitation_prob -> pop に変更
                         "ex_field": {
-                            "alert": ex_data.get("alert", ""),
-                            "disaster": ex_data.get("disaster", "")
+                            "alert": ex_data.get("alert", []),
+                            "disaster": ex_data.get("disaster", [])
                         }
                     }
                     
