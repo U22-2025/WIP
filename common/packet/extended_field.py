@@ -75,7 +75,7 @@ class ExtendedField:
         ExtendedFieldType.LONGITUDE: 'longitude',
         ExtendedFieldType.SOURCE: 'source',
     }
-    
+
     FIELD_MAPPING_STR = {
         'alert': ExtendedFieldType.ALERT,
         'disaster': ExtendedFieldType.DISASTER,
@@ -83,6 +83,12 @@ class ExtendedField:
         'longitude': ExtendedFieldType.LONGITUDE,
         'source': ExtendedFieldType.SOURCE,
     }
+
+    @classmethod
+    def update_mapping(cls, entries: List[Dict[str, int]]) -> None:
+        """YAML定義からマッピングを更新"""
+        cls.FIELD_MAPPING_INT = {e['id']: e['name'] for e in entries}
+        cls.FIELD_MAPPING_STR = {e['name']: e['id'] for e in entries}
     
     def __init__(self, data: Optional[Dict[str, Any]] = None) -> None:
         """
