@@ -1,0 +1,6 @@
+extended_fields:
+  - {name: alert, id: 1}
+  - {name: disaster, id: 2}
+  - {name: latitude, id: 33}
+  - {name: longitude, id: 34}
+  - {name: source, id: 40}
