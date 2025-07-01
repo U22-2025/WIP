@@ -498,9 +498,20 @@ class WeatherServer(BaseServer):
                 ex_data = cached_data["ex_field"]
                 filtered_ex_field = {}
                 if weather_response.alert_flag and "alert" in ex_data:
-                    filtered_ex_field["alert"] = ex_data["alert"]
+                    alert_data = ex_data["alert"]
+                    if alert_data is not None:
+                        if isinstance(alert_data, (str, list)):
+                            filtered_ex_field["alert"] = alert_data
+                        elif self.debug:
+                            print(f"不正なalertデータ型: {type(alert_data)}")
+                
                 if weather_response.disaster_flag and "disaster" in ex_data:
-                    filtered_ex_field["disaster"] = ex_data["disaster"]
+                    disaster_data = ex_data["disaster"]
+                    if disaster_data is not None:
+                        if isinstance(disaster_data, (str, list)):
+                            filtered_ex_field["disaster"] = disaster_data
+                        elif self.debug:
+                            print(f"不正なdisasterデータ型: {type(disaster_data)}")
                 if lat is not None:
                     filtered_ex_field['latitude'] = lat
                 if long is not None:
@@ -860,15 +871,32 @@ class WeatherServer(BaseServer):
                 cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_weather', 1800))
                 
                 if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
-                    # キャッシュデータの作成
+                    # キャッシュデータの作成 (フラグに基づいて必要なデータのみ保存)
                     cache_data = {
                         "timestamp": datetime.now(),
-                        "area_code": response.area_code,
-                        "weather_code": response.get_weather_code(),
-                        "temperature": response.get_temperature_celsius(),
-                        "pop": response.get_precipitation(),  # precipitation_prob -> pop に変更
-                        "ex_field": response.ex_field.to_dict()  # 元のex_fieldデータ
+                        "area_code": response.area_code
                     }
+                    
+                    # 天気データフラグ
+                    if response.weather_flag:
+                        cache_data["weather_code"] = response.get_weather_code() if hasattr(response, 'get_weather_code') else "0000"
+                    
+                    # 気温データフラグ
+                    if response.temperature_flag:
+                        cache_data["temperature"] = response.get_temperature_celsius() if hasattr(response, 'get_temperature_celsius') else 0
+                    
+                    # 降水確率フラグ
+                    if response.pop_flag:
+                        cache_data["pop"] = response.get_precipitation() if hasattr(response, 'get_precipitation') else 0
+                    
+                    # アラート/災害フラグ
+                    if response.alert_flag or response.disaster_flag:
+                        ex_field = {}
+                        if response.alert_flag:
+                            ex_field["alert"] = response.ex_field.get("alert") if hasattr(response.ex_field, 'get') else ""
+                        if response.disaster_flag:
+                            ex_field["disaster"] = response.ex_field.get("disaster") if hasattr(response.ex_field, 'get') else ""
+                        cache_data["ex_field"] = ex_field
                     
                     # キャッシュに保存（デフォルトTTLを使用）
                     try:
