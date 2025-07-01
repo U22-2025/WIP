@@ -35,6 +35,12 @@ data = packet.to_bytes()
 restored_packet = Format.from_bytes(data)
 ```
 
+以下のように `DynamicFormat` クラスをインポートして使用することもできます。
+
+```python
+from common.packet import DynamicFormat
+```
+
 ### 拡張フィールド付きパケット
 
 ```python

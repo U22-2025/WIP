@@ -295,6 +295,13 @@ python test/api_test.py
 python -m wip.packet.format  # パケット形式テスト
 ```
 
+パケットライブラリを直接利用する場合は、以下のように`DynamicFormat`クラスを
+インポートできます。
+
+```python
+from wip.packet import DynamicFormat
+```
+
 ### ログ出力
 デバッグモードでの詳細ログ出力：
 ```python
