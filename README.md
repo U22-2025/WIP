@@ -104,6 +104,26 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
   - 100010: 経度
   - 101000: 送信元IPアドレス
 
+#### YAMLによる定義例
+`DynamicFormat`では以下のようなYAMLファイルでビットフィールドを定義できます。
+各フィールドには`size`のほか、`type`と`default`を任意で指定します。
+
+```yaml
+fields:
+  version:
+    size: 4
+    type: int
+    default: 1
+  flag:
+    size: 1
+    type: bool
+    default: false
+  code:
+    size: 11
+    type: int
+```
+
+
 ## インストール・セットアップ
 
 ### 必要環境

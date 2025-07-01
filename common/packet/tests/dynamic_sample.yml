@@ -1,0 +1,12 @@
+fields:
+  version:
+    size: 4
+    type: int
+    default: 1
+  flag:
+    size: 1
+    type: bool
+    default: false
+  code:
+    size: 11
+    type: int
