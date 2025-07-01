@@ -444,19 +444,27 @@ class WeatherServer(BaseServer):
     def _validate_cache_data(self, cached_data, flags):
         """キャッシュデータのバリデーションを行う"""
         if not cached_data:
+            if self.debug:
+                print("[DEBUG] キャッシュデータが存在しません")
             return False
 
+        missing_fields = []
         if flags.get('weather') and "weather_code" not in cached_data:
-            raise ValueError("キャッシュにweather_codeがありません")
+            missing_fields.append("weather_code")
         if flags.get('temperature') and "temperature" not in cached_data:
-            raise ValueError("キャッシュにtemperatureがありません")
+            missing_fields.append("temperature")
         if flags.get('pop') and "pop" not in cached_data:
-            raise ValueError("キャッシュにpopがありません")
-        if flags.get('alert') and ("ex_field" not in cached_data or "alert" not in cached_data["ex_field"]):
-            raise ValueError("キャッシュにalertデータがありません")
-        if flags.get('disaster') and ("ex_field" not in cached_data or "disaster" not in cached_data["ex_field"]):
-            return False  # キャッシュ検証失敗
-        
+            missing_fields.append("pop")
+        if flags.get('alert') and ("ex_field" not in cached_data or "alert" not in cached_data.get("ex_field", {})):
+            missing_fields.append("alert")
+        if flags.get('disaster') and ("ex_field" not in cached_data or "disaster" not in cached_data.get("ex_field", {})):
+            missing_fields.append("disaster")
+
+        if missing_fields:
+            if self.debug:
+                print(f"[DEBUG] キャッシュ検証失敗: {', '.join(missing_fields)} が不足しています")
+            return False
+
         return True
 
     def _create_response_from_cache(self, cached_data, packet_id, area_code, day, flags, lat=None, long=None):
