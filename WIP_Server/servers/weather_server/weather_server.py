@@ -864,19 +864,33 @@ class WeatherServer(BaseServer):
                 cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_weather', 1800))
                 
                 if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
-                    # キャッシュデータの作成
+                    # キャッシュデータの作成 (フラグに基づいて必要なデータのみ保存)
                     ex_data = response.ex_field.to_dict() if response.ex_field else {}
                     cache_data = {
                         "timestamp": datetime.now(),
-                        "area_code": response.area_code,
-                        "weather_code": response.get_weather_code(),
-                        "temperature": response.get_temperature_celsius(),
-                        "pop": response.get_precipitation(),  # precipitation_prob -> pop に変更
-                        "ex_field": {
-                            "alert": ex_data.get("alert", []),
-                            "disaster": ex_data.get("disaster", [])
-                        }
+                        "area_code": response.area_code
                     }
+                    
+                    # 天気データフラグ
+                    if response.weather_flag:
+                        cache_data["weather_code"] = response.get_weather_code() if hasattr(response, 'get_weather_code') else "0000"
+                    
+                    # 気温データフラグ
+                    if response.temperature_flag:
+                        cache_data["temperature"] = response.get_temperature_celsius() if hasattr(response, 'get_temperature_celsius') else 0
+                    
+                    # 降水確率フラグ
+                    if response.pop_flag:
+                        cache_data["pop"] = response.get_precipitation() if hasattr(response, 'get_precipitation') else 0
+                    
+                    # アラート/災害フラグ
+                    if response.alert_flag or response.disaster_flag:
+                        ex_field = {}
+                        if response.alert_flag:
+                            ex_field["alert"] = ex_data.get("alert", [])
+                        if response.disaster_flag:
+                            ex_field["disaster"] = ex_data.get("disaster", [])
+                        cache_data["ex_field"] = ex_field
                     
                     # キャッシュに保存（デフォルトTTLを使用）
                     try:
