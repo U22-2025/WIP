@@ -497,10 +497,14 @@ class WeatherServer(BaseServer):
             if cached_data.get("ex_field"):
                 ex_data = cached_data["ex_field"]
                 filtered_ex_field = {}
-                if weather_response.alert_flag and "alert" in ex_data:
-                    filtered_ex_field["alert"] = ex_data["alert"]
-                if weather_response.disaster_flag and "disaster" in ex_data:
-                    filtered_ex_field["disaster"] = ex_data["disaster"]
+                if weather_response.alert_flag:
+                    alert_val = ex_data.get("alert")
+                    if alert_val:
+                        filtered_ex_field["alert"] = alert_val
+                if weather_response.disaster_flag:
+                    disaster_val = ex_data.get("disaster")
+                    if disaster_val:
+                        filtered_ex_field["disaster"] = disaster_val
                 if lat is not None:
                     filtered_ex_field['latitude'] = lat
                 if long is not None:
@@ -861,13 +865,17 @@ class WeatherServer(BaseServer):
                 
                 if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
                     # キャッシュデータの作成
+                    ex_data = response.ex_field.to_dict() if response.ex_field else {}
                     cache_data = {
                         "timestamp": datetime.now(),
                         "area_code": response.area_code,
                         "weather_code": response.get_weather_code(),
                         "temperature": response.get_temperature_celsius(),
                         "pop": response.get_precipitation(),  # precipitation_prob -> pop に変更
-                        "ex_field": response.ex_field.to_dict()  # 元のex_fieldデータ
+                        "ex_field": {
+                            "alert": ex_data.get("alert", ""),
+                            "disaster": ex_data.get("disaster", "")
+                        }
                     }
                     
                     # キャッシュに保存（デフォルトTTLを使用）
