@@ -160,7 +160,10 @@ class ExtendedField:
             data: 更新するデータの辞書
         """
         for key, value in data.items():
-            self.set(key, value)
+            if hasattr(self.__class__, key):
+                setattr(self, key, value)
+            else:
+                self.set(key, value)
     
     def clear(self) -> None:
         """全てのフィールドをクリア"""
