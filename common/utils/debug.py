@@ -140,7 +140,7 @@ def run_field_test():
         test_cases = [
             ('latitude', 35.6895, 1),
             ('longitude', 139.6917, 2),
-            ('source_ip', '192.168.1.1', 3),
+            ('source', '192.168.1.1', 3),
             ('alert', ['津波警報'], 4),
             ('disaster', ['土砂崩れ'], 5)
         ]

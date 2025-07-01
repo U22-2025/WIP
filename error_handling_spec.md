@@ -35,7 +35,7 @@ sequenceDiagram
         Server->>ErrorResponse: type=7設定
         Server->>ErrorResponse: packet_id=元パケットID
         Server->>ErrorResponse: error_code=エラー種別
-        Server->>ErrorResponse: ex_field.source_ip=送信元IP
+        Server->>ErrorResponse: ex_field.source=送信元IP
         Server-->>Client: エラーパケット送信
     else 天気サーバー転送
         Server->>WeatherServer: エラーパケット転送
@@ -60,7 +60,7 @@ sequenceDiagram
 | フィールド | 継承元 | 必須 |
 |------------|--------|------|
 | packet_id | 元パケット | ○ |
-| source_ip | ソケット情報 | ○ |
+| source | ソケット情報 | ○ |
 | version | 固定値(1) | ○ |
 
 ## 2. エラー処理フロー
@@ -80,12 +80,12 @@ sequenceDiagram
   ```python
   def _handle_error(self, error_code, original_packet, addr):
       # ソースIP取得ロジック
-      source_ip = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
+      source = addr[0] if isinstance(addr, tuple) else "0.0.0.0"
       
       err_pkt = ErrorResponse()
       err_pkt.packet_id = original_packet.packet_id
       err_pkt.error_code = error_code
-      err_pkt.ex_field.set('source_ip', source_ip)
+      err_pkt.ex_field.set('source', source)
       self._send_to_client(err_pkt, addr)
   ```
   
@@ -101,7 +101,7 @@ sequenceDiagram
   ```python
   def _handle_packet(self, data, addr):
       if packet.type == 7:  # エラーパケット
-          self._send_to_client(packet, packet.ex_field['source_ip'])
+          self._send_to_client(packet, packet.ex_field['source'])
   ```
 
 ## 4. テストケース
@@ -109,7 +109,7 @@ sequenceDiagram
 1. エラーパケット生成テスト
    - タイプフィールド値=7確認
    - error_code値伝達テスト (0x0001-0x0005)
-   - source_ip継承テスト (IPv4形式)
+   - source継承テスト (IPv4形式)
 
 ### 4.2 例外系テスト
 1. ソースIP不明ケース ("0.0.0.0")
