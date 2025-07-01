@@ -1,0 +1,19 @@
+fields:
+  - {name: version, length: 4}
+  - {name: packet_id, length: 12}
+  - {name: type, length: 3}
+  - {name: weather_flag, length: 1}
+  - {name: temperature_flag, length: 1}
+  - {name: pop_flag, length: 1}
+  - {name: alert_flag, length: 1}
+  - {name: disaster_flag, length: 1}
+  - {name: ex_flag, length: 1}
+  - {name: day, length: 3}
+  - {name: reserved, length: 4}
+  - {name: timestamp, length: 64}
+  - {name: area_code, length: 20}
+  - {name: checksum, length: 12}
+  - {name: weather_code, length: 16}
+  - {name: temperature, length: 8}
+  - {name: pop, length: 8}
+extended_fields_file: extended_fields.yml
