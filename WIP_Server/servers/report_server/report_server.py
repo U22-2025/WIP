@@ -78,8 +78,9 @@ class ReportServer(BaseServer):
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
         # ストレージ設定
-        self.enable_file_logging = False  # ログファイル出力を無効化
+        self.enable_file_logging = True  # ログファイル出力を有効化
         self.log_directory = self.config.get('storage', 'log_directory', 'logs/reports')
+        self.log_file_path = Path(self.log_directory) / 'report_server.log'
         self.enable_database = self.config.getboolean('storage', 'enable_database', False)
         
         # 処理設定
@@ -88,9 +89,9 @@ class ReportServer(BaseServer):
         self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
         self.max_report_size = self.config.getint('processing', 'max_report_size', 1024)
         
-        # ログファイル機能は無効化（JSONファイル記録のみ使用）
-        # if self.enable_file_logging:
-        #     self._setup_logging()
+        # ログファイル機能を設定
+        if self.enable_file_logging:
+            self._setup_log_file()
         
         # 統計情報
         self.report_count = 0
@@ -100,7 +101,7 @@ class ReportServer(BaseServer):
             print(f"\n[{self.server_name}] 初期化完了")
             print(f"  ホスト: {host}:{port}")
             print(f"  データ検証: {self.enable_data_validation}")
-            print(f"  ログファイル: 無効（JSONファイル記録のみ）")
+            print(f"  ログファイル: {self.log_file_path if self.enable_file_logging else '無効'}")
             print(f"  データベース: {self.enable_database}")
     
     def validate_request(self, request):
@@ -154,15 +155,16 @@ class ReportServer(BaseServer):
             'data_types': []
         }
         
-        # デバッグ出力でリクエストの詳細を確認
+        # デバッグ出力でリクエストの詳細を確認（最適化版）
         if self.debug:
-            print(f"  [デバッグ] リクエスト属性:")
-            print(f"    weather_flag: {getattr(request, 'weather_flag', 'NONE')}")
-            print(f"    temperature_flag: {getattr(request, 'temperature_flag', 'NONE')}")
-            print(f"    pop_flag: {getattr(request, 'pop_flag', 'NONE')}")
-            print(f"    alert_flag: {getattr(request, 'alert_flag', 'NONE')}")
-            print(f"    disaster_flag: {getattr(request, 'disaster_flag', 'NONE')}")
-            print(f"    ex_field: {getattr(request, 'ex_field', 'NONE')}")
+            flags = [
+                f"weather:{getattr(request, 'weather_flag', 'N')}",
+                f"temp:{getattr(request, 'temperature_flag', 'N')}",
+                f"pop:{getattr(request, 'pop_flag', 'N')}",
+                f"alert:{getattr(request, 'alert_flag', 'N')}",
+                f"disaster:{getattr(request, 'disaster_flag', 'N')}"
+            ]
+            print(f"  [デバッグ] フラグ: {' '.join(flags)}")
         
         # 固定長フィールドからセンサーデータを抽出
         try:
@@ -171,7 +173,6 @@ class ReportServer(BaseServer):
                 weather_code = request.weather_code
                 if weather_code is not None and weather_code != 0:
                     sensor_data['weather_code'] = weather_code
-                    sensor_data['data_types'].append('weather')
             
             # 気温（内部表現から摂氏に変換）
             if hasattr(request, 'temperature_flag') and request.temperature_flag and hasattr(request, 'temperature'):
@@ -179,26 +180,26 @@ class ReportServer(BaseServer):
                 if temperature_raw is not None:
                     temperature_celsius = temperature_raw - 100  # 内部表現から摂氏に変換
                     sensor_data['temperature'] = temperature_celsius
-                    sensor_data['data_types'].append('temperature')
             
             # 降水確率
             if hasattr(request, 'pop_flag') and request.pop_flag and hasattr(request, 'pop'):
                 pop_value = request.pop
                 if pop_value is not None and pop_value != 0:
                     sensor_data['precipitation_prob'] = pop_value
-                    sensor_data['data_types'].append('precipitation')
             
             if self.debug:
-                print(f"  [デバッグ] 固定長フィールドから抽出:")
-                print(f"    weather_code: {sensor_data.get('weather_code', 'なし')}")
-                print(f"    temperature: {sensor_data.get('temperature', 'なし')}℃")
-                print(f"    precipitation_prob: {sensor_data.get('precipitation_prob', 'なし')}%")
+                fields = []
+                if 'weather_code' in sensor_data:
+                    fields.append(f"weather:{sensor_data['weather_code']}")
+                if 'temperature' in sensor_data:
+                    fields.append(f"temp:{sensor_data['temperature']}℃")
+                if 'precipitation_prob' in sensor_data:
+                    fields.append(f"pop:{sensor_data['precipitation_prob']}%")
+                print(f"  [デバッグ] 固定長: {' '.join(fields) if fields else 'なし'}")
             
         except Exception as e:
             if self.debug:
                 print(f"  [デバッグ] 固定長フィールド処理エラー: {e}")
-                import traceback
-                traceback.print_exc()
         
         # 拡張フィールドから警報・災害情報を抽出
         if hasattr(request, 'ex_field') and request.ex_field:
@@ -206,17 +207,16 @@ class ReportServer(BaseServer):
                 ex_dict = request.ex_field.to_dict() if hasattr(request.ex_field, 'to_dict') else {}
                 
                 if self.debug:
-                    print(f"  [デバッグ] 拡張フィールド内容: {ex_dict}")
+                    ex_keys = list(ex_dict.keys()) if ex_dict else []
+                    print(f"  [デバッグ] 拡張フィールド: {ex_keys}")
                 
                 # 警報情報
                 if hasattr(request, 'alert_flag') and request.alert_flag and 'alert' in ex_dict:
                     sensor_data['alert'] = ex_dict['alert']
-                    sensor_data['data_types'].append('alert')
                 
                 # 災害情報
                 if hasattr(request, 'disaster_flag') and request.disaster_flag and 'disaster' in ex_dict:
                     sensor_data['disaster'] = ex_dict['disaster']
-                    sensor_data['data_types'].append('disaster')
                 
                 # 送信元情報
                 if 'source' in ex_dict:
@@ -225,12 +225,7 @@ class ReportServer(BaseServer):
             except Exception as e:
                 if self.debug:
                     print(f"  [デバッグ] 拡張フィールド処理エラー: {e}")
-                    import traceback
-                    traceback.print_exc()
-        
-        if self.debug:
-            print(f"  [デバッグ] 抽出されたセンサーデータ: {sensor_data}")
-        
+                    
         return sensor_data
     
     def _validate_sensor_data(self, sensor_data):
@@ -286,74 +281,59 @@ class ReportServer(BaseServer):
         
         return processed_data
     
-    def _log_report_data(self, request, sensor_data, source_addr=None):
-        """レポートデータをJSONファイルに記録"""
+    def _setup_log_file(self):
+        """ログファイルの設定"""
         try:
-            # JSONファイルのパス
-            json_file_path = Path("wip/json/report_data.json")
+            # ログディレクトリを作成
+            self.log_file_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # ディレクトリが存在しない場合は作成
-            json_file_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # 既存のデータを読み込み
-            existing_data = {}
-            if json_file_path.exists():
-                try:
-                    with open(json_file_path, 'r', encoding='utf-8') as f:
-                        content = f.read().strip()
-                        if content:
-                            existing_data = json.loads(content)
-                except (json.JSONDecodeError, Exception) as e:
-                    if self.debug:
-                        print(f"既存JSONファイルの読み込みエラー: {e}")
-                    existing_data = {}
-            
-            # 新しいエントリを作成（簡潔な形式）
-            area_code = request.area_code
-            new_entry = {
-                "timestamp": datetime.now().isoformat(),
-                "area_code": area_code
-            }
-            
-            # センサーデータから各フィールドを抽出
-            if 'weather_code' in sensor_data:
-                new_entry["weather_code"] = sensor_data['weather_code']
-                
-            if 'temperature' in sensor_data:
-                new_entry["temperature"] = sensor_data['temperature']
-                
-            if 'precipitation_prob' in sensor_data:
-                new_entry["precipitation_prob"] = sensor_data['precipitation_prob']
-                
-            if 'alert' in sensor_data:
-                # alertが配列の場合は文字列に結合
-                alert_data = sensor_data['alert']
-                if isinstance(alert_data, list):
-                    new_entry["alert"] = ", ".join(alert_data)
-                else:
-                    new_entry["alert"] = str(alert_data)
-                    
-            if 'disaster' in sensor_data:
-                # disasterが配列の場合は文字列に結合
-                disaster_data = sensor_data['disaster']
-                if isinstance(disaster_data, list):
-                    new_entry["disaster"] = ", ".join(disaster_data)
-                else:
-                    new_entry["disaster"] = str(disaster_data)
-            
-            # エリアコードをキーとして更新または追加
-            existing_data[area_code] = new_entry
-            
-            # JSONファイルに保存
-            with open(json_file_path, 'w', encoding='utf-8') as f:
-                json.dump(existing_data, f, ensure_ascii=False, indent=2)
+            # ログファイルの初期化（存在しない場合はヘッダーを書き込み）
+            if not self.log_file_path.exists():
+                with open(self.log_file_path, 'w', encoding='utf-8') as f:
+                    f.write("timestamp,area_code,weather_code,temperature,precipitation_prob,alert,disaster\n")
             
             if self.debug:
-                print(f"JSONファイルを更新しました: {json_file_path}")
-                print(f"エリアコード {area_code} のデータを保存")
+                print(f"ログファイルを初期化しました: {self.log_file_path}")
+                
+        except Exception as e:
+            print(f"ログファイル初期化エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+    
+    def _log_report_data(self, request, sensor_data, source_addr=None):
+        """レポートデータをログファイルに追記（高速化版）"""
+        if not self.enable_file_logging:
+            return
+            
+        try:
+            # CSVライクな1行を作成
+            timestamp = datetime.now().isoformat()
+            area_code = request.area_code
+            weather_code = sensor_data.get('weather_code', '')
+            temperature = sensor_data.get('temperature', '')
+            precipitation_prob = sensor_data.get('precipitation_prob', '')
+            
+            # 配列データを文字列に変換
+            alert_data = sensor_data.get('alert', '')
+            if isinstance(alert_data, list):
+                alert_data = "; ".join(str(x) for x in alert_data)
+            
+            disaster_data = sensor_data.get('disaster', '')
+            if isinstance(disaster_data, list):
+                disaster_data = "; ".join(str(x) for x in disaster_data)
+            
+            # CSV形式の行を作成
+            log_line = f"{timestamp},{area_code},{weather_code},{temperature},{precipitation_prob},{alert_data},{disaster_data}\n"
+            
+            # ログファイルに追記（単純な追記のため高速）
+            with open(self.log_file_path, 'a', encoding='utf-8') as f:
+                f.write(log_line)
+            
+            if self.debug:
+                print(f"  ✓ ログファイルに追記: {area_code}")
             
         except Exception as e:
-            print(f"JSONファイル記録エラー: {e}")
+            print(f"ログファイル記録エラー: {e}")
             if self.debug:
                 traceback.print_exc()
     
@@ -375,6 +355,9 @@ class ReportServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
+        start_time = time.time()
+        timing_info = {}
+        
         try:
             # レポートカウント増加
             with self.lock:
@@ -387,36 +370,67 @@ class ReportServer(BaseServer):
             print(f"  タイムスタンプ: {time.ctime(request.timestamp)}")
             print(f"  レポート番号: {self.report_count}")
             
-            if self.debug:
-                print(f"  デバッグモード: 詳細処理中...")
-            
-            # センサーデータの抽出
+            # センサーデータの抽出（時間計測）
+            extract_start = time.time()
             sensor_data = self._extract_sensor_data(request)
+            timing_info['extract'] = time.time() - extract_start
             print(f"  センサーデータタイプ: {sensor_data.get('data_types', [])}")
             
-            # データ処理
+            # データ処理（時間計測）
+            process_start = time.time()
             processed_data = self._process_sensor_data(sensor_data, request)
+            timing_info['process'] = time.time() - process_start
             
-            # JSONファイルに記録（常に実行）
+            # ログファイルに記録（時間計測）
+            log_start = time.time()
             self._log_report_data(request, sensor_data, None)
-            print(f"  ✓ JSONファイル(wip/json/report_data.json)に記録しました")
+            timing_info['log'] = time.time() - log_start
+            if self.enable_file_logging:
+                print(f"  ✓ ログファイル記録完了 ({timing_info['log']*1000:.1f}ms)")
             
             # データベース保存（オプション）
             if self.enable_database:
+                db_start = time.time()
                 self._save_to_database(request, sensor_data, None)
+                timing_info['database'] = time.time() - db_start
             
-            # ACKレスポンス（Type 5）を作成
+            # ACKレスポンス（Type 5）を作成（時間計測）
+            response_start = time.time()
             response = ReportResponse.create_ack_response(
                 request=request,
                 version=self.version
             )
+            timing_info['response'] = time.time() - response_start
             
             # 成功カウント
             with self.lock:
                 self.success_count += 1
             
-            print(f"  ✓ ACKレスポンス（Type 5）を作成しました")
+            # 総処理時間
+            timing_info['total'] = time.time() - start_time
+            
+            print(f"  ✓ ACKレスポンス作成完了 ({timing_info['response']*1000:.1f}ms)")
             print(f"  ✓ 成功率: {(self.success_count/self.report_count)*100:.1f}%")
+            
+            # 処理時間の詳細を出力
+            print(f"  📊 処理時間詳細:")
+            print(f"    - データ抽出: {timing_info['extract']*1000:.1f}ms")
+            print(f"    - データ処理: {timing_info['process']*1000:.1f}ms")
+            if self.enable_file_logging:
+                print(f"    - ログ記録: {timing_info['log']*1000:.1f}ms")
+            if 'database' in timing_info:
+                print(f"    - DB保存: {timing_info['database']*1000:.1f}ms")
+            print(f"    - レスポンス作成: {timing_info['response']*1000:.1f}ms")
+            print(f"    - 合計: {timing_info['total']*1000:.1f}ms")
+            
+            # 遅延警告（20ms以上の場合）
+            if timing_info['total'] > 0.02:
+                print(f"  ⚠️  遅延検出: 総処理時間が{timing_info['total']*1000:.1f}msです")
+                if self.enable_file_logging and timing_info['log'] > 0.005:
+                    print(f"     - ログ記録が遅い: {timing_info['log']*1000:.1f}ms")
+                if timing_info['extract'] > 0.005:
+                    print(f"     - データ抽出が遅い: {timing_info['extract']*1000:.1f}ms")
+            
             print(f"  ===== RESPONSE SENT =====\n")
             
             return response.to_bytes()
@@ -495,11 +509,8 @@ class ReportServer(BaseServer):
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理"""
-        if self.enable_file_logging and hasattr(self, 'logger'):
-            # ログハンドラーをクローズ
-            for handler in self.logger.handlers:
-                handler.close()
-                self.logger.removeHandler(handler)
+        if self.debug:
+            print(f"[{self.server_name}] クリーンアップ完了")
 
 
 if __name__ == "__main__":

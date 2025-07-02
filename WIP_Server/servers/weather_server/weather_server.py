@@ -1101,18 +1101,71 @@ class WeatherServer(BaseServer):
                 print(f"  Target: {self.report_server_host}:{self.report_server_port}")
                 print(f"  Area code: {request.area_code}")
             
-            # ReportRequestにsource情報を追加
-            if hasattr(request, 'ex_field') and request.ex_field:
-                request.ex_field.source = source_info
-            else:
-                # 拡張フィールドが存在しない場合は作成
-                from common.packet.extended_field import ExtendedField
-                request.ex_field = ExtendedField()
-                request.ex_field.source = source_info
-                request.ex_flag = 1
-            
+            # ReportRequestにsource情報を追加（強化版）
             if self.debug:
-                print(f"  ReportRequest に送信元情報を追加しました: {source_info}")
+                print(f"  拡張フィールドフラグ: {getattr(request, 'ex_flag', 'N/A')}")
+                print(f"  拡張フィールド存在: {hasattr(request, 'ex_field') and request.ex_field is not None}")
+            
+            try:
+                # 拡張フィールドフラグが0でも強制的にsource情報を追加
+                from common.packet.extended_field import ExtendedField
+                
+                # 既存の拡張フィールドデータを保持
+                existing_data = {}
+                if hasattr(request, 'ex_field') and request.ex_field:
+                    try:
+                        if hasattr(request.ex_field, 'to_dict'):
+                            existing_data = request.ex_field.to_dict()
+                        elif hasattr(request.ex_field, '__dict__'):
+                            existing_data = {k: v for k, v in request.ex_field.__dict__.items()
+                                           if not k.startswith('_')}
+                    except Exception as preserve_e:
+                        if self.debug:
+                            print(f"  既存データ保持エラー: {preserve_e}")
+                
+                # 新しい拡張フィールドを作成
+                request.ex_field = ExtendedField()
+                
+                # 既存データを復元
+                for key, value in existing_data.items():
+                    if key != 'source':  # sourceは新しく設定するので除外
+                        try:
+                            setattr(request.ex_field, key, value)
+                        except Exception as restore_e:
+                            if self.debug:
+                                print(f"  データ復元エラー ({key}): {restore_e}")
+                
+                # source情報を追加
+                request.ex_field.source = source_info
+                
+                # 拡張フィールドフラグを強制的に1に設定
+                request.ex_flag = 1
+                
+                if self.debug:
+                    print(f"  ✓ ReportRequest に送信元情報を強制追加: {source_info}")
+                    print(f"  ✓ 拡張フィールドフラグを1に設定")
+                    if hasattr(request.ex_field, 'to_dict'):
+                        print(f"  ✓ 拡張フィールド内容: {request.ex_field.to_dict()}")
+            
+            except Exception as ex_e:
+                print(f"❌ 拡張フィールドへのsource追加に失敗: {ex_e}")
+                if self.debug:
+                    traceback.print_exc()
+                
+                # 最終手段：エラーレスポンスを送信
+                error_response = ErrorResponse(
+                    version=self.version,
+                    packet_id=request.packet_id,
+                    error_code=530,
+                    timestamp=int(datetime.now().timestamp())
+                )
+                try:
+                    self.sock.sendto(error_response.to_bytes(), source_info)
+                    if self.debug:
+                        print(f"  エラーレスポンスを送信: {source_info}")
+                except Exception as send_e:
+                    print(f"エラーレスポンス送信も失敗: {send_e}")
+                return
             
             # レポートサーバーに転送
             packet_data = request.to_bytes()
