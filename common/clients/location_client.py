@@ -11,7 +11,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 import logging
-from ..packet import LocationRequest, LocationResponse
+from pathlib import Path
+from ..packet import LocationRequest, LocationResponse, DynamicLocationResponse
+RESPONSE_YAML = Path(__file__).resolve().parents[1] / "packet" / "response_format.yml"
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 
@@ -130,7 +132,7 @@ class LocationClient:
 
             # 専用クラスでレスポンス解析
             parse_start = time.time()
-            response = LocationResponse.from_bytes(data)
+            response = DynamicLocationResponse.from_bytes(str(RESPONSE_YAML), data)
             parse_time = time.time() - parse_start
             
             self._debug_print_response(response)

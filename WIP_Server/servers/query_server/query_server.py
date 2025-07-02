@@ -24,9 +24,11 @@ from .modules.weather_data_manager import WeatherDataManager
 from .modules.response_builder import ResponseBuilder
 from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
-from common.packet import Request, Response, BitFieldError
+from common.packet import Request, Response, BitFieldError, DynamicFormat
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
+REQUEST_YAML = Path(__file__).resolve().parents[2] / "common" / "packet" / "request_format.yml"
+RESPONSE_YAML = Path(__file__).resolve().parents[2] / "common" / "packet" / "response_format.yml"
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 
 
@@ -116,7 +118,8 @@ class QueryServer(BaseServer):
         Returns:
             Request: パースされたリクエスト
         """
-        return Request.from_bytes(data)
+        dyn = DynamicFormat.from_bytes(str(REQUEST_YAML), data)
+        return Request(bitstr=dyn.to_bits())
     
     def validate_request(self, request):
         """
@@ -304,7 +307,10 @@ class QueryServer(BaseServer):
             print(f"  ex_flag: {response.ex_flag}")
             print(f"  ex_field: {response.ex_field}")
         
-        return response.to_bytes()
+        dyn_resp = DynamicFormat.load(str(RESPONSE_YAML))
+        dyn_resp.set(**{k: getattr(response,k) for k in ["version","packet_id","type","weather_flag","temperature_flag","pop_flag","alert_flag","disaster_flag","ex_flag","day","reserved","timestamp","area_code","checksum","weather_code","temperature","pop"] if hasattr(response,k)})
+        dyn_resp.set_extended(**response.ex_field.to_dict())
+        return dyn_resp.to_bytes()
     
     def _debug_print_request(self, data, parsed):
         """リクエストのデバッグ情報を出力（オーバーライド）"""

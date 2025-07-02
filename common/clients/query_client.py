@@ -8,8 +8,10 @@ import time
 import concurrent.futures
 import os
 import logging
+from pathlib import Path
 from datetime import datetime
-from ..packet import QueryRequest, QueryResponse
+from ..packet import QueryRequest, QueryResponse, DynamicQueryResponse
+RESPONSE_YAML = Path(__file__).resolve().parents[1] / "packet" / "response_format.yml"
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
@@ -163,9 +165,8 @@ class QueryClient:
             
             # レスポンス解析（専用クラス使用）
             parse_start = time.time()
-            response = QueryResponse.from_bytes(response_data)
-            parse_time = time.time() - parse_start
             
+            response = DynamicQueryResponse.from_bytes(str(RESPONSE_YAML), response_data)
             self._debug_print_response(response)
             
             # 専用クラスのメソッドで結果を簡単に取得

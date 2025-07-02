@@ -6,11 +6,13 @@ Weather Serverプロキシと通信するクライアント
 import socket
 import time
 import logging
+from pathlib import Path
 from datetime import datetime
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from common.packet import WeatherRequest, WeatherResponse, ErrorResponse
+from common.packet import WeatherRequest, WeatherResponse, ErrorResponse, DynamicWeatherResponse
+RESPONSE_YAML = Path(__file__).resolve().parents[1] / "packet" / "response_format.yml"
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
@@ -183,7 +185,7 @@ class WeatherClient:
             self.logger.debug(response_data)
             
             if response_type == 3:  # 天気レスポンス
-                response = WeatherResponse.from_bytes(response_data)
+                response = DynamicWeatherResponse.from_bytes(str(RESPONSE_YAML), response_data)
                 self._debug_print_response(response)
                 
                 if response.is_success():
@@ -274,7 +276,7 @@ class WeatherClient:
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
             
             if response_type == 3:  # 天気レスポンス
-                response = WeatherResponse.from_bytes(response_data)
+                response = DynamicWeatherResponse.from_bytes(str(RESPONSE_YAML), response_data)
                 self._debug_print_response(response)
                 
                 if response.is_success():

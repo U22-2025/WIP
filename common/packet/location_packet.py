@@ -6,6 +6,8 @@ from typing import Optional, Dict, Any, Union
 from datetime import datetime
 from .request import Request
 from .response import Response
+from pathlib import Path
+from .dynamic_format import DynamicFormat
 
 
 class LocationRequest(Request):
@@ -305,3 +307,29 @@ class LocationResponse(Response):
             'source': self.get_source_info(),
             'preserved_flags': self.get_preserved_flags()
         }
+
+class DynamicLocationRequest(DynamicFormat):
+    """YAML定義から生成されるLocationRequest互換クラス"""
+    FORMAT_FILE = Path(__file__).with_name("request_format.yml")
+
+    @classmethod
+    def load(cls) -> "DynamicLocationRequest":
+        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "DynamicLocationRequest":
+        return super().from_bytes(str(cls.FORMAT_FILE), data)  # type: ignore
+
+
+class DynamicLocationResponse(DynamicFormat):
+    """YAML定義から生成されるLocationResponse互換クラス"""
+    FORMAT_FILE = Path(__file__).with_name("response_format.yml")
+
+    @classmethod
+    def load(cls) -> "DynamicLocationResponse":
+        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "DynamicLocationResponse":
+        return super().from_bytes(str(cls.FORMAT_FILE), data)  # type: ignore
+

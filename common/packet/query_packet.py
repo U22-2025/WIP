@@ -6,6 +6,8 @@ from typing import Optional, Dict, Any, Union, List
 from datetime import datetime
 from .request import Request
 from .response import Response
+from pathlib import Path
+from .dynamic_format import DynamicFormat
 
 
 class QueryRequest(Request):
@@ -436,3 +438,29 @@ class QueryResponse(Response):
             'source': self.get_source_info(),
             'data': self.get_weather_data()
         }
+
+class DynamicQueryRequest(DynamicFormat):
+    """YAML定義から生成されるQueryRequest互換クラス"""
+    FORMAT_FILE = Path(__file__).with_name("request_format.yml")
+
+    @classmethod
+    def load(cls) -> "DynamicQueryRequest":
+        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "DynamicQueryRequest":
+        return super().from_bytes(str(cls.FORMAT_FILE), data)  # type: ignore
+
+
+class DynamicQueryResponse(DynamicFormat):
+    """YAML定義から生成されるQueryResponse互換クラス"""
+    FORMAT_FILE = Path(__file__).with_name("response_format.yml")
+
+    @classmethod
+    def load(cls) -> "DynamicQueryResponse":
+        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "DynamicQueryResponse":
+        return super().from_bytes(str(cls.FORMAT_FILE), data)  # type: ignore
+
