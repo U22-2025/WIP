@@ -26,54 +26,8 @@ from common.packet import (
     ErrorResponse,
     BitFieldError
 )
+from common.utils.config_loader import ConfigLoader
 from datetime import timedelta
-import configparser
-import re
-
-
-class SimpleConfigLoader:
-    """dotenv依存なしの簡易設定ローダー"""
-    
-    def __init__(self, config_path):
-        self.config_path = Path(config_path)
-        self.config = configparser.ConfigParser(interpolation=None)
-        self._load_config()
-    
-    def _load_config(self):
-        if self.config_path.exists():
-            self.config.read(self.config_path, encoding='utf-8')
-            self._expand_env_vars()
-        else:
-            print(f"Warning: Config file not found: {self.config_path}")
-    
-    def _expand_env_vars(self):
-        for section in self.config.sections():
-            for key, value in self.config.items(section):
-                if '${' in value and '}' in value:
-                    pattern = r'\$\{([^}]+)\}'
-                    def replace_env(match):
-                        env_var = match.group(1)
-                        return os.getenv(env_var, match.group(0))
-                    expanded_value = re.sub(pattern, replace_env, value)
-                    self.config.set(section, key, expanded_value)
-    
-    def get(self, section, key, default=None):
-        try:
-            return self.config.get(section, key)
-        except (configparser.NoSectionError, configparser.NoOptionError):
-            return default
-    
-    def getint(self, section, key, default=None):
-        try:
-            return self.config.getint(section, key)
-        except (configparser.NoSectionError, configparser.NoOptionError, ValueError):
-            return default
-    
-    def getboolean(self, section, key, default=None):
-        try:
-            return self.config.getboolean(section, key)
-        except (configparser.NoSectionError, configparser.NoOptionError, ValueError):
-            return default
 
 
 class ReportServer(BaseServer):
@@ -92,7 +46,7 @@ class ReportServer(BaseServer):
         # 設定ファイルを読み込む
         config_path = Path(__file__).parent / 'config.ini'
         try:
-            self.config = SimpleConfigLoader(config_path)
+            self.config = ConfigLoader(config_path)
         except Exception as e:
             error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
             if debug:
@@ -124,7 +78,7 @@ class ReportServer(BaseServer):
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
         # ストレージ設定
-        self.enable_logging = self.config.getboolean('storage', 'enable_logging', True)
+        self.enable_file_logging = False  # ログファイル出力を無効化
         self.log_directory = self.config.get('storage', 'log_directory', 'logs/reports')
         self.enable_database = self.config.getboolean('storage', 'enable_database', False)
         
@@ -134,9 +88,9 @@ class ReportServer(BaseServer):
         self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
         self.max_report_size = self.config.getint('processing', 'max_report_size', 1024)
         
-        # ログディレクトリの作成
-        if self.enable_logging:
-            self._setup_logging()
+        # ログファイル機能は無効化（JSONファイル記録のみ使用）
+        # if self.enable_file_logging:
+        #     self._setup_logging()
         
         # 統計情報
         self.report_count = 0
@@ -146,43 +100,8 @@ class ReportServer(BaseServer):
             print(f"\n[{self.server_name}] 初期化完了")
             print(f"  ホスト: {host}:{port}")
             print(f"  データ検証: {self.enable_data_validation}")
-            print(f"  ログ記録: {self.enable_logging}")
+            print(f"  ログファイル: 無効（JSONファイル記録のみ）")
             print(f"  データベース: {self.enable_database}")
-    
-    def _setup_logging(self):
-        """ログ設定を初期化"""
-        try:
-            # ログディレクトリを作成
-            log_path = Path(self.log_directory)
-            log_path.mkdir(parents=True, exist_ok=True)
-            
-            # ログファイル名（日付別）
-            log_file = log_path / f"report_{datetime.now().strftime('%Y%m%d')}.log"
-            
-            # ロガーの設定
-            self.logger = logging.getLogger(f"{self.server_name}")
-            self.logger.setLevel(logging.INFO)
-            
-            # ファイルハンドラー
-            file_handler = logging.FileHandler(log_file, encoding='utf-8')
-            file_handler.setLevel(logging.INFO)
-            
-            # フォーマッター
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-            file_handler.setFormatter(formatter)
-            
-            # ハンドラーを追加（重複を避ける）
-            if not self.logger.handlers:
-                self.logger.addHandler(file_handler)
-            
-            if self.debug:
-                print(f"  ログファイル: {log_file}")
-                
-        except Exception as e:
-            print(f"ログ設定の初期化に失敗しました: {e}")
-            self.enable_logging = False
     
     def validate_request(self, request):
         """
@@ -478,10 +397,9 @@ class ReportServer(BaseServer):
             # データ処理
             processed_data = self._process_sensor_data(sensor_data, request)
             
-            # JSONファイルに記録
-            if self.enable_logging:
-                self._log_report_data(request, sensor_data, None)
-                print(f"  ✓ JSONファイル(wip/json/report_data.json)に記録しました")
+            # JSONファイルに記録（常に実行）
+            self._log_report_data(request, sensor_data, None)
+            print(f"  ✓ JSONファイル(wip/json/report_data.json)に記録しました")
             
             # データベース保存（オプション）
             if self.enable_database:
@@ -577,7 +495,7 @@ class ReportServer(BaseServer):
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理"""
-        if self.enable_logging and hasattr(self, 'logger'):
+        if self.enable_file_logging and hasattr(self, 'logger'):
             # ログハンドラーをクローズ
             for handler in self.logger.handlers:
                 handler.close()
@@ -587,16 +505,4 @@ class ReportServer(BaseServer):
 if __name__ == "__main__":
     # 設定ファイルから読み込んで起動
     server = ReportServer()
-    server.start_time = time.time()
-    
-    try:
-        print(f"{server.server_name} を開始します...")
-        print(f"設定: {server.host}:{server.port}")
-        print("Ctrl+C で停止")
-        server.run()
-    except KeyboardInterrupt:
-        print(f"\n{server.server_name} を停止しています...")
-        stats = server.get_statistics()
-        print(f"統計情報: {stats}")
-    finally:
-        server.stop()
+    server.run()
