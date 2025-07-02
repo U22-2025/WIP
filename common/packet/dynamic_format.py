@@ -81,6 +81,20 @@ class DynamicFormat:
         self.has_checksum = 'checksum' in self.values
         self.has_ex_flag = 'ex_flag' in self.values
 
+    def __getattr__(self, name: str) -> Any:
+        """values辞書に存在する項目を属性として参照できるようにする"""
+        vals = self.__dict__.get('values')
+        if vals and name in vals:
+            return vals[name]
+        raise AttributeError(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        vals = self.__dict__.get('values')
+        if vals and name in vals:
+            vals[name] = int(value) if isinstance(value, (int, float)) else value
+        else:
+            super().__setattr__(name, value)
+
     @classmethod
     def load(cls, path: str) -> "DynamicFormat":
         """JSONまたはYAMLファイルからフォーマットを読み込む"""
