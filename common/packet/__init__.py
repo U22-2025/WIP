@@ -19,6 +19,7 @@ from .format import Format
 from .dynamic_format import DynamicFormat, _safe_load_yaml
 from .request import Request
 from .response import Response
+import warnings
 
 # 専用パケットクラス
 from .weather_packet import WeatherRequest, WeatherResponse
@@ -36,9 +37,12 @@ try:
         entries = ext_data.get("extended_fields", ext_data)
         if isinstance(entries, list):
             ExtendedField.update_mapping(entries)
-except Exception:
-    # 定義ファイルが存在しない場合や読み込みエラーは無視
-    pass
+except FileNotFoundError as e:
+    warnings.warn(f"extended_fields.yml not found: {e}")
+except ValueError as e:
+    warnings.warn(f"failed to load extended_fields.yml: {e}")
+except Exception as e:  # pragma: no cover - 予期しない例外をまとめて捕捉
+    warnings.warn(f"could not update extended field mapping: {e}")
 
 __version__ = "1.1.0"
 __all__ = [
