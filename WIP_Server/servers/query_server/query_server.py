@@ -172,6 +172,11 @@ class QueryServer(BaseServer):
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
+            if hasattr(request, "ex_field") and request.ex_field:
+                src = request.ex_field.get("source")
+                if src:
+                    error_response.ex_field.set("source", src)
+                    error_response.ex_flag = 1
             if self.debug:
                 print(f"{error_code}: [クエリサーバー] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
@@ -299,6 +304,11 @@ class QueryServer(BaseServer):
                 error_code="520",
                 timestamp=int(datetime.now().timestamp())
             )
+            if hasattr(request, "ex_field") and request.ex_field:
+                src = request.ex_field.get("source")
+                if src:
+                    error_response.ex_field.set("source", src)
+                    error_response.ex_flag = 1
             if self.debug:
                 print(f"520: [クエリサーバー] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
