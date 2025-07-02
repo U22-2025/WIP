@@ -166,7 +166,7 @@ class QueryClient:
             # レスポンス解析（専用クラス使用）
             parse_start = time.time()
             
-            response = DynamicQueryResponse.from_bytes(str(RESPONSE_YAML), response_data)
+            response = DynamicQueryResponse.from_bytes(response_data)
             self._debug_print_response(response)
             
             # 専用クラスのメソッドで結果を簡単に取得

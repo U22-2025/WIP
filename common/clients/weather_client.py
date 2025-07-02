@@ -185,7 +185,7 @@ class WeatherClient:
             self.logger.debug(response_data)
             
             if response_type == 3:  # 天気レスポンス
-                response = DynamicWeatherResponse.from_bytes(str(RESPONSE_YAML), response_data)
+                response = DynamicWeatherResponse.from_bytes(response_data)
                 self._debug_print_response(response)
                 
                 if response.is_success():
@@ -276,7 +276,7 @@ class WeatherClient:
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
             
             if response_type == 3:  # 天気レスポンス
-                response = DynamicWeatherResponse.from_bytes(str(RESPONSE_YAML), response_data)
+                response = DynamicWeatherResponse.from_bytes(response_data)
                 self._debug_print_response(response)
                 
                 if response.is_success():

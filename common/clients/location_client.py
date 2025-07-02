@@ -132,7 +132,7 @@ class LocationClient:
 
             # 専用クラスでレスポンス解析
             parse_start = time.time()
-            response = DynamicLocationResponse.from_bytes(str(RESPONSE_YAML), data)
+            response = DynamicLocationResponse.from_bytes(data)
             parse_time = time.time() - parse_start
             
             self._debug_print_response(response)
