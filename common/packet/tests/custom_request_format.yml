@@ -1,0 +1,7 @@
+fields:
+  - {name: version, length: 4}
+  - {name: packet_id, length: 12}
+  - {name: ex_flag, length: 1}
+  - {name: extra_field, length: 8}
+  - {name: checksum, length: 12}
+extended_fields_file: custom_extended.yml
