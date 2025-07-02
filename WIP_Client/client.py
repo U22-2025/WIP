@@ -35,7 +35,7 @@ class ClientState:
 
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    area_code: Optional[str] = None
+    area_code: Optional[str | int] = None
 
 
 class Client:
@@ -43,14 +43,20 @@ class Client:
 
     def __init__(
         self,
-        server_config: Optional[ServerConfig] = None,
+        host: Optional[str] = None,
+        server_port: Optional[int] = None,
         *,
+        server_config: Optional[ServerConfig] = None,
         debug: bool = False,
         latitude: Optional[float] = None,
         longitude: Optional[float] = None,
-        area_code: Optional[str] = None,
+        area_code: Optional[str | int] = None,
     ) -> None:
         self.config = server_config or ServerConfig()
+        if host is not None:
+            self.config.host = host
+        if server_port is not None:
+            self.config.port = server_port
         self.debug = debug
         self.state = ClientState(latitude, longitude, area_code)
 
@@ -101,11 +107,11 @@ class Client:
             self.logger.debug(f"Longitude updated: {value}")
 
     @property
-    def area_code(self) -> Optional[str]:
+    def area_code(self) -> Optional[str | int]:
         return self.state.area_code
 
     @area_code.setter
-    def area_code(self, value: Optional[str]) -> None:
+    def area_code(self, value: Optional[str | int]) -> None:
         self.state.area_code = value
         if self.debug:
             self.logger.debug(f"Area code updated: {value}")
@@ -166,7 +172,7 @@ class Client:
     def get_weather_by_coordinates(self, latitude: float, longitude: float, **kwargs) -> Optional[Dict]:
         return self._weather_client.get_weather_by_coordinates(latitude=latitude, longitude=longitude, **kwargs)
 
-    def get_weather_by_area_code(self, area_code: str, **kwargs) -> Optional[Dict]:
+    def get_weather_by_area_code(self, area_code: str | int, **kwargs) -> Optional[Dict]:
         return self._weather_client.get_weather_by_area_code(area_code=area_code, **kwargs)
 
     def get_state(self) -> Dict:
