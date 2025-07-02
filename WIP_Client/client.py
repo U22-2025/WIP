@@ -44,7 +44,7 @@ class Client:
     def __init__(
         self,
         host: Optional[str] = None,
-        server_port: Optional[int] = None,
+        port: Optional[int] = None,
         *,
         server_config: Optional[ServerConfig] = None,
         debug: bool = False,
@@ -55,8 +55,8 @@ class Client:
         self.config = server_config or ServerConfig()
         if host is not None:
             self.config.host = host
-        if server_port is not None:
-            self.config.port = server_port
+        if port is not None:
+            self.config.port = port
         self.debug = debug
         self.state = ClientState(latitude, longitude, area_code)
 
@@ -176,10 +176,10 @@ class Client:
         return self._weather_client.get_weather_by_area_code(area_code=area_code, **kwargs)
 
     def get_state(self) -> Dict:
-        return {**asdict(self.state), "host": self.config.host, "server_port": self.config.port}
+        return {**asdict(self.state), "host": self.config.host, "port": self.config.port}
 
-    def set_server(self, host: str, server_port: Optional[int] = None) -> None:
-        self.config.update(host, server_port)
+    def set_server(self, host: str, port: Optional[int] = None) -> None:
+        self.config.update(host, port)
         self._weather_client.close()
         self._weather_client = WeatherClient(host=self.config.host, port=self.config.port, debug=self.debug)
         if self.debug:

@@ -11,7 +11,7 @@ if __name__ == "__main__":
 from WIP_Client import Client
 
 app = Flask(__name__)
-client = Client(host='localhost', server_port=4110, debug=True)
+client = Client(host='localhost', port=4110, debug=True)
 
 # ジオコーダーの初期化
 geolocator = Nominatim(user_agent="wip_map_app")
