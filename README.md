@@ -104,6 +104,39 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
   - 100010: 経度
   - 101000: 送信元IPアドレス
 
+### 動的パケット定義
+
+`common/packet/request_format.yml` と `common/packet/response_format.yml`
+にパケット構成を記述しておくことで、リクエスト用とレスポンス用の
+フォーマットを簡単に変更できます。 `DynamicFormat` クラスを利用すると、
+これらの設定ファイルからパケットを生成・解析できます。
+拡張フィールドのキー定義は `common/packet/extended_fields.yml` にまとめ、
+各フォーマットYAMLでは `extended_fields_file` キーで参照します。
+`PyYAML` がインストールされていない環境でも、簡易パーサーにより YAML
+を読み込むことができます。
+
+```python
+from common.packet.dynamic_format import DynamicFormat
+
+# 定義ファイルを読み込み
+fmt = DynamicFormat.load('common/packet/request_format.yml')
+
+# 値を設定してバイト列へ変換
+fmt.set(version=1, packet_id=123, ex_flag=1)
+fmt.set_extended(latitude=35.6895, longitude=139.6917)
+packet_bytes = fmt.to_bytes()
+
+# 受信データから復元
+restored = DynamicFormat.from_bytes('common/packet/request_format.yml', packet_bytes)
+print(restored.to_dict())
+```
+
+`to_bytes()` を呼ぶと自動的にチェックサムが計算され、拡張フィールドも
+`set_extended()` で指定した内容がパケットに追加されます。
+レスポンスを解析する場合は `response_format.yml` を指定してください。
+`extended_fields.yml` を編集することで拡張フィールドの種類を自由に
+追加・変更できます。
+
 ## インストール・セットアップ
 
 ### 必要環境
