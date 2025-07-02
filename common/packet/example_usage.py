@@ -6,7 +6,7 @@ from datetime import datetime
 from .weather_packet import WeatherRequest, WeatherResponse
 from .request import Request
 from .response import Response
-from ..clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from ..utils.packet_id_generator import PacketIDGenerator12Bit
 
 # パケットIDジェネレーター
 PIDG = PacketIDGenerator12Bit()

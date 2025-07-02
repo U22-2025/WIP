@@ -26,11 +26,11 @@ WIP/
 │   │   ├── query_client.py
 │   │   ├── weather_client.py
 │   │   └── utils/
-│   │       ├── __init__.py
-│   │       └── packet_id_generator.py
+│   │       └── __init__.py
 │   └── utils/             # 共通ユーティリティ
 │       ├── __init__.py
-│       └── debug.py
+│       ├── debug.py
+│       └── packet_id_generator.py
 │
 ├── WIP_Client/            # クライアント固有の実装（削除予定）
 │   └── （古い構造、移行後削除）

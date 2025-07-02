@@ -11,7 +11,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import WeatherRequest, WeatherResponse, ErrorResponse
-from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from ..utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
 

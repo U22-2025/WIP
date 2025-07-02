@@ -34,7 +34,7 @@ from datetime import datetime
 from typing import Optional, Dict, List, Tuple, Any
 from common.clients.location_client import LocationClient  # モジュールとして実行時
 from common.packet import LocationRequest, LocationResponse
-from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from common.utils.packet_id_generator import PacketIDGenerator12Bit
 
 from WIP_Server.data.xml_base import XMLBaseProcessor
 

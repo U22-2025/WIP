@@ -163,7 +163,7 @@ class ExtendedField:
             if hasattr(self.__class__, key):
                 setattr(self, key, value)
             else:
-                self.set(key, value)
+                self._set_field(key, value)
     
     def clear(self) -> None:
         """全てのフィールドをクリア"""
@@ -242,38 +242,48 @@ class ExtendedField:
             except Exception:
                 # オブザーバーのエラーは無視
                 pass
+
+    def _get_field(self, key: str, default: Any = None) -> Any:
+        """内部データから値を取得"""
+        return self._data.get(key, default)
+
+    def _set_field(self, key: str, value: Any) -> None:
+        """検証後に値を設定し、オブザーバーへ通知"""
+        validated_value = self._validate_value(key, value)
+        self._data[key] = validated_value
+        self._notify_observers()
     
     @property
     def alert(self) -> Optional[str]:
-        return self.get('alert')
+        return self._get_field('alert')
 
     @alert.setter
     def alert(self, value: Union[List[str], str]) -> None:
-        self.set('alert', value)
+        self._set_field('alert', value)
 
     @property
     def disaster(self) -> Optional[str]:
-        return self.get('disaster')
+        return self._get_field('disaster')
 
     @disaster.setter
     def disaster(self, value: Union[List[str], str]) -> None:
-        self.set('disaster', value)
+        self._set_field('disaster', value)
 
     @property
     def latitude(self) -> Union[float, None]:
-        return self.get('latitude')
+        return self._get_field('latitude')
 
     @latitude.setter
     def latitude(self, value: float) -> None:
-        self.set('latitude', value)
+        self._set_field('latitude', value)
 
     @property
     def longitude(self) -> Union[float, None]:
-        return self.get('longitude')
+        return self._get_field('longitude')
 
     @longitude.setter
     def longitude(self, value: float) -> None:
-        self.set('longitude', value)
+        self._set_field('longitude', value)
 
     @property
     def source(self) -> Optional[tuple[str, int]]:
@@ -282,7 +292,7 @@ class ExtendedField:
             tuple: (ip, port)形式のタプル
             None: 未設定の場合
         """
-        value = self.get('source')
+        value = self._get_field('source')
         if value is None:
             return None
         if isinstance(value, tuple):
@@ -324,7 +334,7 @@ class ExtendedField:
         except ValueError:
             raise ValueError(f"無効なポート番号: {port}")
         
-        self.set('source', (ip, port))
+        self._set_field('source', (ip, port))
 
     def _validate_value(self, key: str, value: Any) -> Any:
         """

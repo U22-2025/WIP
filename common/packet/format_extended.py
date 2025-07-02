@@ -133,67 +133,17 @@ class FormatExtended(FormatBase):
         except Exception as e:
             raise BitFieldError("ビット列への変換中にエラー: {}".format(e))
 
-    def to_bytes(self) -> bytes:
+    def get_min_packet_size(self) -> int:
         """
-        ビット列をバイト列に変換する
-        
-        基本フィールドと拡張フィールドを含むすべてのデータをバイト列に変換します。
-        バイト列の長さは以下のように計算されます：
-        1. 基本フィールド: 最低32バイト（256ビット）
-        2. 拡張フィールド（存在する場合）:
-           - 各フィールドのヘッダー: 2バイト（16ビット）
-           - 文字列データ: UTF-8エンコード後のバイト数
-           - 数値データ: 必要最小限のバイト数
-        
-        Returns:
-            バイト列表現
-            
-        Raises:
-            BitFieldError: バイト列への変換中にエラーが発生した場合
+        パケットの最小サイズを取得する
+
+        拡張フィールドが有効な場合は32バイト、
+        それ以外は親クラスの定義を使用します。
         """
-        try:
-            # 一時的にチェックサムを0にしてビット列を取得
-            original_checksum = self.checksum
-            self.checksum = 0
-            bitstr = self.to_bits()
-            
-            # 基本バイト数を計算（最低32バイト = 256ビット）
-            # パケット全体のバイト数を計算し、最低32バイトを保証
-            total_packet_bytes = max((bitstr.bit_length() + 7) // 8, 32)
-            
-            # リトルエンディアンでバイト列に変換
-            if total_packet_bytes > 0:
-                bytes_data = bitstr.to_bytes(total_packet_bytes, byteorder='little')
-            else:
-                bytes_data = b''
-            
-            # 最低必要バイト数にパディング（右側を0で埋める）
-            if len(bytes_data) < total_packet_bytes:
-                bytes_data = bytes_data + b'\x00' * (total_packet_bytes - len(bytes_data))
-            
-            # チェックサムを計算して設定
-            self.checksum = self.calc_checksum12(bytes_data)
-            
-            # 最終的なビット列を生成（チェックサムを含む）
-            final_bitstr = self.to_bits()
-            
-            # 最終的なバイト列を生成
-            final_required_bytes = (final_bitstr.bit_length() + 7) // 8
-            if final_required_bytes > 0:
-                final_bytes = final_bitstr.to_bytes(total_packet_bytes, byteorder='little')
-            else:
-                final_bytes = b''
-            
-            # 最低必要バイト数にパディング
-            if len(final_bytes) < total_packet_bytes:
-                final_bytes = final_bytes + b'\x00' * (total_packet_bytes - len(final_bytes))
-            
-            return final_bytes
-            
-        except Exception as e:
-            # エラー時は元のチェックサムを復元
-            self.checksum = original_checksum
-            raise BitFieldError("バイト列への変換中にエラー: {}".format(e))
+        base_size = super().get_min_packet_size()
+        if self.ex_flag == 1:
+            return max(base_size, 32)
+        return base_size
 
     def as_dict(self) -> Dict[str, Any]:
         """

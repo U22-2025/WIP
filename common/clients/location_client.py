@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 import os
 import logging
 from ..packet import LocationRequest, LocationResponse
-from .utils.packet_id_generator import PacketIDGenerator12Bit
+from ..utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 
 PIDG = PacketIDGenerator12Bit()

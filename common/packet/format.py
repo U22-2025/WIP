@@ -8,9 +8,9 @@ from .format_extended import FormatExtended
 class Format(FormatExtended):
     """
     パケットフォーマットの基本実装クラス
-    
+
     このクラスは、パケットフォーマットの基本的な実装を提供します。
-    Request/Responseクラスの代わりに直接使用することができ、
+    Request/Response クラスの代わりに直接使用でき、
     共通ヘッダーと拡張フィールドの両方をサポートします。
     
     主な用途:
@@ -78,4 +78,7 @@ class Format(FormatExtended):
         # バイト列からの復元
         restored = Format.from_bytes(data)
     """
-    pass  # すべての機能は親クラスから継承
+
+    def __init__(self, *args, **kwargs) -> None:
+        """特別な処理は行わず親クラスの初期化のみを実行"""
+        super().__init__(*args, **kwargs)

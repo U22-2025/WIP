@@ -10,7 +10,7 @@ import os
 import logging
 from datetime import datetime
 from ..packet import QueryRequest, QueryResponse
-from .utils.packet_id_generator import PacketIDGenerator12Bit
+from ..utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
 
