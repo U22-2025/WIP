@@ -82,11 +82,17 @@ class DynamicFormat:
         self.has_ex_flag = 'ex_flag' in self.values
 
     def __getattr__(self, name: str) -> Any:
-        """values辞書に存在する項目を属性として参照できるようにする"""
-        vals = self.__dict__.get('values')
-        if vals and name in vals:
+        """values 辞書に存在する項目を属性として参照できるようにする"""
+        vals = self.__dict__.get("values")
+        if vals is not None and name in vals:
             return vals[name]
         raise AttributeError(name)
+
+    def __getattribute__(self, name: str) -> Any:  # pragma: no cover - 挙動確認用
+        vals = object.__getattribute__(self, "__dict__").get("values")
+        if vals is not None and name in vals:
+            return vals[name]
+        return object.__getattribute__(self, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
         vals = self.__dict__.get('values')
