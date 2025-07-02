@@ -313,8 +313,10 @@ class DynamicLocationRequest(DynamicFormat):
     FORMAT_FILE = Path(__file__).with_name("request_format.yml")
 
     @classmethod
-    def load(cls) -> "DynamicLocationRequest":
-        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+    def load(cls, path: str | None = None) -> "DynamicLocationRequest":
+        if path is None:
+            path = str(cls.FORMAT_FILE)
+        return super().load(path)  # type: ignore
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "DynamicLocationRequest":
@@ -326,8 +328,10 @@ class DynamicLocationResponse(DynamicFormat):
     FORMAT_FILE = Path(__file__).with_name("response_format.yml")
 
     @classmethod
-    def load(cls) -> "DynamicLocationResponse":
-        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+    def load(cls, path: str | None = None) -> "DynamicLocationResponse":
+        if path is None:
+            path = str(cls.FORMAT_FILE)
+        return super().load(path)  # type: ignore
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "DynamicLocationResponse":

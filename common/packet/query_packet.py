@@ -444,8 +444,10 @@ class DynamicQueryRequest(DynamicFormat):
     FORMAT_FILE = Path(__file__).with_name("request_format.yml")
 
     @classmethod
-    def load(cls) -> "DynamicQueryRequest":
-        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+    def load(cls, path: str | None = None) -> "DynamicQueryRequest":
+        if path is None:
+            path = str(cls.FORMAT_FILE)
+        return super().load(path)  # type: ignore
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "DynamicQueryRequest":
@@ -457,8 +459,10 @@ class DynamicQueryResponse(DynamicFormat):
     FORMAT_FILE = Path(__file__).with_name("response_format.yml")
 
     @classmethod
-    def load(cls) -> "DynamicQueryResponse":
-        return super().load(str(cls.FORMAT_FILE))  # type: ignore
+    def load(cls, path: str | None = None) -> "DynamicQueryResponse":
+        if path is None:
+            path = str(cls.FORMAT_FILE)
+        return super().load(path)  # type: ignore
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "DynamicQueryResponse":
