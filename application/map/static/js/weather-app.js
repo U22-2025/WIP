@@ -364,9 +364,10 @@ class WeatherApp {
             const weeklyData = await weeklyResponse.json();
             console.log('週間予報データ:', weeklyData);
 
-            if (weeklyData.status === 'ok' && weeklyData.weekly_forecast && weeklyData.weekly_forecast.length > 0) {
+            if (weeklyData.status === 'ok' && weeklyData.weekly_forecast && Object.keys(weeklyData.weekly_forecast).length > 0) {
+                const forecastArray = Object.values(weeklyData.weekly_forecast).sort((a, b) => a.day_number - b.day_number);
                 // 今日の天気情報（day=0）を現在の天気として表示
-                const todayWeather = weeklyData.weekly_forecast[0];
+                const todayWeather = forecastArray[0];
                 const currentWeatherData = {
                     status: 'ok',
                     weather: {
@@ -389,7 +390,7 @@ class WeatherApp {
                 }
 
                 // 週間予報を自動的に表示
-                this.displayWeeklyForecastData(weeklyData.weekly_forecast);
+                this.displayWeeklyForecastData(forecastArray);
 
             } else if (weeklyData.status === 'error') {
                 this.handleAPIError(lat, lng, weeklyData.error_code);
@@ -759,8 +760,9 @@ class WeatherApp {
             const data = await response.json();
             console.log('週間予報データ:', data);
 
-            if (data.status === 'ok' && data.weekly_forecast) {
-                this.displayWeeklyForecast(data.weekly_forecast);
+            if (data.status === 'ok' && data.weekly_forecast && Object.keys(data.weekly_forecast).length > 0) {
+                const forecastArray = Object.values(data.weekly_forecast).sort((a, b) => a.day_number - b.day_number);
+                this.displayWeeklyForecast(forecastArray);
             } else if (data.status === 'error') {
                 this.handleWeeklyForecastError(data.error_code);
             } else {

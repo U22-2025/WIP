@@ -245,11 +245,13 @@ def weekly_forecast():
                     'area_code': area_code
                 }
     
+    forecast_dict = {data['day_number']: data for data in weekly_data}
+
     return jsonify({
         'status': 'ok',
         'coordinates': {'lat': lat, 'lng': lng},
         'area_code': area_code,
-        'weekly_forecast': weekly_data
+        'weekly_forecast': forecast_dict
     })
 
 if __name__ == '__main__':
