@@ -107,7 +107,7 @@ class WeatherServer(BaseServer):
                 debug=self.debug
             )
         except Exception as e:
-            error_msg = f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}"
+            print(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
             if self.debug:
                 traceback.print_exc()
             raise RuntimeError(f"ロケーションクライアント初期化エラー: {str(e)}")
@@ -119,7 +119,7 @@ class WeatherServer(BaseServer):
                 debug=self.debug
             )
         except Exception as e:
-            error_msg = f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}"
+            print( f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
             if self.debug:
                 traceback.print_exc()
             raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
@@ -598,7 +598,6 @@ class WeatherServer(BaseServer):
                             if hasattr(weather_response, 'ex_field'):
                                 print(f"  ex_field内容: {weather_response.ex_field.to_dict()}")
 
-                        print (weather_response.get_coordinates())
                         # レスポンスを送信
                         response_data = weather_response.to_bytes()
                         source_info = response.get_source_info()
@@ -646,8 +645,7 @@ class WeatherServer(BaseServer):
 
             # 専用クラスの変換メソッドを使用
             weather_request = response.to_weather_request()
-            print(f"\n\n=====================これがweather_requestです。===================\n{weather_request}")
-            
+
             if self.debug:
                 print(f"  WeatherRequest (タイプ2) に変換しました")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
@@ -666,8 +664,8 @@ class WeatherServer(BaseServer):
             if self.debug:
                 traceback.print_exc()
             source_ip,source_port = data.get_source_info()
-            if not source_ip or not source_port:
-                print("error")
+            if not (source_ip and source_port):
+                print("sourceが不正なためエラーパケットを送信できません")
                 return
             # ErrorResponseを作成して返す
             error_response = ErrorResponse(
@@ -775,7 +773,7 @@ class WeatherServer(BaseServer):
                 if bytes_sent != len(packet_data):
                     raise RuntimeError(f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})")
             except Exception as e:
-                error_msg = f"クエリリクエストの転送に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}"
+                print(f"クエリリクエストの転送に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
                 if self.debug:
                     traceback.print_exc()
                 # ErrorResponseを作成して返す
@@ -996,7 +994,7 @@ class WeatherServer(BaseServer):
                 
                 if self.debug:
                     print(f"  クライアントに {bytes_sent} バイトを送信しました")
-                    print (final_data)
+
             except Exception as conv_e:
                 print(f"530: 気象サーバでの処理エラー: {conv_e}")
                 if self.debug:
@@ -1179,7 +1177,7 @@ class WeatherServer(BaseServer):
                     print(f"  レポートサーバーに転送しました: {bytes_sent}バイト")
                     
             except Exception as e:
-                error_msg = f"レポートリクエストの転送に失敗しました: {self.report_server_host}:{self.report_server_port} - {str(e)}"
+                print( f"レポートリクエストの転送に失敗しました: {self.report_server_host}:{self.report_server_port} - {str(e)}")
                 if self.debug:
                     traceback.print_exc()
                 # ErrorResponseを作成して返す
@@ -1423,24 +1421,19 @@ class WeatherServer(BaseServer):
             tuple: (is_valid, error_message)
         """
         if request.version != self.version:
-            print("1")
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック（0-3,4,5,7が有効）
         if request.type not in [0, 1, 2, 3, 4, 5, 7]:
-            print(f"2: {request.type}")
             return False, "400", f"不正なパケットタイプ: {request.type}"
 
         # エリアコードのチェック (タイプ0と7は除外)
         if request.type not in [0, 7] and (not request.area_code or request.area_code == "000000"):
-            print("3")
             return False, "402", "エリアコードが未設定"
 
         # 専用クラスのバリデーションメソッドを使用
         if hasattr(request, 'is_valid') and callable(getattr(request, 'is_valid')):
-            print("4")
             if not request.is_valid():
-                print("5")
                 return False, "400", "専用クラスのバリデーションに失敗"
         
         return True, None, None
