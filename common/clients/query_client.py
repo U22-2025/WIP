@@ -4,9 +4,7 @@ Query Serverとの通信を行うクライアント（サーバー間通信用�
 """
 
 import socket
-import struct
 import time
-import threading
 import concurrent.futures
 import os
 import logging
@@ -113,11 +111,11 @@ class QueryClient:
         self.logger.debug(self._hex_dump(response.to_bytes()))
         self.logger.debug("==============================\n")
 
-    def get_weather_data(self, area_code, weather=False, temperature=False, 
-                        precipitation_prob=False, alert=False, disaster=False,
-                        source=None, timeout=5.0):
+    def _fetch_weather_data(self, area_code, weather=False, temperature=False,
+                            precipitation_prob=False, alert=False, disaster=False,
+                            source=None, timeout=5.0):
         """
-        指定されたエリアの気象データを取得する（改良版）
+        指定されたエリアの気象データを取得する内部メソッド
         
         Args:
             area_code: エリアコード
@@ -206,6 +204,37 @@ class QueryClient:
             return {'420': str(e)}
         finally:
             sock.close()
+
+    def get_weather_data(self, area_code, weather=False, temperature=False,
+                        precipitation_prob=False, alert=False, disaster=False,
+                        source=None, timeout=5.0):
+        """
+        指定されたエリアの気象データを取得する
+
+        Args:
+            area_code: エリアコード
+            weather: 天気データを取得するか
+            temperature: 気温データを取得するか
+            precipitation_prob: 降水確率データを取得するか
+            alert: 警報データを取得するか
+            disaster: 災害情報データを取得するか
+            source: 送信元情報 (ip, port) のタプル
+            timeout: タイムアウト時間（秒）
+
+        Returns:
+            dict: 取得した気象データ
+        """
+
+        return self._fetch_weather_data(
+            area_code,
+            weather,
+            temperature,
+            precipitation_prob,
+            alert,
+            disaster,
+            source,
+            timeout,
+        )
 
     def get_weather_data_simple(self, area_code, include_all=False, timeout=5.0):
         """
