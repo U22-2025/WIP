@@ -22,10 +22,9 @@ from .response import Response
 import warnings
 
 # 専用パケットクラス
-from .weather_packet import WeatherRequest, WeatherResponse
-from .location_packet import LocationRequest, LocationResponse
-from .query_packet import QueryRequest, QueryResponse
-from .report_packet import ReportRequest, ReportResponse  # レポートパケット追加
+from .weather_packet import WeatherRequest, WeatherResponse, DynamicWeatherRequest, DynamicWeatherResponse
+from .location_packet import LocationRequest, LocationResponse, DynamicLocationRequest, DynamicLocationResponse
+from .query_packet import QueryRequest, QueryResponse, DynamicQueryRequest, DynamicQueryResponse
 from .error_response import ErrorResponse  # エラーパケット追加
 
 # デフォルトの拡張フィールド定義を読み込んでマッピングを更新
@@ -57,14 +56,13 @@ __all__ = [
     "Response",
     # 専用パケットクラス
     "WeatherRequest",
-    "WeatherResponse",
+    "WeatherResponse", "DynamicWeatherRequest", "DynamicWeatherResponse",
     "LocationRequest",
-    "LocationResponse",
+    "LocationResponse", "DynamicLocationRequest", "DynamicLocationResponse",
     "QueryRequest",
-    "QueryResponse",
-    "ReportRequest",  # レポートパケット追加
-    "ReportResponse",  # レポートパケット追加
+    "QueryResponse", "DynamicQueryRequest", "DynamicQueryResponse",
     "ErrorResponse",  # エラーパケット追加
     # Note: ReportClientは循環インポートを避けるため、__all__に含めません
     # 直接インポート: from common.packet.report_client import ReportClient
 ]
+

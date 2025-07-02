@@ -6,11 +6,13 @@ Weather Serverプロキシと通信するクライアント
 import socket
 import time
 import logging
+from pathlib import Path
 from datetime import datetime
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from common.packet import WeatherRequest, WeatherResponse, ErrorResponse
+from common.packet import WeatherRequest, WeatherResponse, ErrorResponse, DynamicWeatherResponse
+RESPONSE_YAML = Path(__file__).resolve().parents[1] / "packet" / "response_format.yml"
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
@@ -86,7 +88,8 @@ class WeatherClient:
         """レスポンスのデバッグ情報を出力（改良版）"""
 
         self.logger.debug("\n=== RECEIVED RESPONSE PACKET ===")
-        self.logger.debug(f"Response Type: {response.type}")
+        resp_type = getattr(response, "type", None)
+        self.logger.debug(f"Response Type: {resp_type}")
         self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
         
         # 専用クラスのメソッドを使用
@@ -97,12 +100,12 @@ class WeatherClient:
         
         self.logger.debug("\nHeader:")
         self.logger.debug(f"Version: {response.version}")
-        self.logger.debug(f"Type: {response.type}")
+        self.logger.debug(f"Type: {resp_type}")
         self.logger.debug(f"Area Code: {response.area_code}")
         self.logger.debug(f"Packet ID: {response.packet_id}")
         self.logger.debug(f"Timestamp: {time.ctime(response.timestamp)}")
-        
-        if response.type == 3:
+
+        if resp_type == 3:
             # 気象データレスポンス（専用メソッド使用）
             if hasattr(response, 'get_weather_code'):
                 weather_code = response.get_weather_code()
@@ -183,7 +186,7 @@ class WeatherClient:
             self.logger.debug(response_data)
             
             if response_type == 3:  # 天気レスポンス
-                response = WeatherResponse.from_bytes(response_data)
+                response = DynamicWeatherResponse.from_bytes(response_data)
                 self._debug_print_response(response)
                 
                 if response.is_success():
@@ -274,7 +277,7 @@ class WeatherClient:
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
             
             if response_type == 3:  # 天気レスポンス
-                response = WeatherResponse.from_bytes(response_data)
+                response = DynamicWeatherResponse.from_bytes(response_data)
                 self._debug_print_response(response)
                 
                 if response.is_success():

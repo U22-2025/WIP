@@ -6,6 +6,8 @@ from typing import Optional, Dict, Any, Union
 from datetime import datetime
 from .request import Request
 from .response import Response
+from pathlib import Path
+from .dynamic_format import DynamicFormat
 
 
 class WeatherRequest(Request):
@@ -347,3 +349,66 @@ class WeatherResponse(Response):
         # QueryResponseのバイト列を取得してWeatherResponseで再パース
         query_bytes = query_response.to_bytes()
         return cls.from_bytes(query_bytes)
+class DynamicWeatherRequest(DynamicFormat):
+    """YAML定義から生成されるWeatherRequest互換クラス"""
+    FORMAT_FILE = Path(__file__).with_name("request_format.yml")
+
+    @classmethod
+    def load(cls, path: str | None = None) -> "DynamicWeatherRequest":
+        if path is None:
+            path = str(cls.FORMAT_FILE)
+        return super().load(path)  # type: ignore
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "DynamicWeatherRequest":
+        return super().from_bytes(str(cls.FORMAT_FILE), data)  # type: ignore
+
+
+class DynamicWeatherResponse(DynamicFormat):
+    """YAML定義から生成されるWeatherResponse互換クラス"""
+    FORMAT_FILE = Path(__file__).with_name("response_format.yml")
+
+    def _as_static(self) -> WeatherResponse:
+        """既存のWeatherResponseに変換して処理を委譲"""
+        return WeatherResponse.from_bytes(self.to_bytes())
+
+    # 既存クラスと同等のユーティリティメソッドをラップする
+    def get_weather_code(self) -> Optional[int]:
+        return self._as_static().get_weather_code()
+
+    def get_temperature_celsius(self) -> Optional[int]:
+        return self._as_static().get_temperature_celsius()
+
+    def get_precipitation_prob(self) -> Optional[int]:
+        return self._as_static().get_precipitation_prob()
+
+    def get_alert(self) -> Optional[str]:
+        return self._as_static().get_alert()
+
+    def get_disaster_info(self) -> Optional[str]:
+        return self._as_static().get_disaster_info()
+
+    def get_weather_data(self) -> Dict[str, Any]:
+        return self._as_static().get_weather_data()
+
+    def is_success(self) -> bool:
+        return self._as_static().is_success()
+
+    def get_response_summary(self) -> Dict[str, Any]:
+        return {
+            'success': self.is_success(),
+            'area_code': self.area_code,
+            'packet_id': self.packet_id,
+            'data': self.get_weather_data(),
+        }
+
+    @classmethod
+    def load(cls, path: str | None = None) -> "DynamicWeatherResponse":
+        if path is None:
+            path = str(cls.FORMAT_FILE)
+        return super().load(path)  # type: ignore
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "DynamicWeatherResponse":
+        return super().from_bytes(str(cls.FORMAT_FILE), data)  # type: ignore
+

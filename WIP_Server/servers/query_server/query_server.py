@@ -24,9 +24,13 @@ from .modules.weather_data_manager import WeatherDataManager
 from .modules.response_builder import ResponseBuilder
 from .modules.debug_helper import DebugHelper, PerformanceTimer
 from .modules.weather_constants import ThreadConstants
-from common.packet import Request, Response, BitFieldError
+from common.packet import Request, Response, BitFieldError, DynamicFormat
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
+# YAML定義ファイルのパス
+ROOT_DIR = Path(__file__).resolve().parents[3]
+REQUEST_YAML = ROOT_DIR / "common" / "packet" / "request_format.yml"
+RESPONSE_YAML = ROOT_DIR / "common" / "packet" / "response_format.yml"
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 
 
@@ -116,7 +120,8 @@ class QueryServer(BaseServer):
         Returns:
             Request: パースされたリクエスト
         """
-        return Request.from_bytes(data)
+        dyn = DynamicFormat.from_bytes(str(REQUEST_YAML), data)
+        return Request.from_bytes(dyn.to_bytes())
     
     def validate_request(self, request):
         """
@@ -167,6 +172,11 @@ class QueryServer(BaseServer):
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
+            if hasattr(request, "ex_field") and request.ex_field:
+                src = request.ex_field.get("source")
+                if src:
+                    error_response.ex_field.set("source", src)
+                    error_response.ex_flag = 1
             if self.debug:
                 print(f"{error_code}: [クエリサーバー] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
@@ -294,6 +304,11 @@ class QueryServer(BaseServer):
                 error_code="520",
                 timestamp=int(datetime.now().timestamp())
             )
+            if hasattr(request, "ex_field") and request.ex_field:
+                src = request.ex_field.get("source")
+                if src:
+                    error_response.ex_field.set("source", src)
+                    error_response.ex_flag = 1
             if self.debug:
                 print(f"520: [クエリサーバー] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
@@ -304,7 +319,10 @@ class QueryServer(BaseServer):
             print(f"  ex_flag: {response.ex_flag}")
             print(f"  ex_field: {response.ex_field}")
         
-        return response.to_bytes()
+        dyn_resp = DynamicFormat.load(str(RESPONSE_YAML))
+        dyn_resp.set(**{k: getattr(response,k) for k in ["version","packet_id","type","weather_flag","temperature_flag","pop_flag","alert_flag","disaster_flag","ex_flag","day","reserved","timestamp","area_code","checksum","weather_code","temperature","pop"] if hasattr(response,k)})
+        dyn_resp.set_extended(**response.ex_field.to_dict())
+        return dyn_resp.to_bytes()
     
     def _debug_print_request(self, data, parsed):
         """リクエストのデバッグ情報を出力（オーバーライド）"""
