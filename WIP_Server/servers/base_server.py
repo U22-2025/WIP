@@ -9,7 +9,13 @@ import threading
 import concurrent.futures
 import os
 from abc import ABC, abstractmethod
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    _DOTENV_AVAILABLE = True
+except ImportError:
+    _DOTENV_AVAILABLE = False
+    def load_dotenv():
+        pass
 import traceback
 from common.packet import ErrorResponse
 
@@ -31,8 +37,9 @@ class BaseServer(ABC):
         """
         if not (1 <= port <= 65535):
             raise ValueError(f"Invalid port number: {port}. Must be between 1-65535")
-        # 環境変数を読み込む
-        load_dotenv()
+        # 環境変数を読み込む（dotenvが利用可能な場合のみ）
+        if _DOTENV_AVAILABLE:
+            load_dotenv()
         
         self.host = host
         self.port = port
@@ -356,8 +363,11 @@ class BaseServer(ABC):
                     # リクエストを受信
                     data, addr = self.sock.recvfrom(buffer_size)
                     
+                    # 常に受信をログ出力
+                    print(f"\n[{self.server_name}] UDP packet received from {addr} ({len(data)} bytes)")
+                    
                     if self.debug:
-                        print(f"\n[Main] Received request from {addr}, submitting to worker pool")
+                        print(f"[Main] Submitting to worker pool for processing")
                     
                     # スレッドプールにリクエスト処理を投入
                     self.thread_pool.submit(self.handle_request, data, addr)

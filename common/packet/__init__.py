@@ -25,6 +25,7 @@ import warnings
 from .weather_packet import WeatherRequest, WeatherResponse
 from .location_packet import LocationRequest, LocationResponse
 from .query_packet import QueryRequest, QueryResponse
+from .report_packet import ReportRequest, ReportResponse  # レポートパケット追加
 from .error_response import ErrorResponse  # エラーパケット追加
 
 # デフォルトの拡張フィールド定義を読み込んでマッピングを更新
@@ -61,5 +62,9 @@ __all__ = [
     "LocationResponse",
     "QueryRequest",
     "QueryResponse",
+    "ReportRequest",  # レポートパケット追加
+    "ReportResponse",  # レポートパケット追加
     "ErrorResponse",  # エラーパケット追加
+    # Note: ReportClientは循環インポートを避けるため、__all__に含めません
+    # 直接インポート: from common.packet.report_client import ReportClient
 ]

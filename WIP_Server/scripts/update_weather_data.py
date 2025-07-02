@@ -10,11 +10,10 @@ import traceback
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
 
-skip_area = []
-
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {"weather_reportdatetime": {}}
     output_lock = threading.Lock()
+    skip_area = []  # ローカル変数として定義
 
     if debug:
         print(f"処理開始: {len(area_codes)}個のエリアコードを処理します")
@@ -241,36 +240,44 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
     return skip_area
 
-def update_redis_weather_data(debug=False):
+def update_redis_weather_data(debug=False, area_codes=None):
     """
     気象情報を取得してRedisに保存する関数
 
     Args:
         debug (bool): デバッグモードを有効にするかどうか
+        area_codes (list, optional): 処理対象のエリアコードリスト。Noneの場合は全エリアを処理
     """
     if debug:
         print("気象情報の取得を開始します")
         start_time = time.time()
 
-    # エリアコードをJSONファイルから読み込む
-    area_codes = []
-    with open("wip/json/area_codes.json", "r", encoding="utf-8") as f:
-        area_codes = list(json.load(f).keys())
+    # エリアコードが指定されていない場合は、JSONファイルから読み込む
+    if area_codes is None:
+        with open("wip/json/area_codes.json", "r", encoding="utf-8") as f:
+            area_codes = list(json.load(f).keys())
 
     # 気象データを取得し、直接Redisに保存
-    weather_data = get_data(area_codes, debug=debug, save_to_redis=True)
+    skip_area = get_data(area_codes, debug=debug, save_to_redis=True)
 
     if debug:
         end_time = time.time()
-        print(f"気象データの取得と保存完了: {len(weather_data)}エリア")
+        print(f"気象データの取得と保存完了: {len(area_codes)}エリア処理、{len(skip_area)}エリアスキップ")
         print(f"合計所要時間: {end_time - start_time:.2f}秒")
 
-    # return len(weather_data)
     return skip_area
 
 if __name__ == "__main__":
-    area_codes = []
-    with open("wip/json/area_codes.json", "r", encoding="utf-8") as f:
-        area_codes = list(json.load(f).keys())
-    # Redisにのみ保存（test.jsonへの保存を削除）
-    get_data(area_codes, debug=True, save_to_redis=True)
+    # 気象データの更新を実行し、スキップされたエリアを取得
+    skip_area = update_redis_weather_data(debug=True)
+    
+    # スキップされたエリアを表示
+    if skip_area:
+        print(f"\n=== スキップされたエリア ===")
+        print(f"スキップされたエリア数: {len(skip_area)}")
+        print(f"スキップされたエリアコード: {skip_area}")
+        print("="*30)
+    else:
+        print(f"\n=== 全エリア更新完了 ===")
+        print("スキップされたエリアはありません")
+        print("="*30)

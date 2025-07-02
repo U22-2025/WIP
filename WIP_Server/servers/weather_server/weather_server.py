@@ -21,9 +21,10 @@ if __name__ == "__main__":
 # モジュールとして使用される場合
 from ..base_server import BaseServer
 from common.packet import (
-    WeatherRequest, WeatherResponse, 
+    WeatherRequest, WeatherResponse,
     LocationRequest, LocationResponse,
     QueryRequest, QueryResponse,
+    ReportRequest, ReportResponse,
     BitFieldError
 )
 from common.clients.location_client import LocationClient
@@ -83,6 +84,8 @@ class WeatherServer(BaseServer):
         self.location_resolver_port = self.config.getint('connections', 'location_server_port', 4109)
         self.query_generator_host = self.config.get('connections', 'query_server_host', 'localhost')
         self.query_generator_port = self.config.getint('connections', 'query_server_port', 4111)
+        self.report_server_host = self.config.get('connections', 'report_server_host', 'localhost')
+        self.report_server_port = self.config.getint('connections', 'report_server_port', 4112)
         
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
@@ -218,6 +221,12 @@ class WeatherServer(BaseServer):
             elif request.type == 3:
                 # Type 3: 気象データレスポンス
                 self._handle_weather_response(data, addr)
+            elif request.type == 4:
+                # Type 4: データレポートリクエスト
+                self._handle_report_request(request, addr)
+            elif request.type == 5:
+                # Type 5: データレポートレスポンス
+                self._handle_report_response(data, addr)
             elif request.type == 7:  # エラーパケット処理を追加
                 self._handle_error_packet(request, addr)
             else:
@@ -1081,7 +1090,275 @@ class WeatherServer(BaseServer):
                     print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
             return
     
-    
+    def _handle_report_request(self, request, addr):
+        """データレポートリクエストの処理（Type 4）"""
+        try:
+            source_info = (addr[0], addr[1])  # タプル形式で保持
+            
+            if self.debug:
+                print(f"\n[天気サーバー] タイプ4: データレポートリクエストを処理中")
+                print(f"  Source: {source_info}")
+                print(f"  Target: {self.report_server_host}:{self.report_server_port}")
+                print(f"  Area code: {request.area_code}")
+            
+            # ReportRequestにsource情報を追加（強化版）
+            if self.debug:
+                print(f"  拡張フィールドフラグ: {getattr(request, 'ex_flag', 'N/A')}")
+                print(f"  拡張フィールド存在: {hasattr(request, 'ex_field') and request.ex_field is not None}")
+            
+            try:
+                # 拡張フィールドフラグが0でも強制的にsource情報を追加
+                from common.packet.extended_field import ExtendedField
+                
+                # 既存の拡張フィールドデータを保持
+                existing_data = {}
+                if hasattr(request, 'ex_field') and request.ex_field:
+                    try:
+                        if hasattr(request.ex_field, 'to_dict'):
+                            existing_data = request.ex_field.to_dict()
+                        elif hasattr(request.ex_field, '__dict__'):
+                            existing_data = {k: v for k, v in request.ex_field.__dict__.items()
+                                           if not k.startswith('_')}
+                    except Exception as preserve_e:
+                        if self.debug:
+                            print(f"  既存データ保持エラー: {preserve_e}")
+                
+                # 新しい拡張フィールドを作成
+                request.ex_field = ExtendedField()
+                
+                # 既存データを復元
+                for key, value in existing_data.items():
+                    if key != 'source':  # sourceは新しく設定するので除外
+                        try:
+                            setattr(request.ex_field, key, value)
+                        except Exception as restore_e:
+                            if self.debug:
+                                print(f"  データ復元エラー ({key}): {restore_e}")
+                
+                # source情報を追加
+                request.ex_field.source = source_info
+                
+                # 拡張フィールドフラグを強制的に1に設定
+                request.ex_flag = 1
+                
+                if self.debug:
+                    print(f"  ✓ ReportRequest に送信元情報を強制追加: {source_info}")
+                    print(f"  ✓ 拡張フィールドフラグを1に設定")
+                    if hasattr(request.ex_field, 'to_dict'):
+                        print(f"  ✓ 拡張フィールド内容: {request.ex_field.to_dict()}")
+            
+            except Exception as ex_e:
+                print(f"❌ 拡張フィールドへのsource追加に失敗: {ex_e}")
+                if self.debug:
+                    traceback.print_exc()
+                
+                # 最終手段：エラーレスポンスを送信
+                error_response = ErrorResponse(
+                    version=self.version,
+                    packet_id=request.packet_id,
+                    error_code=530,
+                    timestamp=int(datetime.now().timestamp())
+                )
+                try:
+                    self.sock.sendto(error_response.to_bytes(), source_info)
+                    if self.debug:
+                        print(f"  エラーレスポンスを送信: {source_info}")
+                except Exception as send_e:
+                    print(f"エラーレスポンス送信も失敗: {send_e}")
+                return
+            
+            # レポートサーバーに転送
+            packet_data = request.to_bytes()
+            
+            try:
+                bytes_sent = self.send_udp_packet(packet_data, self.report_server_host, self.report_server_port)
+                if bytes_sent != len(packet_data):
+                    raise RuntimeError(f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})")
+                    
+                if self.debug:
+                    print(f"  レポートサーバーに転送しました: {bytes_sent}バイト")
+                    
+            except Exception as e:
+                error_msg = f"レポートリクエストの転送に失敗しました: {self.report_server_host}:{self.report_server_port} - {str(e)}"
+                if self.debug:
+                    traceback.print_exc()
+                # ErrorResponseを作成して返す
+                error_response = ErrorResponse(
+                    version=self.version,
+                    packet_id=request.packet_id,
+                    error_code=420,
+                    timestamp=int(datetime.now().timestamp())
+                )
+                dest = None
+                if (
+                    hasattr(request, 'ex_field')
+                    and request.ex_field
+                    and request.ex_field.contains('source')
+                ):
+                    cand = request.ex_field.source
+                    if isinstance(cand, tuple) and len(cand) == 2:
+                        dest = cand
+
+                if dest:
+                    error_response.ex_field.source = dest
+                    self.sock.sendto(error_response.to_bytes(), dest)
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                else:
+                    if self.debug:
+                        print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
+                return
+                
+        except Exception as e:
+            print(f"530: [天気サーバー] レポートリクエストの処理中にエラーが発生しました: {e}")
+            if self.debug:
+                traceback.print_exc()
+            # ErrorResponseを作成して返す
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=request.packet_id,
+                error_code=530,
+                timestamp=int(datetime.now().timestamp())
+            )
+            dest = None
+            if (
+                hasattr(request, 'ex_field')
+                and request.ex_field
+                and request.ex_field.contains('source')
+            ):
+                cand = request.ex_field.source
+                if isinstance(cand, tuple) and len(cand) == 2:
+                    dest = cand
+
+            if dest:
+                error_response.ex_field.source = dest
+                self.sock.sendto(error_response.to_bytes(), dest)
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+            else:
+                if self.debug:
+                    print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
+            return
+
+    def _handle_report_response(self, data, addr):
+        """データレポートレスポンスの処理（Type 5）"""
+        try:
+            # 専用クラスでレスポンスをパース
+            response = ReportResponse.from_bytes(data)
+            
+            if self.debug:
+                print(f"\n[天気サーバー] タイプ5: データレポートレスポンスを処理中")
+                print(f"  Success: {response.is_success()}")
+                print(f"  Area code: {response.area_code}")
+                print(f"  Packet ID: {response.packet_id}")
+            
+            # 専用クラスのメソッドでsource情報を取得
+            source_info = response.get_source_info()
+            if not source_info:
+                print("530: 天気サーバーでの処理エラー: レポートレスポンスに送信元情報がありません")
+                if self.debug and hasattr(response, 'ex_field'):
+                    print(f"  ex_field の内容: {response.ex_field.to_dict()}")
+                return
+
+            # 既にタプル形式なのでそのまま使用
+            if isinstance(source_info, tuple) and len(source_info) == 2:
+                host, port = source_info
+                try:
+                    port = int(port)  # ポート番号のバリデーション
+                    if not (0 < port <= 65535):
+                        raise ValueError("Invalid port number")
+                    dest_addr = (host, port)
+                except (ValueError, TypeError) as e:
+                    print(f"[天気サーバー] 不正なポート番号: {port}")
+                    return
+            else:
+                print(f"[天気サーバー] 不正なsource_info形式: {source_info}")
+                return
+            
+            if self.debug:
+                status = "成功" if response.is_success() else "失敗"
+                print(f"  {dest_addr} へレポートレスポンス({status})を転送中")
+                print(f"  パケットサイズ: {len(data)} バイト")
+                print(f"  送信元情報: {source_info}")
+            
+            # source情報を変数に格納したので拡張フィールドから削除
+            if hasattr(response, 'ex_field') and response.ex_field:
+                if self.debug:
+                    print(f"  拡張フィールドから送信元を削除中")
+                    print(f"  拡張フィールド（変更前）: {response.ex_field.to_dict()}")
+                
+                # sourceフィールドを削除
+                response.ex_field.remove('source')
+                
+                # 拡張フィールドが空になった場合はフラグを0にする
+                if response.ex_field.is_empty():
+                    if self.debug:
+                        print(f"  拡張フィールドが空になりました。フラグを0に設定します")
+                    response.ex_field.flag = 0
+                
+                if self.debug:
+                    print(f"  拡張フィールド（変更後）: {response.ex_field.to_dict()}")
+                    print(f"  拡張フィールドフラグ: {response.ex_field.flag}")
+            
+            try:
+                # レスポンスのバージョンを現在のサーバーバージョンで設定
+                response.version = self.version  # バージョンを正規化
+                final_data = response.to_bytes()
+                
+                # 元のクライアントに送信
+                try:
+                    bytes_sent = self.sock.sendto(final_data, dest_addr)
+                    if bytes_sent != len(final_data):
+                        raise RuntimeError(f"パケット長エラー: (expected: {len(final_data)}, sent: {bytes_sent})")
+                        
+                    if self.debug:
+                        print(f"  クライアントに {bytes_sent} バイトを送信しました")
+                        
+                except Exception as e:
+                    if self.debug:
+                        traceback.print_exc()
+                    # ErrorResponseを作成して返す
+                    error_response = ErrorResponse(
+                        version=self.version,
+                        packet_id=response.packet_id,
+                        error_code=530,
+                        timestamp=int(datetime.now().timestamp())
+                    )
+                    self.sock.sendto(error_response.to_bytes(), dest_addr)
+                    raise RuntimeError(f"天気サーバーでの処理エラー: クライアントへの転送に失敗 {str(e)}")
+                    
+            except Exception as conv_e:
+                print(f"530: 天気サーバーでの処理エラー: {conv_e}")
+                if self.debug:
+                    traceback.print_exc()
+                # ErrorResponseを作成して返す
+                error_response = ErrorResponse(
+                    version=self.version,
+                    packet_id=response.packet_id,
+                    error_code=530,
+                    timestamp=int(datetime.now().timestamp())
+                )
+                error_response.ex_field.source = dest_addr
+                self.sock.sendto(error_response.to_bytes(), dest_addr)
+                return
+                
+        except Exception as e:
+            print(f"530: [天気サーバー] レポートレスポンス処理中にエラーが発生しました: {e}")
+            if self.debug:
+                traceback.print_exc()
+            # ErrorResponseを作成して返す（responseが未定義の場合の処理を追加）
+            packet_id = getattr(response, 'packet_id', 0) if 'response' in locals() else 0
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=packet_id,
+                error_code=530,
+                timestamp=int(datetime.now().timestamp())
+            )
+            # dest_addrが未定義の場合はaddrを使用
+            dest_addr = locals().get('dest_addr', addr)
+            self.sock.sendto(error_response.to_bytes(), dest_addr)
+            return
+
     def create_response(self, request):
         """
         レスポンスを作成（プロキシサーバーなので基本的に使用しない）
@@ -1123,6 +1400,12 @@ class WeatherServer(BaseServer):
         elif packet_type == 3:
             # 気象データレスポンス
             return QueryResponse.from_bytes(data)
+        elif packet_type == 4:
+            # データレポートリクエスト
+            return ReportRequest.from_bytes(data)
+        elif packet_type == 5:
+            # データレポートレスポンス
+            return ReportResponse.from_bytes(data)
         elif packet_type == 7:  # エラーパケット
             return ErrorResponse.from_bytes(data)
         else:
@@ -1143,8 +1426,8 @@ class WeatherServer(BaseServer):
             print("1")
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # タイプのチェック（0-3,7が有効）
-        if request.type not in [0, 1, 2, 3, 7]:
+        # タイプのチェック（0-3,4,5,7が有効）
+        if request.type not in [0, 1, 2, 3, 4, 5, 7]:
             print(f"2: {request.type}")
             return False, "400", f"不正なパケットタイプ: {request.type}"
 

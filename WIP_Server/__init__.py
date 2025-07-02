@@ -21,9 +21,12 @@ def __getattr__(name):
     elif name == "QueryServer":
         from .servers.query_server import QueryServer
         return QueryServer
+    elif name == "ReportServer":
+        from .servers.report_server import ReportServer
+        return ReportServer
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "servers", "data", "utils",
-    "WeatherServer", "LocationServer", "QueryServer"
+    "WeatherServer", "LocationServer", "QueryServer", "ReportServer"
 ]
