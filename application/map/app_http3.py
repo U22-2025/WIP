@@ -172,6 +172,8 @@ async def weekly_forecast():
     def get_daily_weather(day):
         """指定された日の天気データを取得する関数"""
         local_client = Client(host=client.config.host, port=client.config.port)
+        # スレッド毎に独立したソケットを使うため、座標情報もコピー
+        local_client.set_coordinates(lat, lng)
         try:
             weather_result = local_client.get_weather(day=day)
             if weather_result and not ('error_code' in weather_result):
