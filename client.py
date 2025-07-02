@@ -21,7 +21,7 @@ if use_coordinates:
     client.set_coordinates(35.6895, 139.6917)
 else:
     client = Client(area_code=460020, debug=True)
-    # client = Client(area_code=130010, debug=True)
+    # client = Client(area_code=460020, server_port=4111, debug=True)  # query_serverのポート4111を直接指定
 
 result = client.get_weather(alert=True, disaster=True)
 
