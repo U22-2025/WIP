@@ -170,14 +170,26 @@ class ReportResponse(Response):
         # 拡張フィールドの準備
         ex_field = {}
         
-        # 送信元情報を保持（ルーティング用）
+        # 送信元情報を保持（ルーティング用・改良版）
         source = request.get_source_info()
         if source:
             ex_field["source"] = source
+        else:
+            # requestに直接source情報がない場合、拡張フィールドを直接チェック
+            if hasattr(request, 'ex_field') and request.ex_field:
+                try:
+                    if hasattr(request.ex_field, 'to_dict'):
+                        ex_dict = request.ex_field.to_dict()
+                        if 'source' in ex_dict:
+                            ex_field["source"] = ex_dict['source']
+                    elif hasattr(request.ex_field, 'source'):
+                        ex_field["source"] = request.ex_field.source
+                except Exception as e:
+                    print(f"警告: 拡張フィールドからのsource抽出に失敗: {e}")
         
         # レスポンスデータ（通常は空だが、フラグは元のリクエストを反映）
         weather_code = 0
-        temperature = 100  # 0℃相当（デフォルト値）
+        temperature = 0  # 0℃相当（デフォルト値）
         pop = 0
         
         return cls(
