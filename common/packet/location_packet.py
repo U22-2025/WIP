@@ -327,6 +327,35 @@ class DynamicLocationResponse(DynamicFormat):
     """YAML定義から生成されるLocationResponse互換クラス"""
     FORMAT_FILE = Path(__file__).with_name("response_format.yml")
 
+    def _as_static(self) -> LocationResponse:
+        """既存のLocationResponseに変換して処理を委譲"""
+        return LocationResponse.from_bytes(self.to_bytes())
+
+    def get_area_code(self) -> str:
+        return self._as_static().get_area_code()
+
+    def get_source_info(self) -> Optional[tuple[str, int]]:
+        return self._as_static().get_source_info()
+
+    def get_preserved_flags(self) -> Dict[str, int]:
+        return self._as_static().get_preserved_flags()
+
+    def to_weather_request(self, request_type: int = 2) -> Request:
+        return self._as_static().to_weather_request(request_type)
+
+    def is_valid(self) -> bool:
+        return self._as_static().is_valid()
+
+    def get_response_summary(self) -> Dict[str, Any]:
+        return {
+            'type': 'location_response',
+            'valid': self.is_valid(),
+            'area_code': self.get_area_code(),
+            'packet_id': self.packet_id,
+            'source': self.get_source_info(),
+            'preserved_flags': self.get_preserved_flags(),
+        }
+
     @classmethod
     def load(cls, path: str | None = None) -> "DynamicLocationResponse":
         if path is None:

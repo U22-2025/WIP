@@ -458,6 +458,44 @@ class DynamicQueryResponse(DynamicFormat):
     """YAML定義から生成されるQueryResponse互換クラス"""
     FORMAT_FILE = Path(__file__).with_name("response_format.yml")
 
+    def _as_static(self) -> QueryResponse:
+        """既存のQueryResponseに変換して処理を委譲"""
+        return QueryResponse.from_bytes(self.to_bytes())
+
+    def get_source_info(self) -> Optional[tuple[str, int]]:
+        return self._as_static().get_source_info()
+
+    def get_weather_code(self) -> Optional[int]:
+        return self._as_static().get_weather_code()
+
+    def get_temperature_celsius(self) -> Optional[int]:
+        return self._as_static().get_temperature_celsius()
+
+    def get_precipitation(self) -> Optional[int]:
+        return self._as_static().get_precipitation()
+
+    def get_alert(self) -> List[str]:
+        return self._as_static().get_alert()
+
+    def get_disaster_info(self) -> List[str]:
+        return self._as_static().get_disaster_info()
+
+    def get_weather_data(self) -> Dict[str, Any]:
+        return self._as_static().get_weather_data()
+
+    def is_success(self) -> bool:
+        return self._as_static().is_success()
+
+    def get_response_summary(self) -> Dict[str, Any]:
+        return {
+            'type': 'query_response',
+            'success': self.is_success(),
+            'area_code': self.area_code,
+            'packet_id': self.packet_id,
+            'source': self.get_source_info(),
+            'data': self.get_weather_data(),
+        }
+
     @classmethod
     def load(cls, path: str | None = None) -> "DynamicQueryResponse":
         if path is None:
