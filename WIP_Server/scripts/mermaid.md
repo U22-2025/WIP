@@ -1,0 +1,16 @@
+```mermaid
+graph TD
+subgraph WIP_Server_scripts_update_weather_data_py["WIP_Server/scripts/update_weather_data.py"]
+  WIP_Server_scripts_update_weather_data_py:get_data["get_data"]
+  WIP_Server_scripts_update_weather_data_py:get_data_fetch_and_process_area["get_data.fetch_and_process_area"]
+  WIP_Server_scripts_update_weather_data_py:update_redis_weather_data["update_redis_weather_data"]
+end
+subgraph WIP_Server_scripts_update_alert_disaster_data_py["WIP_Server/scripts/update_alert_disaster_data.py"]
+  WIP_Server_scripts_update_alert_disaster_data_py:main["main"]
+end
+WIP_Server_scripts_update_weather_data_py:<module> --> WIP_Server_scripts_update_weather_data_py:get_data
+WIP_Server_scripts_update_weather_data_py:update_redis_weather_data --> WIP_Server_scripts_update_weather_data_py:get_data
+WIP_Server_scripts_update_alert_disaster_data_py:<module> --> WIP_Server_scripts_update_alert_disaster_data_py:main
+WIP_Server_scripts_update_alert_disaster_data_py:main --> WIP_Server_scripts_update_alert_disaster_data_py:main
+WIP_Server_scripts_update_alert_disaster_data_py:main --> WIP_Server_scripts_update_alert_disaster_data_py:main
+```

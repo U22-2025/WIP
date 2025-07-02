@@ -1,0 +1,238 @@
+```mermaid
+graph TD
+subgraph common_packet_tests["common/packet/tests"]
+  subgraph common_packet_tests_test_dynamic_format_py["common/packet/tests/test_dynamic_format.py"]
+    common_packet_tests_test_dynamic_format_py:TestDynamicFormat_test_load_with_fallback_yaml["TestDynamicFormat.test_load_with_fallback_yaml"]
+    common_packet_tests_test_dynamic_format_py:TestDynamicFormat_test_to_bytes_and_restore["TestDynamicFormat.test_to_bytes_and_restore"]
+  end
+  subgraph common_packet_tests_test_extended_field_py["common/packet/tests/test_extended_field.py"]
+    common_packet_tests_test_extended_field_py:TestExtendedFieldHelpers_test_parse_header_and_decode["TestExtendedFieldHelpers.test_parse_header_and_decode"]
+    common_packet_tests_test_extended_field_py:TestExtendedFieldHelpers_test_decode_coordinate_and_source["TestExtendedFieldHelpers.test_decode_coordinate_and_source"]
+  end
+end
+subgraph common_packet_dynamic_format_py["common/packet/dynamic_format.py"]
+  common_packet_dynamic_format_py:_load_simple_yaml["_load_simple_yaml"]
+  common_packet_dynamic_format_py:_load_simple_yaml__parse["_load_simple_yaml._parse"]
+  common_packet_dynamic_format_py:_safe_load_yaml["_safe_load_yaml"]
+  common_packet_dynamic_format_py:DynamicFormat___init__["DynamicFormat.__init__"]
+  common_packet_dynamic_format_py:DynamicFormat_load["DynamicFormat.load"]
+  common_packet_dynamic_format_py:DynamicFormat_set["DynamicFormat.set"]
+  common_packet_dynamic_format_py:DynamicFormat_set_extended["DynamicFormat.set_extended"]
+  common_packet_dynamic_format_py:DynamicFormat__build_bits["DynamicFormat._build_bits"]
+  common_packet_dynamic_format_py:DynamicFormat_to_bits["DynamicFormat.to_bits"]
+  common_packet_dynamic_format_py:DynamicFormat_to_bytes["DynamicFormat.to_bytes"]
+  common_packet_dynamic_format_py:DynamicFormat_from_bytes["DynamicFormat.from_bytes"]
+  common_packet_dynamic_format_py:DynamicFormat_to_dict["DynamicFormat.to_dict"]
+  common_packet_dynamic_format_py:DynamicFormat_calc_checksum12["DynamicFormat.calc_checksum12"]
+end
+subgraph common_packet_extended_field_py["common/packet/extended_field.py"]
+  common_packet_extended_field_py:ExtendedField_update_mapping["ExtendedField.update_mapping"]
+  common_packet_extended_field_py:ExtendedField___init__["ExtendedField.__init__"]
+  common_packet_extended_field_py:ExtendedField_set["ExtendedField.set"]
+  common_packet_extended_field_py:ExtendedField_get["ExtendedField.get"]
+  common_packet_extended_field_py:ExtendedField_update["ExtendedField.update"]
+  common_packet_extended_field_py:ExtendedField_clear["ExtendedField.clear"]
+  common_packet_extended_field_py:ExtendedField_remove["ExtendedField.remove"]
+  common_packet_extended_field_py:ExtendedField_is_empty["ExtendedField.is_empty"]
+  common_packet_extended_field_py:ExtendedField_contains["ExtendedField.contains"]
+  common_packet_extended_field_py:ExtendedField_keys["ExtendedField.keys"]
+  common_packet_extended_field_py:ExtendedField_to_dict["ExtendedField.to_dict"]
+  common_packet_extended_field_py:ExtendedField_add_observer["ExtendedField.add_observer"]
+  common_packet_extended_field_py:ExtendedField_remove_observer["ExtendedField.remove_observer"]
+  common_packet_extended_field_py:ExtendedField__notify_observers["ExtendedField._notify_observers"]
+  common_packet_extended_field_py:ExtendedField_alert["ExtendedField.alert"]
+  common_packet_extended_field_py:ExtendedField_disaster["ExtendedField.disaster"]
+  common_packet_extended_field_py:ExtendedField_latitude["ExtendedField.latitude"]
+  common_packet_extended_field_py:ExtendedField_longitude["ExtendedField.longitude"]
+  common_packet_extended_field_py:ExtendedField_source["ExtendedField.source"]
+  common_packet_extended_field_py:ExtendedField__validate_value["ExtendedField._validate_value"]
+  common_packet_extended_field_py:ExtendedField_to_csv_line["ExtendedField.to_csv_line"]
+  common_packet_extended_field_py:ExtendedField_to_bits["ExtendedField.to_bits"]
+  common_packet_extended_field_py:ExtendedField__parse_header["ExtendedField._parse_header"]
+  common_packet_extended_field_py:ExtendedField__decode_value["ExtendedField._decode_value"]
+  common_packet_extended_field_py:ExtendedField_from_bits["ExtendedField.from_bits"]
+  common_packet_extended_field_py:ExtendedField__extended_field_to_dict["ExtendedField._extended_field_to_dict"]
+  common_packet_extended_field_py:ExtendedField___repr__["ExtendedField.__repr__"]
+  common_packet_extended_field_py:ExtendedField___eq__["ExtendedField.__eq__"]
+end
+subgraph common_packet_bit_utils_py["common/packet/bit_utils.py"]
+  common_packet_bit_utils_py:extract_bits["extract_bits"]
+  common_packet_bit_utils_py:extract_rest_bits["extract_rest_bits"]
+end
+subgraph common_packet_response_py["common/packet/response.py"]
+  common_packet_response_py:Response_get_coordinates["Response.get_coordinates"]
+  common_packet_response_py:Response_get_min_packet_size["Response.get_min_packet_size"]
+  common_packet_response_py:Response___init__["Response.__init__"]
+  common_packet_response_py:Response__on_ex_field_changed["Response._on_ex_field_changed"]
+  common_packet_response_py:Response_ex_field["Response.ex_field"]
+  common_packet_response_py:Response__set_validated_extended_field["Response._set_validated_extended_field"]
+  common_packet_response_py:Response_from_bits["Response.from_bits"]
+  common_packet_response_py:Response_to_bits["Response.to_bits"]
+  common_packet_response_py:Response_to_bytes["Response.to_bytes"]
+  common_packet_response_py:Response_as_dict["Response.as_dict"]
+end
+subgraph common_packet_debug_extended_bits_py["common/packet/debug_extended_bits.py"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer___init__["ExtendedFieldBitAnalyzer.__init__"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_analyze_bits["ExtendedFieldBitAnalyzer.analyze_bits"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer__analyze_field_bits["ExtendedFieldBitAnalyzer._analyze_field_bits"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer__analyze_record_bits["ExtendedFieldBitAnalyzer._analyze_record_bits"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_print_analysis["ExtendedFieldBitAnalyzer.print_analysis"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_get_total_bits["ExtendedFieldBitAnalyzer.get_total_bits"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_get_extended_bits["ExtendedFieldBitAnalyzer.get_extended_bits"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_analyze_basic_field_difference["ExtendedFieldBitAnalyzer.analyze_basic_field_difference"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_print_basic_field_analysis["ExtendedFieldBitAnalyzer.print_basic_field_analysis"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_visualize_bit_layout["ExtendedFieldBitAnalyzer.visualize_bit_layout"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_print_bit_visualization["ExtendedFieldBitAnalyzer.print_bit_visualization"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer__print_basic_field_bits["ExtendedFieldBitAnalyzer._print_basic_field_bits"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer__get_fields_in_bit_range["ExtendedFieldBitAnalyzer._get_fields_in_bit_range"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer__print_extended_field_bits["ExtendedFieldBitAnalyzer._print_extended_field_bits"]
+  common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer__get_extended_field_mapping["ExtendedFieldBitAnalyzer._get_extended_field_mapping"]
+  common_packet_debug_extended_bits_py:debug_packet_bits["debug_packet_bits"]
+  common_packet_debug_extended_bits_py:create_sample_packets["create_sample_packets"]
+  common_packet_debug_extended_bits_py:main["main"]
+end
+subgraph common_packet_error_response_py["common/packet/error_response.py"]
+  common_packet_error_response_py:ErrorResponse___init__["ErrorResponse.__init__"]
+  common_packet_error_response_py:ErrorResponse_error_code["ErrorResponse.error_code"]
+end
+subgraph common_packet_location_packet_py["common/packet/location_packet.py"]
+  common_packet_location_packet_py:LocationRequest_create_coordinate_lookup["LocationRequest.create_coordinate_lookup"]
+  common_packet_location_packet_py:LocationRequest_from_weather_request["LocationRequest.from_weather_request"]
+  common_packet_location_packet_py:LocationRequest_get_source_info["LocationRequest.get_source_info"]
+  common_packet_location_packet_py:LocationResponse_create_area_code_response["LocationResponse.create_area_code_response"]
+  common_packet_location_packet_py:LocationResponse_get_area_code["LocationResponse.get_area_code"]
+  common_packet_location_packet_py:LocationResponse_get_source_info["LocationResponse.get_source_info"]
+  common_packet_location_packet_py:LocationResponse_get_preserved_flags["LocationResponse.get_preserved_flags"]
+  common_packet_location_packet_py:LocationResponse_to_weather_request["LocationResponse.to_weather_request"]
+  common_packet_location_packet_py:LocationResponse_is_valid["LocationResponse.is_valid"]
+  common_packet_location_packet_py:LocationResponse_get_response_summary["LocationResponse.get_response_summary"]
+end
+subgraph common_packet_format_extended_py["common/packet/format_extended.py"]
+  common_packet_format_extended_py:FormatExtended___init__["FormatExtended.__init__"]
+  common_packet_format_extended_py:FormatExtended__on_ex_field_changed["FormatExtended._on_ex_field_changed"]
+  common_packet_format_extended_py:FormatExtended_ex_field["FormatExtended.ex_field"]
+  common_packet_format_extended_py:FormatExtended_from_bits["FormatExtended.from_bits"]
+  common_packet_format_extended_py:FormatExtended_to_bits["FormatExtended.to_bits"]
+  common_packet_format_extended_py:FormatExtended_to_bytes["FormatExtended.to_bytes"]
+  common_packet_format_extended_py:FormatExtended_as_dict["FormatExtended.as_dict"]
+end
+subgraph common_packet_test_specialized_packets_py["common/packet/test_specialized_packets.py"]
+  common_packet_test_specialized_packets_py:TestWeatherPacket_test_request_and_restore["TestWeatherPacket.test_request_and_restore"]
+  common_packet_test_specialized_packets_py:TestLocationPacket_test_create_and_response["TestLocationPacket.test_create_and_response"]
+  common_packet_test_specialized_packets_py:TestQueryPacket_test_weather_data_response["TestQueryPacket.test_weather_data_response"]
+end
+subgraph common_packet_test_checksum_py["common/packet/test_checksum.py"]
+  common_packet_test_checksum_py:TestChecksum_test_calc_checksum12_basic["TestChecksum.test_calc_checksum12_basic"]
+  common_packet_test_checksum_py:TestChecksum_test_verify_checksum12_valid["TestChecksum.test_verify_checksum12_valid"]
+  common_packet_test_checksum_py:TestChecksum_test_verify_checksum12_tampered["TestChecksum.test_verify_checksum12_tampered"]
+  common_packet_test_checksum_py:TestChecksum_test_packet_checksum_auto_calculation["TestChecksum.test_packet_checksum_auto_calculation"]
+  common_packet_test_checksum_py:TestChecksum_test_field_change_recalculates_checksum["TestChecksum.test_field_change_recalculates_checksum"]
+  common_packet_test_checksum_py:TestChecksum_test_extended_field_change_recalculates_checksum["TestChecksum.test_extended_field_change_recalculates_checksum"]
+  common_packet_test_checksum_py:TestChecksum_test_checksum_error_handling["TestChecksum.test_checksum_error_handling"]
+  common_packet_test_checksum_py:TestChecksum_test_from_bytes_with_checksum_validation["TestChecksum.test_from_bytes_with_checksum_validation"]
+end
+subgraph common_packet_example_usage_py["common/packet/example_usage.py"]
+  common_packet_example_usage_py:traditional_usage_example["traditional_usage_example"]
+  common_packet_example_usage_py:modern_usage_example["modern_usage_example"]
+  common_packet_example_usage_py:response_processing_example["response_processing_example"]
+  common_packet_example_usage_py:client_integration_example["client_integration_example"]
+  common_packet_example_usage_py:client_integration_example_create_weather_request_easily["client_integration_example.create_weather_request_easily"]
+  common_packet_example_usage_py:compatibility_test["compatibility_test"]
+  common_packet_example_usage_py:main["main"]
+end
+subgraph common_packet_query_packet_py["common/packet/query_packet.py"]
+  common_packet_query_packet_py:QueryRequest_create_weather_data_request["QueryRequest.create_weather_data_request"]
+  common_packet_query_packet_py:QueryRequest_from_location_response["QueryRequest.from_location_response"]
+  common_packet_query_packet_py:QueryRequest_from_weather_request["QueryRequest.from_weather_request"]
+  common_packet_query_packet_py:QueryRequest_get_source_info["QueryRequest.get_source_info"]
+  common_packet_query_packet_py:QueryRequest_get_requested_data_types["QueryRequest.get_requested_data_types"]
+  common_packet_query_packet_py:QueryResponse_create_weather_data_response["QueryResponse.create_weather_data_response"]
+  common_packet_query_packet_py:QueryResponse_get_source_info["QueryResponse.get_source_info"]
+  common_packet_query_packet_py:QueryResponse_get_temperature_celsius["QueryResponse.get_temperature_celsius"]
+  common_packet_query_packet_py:QueryResponse_get_weather_code["QueryResponse.get_weather_code"]
+  common_packet_query_packet_py:QueryResponse_get_precipitation["QueryResponse.get_precipitation"]
+  common_packet_query_packet_py:QueryResponse_get_alert["QueryResponse.get_alert"]
+  common_packet_query_packet_py:QueryResponse_get_disaster_info["QueryResponse.get_disaster_info"]
+  common_packet_query_packet_py:QueryResponse_get_weather_data["QueryResponse.get_weather_data"]
+  common_packet_query_packet_py:QueryResponse_is_success["QueryResponse.is_success"]
+  common_packet_query_packet_py:QueryResponse_get_response_summary["QueryResponse.get_response_summary"]
+end
+subgraph common_packet_request_py["common/packet/request.py"]
+  common_packet_request_py:Request_get_coordinates["Request.get_coordinates"]
+  common_packet_request_py:Request_get_min_packet_size["Request.get_min_packet_size"]
+  common_packet_request_py:Request___init__["Request.__init__"]
+  common_packet_request_py:Request__on_ex_field_changed["Request._on_ex_field_changed"]
+  common_packet_request_py:Request_ex_field["Request.ex_field"]
+  common_packet_request_py:Request_from_bits["Request.from_bits"]
+  common_packet_request_py:Request_to_bits["Request.to_bits"]
+  common_packet_request_py:Request_as_dict["Request.as_dict"]
+end
+subgraph common_packet_weather_packet_py["common/packet/weather_packet.py"]
+  common_packet_weather_packet_py:WeatherRequest_create_by_coordinates["WeatherRequest.create_by_coordinates"]
+  common_packet_weather_packet_py:WeatherRequest_create_by_area_code["WeatherRequest.create_by_area_code"]
+  common_packet_weather_packet_py:WeatherRequest_get_request_summary["WeatherRequest.get_request_summary"]
+  common_packet_weather_packet_py:WeatherResponse_get_temperature_celsius["WeatherResponse.get_temperature_celsius"]
+  common_packet_weather_packet_py:WeatherResponse_get_weather_code["WeatherResponse.get_weather_code"]
+  common_packet_weather_packet_py:WeatherResponse_get_precipitation_prob["WeatherResponse.get_precipitation_prob"]
+  common_packet_weather_packet_py:WeatherResponse_get_alert["WeatherResponse.get_alert"]
+  common_packet_weather_packet_py:WeatherResponse_get_disaster_info["WeatherResponse.get_disaster_info"]
+  common_packet_weather_packet_py:WeatherResponse_get_weather_data["WeatherResponse.get_weather_data"]
+  common_packet_weather_packet_py:WeatherResponse_is_success["WeatherResponse.is_success"]
+  common_packet_weather_packet_py:WeatherResponse_get_response_summary["WeatherResponse.get_response_summary"]
+  common_packet_weather_packet_py:WeatherResponse_from_query_response["WeatherResponse.from_query_response"]
+end
+subgraph common_packet_format_base_py["common/packet/format_base.py"]
+  common_packet_format_base_py:FormatBase___init__["FormatBase.__init__"]
+  common_packet_format_base_py:FormatBase__set_validated_field["FormatBase._set_validated_field"]
+  common_packet_format_base_py:FormatBase__recalculate_checksum["FormatBase._recalculate_checksum"]
+  common_packet_format_base_py:FormatBase_version["FormatBase.version"]
+  common_packet_format_base_py:FormatBase_packet_id["FormatBase.packet_id"]
+  common_packet_format_base_py:FormatBase_type["FormatBase.type"]
+  common_packet_format_base_py:FormatBase_weather_flag["FormatBase.weather_flag"]
+  common_packet_format_base_py:FormatBase_temperature_flag["FormatBase.temperature_flag"]
+  common_packet_format_base_py:FormatBase_pop_flag["FormatBase.pop_flag"]
+  common_packet_format_base_py:FormatBase_alert_flag["FormatBase.alert_flag"]
+  common_packet_format_base_py:FormatBase_disaster_flag["FormatBase.disaster_flag"]
+  common_packet_format_base_py:FormatBase_ex_flag["FormatBase.ex_flag"]
+  common_packet_format_base_py:FormatBase_day["FormatBase.day"]
+  common_packet_format_base_py:FormatBase_reserved["FormatBase.reserved"]
+  common_packet_format_base_py:FormatBase_timestamp["FormatBase.timestamp"]
+  common_packet_format_base_py:FormatBase_area_code["FormatBase.area_code"]
+  common_packet_format_base_py:FormatBase_checksum["FormatBase.checksum"]
+  common_packet_format_base_py:FormatBase_from_bits["FormatBase.from_bits"]
+  common_packet_format_base_py:FormatBase_get_min_packet_size["FormatBase.get_min_packet_size"]
+  common_packet_format_base_py:FormatBase_to_bits["FormatBase.to_bits"]
+  common_packet_format_base_py:FormatBase_to_bytes["FormatBase.to_bytes"]
+  common_packet_format_base_py:FormatBase_from_bytes["FormatBase.from_bytes"]
+  common_packet_format_base_py:FormatBase___str__["FormatBase.__str__"]
+  common_packet_format_base_py:FormatBase___repr__["FormatBase.__repr__"]
+  common_packet_format_base_py:FormatBase_calc_checksum12["FormatBase.calc_checksum12"]
+  common_packet_format_base_py:FormatBase_verify_checksum12["FormatBase.verify_checksum12"]
+  common_packet_format_base_py:FormatBase_as_dict["FormatBase.as_dict"]
+end
+common_packet_dynamic_format_py:_safe_load_yaml --> common_packet_dynamic_format_py:_load_simple_yaml
+common_packet_dynamic_format_py:DynamicFormat_load --> common_packet_dynamic_format_py:_safe_load_yaml
+common_packet_dynamic_format_py:DynamicFormat_load --> common_packet_dynamic_format_py:_safe_load_yaml
+common_packet_extended_field_py:ExtendedField__parse_header --> common_packet_bit_utils_py:extract_bits
+common_packet_extended_field_py:ExtendedField_from_bits --> common_packet_bit_utils_py:extract_bits
+common_packet_response_py:Response_from_bits --> common_packet_bit_utils_py:extract_bits
+common_packet_response_py:Response_from_bits --> common_packet_bit_utils_py:extract_rest_bits
+common_packet_debug_extended_bits_py:ExtendedFieldBitAnalyzer_visualize_bit_layout --> common_packet_bit_utils_py:extract_bits
+common_packet_debug_extended_bits_py:main --> common_packet_debug_extended_bits_py:create_sample_packets
+common_packet_debug_extended_bits_py:main --> common_packet_debug_extended_bits_py:debug_packet_bits
+common_packet_debug_extended_bits_py:<module> --> common_packet_example_usage_py:main
+common_packet_format_extended_py:FormatExtended_from_bits --> common_packet_bit_utils_py:extract_rest_bits
+common_packet_test_specialized_packets_py:<module> --> common_packet_example_usage_py:main
+common_packet_test_checksum_py:<module> --> common_packet_example_usage_py:main
+common_packet_example_usage_py:<module> --> common_packet_example_usage_py:main
+common_packet_example_usage_py:main --> common_packet_example_usage_py:traditional_usage_example
+common_packet_example_usage_py:main --> common_packet_example_usage_py:modern_usage_example
+common_packet_example_usage_py:main --> common_packet_example_usage_py:response_processing_example
+common_packet_example_usage_py:main --> common_packet_example_usage_py:client_integration_example
+common_packet_example_usage_py:main --> common_packet_example_usage_py:compatibility_test
+common_packet_request_py:Request_from_bits --> common_packet_bit_utils_py:extract_rest_bits
+common_packet_format_base_py:FormatBase_from_bits --> common_packet_bit_utils_py:extract_bits
+common_packet_format_base_py:FormatBase_verify_checksum12 --> common_packet_bit_utils_py:extract_bits
+common_packet_tests_test_dynamic_format_py:<module> --> common_packet_example_usage_py:main
+common_packet_tests_test_extended_field_py:<module> --> common_packet_example_usage_py:main
+```
