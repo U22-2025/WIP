@@ -173,22 +173,21 @@ class LocationServer(BaseServer):
             request: リクエストオブジェクト
             
         Returns:
-            tuple: (is_valid, error_code)
+            tuple: (is_valid, error_code, error_message)
         """
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
-            return False, "400"
+            return False, "400", "ex_flag が 1 ではありません"
         
         # 緯度経度が必要
         if not hasattr(request, 'ex_field') or not request.ex_field:
-            return False, "400"
+            return False, "400", "ex_field がありません"
         
         # ExtendedFieldオブジェクトのgetメソッドを使用
         latitude = request.ex_field.get("latitude")
         longitude = request.ex_field.get("longitude")
         if not latitude or not longitude:
-            return False, "401"
-        
+            return False, "401", "座標が不足しています"
         return True, None, None
 
     def create_response(self, request):
