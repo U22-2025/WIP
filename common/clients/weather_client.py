@@ -88,7 +88,8 @@ class WeatherClient:
         """レスポンスのデバッグ情報を出力（改良版）"""
 
         self.logger.debug("\n=== RECEIVED RESPONSE PACKET ===")
-        self.logger.debug(f"Response Type: {response.type}")
+        resp_type = getattr(response, "type", None)
+        self.logger.debug(f"Response Type: {resp_type}")
         self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
         
         # 専用クラスのメソッドを使用
@@ -99,12 +100,12 @@ class WeatherClient:
         
         self.logger.debug("\nHeader:")
         self.logger.debug(f"Version: {response.version}")
-        self.logger.debug(f"Type: {response.type}")
+        self.logger.debug(f"Type: {resp_type}")
         self.logger.debug(f"Area Code: {response.area_code}")
         self.logger.debug(f"Packet ID: {response.packet_id}")
         self.logger.debug(f"Timestamp: {time.ctime(response.timestamp)}")
-        
-        if response.type == 3:
+
+        if resp_type == 3:
             # 気象データレスポンス（専用メソッド使用）
             if hasattr(response, 'get_weather_code'):
                 weather_code = response.get_weather_code()
