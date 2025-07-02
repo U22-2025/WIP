@@ -16,15 +16,33 @@ WIP Packet - Weather Transport Protocol Packet Implementation
 from .exceptions import BitFieldError
 from .extended_field import ExtendedField, ExtendedFieldType
 from .format import Format
-from .dynamic_format import DynamicFormat
+from .dynamic_format import DynamicFormat, _safe_load_yaml
 from .request import Request
 from .response import Response
+import warnings
 
 # 専用パケットクラス
 from .weather_packet import WeatherRequest, WeatherResponse
 from .location_packet import LocationRequest, LocationResponse
 from .query_packet import QueryRequest, QueryResponse
 from .error_response import ErrorResponse  # エラーパケット追加
+
+# デフォルトの拡張フィールド定義を読み込んでマッピングを更新
+try:
+    from pathlib import Path
+
+    ext_path = Path(__file__).resolve().parent / "extended_fields.yml"
+    if ext_path.exists():
+        ext_data = _safe_load_yaml(ext_path)
+        entries = ext_data.get("extended_fields", ext_data)
+        if isinstance(entries, list):
+            ExtendedField.update_mapping(entries)
+except FileNotFoundError as e:
+    warnings.warn(f"extended_fields.yml not found: {e}")
+except ValueError as e:
+    warnings.warn(f"failed to load extended_fields.yml: {e}")
+except Exception as e:  # pragma: no cover - 予期しない例外をまとめて捕捉
+    warnings.warn(f"could not update extended field mapping: {e}")
 
 __version__ = "1.1.0"
 __all__ = [
