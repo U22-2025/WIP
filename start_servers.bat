@@ -11,7 +11,9 @@ wt ^
   ; focus-pane -t 0 ^
   ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --location --debug" ^
   ; focus-pane -t 1 ^
-  ; split-pane -V cmd /k "cd /d %CURRENT_DIR%\application\map && conda activate U22-2025 && python app.py"
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --report --debug" ^
+  ; focus-pane -t 2 ^
+  ; new-tab cmd /k "cd /d %CURRENT_DIR%\application\map && conda activate U22-2025 && python app.py"
 
 start http://localhost:5000
 

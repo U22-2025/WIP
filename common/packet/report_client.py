@@ -1,6 +1,6 @@
 """
 Report Client - IoT機器データ収集専用クライアント
-レポートリクエストを送信してサーバーにセンサーデータを送信する
+レポートリクエストを天気サーバー経由でレポートサーバーにセンサーデータを送信する
 """
 
 import socket
@@ -35,13 +35,13 @@ class PacketIDGenerator12Bit:
 class ReportClient:
     """IoT機器からのセンサーデータレポート送信用クライアント"""
     
-    def __init__(self, host='localhost', port=4112, debug=False):
+    def __init__(self, host='localhost', port=4110, debug=False):
         """
         初期化
         
         Args:
-            host: レポートサーバーのホスト
-            port: レポートサーバーのポート
+            host: 天気サーバーのホスト（レポートを転送）
+            port: 天気サーバーのポート
             debug: デバッグモード
         """
         self.host = host
@@ -62,15 +62,13 @@ class ReportClient:
         self.precipitation_prob: Optional[int] = None
         self.alert: Optional[List[str]] = None
         self.disaster: Optional[List[str]] = None
-        self.source: Optional[tuple[str, int]] = None
         
-    def set_sensor_data(self, area_code: Union[str, int], 
+    def set_sensor_data(self, area_code: Union[str, int],
                        weather_code: Optional[int] = None,
                        temperature: Optional[float] = None,
                        precipitation_prob: Optional[int] = None,
                        alert: Optional[List[str]] = None,
-                       disaster: Optional[List[str]] = None,
-                       source: Optional[tuple[str, int]] = None):
+                       disaster: Optional[List[str]] = None):
         """
         センサーデータを設定
         
@@ -81,7 +79,6 @@ class ReportClient:
             precipitation_prob: 降水確率（0-100%）
             alert: 警報情報
             disaster: 災害情報
-            source: 送信元情報 (ip, port)
         """
         self.area_code = area_code
         self.weather_code = weather_code
@@ -89,7 +86,6 @@ class ReportClient:
         self.precipitation_prob = precipitation_prob
         self.alert = alert
         self.disaster = disaster
-        self.source = source
         
         if self.debug:
             self.logger.debug(f"センサーデータを設定: エリア={area_code}, 天気={weather_code}, "
@@ -119,9 +115,6 @@ class ReportClient:
         """災害情報を設定"""
         self.disaster = disaster
         
-    def set_source(self, source: tuple[str, int]):
-        """送信元情報を設定 (ip, port)"""
-        self.source = source
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -161,11 +154,6 @@ class ReportClient:
         if request.pop_flag and hasattr(request, 'pop'):
             self.logger.debug(f"Precipitation Prob: {request.pop}%")
             
-        # 拡張フィールド情報
-        if hasattr(request, 'ex_field') and request.ex_field:
-            source_info = request.get_source_info()
-            if source_info:
-                self.logger.debug(f"Source: {source_info}")
         
         self.logger.debug("\nRaw Packet:")
         self.logger.debug(self._hex_dump(request.to_bytes()))
@@ -222,6 +210,7 @@ class ReportClient:
                 disaster=self.disaster,
                 version=self.VERSION
             )
+            
             
             self._debug_print_request(request)
             
@@ -303,7 +292,6 @@ class ReportClient:
         self.precipitation_prob = None
         self.alert = None
         self.disaster = None
-        self.source = None
         
         if self.debug:
             self.logger.debug("センサーデータをクリアしました")
@@ -321,8 +309,7 @@ class ReportClient:
             'temperature': self.temperature,
             'precipitation_prob': self.precipitation_prob,
             'alert': self.alert,
-            'disaster': self.disaster,
-            'source': self.source
+            'disaster': self.disaster
         }
     
     def close(self):

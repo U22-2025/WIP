@@ -16,9 +16,9 @@ def main():
     logger.info("Report Client Example - IoT Sensor Data Reporting")
     logger.info("=" * 60)
     
-    # 環境変数またはデフォルト値でサーバー情報を設定
-    host = os.getenv('REPORT_SERVER_HOST', 'localhost')
-    port = int(os.getenv('REPORT_SERVER_PORT', '4112'))
+    # 環境変数またはデフォルト値でサーバー情報を設定（weather_server経由）
+    host = os.getenv('WEATHER_SERVER_HOST', 'localhost')
+    port = int(os.getenv('WEATHER_SERVER_PORT', '4110'))
     
     client = ReportClient(host=host, port=port, debug=True)
     
@@ -92,13 +92,13 @@ def main():
     logger.info("✓ IoT sensor data reporting functionality demonstrated")
 
 
-def create_report_client(host='localhost', port=4112, debug=False):
+def create_report_client(host='localhost', port=4110, debug=False):
     """
     ReportClientインスタンスを作成する便利関数
     
     Args:
-        host: レポートサーバーのホスト
-        port: レポートサーバーのポート
+        host: 天気サーバーのホスト（レポートを転送）
+        port: 天気サーバーのポート
         debug: デバッグモード
         
     Returns:
@@ -109,7 +109,7 @@ def create_report_client(host='localhost', port=4112, debug=False):
 
 def send_sensor_report(area_code, weather_code=None, temperature=None,
                       precipitation_prob=None, alert=None, disaster=None,
-                      host='localhost', port=4112, debug=False):
+                      host='localhost', port=4110, debug=False):
     """
     センサーレポートを一回の呼び出しで送信する便利関数
     
@@ -120,8 +120,8 @@ def send_sensor_report(area_code, weather_code=None, temperature=None,
         precipitation_prob: 降水確率（0-100%）
         alert: 警報情報
         disaster: 災害情報
-        host: レポートサーバーのホスト
-        port: レポートサーバーのポート
+        host: 天気サーバーのホスト（レポートを転送）
+        port: 天気サーバーのポート
         debug: デバッグモード
         
     Returns:
