@@ -210,6 +210,12 @@ class LocationServer(BaseServer):
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
+            # sourceをコピー
+            if hasattr(request, "ex_field") and request.ex_field:
+                src = request.ex_field.get("source")
+                if src:
+                    error_response.ex_field.source = src
+                    error_response.ex_flag = 1
             return error_response.to_bytes()
     
         # 位置情報から地域コードを取得
@@ -243,13 +249,19 @@ class LocationServer(BaseServer):
             return resp.to_bytes()
             
         except Exception as e:
-            # 内部エラー発生時は500エラーを返す
+            # 内部エラー発生時は510エラーを返す
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
                 error_code="510",
                 timestamp=int(datetime.now().timestamp())
             )
+            # sourceをコピー
+            if hasattr(request, "ex_field") and request.ex_field:
+                src = request.ex_field.get("source")
+                if src:
+                    error_response.ex_field.source = src
+                    error_response.ex_flag = 1
             if self.debug:
                 print(f"510: [位置情報サーバー] エラーレスポンスを生成: {error_response.error_code}")
             return error_response.to_bytes()
