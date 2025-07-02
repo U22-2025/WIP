@@ -137,6 +137,26 @@ print(restored.to_dict())
 `extended_fields.yml` を編集することで拡張フィールドの種類を自由に
 追加・変更できます。
 
+### dataclasses を使ったパケットクラス生成
+
+`create_packet_dataclass()` 関数を利用すると、YAML 定義からフィールドを
+持ったデータクラスを自動生成できます。生成したクラスは `to_bytes()` や
+`from_bytes()` メソッドを備え、通常のクラスと同様に扱えます。
+
+```python
+from common.packet.dataclass_packet import create_packet_dataclass
+
+RequestPacket = create_packet_dataclass('common/packet/request_format.yml')
+pkt = RequestPacket(version=1, packet_id=123, ex_flag=1)
+pkt.ex_field.latitude = 35.0
+data = pkt.to_bytes()
+restored = RequestPacket.from_bytes(data)
+print(restored.to_dict())
+```
+
+これにより、フォーマット変更時も YAML を更新するだけで新しいデータクラスを
+生成でき、将来的な拡張に柔軟に対応できます。
+
 ## インストール・セットアップ
 
 ### 必要環境

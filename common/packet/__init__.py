@@ -17,6 +17,7 @@ from .exceptions import BitFieldError
 from .extended_field import ExtendedField, ExtendedFieldType
 from .format import Format
 from .dynamic_format import DynamicFormat, _safe_load_yaml
+from .dataclass_packet import create_packet_dataclass
 from .request import Request
 from .response import Response
 import warnings
@@ -53,6 +54,7 @@ __all__ = [
     "ExtendedFieldType",
     "Format",
     "DynamicFormat",
+    "create_packet_dataclass",
     "Request",
     "Response",
     # 専用パケットクラス
