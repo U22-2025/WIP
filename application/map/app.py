@@ -183,8 +183,9 @@ def weekly_forecast():
     
     def get_daily_weather_by_area_code(day):
         """エリアコードを使って指定された日の天気データを取得する関数（day=1~6用）"""
+        local_client = Client(host=client.config.host, port=client.config.port)
         try:
-            weather_result = client.get_weather_by_area_code(area_code=area_code, day=day)
+            weather_result = local_client.get_weather_by_area_code(area_code=area_code, day=day)
             if weather_result and not ('error_code' in weather_result):
                 # 日付情報を追加
                 date = datetime.now() + timedelta(days=day)
@@ -217,6 +218,8 @@ def weekly_forecast():
                 'precipitation_prob': '--',
                 'area_code': area_code
             }
+        finally:
+            local_client.close()
     
     # 明日以降（day=1~6）を並列でエリアコードから取得
     weekly_data = [today_weather] + [None] * 6  # 今日のデータ + 6日分のNone

@@ -171,8 +171,9 @@ async def weekly_forecast():
     
     def get_daily_weather(day):
         """指定された日の天気データを取得する関数"""
+        local_client = Client(host=client.config.host, port=client.config.port)
         try:
-            weather_result = client.get_weather(day=day)
+            weather_result = local_client.get_weather(day=day)
             if weather_result and not ('error_code' in weather_result):
                 # 日付情報を追加
                 date = datetime.now() + timedelta(days=day)
@@ -205,6 +206,8 @@ async def weekly_forecast():
                 'precipitation_prob': '--',
                 'area_code': 'unknown'
             }
+        finally:
+            local_client.close()
     
     # 並列で一週間分の天気データを取得（非同期で実行）
     loop = asyncio.get_event_loop()
