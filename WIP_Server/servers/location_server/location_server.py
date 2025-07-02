@@ -21,8 +21,10 @@ if __name__ == "__main__":
 # モジュールとして使用される場合
 from ..base_server import BaseServer
 from common.packet import Request, Response, BitFieldError, DynamicFormat
-REQUEST_YAML = Path(__file__).resolve().parents[2] / "common" / "packet" / "request_format.yml"
-RESPONSE_YAML = Path(__file__).resolve().parents[2] / "common" / "packet" / "response_format.yml"
+# YAML 定義ファイルへのパス
+ROOT_DIR = Path(__file__).resolve().parents[3]
+REQUEST_YAML = ROOT_DIR / "common" / "packet" / "request_format.yml"
+RESPONSE_YAML = ROOT_DIR / "common" / "packet" / "response_format.yml"
 from common.utils.config_loader import ConfigLoader
 
 
@@ -209,7 +211,7 @@ class LocationServer(BaseServer):
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
-            return error_resp.to_bytes()
+            return error_response.to_bytes()
     
         # 位置情報から地域コードを取得
         try:
@@ -250,8 +252,8 @@ class LocationServer(BaseServer):
                 timestamp=int(datetime.now().timestamp())
             )
             if self.debug:
-                print(f"510: [位置情報サーバー] エラーレスポンスを生成: {error_resp.error_code}")
-            return error_resp.to_bytes()
+                print(f"510: [位置情報サーバー] エラーレスポンスを生成: {error_response.error_code}")
+            return error_response.to_bytes()
     
     def get_district_code(self, longitude, latitude):
         """

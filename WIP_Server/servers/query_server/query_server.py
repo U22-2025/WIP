@@ -27,8 +27,10 @@ from .modules.weather_constants import ThreadConstants
 from common.packet import Request, Response, BitFieldError, DynamicFormat
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
-REQUEST_YAML = Path(__file__).resolve().parents[2] / "common" / "packet" / "request_format.yml"
-RESPONSE_YAML = Path(__file__).resolve().parents[2] / "common" / "packet" / "response_format.yml"
+# YAML定義ファイルのパス
+ROOT_DIR = Path(__file__).resolve().parents[3]
+REQUEST_YAML = ROOT_DIR / "common" / "packet" / "request_format.yml"
+RESPONSE_YAML = ROOT_DIR / "common" / "packet" / "response_format.yml"
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 
 
