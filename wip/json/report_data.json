@@ -1,0 +1,26 @@
+{
+  "011000": {
+    "timestamp": "2025-07-02T09:35:54.344234",
+    "area_code": "011000",
+    "weather_code": 100,
+    "temperature": 25,
+    "precipitation_prob": 30
+  },
+  "130000": {
+    "timestamp": "2025-07-02T09:35:54.364402",
+    "area_code": "130000",
+    "weather_code": 200,
+    "temperature": 22,
+    "precipitation_prob": 60,
+    "alert": "大雨注意報"
+  },
+  "270000": {
+    "timestamp": "2025-07-02T09:35:54.385632",
+    "area_code": "270000",
+    "weather_code": 300,
+    "temperature": 18,
+    "precipitation_prob": 80,
+    "alert": "大雨警報,洪水注意報",
+    "disaster": "河川氾濫危険情報"
+  }
+}
