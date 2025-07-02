@@ -1,365 +1,217 @@
-"""
-WIP Client - Weather Server通信用のシンプルなクライアント
+"""WIP Client - 天気サーバーとの通信を簡潔に行う高水準クライアント"""
 
-NTPモジュールのような設計で、Weather Serverとの通信を簡潔に扱う
-インスタンスが座標とエリアコードの状態を管理し、効率的な通信を提供
-"""
+from __future__ import annotations
 
-import sys
+import logging
 import os
-import time
-from dotenv import load_dotenv
-# commonパッケージのパスを追加
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+from dataclasses import dataclass, asdict
+from typing import Optional, Dict
 
+from dotenv import load_dotenv
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.clients.weather_client import WeatherClient
+
 load_dotenv()
 
+
+@dataclass
+class ServerConfig:
+    """Weather Server の接続設定"""
+
+    host: str = os.getenv("WEATHER_SERVER_HOST", "localhost")
+    port: int = int(os.getenv("WEATHER_SERVER_PORT", 4110))
+
+    def update(self, host: str, port: Optional[int] = None) -> None:
+        self.host = host
+        if port is not None:
+            self.port = port
+
+
+@dataclass
+class ClientState:
+    """クライアントが保持する座標やエリアコード"""
+
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    area_code: Optional[str | int] = None
+
+
 class Client:
-    """WIP Client - Weather Server通信用のシンプルなクライアント（状態管理型）"""
-    
-    def __init__(self, host=os.getenv('WEATHER_SERVER_HOST'), server_port=int(os.getenv('WEATHER_SERVER_PORT')), debug=False,
-                 latitude=None, longitude=None, area_code=None):
-        """
-        初期化
-        
-        Args:
-            host (str): Weather Serverのホスト名またはIPアドレス（デフォルト: 'localhost'）
-            server_port (int): Weather Serverのポート番号（デフォルト: 4110）
-            debug (bool): デバッグモードの有効/無効（デフォルト: False）
-            latitude (float, optional): 初期緯度
-            longitude (float, optional): 初期経度
-            area_code (str, optional): 初期エリアコード
-            
-        Raises:
-            ValueError: 無効なポート番号または初期化失敗時
-            RuntimeError: 環境変数読み込み失敗時
-        """
-        try:
-            if not host:
-                raise ValueError("110: 環境変数読み込み失敗 - WEATHER_SERVER_HOSTが設定されていません")
-                
-            if not 1 <= server_port <= 65535:
-                raise ValueError("112: 無効なポート番号")
-                
-            self.host = host
-            self.server_port = server_port
-            self.debug = debug
-            
-        except ValueError as ve:
-            if self.debug:
-                print(f"初期化エラー: {str(ve)}")
-            raise
-        except Exception as e:
-            if self.debug:
-                print(f"予期せぬ初期化エラー: {str(e)}")
-            raise RuntimeError(f"154: 予期せぬエラー - {str(e)}")
-        
-        # 状態管理用の内部変数
-        self._latitude = latitude
-        self._longitude = longitude
-        self._area_code = area_code
-        
-        # 内部でWeatherClientを使用
+    """WeatherClient をラップした状態管理型クライアント"""
+
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        *,
+        server_config: Optional[ServerConfig] = None,
+        debug: bool = False,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        area_code: Optional[str | int] = None,
+    ) -> None:
+        self.config = server_config or ServerConfig()
+        if host is not None:
+            self.config.host = host
+        if port is not None:
+            self.config.port = port
+        self.debug = debug
+        self.state = ClientState(latitude, longitude, area_code)
+
+        self.logger = logging.getLogger(__name__)
+        if self.debug:
+            logging.basicConfig(level=logging.DEBUG)
+            self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger.setLevel(logging.INFO)
+
+        if not 1 <= self.config.port <= 65535:
+            raise ValueError("112: 無効なポート番号")
+
         try:
             self._weather_client = WeatherClient(
-                host=self.host,
-                port=self.server_port,
-                debug=self.debug
+                host=self.config.host, port=self.config.port, debug=self.debug
             )
-        except Exception as e:
-            raise RuntimeError(f"111: クライアント初期化失敗 - {str(e)}")
-        
+        except Exception as e:  # pragma: no cover
+            raise RuntimeError(f"111: クライアント初期化失敗 - {e}") from e
+
         if self.debug:
-            print(f"WIP Client initialized - Server: {self.host}:{self.server_port}")
-            print(f"Initial state - Latitude: {self._latitude}, Longitude: {self._longitude}, Area Code: {self._area_code}")
-    
+            self.logger.debug(
+                f"WIP Client initialized - Server: {self.config.host}:{self.config.port}"
+            )
+            self.logger.debug(f"Initial state: {self.state}")
+
+    # ---------------------------------------------------------------
+    # プロパティ
+    # ---------------------------------------------------------------
     @property
-    def latitude(self):
-        """緯度を取得"""
-        return self._latitude
-    
+    def latitude(self) -> Optional[float]:
+        return self.state.latitude
+
     @latitude.setter
-    def latitude(self, value):
-        """緯度を設定"""
-        if value != self._latitude:
-            self._latitude = value
-            if self.debug:
-                print(f"Latitude updated: {value}")
-    
+    def latitude(self, value: Optional[float]) -> None:
+        self.state.latitude = value
+        if self.debug:
+            self.logger.debug(f"Latitude updated: {value}")
+
     @property
-    def longitude(self):
-        """経度を取得"""
-        return self._longitude
-    
+    def longitude(self) -> Optional[float]:
+        return self.state.longitude
+
     @longitude.setter
-    def longitude(self, value):
-        """経度を設定"""
-        if value != self._longitude:
-            self._longitude = value
-            if self.debug:
-                print(f"Longitude updated: {value}")
-    
+    def longitude(self, value: Optional[float]) -> None:
+        self.state.longitude = value
+        if self.debug:
+            self.logger.debug(f"Longitude updated: {value}")
+
     @property
-    def area_code(self):
-        """エリアコードを取得"""
-        return self._area_code
-    
+    def area_code(self) -> Optional[str | int]:
+        return self.state.area_code
+
     @area_code.setter
-    def area_code(self, value):
-        """エリアコードを設定（手動設定）"""
-        if value != self._area_code:
-            self._area_code = value
-            if self.debug:
-                print(f"Area code manually updated: {value}")
-    
-    def set_coordinates(self, latitude, longitude):
-        """
-        座標を設定
-        
-        Args:
-            latitude (float): 緯度 (-90 to 90)
-            longitude (float): 経度 (-180 to 180)
-            
-        Raises:
-            ValueError: 無効な座標値の場合
-        """
+    def area_code(self, value: Optional[str | int]) -> None:
+        self.state.area_code = value
+        if self.debug:
+            self.logger.debug(f"Area code updated: {value}")
+
+    # ---------------------------------------------------------------
+    # 公開メソッド
+    # ---------------------------------------------------------------
+    def set_coordinates(self, latitude: float, longitude: float) -> None:
         if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
             raise ValueError("120: 無効な座標値")
-            
-        self._latitude = latitude
-        self._longitude = longitude
-        
+        self.state.latitude = latitude
+        self.state.longitude = longitude
         if self.debug:
-            print(f"Coordinates updated: ({latitude}, {longitude})")
-    
-    def get_weather(self, weather=True, temperature=True, precipitation_prob=True,
-                   alert=False, disaster=False, day=0):
-        """
-        現在の状態（座標またはエリアコード）から天気情報を取得
-        
-        Args:
-            weather (bool): 天気データを取得するか（デフォルト: True）
-            temperature (bool): 気温データを取得するか（デフォルト: True）
-            precipitation_prob (bool): 降水確率データを取得するか（デフォルト: True）
-            alert (bool): 警報データを取得するか（デフォルト: False）
-            disaster (bool): 災害情報データを取得するか（デフォルト: False）
-            day (int): 予報日（0: 今日, 1: 明日, ...）（デフォルト: 0）
-            
-        Returns:
-            dict: 天気情報
-            
-        Raises:
-            ValueError: 必要なデータが未設定の場合 (133)
-            RuntimeError: サーバー接続失敗 (130) またはタイムアウト (131)
-            Exception: その他のエラー (154)
-        """
-        if self._latitude is None and self._longitude is None and self._area_code is None:
+            self.logger.debug(f"Coordinates updated: ({latitude}, {longitude})")
+
+    def get_weather(
+        self,
+        weather: bool = True,
+        temperature: bool = True,
+        precipitation_prob: bool = True,
+        alert: bool = False,
+        disaster: bool = False,
+        day: int = 0,
+    ) -> Optional[Dict]:
+        if (
+            self.state.latitude is None
+            and self.state.longitude is None
+            and self.state.area_code is None
+        ):
             raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
-        
-        # エリアコードが利用可能な場合はエリアコードから取得
-        try:
-            if self._area_code is not None:
-                if self.debug:
-                    print(f"Using area code for weather request: {self._area_code}")
-                result = self._weather_client.get_weather_by_area_code(
-                    area_code=self._area_code,
-                    weather=weather,
-                    temperature=temperature,
-                    precipitation_prob=precipitation_prob,
-                    alert=alert,
-                    disaster=disaster,
-                    day=day
-                )
-            
-            # 座標が利用可能な場合は座標から取得
-            elif self._latitude is not None and self._longitude is not None:
-                if self.debug:
-                    print(f"Using coordinates for weather request: ({self._latitude}, {self._longitude})")
-                result = self._weather_client.get_weather_by_coordinates(
-                    latitude=self._latitude,
-                    longitude=self._longitude,
-                    weather=weather,
-                    temperature=temperature,
-                    precipitation_prob=precipitation_prob,
-                    alert=alert,
-                    disaster=disaster,
-                    day=day
-                )
-            
-            # 座標もエリアコードも設定されていない場合
-            else:
-                if self.debug:
-                    print("Error: No coordinates or area code available")
-                return None
-            
-            # エラーレスポンスの処理
-            if isinstance(result, dict) and result.get('type') == 'error':
-                if self.debug:
-                    print(f"Received error response: {result}")
-                return {
-                    'error_code': result['error_code'],
-                }
-            
-            return result
-            
-        except Exception as e:
-            if self.debug:
-                print(f"Error in get_weather: {str(e)}")
-            return None
-    
-    def get_weather_by_coordinates(self, latitude, longitude, **kwargs):
-        """
-        指定した座標から天気情報を取得（状態を変更せずに一時的に使用）
-        
-        Args:
-            latitude (float): 緯度
-            longitude (float): 経度
-            **kwargs: その他のオプション
-            
-        Returns:
-            dict: 天気情報
-            None: 取得失敗時
-        """
-        return self._weather_client.get_weather_by_coordinates(
-            latitude=latitude,
-            longitude=longitude,
-            **kwargs
-        )
-    
-    def get_weather_by_area_code(self, area_code, **kwargs):
-        """
-        指定したエリアコードから天気情報を取得（状態を変更せずに一時的に使用）
-        
-        Args:
-            area_code (str or int): エリアコード
-            **kwargs: その他のオプション
-            
-        Returns:
-            dict: 天気情報
-            None: 取得失敗時
-        """
-        return self._weather_client.get_weather_by_area_code(
-            area_code=area_code,
-            **kwargs
-        )
-    
-    def get_state(self):
-        """
-        現在の状態を取得
-        
-        Returns:
-            dict: 現在の状態（latitude, longitude, area_code）
-        """
-        return {
-            'latitude': self._latitude,
-            'longitude': self._longitude,
-            'area_code': self._area_code,
-            'host': self.host,
-            'server_port': self.server_port
-        }
-    
-    def set_server(self, host, server_port=None):
-        """
-        Weather Serverの接続情報を変更
-        
-        Args:
-            host (str): 新しいホスト名またはIPアドレス
-            server_port (int, optional): 新しいポート番号（指定なしの場合は変更しない）
-        """
-        self.host = host
-        if server_port is not None:
-            self.server_port = server_port
-            
-        # WeatherClientを再初期化
+
+        if self.state.area_code is not None:
+            result = self._weather_client.get_weather_by_area_code(
+                area_code=self.state.area_code,
+                weather=weather,
+                temperature=temperature,
+                precipitation_prob=precipitation_prob,
+                alert=alert,
+                disaster=disaster,
+                day=day,
+            )
+        else:
+            result = self._weather_client.get_weather_by_coordinates(
+                latitude=self.state.latitude,
+                longitude=self.state.longitude,
+                weather=weather,
+                temperature=temperature,
+                precipitation_prob=precipitation_prob,
+                alert=alert,
+                disaster=disaster,
+                day=day,
+            )
+
+        if isinstance(result, dict) and result.get("type") == "error":
+            return {"error_code": result["error_code"]}
+        return result
+
+    def get_weather_by_coordinates(self, latitude: float, longitude: float, **kwargs) -> Optional[Dict]:
+        return self._weather_client.get_weather_by_coordinates(latitude=latitude, longitude=longitude, **kwargs)
+
+    def get_weather_by_area_code(self, area_code: str | int, **kwargs) -> Optional[Dict]:
+        return self._weather_client.get_weather_by_area_code(area_code=area_code, **kwargs)
+
+    def get_state(self) -> Dict:
+        return {**asdict(self.state), "host": self.config.host, "port": self.config.port}
+
+    def set_server(self, host: str, port: Optional[int] = None) -> None:
+        self.config.update(host, port)
         self._weather_client.close()
-        self._weather_client = WeatherClient(
-            host=self.host,
-            port=self.server_port,
-            debug=self.debug
-        )
-        
+        self._weather_client = WeatherClient(host=self.config.host, port=self.config.port, debug=self.debug)
         if self.debug:
-            print(f"Server updated - New server: {self.host}:{self.server_port}")
-    
-    def close(self):
-        """
-        クライアントを終了し、リソースを解放
-        """
+            self.logger.debug(f"Server updated - New server: {self.config.host}:{self.config.port}")
+
+    # ---------------------------------------------------------------
+    # コンテキストマネージャ対応
+    # ---------------------------------------------------------------
+    def close(self) -> None:
         self._weather_client.close()
         if self.debug:
-            print("WIP Client closed")
+            self.logger.debug("WIP Client closed")
+
+    def __enter__(self) -> "Client":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
 
 
-def main():
-    """使用例"""
+# ---------------------------------------------------------------------------
+# 使用例
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
     print("WIP Client Example (State Management)")
     print("=" * 50)
-    
-    # 1. 状態管理型の使用例
-    print("\n1. State management example")
-    print("-" * 30)
-    
-    client = Client(debug=True)
-    
-    try:
-        # 座標を設定
+
+    with Client(debug=True) as client:
         client.set_coordinates(latitude=35.6895, longitude=139.6917)
-        
-        # 状態から天気情報を取得
         result = client.get_weather()
-        
         if result:
             print("✓ Success!")
-            print(f"Area Code: {result['area_code']}")
-            print(f"Timestamp: {time.ctime(result['timestamp'])}")
-            if 'weather_code' in result:
-                print(f"Weather Code: {result['weather_code']}")
-            if 'temperature' in result:
-                print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation_prob' in result:
-                print(f"precipitation_prob: {result['precipitation_prob']}%")
+            print(result)
         else:
             print("✗ Failed to get weather data")
-        
-        # 状態確認
-        state = client.get_state()
-        print(f"\nCurrent state: {state}")
-        
-    finally:
-        client.close()
-    
-    # 2. エリアコード手動設定例
-    print("\n\n2. Manual area code setting example")
-    print("-" * 30)
-    
-    client = Client(debug=True)
-    
-    try:
-        # エリアコードを手動設定
-        client.area_code = "011000"  # 札幌
-        
-        # 状態から天気情報を取得
-        result = client.get_weather()
-        
-        if result:
-            print("✓ Success!")
-            print(f"Area Code: {result['area_code']}")
-            if 'weather_code' in result:
-                print(f"Weather Code: {result['weather_code']}")
-            if 'temperature' in result:
-                print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation_prob' in result:
-                print(f"precipitation_prob: {result['precipitation_prob']}%")
-        else:
-            print("✗ Failed to get weather data")
-            
-    finally:
-        client.close()
-    
-    print("\n" + "="*50)
-    print("Example completed")
-
-
-if __name__ == "__main__":
-    main()

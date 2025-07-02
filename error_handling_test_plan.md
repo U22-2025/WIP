@@ -25,7 +25,7 @@ def test_error_response_serialization():
     packet = ErrorResponse()
     packet.packet_id = 123
     packet.error_code = 0x0001
-    packet.ex_field.set('source_ip', '192.168.1.1')
+    packet.ex_field.set('source', '192.168.1.1')
     
     serialized = packet.serialize()
     new_packet = ErrorResponse()
@@ -33,7 +33,7 @@ def test_error_response_serialization():
     
     assert new_packet.packet_id == 123
     assert new_packet.error_code == 0x0001
-    assert new_packet.ex_field.get('source_ip') == '192.168.1.1'
+    assert new_packet.ex_field.get('source') == '192.168.1.1'
 ```
 
 #### `WIP_Server/servers/base_server.py`
@@ -49,7 +49,7 @@ def test_handle_error_packet_creation():
     # 送信されたパケットの内容を検証
     assert sent_packet.type == 7
     assert sent_packet.error_code == 0x0003
-    assert sent_packet.ex_field.get('source_ip') == '192.168.1.100'
+    assert sent_packet.ex_field.get('source') == '192.168.1.100'
 ```
 
 ### 4.2 統合テスト
@@ -68,8 +68,8 @@ def test_handle_error_packet_creation():
 ```gherkin
 シナリオ: 天気サーバー経由のエラーパケット転送
   前提 WeatherServerがエラーパケットを受信している
-  かつ パケットにsource_ipフィールドが含まれている
-  ならば WeatherServerが指定されたsource_ipにエラーパケットを転送する
+  かつ パケットにsourceフィールドが含まれている
+  ならば WeatherServerが指定されたsourceにエラーパケットを転送する
 ```
 
 ### 4.3 例外ケーステスト
@@ -83,7 +83,7 @@ def test_handle_error_packet_creation():
    - テスト手法: packet_id=Noneのモックパケットを使用
 
 3. **拡張フィールド異常ケース**:
-   - source_ipが15文字を超える場合の挙動検証
+   - sourceが15文字を超える場合の挙動検証
    - テスト手法: 長いIPアドレス(IPv6など)を渡してテスト
 
 ### 4.4 パフォーマンステスト

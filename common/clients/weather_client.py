@@ -357,9 +357,6 @@ def main():
         else:
             logger.error("\n✗ Failed to get weather data")
         
-        # 例2: エリアコードから天気情報を取得
-        self.logger.info("\n\n2. Getting weather by area code (Sapporo: 011000)")
-        self.logger.info("-" * 30)
         
         result = client.get_weather_by_area_code(
             area_code="011000",
@@ -371,21 +368,21 @@ def main():
         )
         
         if result:
-            self.logger.info("\n✓ Success!")
-            self.logger.info(f"Area Code: {result.get('area_code')}")
-            self.logger.info(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
+            logger.info("\n✓ Success!")
+            logger.info(f"Area Code: {result.get('area_code')}")
+            logger.info(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
             if 'weather_code' in result:
-                self.logger.info(f"Weather Code: {result['weather_code']}")
+                logger.info(f"Weather Code: {result['weather_code']}")
             if 'temperature' in result:
-                self.logger.info(f"Temperature: {result['temperature']}°C")
+                logger.info(f"Temperature: {result['temperature']}°C")
             if 'precipitation_prob' in result:
-                self.logger.info(f"precipitation_prob: {result['precipitation_prob']}%")
+                logger.info(f"precipitation_prob: {result['precipitation_prob']}%")
             if 'alert' in result:
-                self.logger.info(f"Alert: {result['alert']}")
+                logger.info(f"Alert: {result['alert']}")
             if 'disaster' in result:
-                self.logger.info(f"Disaster Info: {result['disaster']}")
+                logger.info(f"Disaster Info: {result['disaster']}")
         else:
-            self.logger.error("\n✗ Failed to get weather data")
+            logger.error("\n✗ Failed to get weather data")
             
     finally:
         client.close()
