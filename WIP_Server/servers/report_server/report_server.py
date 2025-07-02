@@ -7,7 +7,6 @@ import time
 import sys
 import os
 import threading
-import json
 from datetime import datetime
 from pathlib import Path
 import traceback
