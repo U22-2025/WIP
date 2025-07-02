@@ -1,0 +1,86 @@
+{
+  "metadata": {
+    "description": "WIPプロトコルエラーコード定義",
+    "version": "1.0",
+    "last_updated": "2025-07-02"
+  },
+  "client_errors": {
+    "400": {
+      "message": "不正なパケット",
+      "description": "クライアントエラー: 不正なパケット"
+    },
+    "401": {
+      "message": "無効な座標",
+      "description": "クライアントエラー: 無効な座標"
+    },
+    "402": {
+      "message": "無効な地域コード",
+      "description": "クライアントエラー: 無効な地域コード"
+    },
+    "403": {
+      "message": "無効なバージョン",
+      "description": "クライアントエラー: 無効なバージョン"
+    },
+    "404": {
+      "message": "不正なパケットサイズ",
+      "description": "クライアントエラー: 不正なパケットサイズ"
+    },
+    "405": {
+      "message": "不正なパケットタイプ",
+      "description": "クライアントエラー: 不正なパケットタイプ"
+    }
+  },
+  "connection_errors": {
+    "410": {
+      "message": "座標解決サーバが見つからない",
+      "description": "クライアントエラー: 座標解決サーバが見つからない",
+      "server_type": "location_server"
+    },
+    "411": {
+      "message": "座標解決サーバ接続タイムアウト",
+      "description": "クライアントエラー: 座標解決サーバ接続タイムアウト",
+      "server_type": "location_server"
+    },
+    "420": {
+      "message": "クエリサーバが見つからない",
+      "description": "クライアントエラー: クエリサーバが見つからない",
+      "server_type": "query_server"
+    },
+    "421": {
+      "message": "クエリサーバ接続タイムアウト",
+      "description": "クライアントエラー: クエリサーバ接続タイムアウト",
+      "server_type": "query_server"
+    },
+    "430": {
+      "message": "気象サーバが見つからない",
+      "description": "クライアントエラー: 気象サーバが見つからない",
+      "server_type": "weather_server"
+    },
+    "431": {
+      "message": "気象サーバ接続タイムアウト",
+      "description": "クライアントエラー: 気象サーバ接続タイムアウト",
+      "server_type": "weather_server"
+    }
+  },
+  "server_errors": {
+    "510": {
+      "message": "座標解決サーバでの処理エラー",
+      "description": "サーバエラー: 座標解決サーバでの処理エラー",
+      "server_type": "location_server"
+    },
+    "520": {
+      "message": "クエリサーバでの処理エラー",
+      "description": "サーバエラー: クエリサーバでの処理エラー",
+      "server_type": "query_server"
+    },
+    "530": {
+      "message": "気象サーバでの処理エラー",
+      "description": "サーバエラー: 気象サーバでの処理エラー",
+      "server_type": "weather_server"
+    }
+  },
+  "error_categories": {
+    "4xx": "クライアントエラー",
+    "5xx": "サーバエラー"
+  }
+}

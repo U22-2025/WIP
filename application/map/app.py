@@ -66,18 +66,18 @@ def get_address_from_coordinates(lat, lng):
 def index():
     return render_template('map.html')  # 上のHTMLを templates/map.html に保存
 
+# JSONファイル配置ディレクトリ
+JSON_DIR = Path(__file__).resolve().parents[2] / 'wip' / 'json'
+
 # 天気コードJSONを提供するルート
 @app.route('/weather_code.json')
 def weather_code():
-    return send_from_directory('templates', 'weather_code.json')
+    return send_from_directory(JSON_DIR, 'weather_code.json')
 
 # エラーコードJSONを提供するルート
-# error_code.json の配置ディレクトリ
-ERROR_CODE_DIR = Path(__file__).resolve().parents[2] / 'common' / 'packet'
-
 @app.route('/error_code.json')
 def error_code_json():
-    return send_from_directory(ERROR_CODE_DIR, 'error_code.json')
+    return send_from_directory(JSON_DIR, 'error_code.json')
 
 @app.route('/click', methods=['POST'])
 def click():
