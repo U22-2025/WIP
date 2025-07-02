@@ -137,6 +137,10 @@ print(restored.to_dict())
 `extended_fields.yml` を編集することで拡張フィールドの種類を自由に
 追加・変更できます。
 
+### 動的パケットクラスの利用
+`DynamicWeatherRequest` などのクラスを使うと YAML 定義を参照したパケットオブジェクトを簡単に利用できます。 `DynamicLocationRequest`, `DynamicQueryResponse` なども利用可能です。
+
+
 ## インストール・セットアップ
 
 ### 必要環境
