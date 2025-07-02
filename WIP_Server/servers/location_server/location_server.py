@@ -142,7 +142,7 @@ class LocationServer(BaseServer):
         dyn = DynamicFormat.from_bytes(str(REQUEST_YAML), data)
         if dyn.values.get("type") == 7:
             return ErrorResponse.from_bytes(data)
-        return Request(bitstr=dyn.to_bits())
+        return Request.from_bytes(dyn.to_bytes())
 
     def handle_request(self, data, addr):
         """エラーパケットを中継"""

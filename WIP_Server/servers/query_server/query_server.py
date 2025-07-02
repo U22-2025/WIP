@@ -121,7 +121,7 @@ class QueryServer(BaseServer):
             Request: パースされたリクエスト
         """
         dyn = DynamicFormat.from_bytes(str(REQUEST_YAML), data)
-        return Request(bitstr=dyn.to_bits())
+        return Request.from_bytes(dyn.to_bytes())
     
     def validate_request(self, request):
         """
