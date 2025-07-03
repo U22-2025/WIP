@@ -193,13 +193,16 @@ client.close()
 #### コマンドライン実行
 ```bash
 # クライアントのテスト実行
-python -m wip.clients.weather_client
+python -m common.clients.weather_client
 
 # 座標解決のテスト
-python -m wip.clients.location_client
+python -m common.clients.location_client
 
 # 気象データクエリのテスト
-python -m wip.clients.query_client
+python -m common.clients.query_client
+
+# センサーデータレポートのテスト
+python -m common.clients.report_client
 ```
 
 ## データ形式

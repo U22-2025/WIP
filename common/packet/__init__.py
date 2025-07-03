@@ -27,7 +27,7 @@ from .report_packet import ReportRequest, ReportResponse  # レポートパケ�
 from .error_response import ErrorResponse  # エラーパケット追加
 
 # Note: ReportClientは循環インポートを避けるため、直接インポートしてください
-# from common.packet.report_client import ReportClient
+# from common.clients.report_client import ReportClient
 
 __version__ = "1.1.0"
 __all__ = [
@@ -49,5 +49,5 @@ __all__ = [
     "ReportResponse",  # レポートパケット追加
     "ErrorResponse",  # エラーパケット追加
     # Note: ReportClientは循環インポートを避けるため、__all__に含めません
-    # 直接インポート: from common.packet.report_client import ReportClient
+    # 直接インポート: from common.clients.report_client import ReportClient
 ]
