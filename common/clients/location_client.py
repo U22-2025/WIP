@@ -20,8 +20,12 @@ load_dotenv()
 
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
-    
-    def __init__(self, host=os.getenv('LOCATION_RESOLVER_HOST'), port=int(os.getenv('LOCATION_RESOLVER_PORT')), debug=False):
+
+    def __init__(self, host=None, port=None, debug=False):
+        if host is None:
+            host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
+        if port is None:
+            port = int(os.getenv('LOCATION_RESOLVER_PORT', '4111'))
         """
         初期化
         
