@@ -161,10 +161,11 @@ class WeatherClient:
             start_time = time.time()
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
+            request_packet_id = self.PIDG.next_id()
             request = WeatherRequest.create_by_coordinates(
                 latitude=latitude,
                 longitude=longitude,
-                packet_id=self.PIDG.next_id(),
+                packet_id=request_packet_id,
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
@@ -192,6 +193,7 @@ class WeatherClient:
                 
                 if response.is_success():
                     result = response.get_weather_data()
+                    result['packet_id'] = response.packet_id
                     
                     total_time = time.time() - start_time
                     if self.debug:
@@ -253,9 +255,10 @@ class WeatherClient:
             start_time = time.time()
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
+            request_packet_id = self.PIDG.next_id()
             request = WeatherRequest.create_by_area_code(
                 area_code=area_code,
-                packet_id=self.PIDG.next_id(),
+                packet_id=request_packet_id,
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
@@ -283,6 +286,7 @@ class WeatherClient:
                 
                 if response.is_success():
                     result = response.get_weather_data()
+                    result['packet_id'] = response.packet_id
                     
                     total_time = time.time() - start_time
                     if self.debug:

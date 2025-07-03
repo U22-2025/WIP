@@ -154,8 +154,10 @@ def weekly_forecast():
     # day=0（今日）を座標から取得してエリアコードを取得
     client.set_coordinates(lat, lng)
 
+    packet_ids = {}
     try:
         today_weather = client.get_weather(day=0)
+        packet_ids[0] = today_weather.get('packet_id')
         if not today_weather:
             return jsonify({'status': 'error', 'message': '今日の天気データの取得に失敗しました'}), 500
 
@@ -185,12 +187,14 @@ def weekly_forecast():
         """エリアコードを使って指定された日の天気データを取得する関数（day=1~6用）"""
         try:
             weather_result = client.get_weather_by_area_code(area_code=area_code, day=day)
+            packet_ids[day] = weather_result.get('packet_id') if weather_result else None
             if weather_result and not ('error_code' in weather_result):
                 # 日付情報を追加
                 date = datetime.now() + timedelta(days=day)
                 weather_result['date'] = date.strftime('%Y-%m-%d')
                 weather_result['day_of_week'] = date.strftime('%A')
                 weather_result['day_number'] = day
+                weather_result['packet_id'] = packet_ids[day]
                 return weather_result
             else:
                 # エラーの場合はダミーデータを返す
@@ -202,7 +206,8 @@ def weekly_forecast():
                     'weather_code': '100',
                     'temperature': '--',
                     'precipitation_prob': '--',
-                    'area_code': area_code
+                    'area_code': area_code,
+                    'packet_id': packet_ids.get(day)
                 }
         except Exception as e:
             print(f"Error getting weather for day {day} with area code {area_code}: {e}")
@@ -215,7 +220,8 @@ def weekly_forecast():
                 'weather_code': '100',
                 'temperature': '--',
                 'precipitation_prob': '--',
-                'area_code': area_code
+                'area_code': area_code,
+                'packet_id': packet_ids.get(day)
             }
     
     # 明日以降（day=1~6）を並列でエリアコードから取得
@@ -242,7 +248,8 @@ def weekly_forecast():
                     'weather_code': '100',
                     'temperature': '--',
                     'precipitation_prob': '--',
-                    'area_code': area_code
+                    'area_code': area_code,
+                    'packet_id': packet_ids.get(day)
                 }
     
     forecast_dict = {data['day_number']: data for data in weekly_data}
