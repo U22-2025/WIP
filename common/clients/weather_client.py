@@ -6,6 +6,7 @@ Weather Serverプロキシと通信するクライアント
 import socket
 import time
 import logging
+import threading
 from datetime import datetime
 import sys
 import os
@@ -42,6 +43,8 @@ class WeatherClient:
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
         self.PIDG = PacketIDGenerator12Bit()
+        self._lock = threading.Lock()
+        self._pending: dict[int, bytes] = {}
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -136,6 +139,28 @@ class WeatherClient:
         self.logger.debug("\nRaw Packet:")
         self.logger.debug(self._hex_dump(response.to_bytes()))
         self.logger.debug("==============================\n")
+
+    def _receive_matching_response(self, packet_id: int, timeout: float = 10.0) -> bytes:
+        """指定したパケットIDのレスポンスを受信する"""
+        end_time = time.time() + timeout
+        while True:
+            with self._lock:
+                if packet_id in self._pending:
+                    return self._pending.pop(packet_id)
+
+            remaining = end_time - time.time()
+            if remaining <= 0:
+                raise socket.timeout
+
+            self.sock.settimeout(remaining)
+            data, _ = self.sock.recvfrom(1024)
+            recv_id = (int.from_bytes(data[0:2], byteorder='little') >> 4) & 0xFFF
+
+            with self._lock:
+                if recv_id == packet_id:
+                    return data
+                else:
+                    self._pending[recv_id] = data
         
     def get_weather_by_coordinates(self, latitude, longitude, 
                                   weather=True, temperature=True, 
@@ -161,10 +186,11 @@ class WeatherClient:
             start_time = time.time()
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
+            packet_id = self.PIDG.next_id()
             request = WeatherRequest.create_by_coordinates(
                 latitude=latitude,
                 longitude=longitude,
-                packet_id=self.PIDG.next_id(),
+                packet_id=packet_id,
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
@@ -178,9 +204,9 @@ class WeatherClient:
             
             # リクエスト送信
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
-            
-            # レスポンスを受信
-            response_data, addr = self.sock.recvfrom(1024)
+
+            # レスポンスを受信（packet_idを確認）
+            response_data = self._receive_matching_response(packet_id)
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
@@ -253,9 +279,10 @@ class WeatherClient:
             start_time = time.time()
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
+            packet_id = self.PIDG.next_id()
             request = WeatherRequest.create_by_area_code(
                 area_code=area_code,
-                packet_id=self.PIDG.next_id(),
+                packet_id=packet_id,
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
@@ -269,9 +296,9 @@ class WeatherClient:
             
             # リクエスト送信
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
-            
-            # レスポンスを受信
-            response_data, addr = self.sock.recvfrom(1024)
+
+            # レスポンスを受信（packet_idを確認）
+            response_data = self._receive_matching_response(packet_id)
             self.logger.debug(response_data)
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
