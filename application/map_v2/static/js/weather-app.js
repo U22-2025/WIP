@@ -385,7 +385,6 @@ class WeatherApp {
 
                 // 現在の天気情報を表示
                 this.displayWeatherInfo(currentWeatherData, lat, lng);
-                this.fetchDisasterInfo(lat, lng);
                 if (this.currentMarker) {
                     this.currentMarker.bindPopup(this.createPopupContent(currentWeatherData, lat, lng)).openPopup();
                 }
@@ -667,14 +666,6 @@ class WeatherApp {
             });
         }
 
-        const disasterBtn = document.getElementById("disaster-btn");
-        if (disasterBtn) {
-            disasterBtn.addEventListener("click", () => {
-                if (this.currentLat && this.currentLng) {
-                    this.fetchDisasterInfo(this.currentLat, this.currentLng);
-                }
-            });
-        }
         // ウィンドウリサイズ
         window.addEventListener('resize', () => {
             if (this.map) {
@@ -1279,46 +1270,6 @@ class WeatherApp {
         weeklyDataContainer.innerHTML = errorHTML;
         weeklyDataContainer.style.display = 'block';
         this.weeklyDataForChart = null;
-    }
-    // 災害情報を取得
-    async fetchDisasterInfo(lat, lng) {
-        try {
-            const response = await fetch('/disaster_info', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: lat, lng: lng })
-            });
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            console.log('災害情報データ:', data);
-            if (data.status === 'ok' && data.disaster) {
-                this.displayDisasterInfo(data.disaster);
-            } else {
-                this.displayDisasterInfo([]);
-            }
-        } catch (error) {
-            console.error('災害情報取得エラー:', error);
-            this.displayDisasterInfo([]);
-        }
-    }
-
-    displayDisasterInfo(disasterList) {
-        const container = document.getElementById('disaster-info');
-        if (!container) return;
-        if (disasterList && disasterList.length > 0) {
-            let html = '<ul>';
-            disasterList.forEach(d => {
-                html += `<li>${d}</li>`;
-            });
-            html += '</ul>';
-            container.innerHTML = html;
-            container.style.display = 'block';
-        } else {
-            container.innerHTML = '<p>災害情報はありません</p>';
-            container.style.display = 'block';
-        }
     }
 }
 
