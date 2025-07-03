@@ -10,8 +10,11 @@ from pathlib import Path
 
 # プロジェクトルートを追加
 sys.path.insert(0, str(Path(__file__).parent))
+# テスト実行用のデフォルト環境変数を設定
+os.environ.setdefault('LOCATION_RESOLVER_HOST', 'localhost')
+os.environ.setdefault('LOCATION_RESOLVER_PORT', '4111')
 
-from common.packet.report_client import ReportClient
+from common.clients.report_client import ReportClient
 
 def test_report_via_weather_server():
     """weather_server経由でreport_serverにデータ送信をテスト"""
