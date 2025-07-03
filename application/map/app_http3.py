@@ -243,11 +243,13 @@ async def weekly_forecast():
         return weekly_data
     
     weekly_data = await get_weekly_data()
-    
+
+    forecast_dict = {data['day_number']: data for data in weekly_data}
+
     return jsonify({
         'status': 'ok',
         'coordinates': {'lat': lat, 'lng': lng},
-        'weekly_forecast': weekly_data
+        'weekly_forecast': forecast_dict
     })
 
 if __name__ == '__main__':
