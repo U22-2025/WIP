@@ -20,7 +20,6 @@ from .request import Request
 from .response import Response
 
 # 専用パケットクラス
-from .weather_packet import WeatherRequest, WeatherResponse
 from .location_packet import LocationRequest, LocationResponse
 from .query_packet import QueryRequest, QueryResponse
 from .report_packet import ReportRequest, ReportResponse  # レポートパケット追加

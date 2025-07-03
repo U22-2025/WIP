@@ -1,23 +1,6 @@
 import unittest
-from common.packet.weather_packet import WeatherRequest, WeatherResponse
 from common.packet.location_packet import LocationRequest, LocationResponse
 from common.packet.query_packet import QueryRequest, QueryResponse
-
-class TestWeatherPacket(unittest.TestCase):
-    def test_request_and_restore(self):
-        req = WeatherRequest.create_by_coordinates(
-            latitude=35.6895,
-            longitude=139.6917,
-            packet_id=123,
-            weather=True,
-            temperature=True,
-            precipitation_prob=True
-        )
-        data = req.to_bytes()
-        restored = WeatherRequest.from_bytes(data)
-        self.assertEqual(restored.type, req.type)
-        self.assertAlmostEqual(restored.ex_field.latitude, 35.6895)
-        self.assertAlmostEqual(restored.ex_field.longitude, 139.6917)
 
 class TestLocationPacket(unittest.TestCase):
     def test_create_and_response(self):
@@ -45,7 +28,7 @@ class TestQueryPacket(unittest.TestCase):
         }
         resp = QueryResponse.create_weather_data_response(request=req, weather_data=weather_data)
         self.assertEqual(resp.get_weather_code(), 100)
-        self.assertEqual(resp.get_temperature_celsius(), 25)
+        self.assertEqual(resp.get_temperature(), 25)
 
 if __name__ == '__main__':
     unittest.main()

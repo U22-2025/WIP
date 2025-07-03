@@ -3,10 +3,11 @@
 従来のRequest/Responseクラスと新しい専用クラスの使いやすさを比較
 """
 from datetime import datetime
-from .weather_packet import WeatherRequest, WeatherResponse
 from .request import Request
 from .response import Response
 from ..clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from location_packet import LocationRequest, LocationResponse
+from query_packet import QueryRequest,QueryResponse
 
 # パケットIDジェネレーター
 PIDG = PacketIDGenerator12Bit()
@@ -67,7 +68,7 @@ def modern_usage_example():
     print("\n=== 新しい専用クラスの使用方法 ===")
     
     # 座標から天気情報を取得（新方式）
-    weather_req = WeatherRequest.create_by_coordinates(
+    location_req = LocationRequest.create_coordinate_lookup(
         latitude=35.6895,
         longitude=139.6917,
         packet_id=PIDG.next_id(),
@@ -76,13 +77,13 @@ def modern_usage_example():
         precipitation_prob=True
     )
     
-    print("新しいWeatherRequest作成:")
+    print("新しいLocationRequest作成:")
     print(f"  コード行数: 7行 (半分以下！)")
-    print(f"  Type: {weather_req.type}")
-    print(f"  Summary: {weather_req.get_request_summary()}")
+    print(f"  Type: {location_req.type}")
+    print(f"  Summary: {location_req.get_request_summary()}")
     
     # エリアコードから天気情報を取得（新方式）
-    weather_req2 = WeatherRequest.create_by_area_code(
+    weather_req2 = QueryRequest.create_query_request(
         area_code="011000",
         packet_id=PIDG.next_id(),
         weather=True,
@@ -133,10 +134,10 @@ def response_processing_example():
     
     # バイト列に変換して新しいクラスで処理
     response_bytes = sample_response.to_bytes()
-    weather_resp = WeatherResponse.from_bytes(response_bytes)
+    weather_resp = QueryResponse.from_bytes(response_bytes)
     
     print(f"\n新しいWeatherResponse処理:")
-    print(f"  気温: {weather_resp.get_temperature_celsius()}℃ (自動変換)")
+    print(f"  気温: {weather_resp.get_temperature()}℃ (自動変換)")
     print(f"  天気コード: {weather_resp.get_weather_code()}")
     print(f"  降水確率: {weather_resp.get_precipitation_prob()}%")
     print(f"  警報: {weather_resp.get_alerts()}")
@@ -152,7 +153,7 @@ def client_integration_example():
     def create_weather_request_easily(lat, lon, options=None):
         """簡単な天気リクエスト作成"""
         options = options or {}
-        return WeatherRequest.create_by_coordinates(
+        return LocationRequest.create_coordinate_lookup(
             latitude=lat,
             longitude=lon,
             packet_id=PIDG.next_id(),
@@ -180,7 +181,7 @@ def compatibility_test():
     print("\n=== 互換性テスト ===")
     
     # 新しいクラスで作成したパケットが従来のクラスで読める
-    weather_req = WeatherRequest.create_by_coordinates(
+    weather_req = LocationRequest.create_coordinate_lookup(
         latitude=35.6895,
         longitude=139.6917,
         packet_id=999,
@@ -211,7 +212,7 @@ def compatibility_test():
     )
     
     old_bytes = old_req.to_bytes()
-    new_weather_req = WeatherRequest.from_bytes(old_bytes)
+    new_weather_req = Request.from_bytes(old_bytes)
     
     print(f"\n従来→新 互換性:")
     print(f"  Summary: {new_weather_req.get_request_summary()}")

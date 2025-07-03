@@ -23,8 +23,12 @@ class LocationRequest(Request):
         longitude: float,
         *,
         packet_id: int,
+        weather: bool = True,
+        temperature: bool = True,
+        precipitation_prob: bool = True,
+        alert: bool = False,
+        disaster: bool = False,
         source: Optional[tuple[str, int]] = None,
-        preserve_flags: Optional[Dict[str, int]] = None,
         day: int = 0,
         version: int = 1
     ) -> 'LocationRequest':
@@ -35,8 +39,12 @@ class LocationRequest(Request):
             latitude: 緯度
             longitude: 経度
             packet_id: パケットID
+            weather: 天気データを取得するか
+            temperature: 気温データを取得するか
+            precipitation_prob: 降水確率データを取得するか
+            alert: 警報データを取得するか
+            disaster: 災害情報データを取得するか
             source: 送信元情報 (ip, port) のタプル
-            preserve_flags: 元のリクエストのフラグを保持
             day: 予報日
             version: プロトコルバージョン
             
@@ -44,17 +52,16 @@ class LocationRequest(Request):
             LocationRequestインスタンス
             
         Examples:
-            >>> # プロキシサーバーでの使用例
+            >>> # クライアントでの使用例
             >>> request = LocationRequest.create_coordinate_lookup(
             ...     latitude=35.6895,
             ...     longitude=139.6917,
             ...     packet_id=123,
-            ...     source=("192.168.1.100", 12345),
-            ...     preserve_flags={
-            ...         'weather_flag': 1,
-            ...         'temperature_flag': 1,
-            ...         'pop_flag': 1
-            ...     }
+            ...     weather=True,
+            ...     temperature=True,
+            ...     precipitation_prob=True,
+            ...     alert=False,
+            ...     disaster=False
             ... )
         """
         # 拡張フィールドを準備
@@ -67,66 +74,20 @@ class LocationRequest(Request):
         if source:
             ex_field["source"] = source
         
-        # フラグを設定（preserve_flagsがある場合はそれを使用、なければデフォルト）
-        flags = preserve_flags or {}
-        
         return cls(
             version=version,
             packet_id=packet_id,
             type=0,  # 座標解決リクエスト
-            weather_flag=flags.get('weather_flag', 0),
-            temperature_flag=flags.get('temperature_flag', 0),
-            pop_flag=flags.get('pop_flag', 0),
-            alert_flag=flags.get('alert_flag', 0),
-            disaster_flag=flags.get('disaster_flag', 0),
+            weather_flag=1 if weather else 0,
+            temperature_flag=1 if temperature else 0,
+            pop_flag=1 if precipitation_prob else 0,
+            alert_flag=1 if alert else 0,
+            disaster_flag=1 if disaster else 0,
             ex_flag=1,  # 拡張フィールドを使用
             day=day,
             timestamp=int(datetime.now().timestamp()),
             ex_field=ex_field
         )
-    
-    @classmethod
-    def from_weather_request(
-        cls,
-        weather_request: Request,
-        source: Optional[tuple[str, int]] = None
-    ) -> 'LocationRequest':
-        """
-        WeatherRequestからLocationRequestを作成
-        
-        Args:
-            weather_request: 元のWeatherRequest（Type 0）
-            source: 追加する送信元情報 (ip, port) のタプル
-            
-        Returns:
-            LocationRequestインスタンス
-        """
-        # 元のリクエストの拡張フィールドを取得
-        latitude = weather_request.ex_field.latitude if weather_request.ex_field else None
-        longitude = weather_request.ex_field.longitude if weather_request.ex_field else None
-        
-        if latitude is None or longitude is None:
-            raise ValueError("Weather request must contain latitude and longitude")
-        
-        # フラグを保持
-        preserve_flags = {
-            'weather_flag': weather_request.weather_flag,
-            'temperature_flag': weather_request.temperature_flag,
-            'pop_flag': weather_request.pop_flag,
-            'alert_flag': weather_request.alert_flag,
-            'disaster_flag': weather_request.disaster_flag
-        }
-        
-        return cls.create_coordinate_lookup(
-            latitude=latitude,
-            longitude=longitude,
-            packet_id=weather_request.packet_id,
-            source=source,
-            preserve_flags=preserve_flags,
-            day=weather_request.day,
-            version=weather_request.version
-        )
-    
     
     def get_source_info(self) -> Optional[tuple[str, int]]:
         """
@@ -219,60 +180,6 @@ class LocationResponse(Response):
             return self.ex_field.source
         return None
     
-    
-    def get_preserved_flags(self) -> Dict[str, int]:
-        """
-        保持されたフラグ情報を取得
-        
-        Returns:
-            フラグ情報の辞書
-        """
-        return {
-            'weather_flag': self.weather_flag,
-            'temperature_flag': self.temperature_flag,
-            'pop_flag': self.pop_flag,
-            'alert_flag': self.alert_flag,
-            'disaster_flag': self.disaster_flag
-        }
-    
-    def to_weather_request(self, request_type: int = 2) -> Request:
-        """
-        このLocationResponseからWeatherRequest（Type 2）を生成
-
-        Args:
-            request_type: リクエストタイプ（通常は2）
-            
-        Returns:
-            新しいRequestインスタンス
-        """
-        # 拡張フィールドの準備
-        ex_field = {}
-        source = self.get_source_info()
-        if source:
-            ex_field["source"] = source
-        
-        # 座標情報を確実に引き継ぐ
-        coordinates = self.get_coordinates()
-        if coordinates:
-            ex_field["latitude"] = coordinates[0]
-            ex_field["longitude"] = coordinates[1]
-        
-        return Request(
-            version=self.version,
-            packet_id=self.packet_id,
-            type=request_type,
-            weather_flag=self.weather_flag,
-            temperature_flag=self.temperature_flag,
-            pop_flag=self.pop_flag,
-            alert_flag=self.alert_flag,
-            disaster_flag=self.disaster_flag,
-            ex_flag=1 if ex_field else 0,
-            day=self.day,
-            timestamp=int(datetime.now().timestamp()),
-            area_code=self.area_code,
-            ex_field=ex_field if ex_field else None
-        )
-    
     def is_valid(self) -> bool:
         """
         レスポンスが有効かどうかを判定
@@ -303,5 +210,10 @@ class LocationResponse(Response):
             'area_code': self.get_area_code(),
             'packet_id': self.packet_id,
             'source': self.get_source_info(),
-            'preserved_flags': self.get_preserved_flags()
+            'weather_flag': bool(self.weather_flag),
+            'temperature_flag': bool(self.temperature_flag),
+            'pop_flag': bool(self.pop_flag),
+            'alert_flag': bool(self.alert_flag),
+            'disaster_flag': bool(self.disaster_flag),
+            'ex_flag': bool(self.ex_flag)
         }

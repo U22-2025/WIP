@@ -19,7 +19,6 @@ common/packet/
 ├── format.py
 ├── request.py
 ├── response.py
-├── weather_packet.py
 ├── location_packet.py
 ├── query_packet.py
 ├── example_usage.py
@@ -39,7 +38,7 @@ common/packet/
   クラスを実装します。
 - **format.py**: 最小限のパケット処理を提供する `Format` クラスです。
 - **request.py** / **response.py**: 基本的なリクエスト／レスポンスパケットを実装します。
-- **weather_packet.py**, **location_packet.py**, **query_packet.py**:
+- **location_packet.py**, **query_packet.py**:
   上記 Request/Response を継承した用途別のパケットクラス群です。
 - **error_response.py**: エラー情報を返す専用レスポンスです。
 - **debug_extended_bits.py** / **example_usage.py** / **test_*.py**:

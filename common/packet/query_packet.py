@@ -17,7 +17,7 @@ class QueryRequest(Request):
     """
     
     @classmethod
-    def create_weather_data_request(
+    def create_query_request(
         cls,
         area_code: Union[str, int],
         *,
@@ -50,7 +50,7 @@ class QueryRequest(Request):
             QueryRequestインスタンス
             
         Examples:
-            >>> # プロキシサーバーでの使用例
+            >>> # クライアントでの使用例
             >>> request = QueryRequest.create_weather_data_request(
             ...     area_code="011000",
             ...     packet_id=123,
@@ -105,7 +105,7 @@ class QueryRequest(Request):
         # source情報を取得（引数優先）
         final_source = source or location_response.get_source_info()
         
-        return cls.create_weather_data_request(
+        return cls.create_query_request(
             area_code=location_response.area_code,
             packet_id=location_response.packet_id,
             weather=bool(location_response.weather_flag),
@@ -116,43 +116,6 @@ class QueryRequest(Request):
             day=location_response.day,
             source=final_source,
             version=location_response.version
-        )
-    
-    @classmethod
-    def from_weather_request(
-        cls,
-        weather_request: Request,
-        source: Optional[tuple[str, int]] = None
-    ) -> 'QueryRequest':
-        """
-        WeatherRequest（Type 2）からQueryRequestを作成
-        
-        Args:
-            weather_request: WeatherRequest（Type 2）
-            source: 追加する送信元情報 (ip, port) のタプル
-            
-        Returns:
-            QueryRequestインスタンス
-        """
-        # 既存のsource情報を取得
-        existing_source = None
-        if hasattr(weather_request, 'ex_field') and weather_request.ex_field:
-            existing_source = weather_request.ex_field.source
-        
-        # source情報を決定（引数優先、次に既存、最後にNone）
-        final_source = source or existing_source
-        
-        return cls.create_weather_data_request(
-            area_code=weather_request.area_code,
-            packet_id=weather_request.packet_id,
-            weather=bool(weather_request.weather_flag),
-            temperature=bool(weather_request.temperature_flag),
-            precipitation_prob=bool(weather_request.pop_flag),
-            alert=bool(weather_request.alert_flag),
-            disaster=bool(weather_request.disaster_flag),
-            day=weather_request.day,
-            source=final_source,
-            version=weather_request.version
         )
     
     def get_source_info(self) -> Optional[tuple[str, int]]:
@@ -196,7 +159,7 @@ class QueryResponse(Response):
     """
     
     @classmethod
-    def create_weather_data_response(
+    def create_query_response(
         cls,
         request: QueryRequest,
         weather_data: Optional[Dict[str, Any]] = None,
@@ -300,7 +263,7 @@ class QueryResponse(Response):
             return self.ex_field.source
         return None
     
-    def get_temperature_celsius(self) -> Optional[int]:
+    def get_temperature(self) -> Optional[int]:
         """
         気温を摂氏で取得
         
@@ -375,7 +338,7 @@ class QueryResponse(Response):
             data['weather_code'] = self.get_weather_code()
         
         if self.temperature_flag:
-            data['temperature'] = self.get_temperature_celsius()
+            data['temperature'] = self.get_temperature()
         
         if self.pop_flag:
             data['precipitation_prob'] = self.get_precipitation()
@@ -410,7 +373,7 @@ class QueryResponse(Response):
         has_data = False
         if self.weather_flag and self.get_weather_code() is not None:
             has_data = True
-        if self.temperature_flag and self.get_temperature_celsius() is not None:
+        if self.temperature_flag and self.get_temperature() is not None:
             has_data = True
         if self.pop_flag and self.get_precipitation() is not None:
             has_data = True

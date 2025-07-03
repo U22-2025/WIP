@@ -12,6 +12,9 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.clients.weather_client import WeatherClient
+from common.packet.query_packet import QueryRequest, QueryResponse
+from common.packet.location_packet import LocationRequest, LocationResponse
+
 
 load_dotenv()
 
@@ -144,26 +147,32 @@ class Client:
             raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
 
         if self.state.area_code is not None:
-            result = self._weather_client.get_weather_by_area_code(
+            request = QueryRequest.create_query_request(
                 area_code=self.state.area_code,
+                packet_id=self._weather_client.PIDG.next_id(),
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
                 alert=alert,
                 disaster=disaster,
                 day=day,
+                version=self._weather_client.VERSION
             )
+            result = self._weather_client._execute_query_request(request=request)
         else:
-            result = self._weather_client.get_weather_by_coordinates(
+            request = LocationRequest.create_coordinate_lookup(
                 latitude=self.state.latitude,
                 longitude=self.state.longitude,
+                packet_id=self._weather_client.PIDG.next_id(),
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
                 alert=alert,
                 disaster=disaster,
                 day=day,
+                version=self._weather_client.VERSION
             )
+            result = self._weather_client._execute_location_request(request=request)
 
         if isinstance(result, dict) and result.get("type") == "error":
             return {"error_code": result["error_code"]}
