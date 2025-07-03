@@ -532,18 +532,18 @@ class FormatBase:
         Returns:
             12ビットチェックサム値
         """
-        sum = 0
+        total = 0
         
         # 1バイトずつ加算
         for byte in data:
-            sum += byte
+            total += byte
             
         # キャリーを12ビットに折り返し
-        while sum >> 12:
-            sum = (sum & 0xFFF) + (sum >> 12)
+        while total >> 12:
+            total = (total & 0xFFF) + (total >> 12)
             
         # 1の補数を返す（12ビットマスク）
-        checksum = (~sum) & 0xFFF
+        checksum = (~total) & 0xFFF
         return checksum
         
     def verify_checksum12(self, data_with_checksum: bytes) -> bool:
