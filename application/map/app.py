@@ -4,6 +4,8 @@ from pathlib import Path
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 import time
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -138,10 +140,64 @@ def get_address():
             'coordinates': {'lat': lat, 'lng': lng}
         }), 404
 
+def _add_date_info(weather_data, days_offset=0):
+    """天気データに日付情報を追加するヘルパー関数"""
+    date = datetime.now() + timedelta(days=days_offset)
+    weather_data['date'] = date.strftime('%Y-%m-%d')
+    weather_data['day_of_week'] = date.strftime('%A')
+    return weather_data
+
+def _create_fallback_weather_data(area_code, days_offset=0):
+    """エラー時のダミーデータを作成するヘルパー関数"""
+    date = datetime.now() + timedelta(days=days_offset)
+    return {
+        'date': date.strftime('%Y-%m-%d'),
+        'day_of_week': date.strftime('%A'),
+        'weather_code': '100',
+        'temperature': '--',
+        'precipitation_prob': '--',
+        'area_code': area_code
+    }
+
+def _get_today_weather(lat, lng):
+    """今日の天気データを取得するヘルパー関数"""
+    client.set_coordinates(lat, lng)
+    today_weather = client.get_weather(day=0)
+    
+    if not today_weather or isinstance(today_weather, dict) and 'error_code' in today_weather:
+        raise ValueError('今日の天気データの取得に失敗しました')
+    
+    if 'area_code' not in today_weather:
+        raise ValueError('エリアコードが見つかりませんでした')
+    
+    return today_weather
+
+def _get_weekly_weather_parallel(area_code):
+    """並列で週間天気予報を取得するヘルパー関数"""
+    weekly_data = [None] * 6  # 1-6日目用
+    
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        future_to_day = {
+            executor.submit(client.get_weather_by_area_code, area_code=area_code, day=day): day
+            for day in range(1, 7)
+        }
+        
+        for future in as_completed(future_to_day):
+            day = future_to_day[future]
+            try:
+                result = future.result()
+                if result and not ('error_code' in result):
+                    weekly_data[day-1] = _add_date_info(result, day)
+                else:
+                    weekly_data[day-1] = _create_fallback_weather_data(area_code, day)
+            except Exception:
+                weekly_data[day-1] = _create_fallback_weather_data(area_code, day)
+    
+    return weekly_data
+
 # 週間予報を取得するエンドポイント
 @app.route('/weekly_forecast', methods=['POST'])
 def weekly_forecast():
-    from concurrent.futures import ThreadPoolExecutor, as_completed
     from datetime import datetime, timedelta
     
     data = request.get_json()
@@ -151,108 +207,27 @@ def weekly_forecast():
     if lat is None or lng is None:
         return jsonify({'status': 'error', 'message': '緯度と経度が必要です'}), 400
     
-    # day=0（今日）を座標から取得してエリアコードを取得
-    client.set_coordinates(lat, lng)
-
     try:
-        today_weather = client.get_weather(day=0)
-        if not today_weather:
-            return jsonify({'status': 'error', 'message': '今日の天気データの取得に失敗しました'}), 500
-
-        if isinstance(today_weather, dict) and 'error_code' in today_weather:
-            return jsonify({
-                'status': 'error',
-                'error_code': today_weather['error_code'],
-                'message': 'エラーパケットを受信しました'
-            }), 500
-
-        if 'area_code' not in today_weather:
-            return jsonify({'status': 'error', 'message': '今日の天気データまたはエリアコードの取得に失敗しました'}), 500
-        
+        # 今日の天気データを取得
+        today_weather = _get_today_weather(lat, lng)
         area_code = today_weather['area_code']
+        today_weather = _add_date_info(today_weather)
         
-        # 今日のデータに日付情報を追加
-        today_date = datetime.now()
-        today_weather['date'] = today_date.strftime('%Y-%m-%d')
-        today_weather['day_of_week'] = today_date.strftime('%A')
-        today_weather['day_number'] = 0
+        # 週間予報を並列で取得
+        weekly_data = [today_weather] + _get_weekly_weather_parallel(area_code)
         
+        return jsonify({
+            'status': 'ok',
+            'coordinates': {'lat': lat, 'lng': lng},
+            'area_code': area_code,
+            'weekly_forecast': {data['day']: data for data in weekly_data}
+        })
+        
+    except ValueError as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
     except Exception as e:
-        print(f"Error getting today's weather: {e}")
-        return jsonify({'status': 'error', 'message': f'今日の天気データの取得に失敗しました: {str(e)}'}), 500
-    
-    def get_daily_weather_by_area_code(day):
-        """エリアコードを使って指定された日の天気データを取得する関数（day=1~6用）"""
-        try:
-            weather_result = client.get_weather_by_area_code(area_code=area_code, day=day)
-            if weather_result and not ('error_code' in weather_result):
-                # 日付情報を追加
-                date = datetime.now() + timedelta(days=day)
-                weather_result['date'] = date.strftime('%Y-%m-%d')
-                weather_result['day_of_week'] = date.strftime('%A')
-                weather_result['day_number'] = day
-                return weather_result
-            else:
-                # エラーの場合はダミーデータを返す
-                date = datetime.now() + timedelta(days=day)
-                return {
-                    'date': date.strftime('%Y-%m-%d'),
-                    'day_of_week': date.strftime('%A'),
-                    'day_number': day,
-                    'weather_code': '100',
-                    'temperature': '--',
-                    'precipitation_prob': '--',
-                    'area_code': area_code
-                }
-        except Exception as e:
-            print(f"Error getting weather for day {day} with area code {area_code}: {e}")
-            # エラーの場合はダミーデータを返す
-            date = datetime.now() + timedelta(days=day)
-            return {
-                'date': date.strftime('%Y-%m-%d'),
-                'day_of_week': date.strftime('%A'),
-                'day_number': day,
-                'weather_code': '100',
-                'temperature': '--',
-                'precipitation_prob': '--',
-                'area_code': area_code
-            }
-    
-    # 明日以降（day=1~6）を並列でエリアコードから取得
-    weekly_data = [today_weather] + [None] * 6  # 今日のデータ + 6日分のNone
-    
-    with ThreadPoolExecutor(max_workers=6) as executor:
-        # day=1~6について並列でタスクを送信
-        future_to_day = {executor.submit(get_daily_weather_by_area_code, day): day for day in range(1, 7)}
-        
-        # 結果を取得して正しい順序でリストに格納
-        for future in as_completed(future_to_day):
-            day = future_to_day[future]
-            try:
-                result = future.result()
-                weekly_data[day] = result
-            except Exception as exc:
-                print(f'Day {day} generated an exception: {exc}')
-                # エラーの場合はダミーデータを作成
-                date = datetime.now() + timedelta(days=day)
-                weekly_data[day] = {
-                    'date': date.strftime('%Y-%m-%d'),
-                    'day_of_week': date.strftime('%A'),
-                    'day_number': day,
-                    'weather_code': '100',
-                    'temperature': '--',
-                    'precipitation_prob': '--',
-                    'area_code': area_code
-                }
-    
-    forecast_dict = {data['day_number']: data for data in weekly_data}
-
-    return jsonify({
-        'status': 'ok',
-        'coordinates': {'lat': lat, 'lng': lng},
-        'area_code': area_code,
-        'weekly_forecast': forecast_dict
-    })
+        print(f"Error in weekly_forecast: {e}")
+        return jsonify({'status': 'error', 'message': '週間予報の取得に失敗しました'}), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0",debug=True)
