@@ -140,11 +140,24 @@ def get_address():
             'coordinates': {'lat': lat, 'lng': lng}
         }), 404
 
-def _add_date_info(weather_data, days_offset=0):
-    """天気データに日付情報を追加するヘルパー関数"""
-    date = datetime.now() + timedelta(days=days_offset)
-    weather_data['date'] = date.strftime('%Y-%m-%d')
-    weather_data['day_of_week'] = date.strftime('%A')
+def _add_date_info(weather_data, day_offset=0):
+    """天気データに日付情報を追加するヘルパー関数
+    Args:
+        weather_data: 天気データの辞書
+        day_offset: 今日からのオフセット日数 (0=今日)
+    """
+    base_date = datetime.now()
+    target_date = base_date + timedelta(days=day_offset)
+    
+    # 日付と曜日を日本語で設定
+    weekdays_ja = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
+                  'Friday', 'Saturday', 'Sunday']
+    weekday_en = target_date.strftime('%A')
+    
+    weather_data['date'] = target_date.strftime('%Y-%m-%d')
+    weather_data['day_of_week'] = weekday_en
+    weather_data['day'] = day_offset  # day値を明示的に設定
+    
     return weather_data
 
 def _create_fallback_weather_data(area_code, days_offset=0):
@@ -174,26 +187,29 @@ def _get_today_weather(lat, lng):
 
 def _get_weekly_weather_parallel(area_code):
     """並列で週間天気予報を取得するヘルパー関数"""
-    weekly_data = [None] * 6  # 1-6日目用
+    weekly_data = {}
     
     with ThreadPoolExecutor(max_workers=6) as executor:
+        # dayとfutureのマップを作成
         future_to_day = {
             executor.submit(client.get_weather_by_area_code, area_code=area_code, day=day): day
             for day in range(1, 7)
         }
         
-        for future in as_completed(future_to_day):
-            day = future_to_day[future]
+        # 結果をday順にソートして処理
+        for day in sorted(future_to_day.values()):
+            future = next(f for f, d in future_to_day.items() if d == day)
             try:
                 result = future.result()
                 if result and not ('error_code' in result):
-                    weekly_data[day-1] = _add_date_info(result, day)
+                    weekly_data[day] = _add_date_info(result, day)
                 else:
-                    weekly_data[day-1] = _create_fallback_weather_data(area_code, day)
+                    weekly_data[day] = _create_fallback_weather_data(area_code, day)
             except Exception:
-                weekly_data[day-1] = _create_fallback_weather_data(area_code, day)
+                weekly_data[day] = _create_fallback_weather_data(area_code, day)
     
-    return weekly_data
+    # day順にソートしてリストとして返す
+    return [weekly_data[day] for day in sorted(weekly_data.keys())]
 
 # 週間予報を取得するエンドポイント
 @app.route('/weekly_forecast', methods=['POST'])
@@ -216,11 +232,17 @@ def weekly_forecast():
         # 週間予報を並列で取得
         weekly_data = [today_weather] + _get_weekly_weather_parallel(area_code)
         
+        # 日付順にソートされた配列として返す
+        sorted_forecast = sorted(
+            weekly_data,
+            key=lambda x: x['day']
+        )
+        
         return jsonify({
             'status': 'ok',
             'coordinates': {'lat': lat, 'lng': lng},
             'area_code': area_code,
-            'weekly_forecast': {data['day']: data for data in weekly_data}
+            'weekly_forecast': sorted_forecast  # 配列形式で返す
         })
         
     except ValueError as e:
