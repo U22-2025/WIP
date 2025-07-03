@@ -158,8 +158,11 @@ class FormatExtended(FormatBase):
             bitstr = self.to_bits()
             
             # 基本バイト数を計算（最低32バイト = 256ビット）
-            # パケット全体のバイト数を計算し、最低32バイトを保証
-            total_packet_bytes = max((bitstr.bit_length() + 7) // 8, 32)
+            # パケット全体のバイト数を計算し、get_min_packet_size()のサイズを保証
+            total_packet_bytes = max(
+                (bitstr.bit_length() + 7) // 8,
+                self.get_min_packet_size(),
+            )
             
             # リトルエンディアンでバイト列に変換
             if total_packet_bytes > 0:
