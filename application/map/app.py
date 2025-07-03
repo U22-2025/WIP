@@ -72,7 +72,21 @@ JSON_DIR = Path(__file__).resolve().parents[2] / 'wip' / 'json'
 # 天気コードJSONを提供するルート
 @app.route('/weather_code.json')
 def weather_code():
-    return send_from_directory(JSON_DIR, 'weather_code.json')
+    import json
+    try:
+        with open(JSON_DIR / 'weather_code.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        # codesプロパティのみを返す
+        return jsonify(data.get('codes', {}))
+    except Exception as e:
+        print(f"天気コードJSONの読み込みエラー: {e}")
+        # フォールバック: 基本的な天気コード
+        return jsonify({
+            '100': '晴れ',
+            '200': 'くもり',
+            '300': '雨',
+            '400': '雪'
+        })
 
 # エラーコードJSONを提供するルート
 @app.route('/error_code.json')
