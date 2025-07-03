@@ -6,7 +6,7 @@ common/packet/report_client.pyのReportClientを使用してレポート機能�
 import logging
 import time
 import os
-from common.packet.report_client import ReportClient
+from ..packet.report_client import ReportClient
 
 
 def main():

@@ -8,9 +8,6 @@ import time
 import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, Union, List
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from .report_packet import ReportRequest, ReportResponse
 from .error_response import ErrorResponse
 import traceback
