@@ -26,7 +26,11 @@ class QueryClient:
         # このメソッドは空実装とする
         pass
     
-    def __init__(self, host=os.getenv('QUERY_GENERATOR_HOST'), port=int(os.getenv('QUERY_GENERATOR_PORT')), debug=False):
+    def __init__(self, host=None, port=None, debug=False):
+        if host is None:
+            host = os.getenv('QUERY_GENERATOR_HOST', 'localhost')
+        if port is None:
+            port = int(os.getenv('QUERY_GENERATOR_PORT', '4112'))
         """
         初期化
         
