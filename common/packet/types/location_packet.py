@@ -4,8 +4,8 @@ weather_server ← → location_server間の通信で使用
 """
 from typing import Optional, Dict, Any, Union
 from datetime import datetime
-from .request import Request
-from .response import Response
+from ..models.request import Request
+from ..models.response import Response
 
 
 class LocationRequest(Request):

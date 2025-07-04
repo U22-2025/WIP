@@ -2,10 +2,10 @@
 リクエストパケット
 """
 from typing import Optional, Dict, Any, Union
-from .exceptions import BitFieldError
-from .format_base import FormatBase
-from .extended_field import ExtendedField
-from .bit_utils import extract_rest_bits
+from ..core.exceptions import BitFieldError
+from ..core.format_base import FormatBase
+from ..core.extended_field import ExtendedField
+from ..core.bit_utils import extract_rest_bits
 
 
 class Request(FormatBase):

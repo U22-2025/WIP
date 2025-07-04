@@ -1,5 +1,5 @@
-from .response import Response
-from .extended_field import ExtendedField
+from ..models.response import Response
+from ..core.extended_field import ExtendedField
 from typing import Optional, Union, Dict, Any
 
 class ErrorResponse(Response):

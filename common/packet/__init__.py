@@ -13,17 +13,17 @@ WIP Packet - Weather Transport Protocol Packet Implementation
 - QueryRequest, QueryResponse: サーバー間通信（気象データ取得）
 """
 
-from .exceptions import BitFieldError
-from .extended_field import ExtendedField, ExtendedFieldType
-from .format import Format
-from .request import Request
-from .response import Response
+from .core.exceptions import BitFieldError
+from .core.extended_field import ExtendedField, ExtendedFieldType
+from .core.format import Format
+from .models.request import Request
+from .models.response import Response
 
 # 専用パケットクラス
-from .location_packet import LocationRequest, LocationResponse
-from .query_packet import QueryRequest, QueryResponse
-from .report_packet import ReportRequest, ReportResponse  # レポートパケット追加
-from .error_response import ErrorResponse  # エラーパケット追加
+from .types.location_packet import LocationRequest, LocationResponse
+from .types.query_packet import QueryRequest, QueryResponse
+from .types.report_packet import ReportRequest, ReportResponse  # レポートパケット追加
+from .types.error_response import ErrorResponse  # エラーパケット追加
 
 # Note: ReportClientは循環インポートを避けるため、直接インポートしてください
 # from common.clients.report_client import ReportClient

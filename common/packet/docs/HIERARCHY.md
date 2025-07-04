@@ -9,20 +9,30 @@
 ```
 common/packet/
 ├── __init__.py
-├── bit_utils.py
-├── error_response.py
-├── exceptions.py
-├── extended_field.py
-├── format_base.py
-├── format_extended.py
-├── format.py
-├── request.py
-├── response.py
-├── location_packet.py
-├── query_packet.py
-├── example_usage.py
-├── PACKET_STRUCTURE.md
-└── README.md
+├── core/
+│   ├── __init__.py
+│   ├── bit_utils.py
+│   ├── exceptions.py
+│   ├── extended_field.py
+│   ├── format_base.py
+│   ├── format_extended.py
+│   └── format.py
+├── models/
+│   ├── __init__.py
+│   ├── request.py
+│   └── response.py
+├── types/
+│   ├── __init__.py
+│   ├── location_packet.py
+│   ├── query_packet.py
+│   ├── report_packet.py
+│   └── error_response.py
+├── examples/
+│   └── example_usage.py
+└── docs/
+    ├── README.md
+    ├── PACKET_STRUCTURE.md
+    └── HIERARCHY.md
 ```
 
 ## モジュール説明
@@ -35,7 +45,7 @@ common/packet/
   クラスを実装します。
 - **format.py**: 最小限のパケット処理を提供する `Format` クラスです。
 - **request.py** / **response.py**: 基本的なリクエスト／レスポンスパケットを実装します。
-- **location_packet.py**, **query_packet.py**:
+- **location_packet.py**, **query_packet.py**, **report_packet.py**:
   上記 Request/Response を継承した用途別のパケットクラス群です。
 - **error_response.py**: エラー情報を返す専用レスポンスです。
 - **example_usage.py**: 使用例をまとめたスクリプトです。
