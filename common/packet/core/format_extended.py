@@ -139,7 +139,7 @@ class FormatExtended(FormatBase):
         
         基本フィールドと拡張フィールドを含むすべてのデータをバイト列に変換します。
         バイト列の長さは以下のように計算されます：
-        1. 基本フィールド: 最低32バイト（256ビット）
+        1. 基本フィールド: ``get_min_packet_size()`` で定義される最小バイト数
         2. 拡張フィールド（存在する場合）:
            - 各フィールドのヘッダー: 2バイト（16ビット）
            - 文字列データ: UTF-8エンコード後のバイト数
@@ -157,8 +157,8 @@ class FormatExtended(FormatBase):
             self.checksum = 0
             bitstr = self.to_bits()
             
-            # 基本バイト数を計算（最低32バイト = 256ビット）
-            # パケット全体のバイト数を計算し、get_min_packet_size()のサイズを保証
+            # パケット全体のバイト数を計算し、 ``get_min_packet_size()`` が
+            # 返す最小サイズを満たすよう調整する
             total_packet_bytes = max(
                 (bitstr.bit_length() + 7) // 8,
                 self.get_min_packet_size(),
@@ -183,7 +183,7 @@ class FormatExtended(FormatBase):
             # 最終的なバイト列を生成
             final_required_bytes = (final_bitstr.bit_length() + 7) // 8
             if final_required_bytes > 0:
-                final_bytes = final_bitstr.to_bytes(total_packet_bytes, byteorder='little')
+                final_bytes = final_bitstr.to_bytes(final_required_bytes, byteorder='little')
             else:
                 final_bytes = b''
             
