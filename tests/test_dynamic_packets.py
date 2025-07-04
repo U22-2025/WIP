@@ -85,6 +85,22 @@ def test_reload_base_fields(tmp_path):
     FormatBase.reload_field_spec()
 
 
+def test_field_removal_cleans_properties(tmp_path):
+    """フィールド削除時にプロパティが残らないことを確認"""
+    spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/request_fields.json"
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    spec.pop("reserved")
+    new_path = tmp_path / "rm_base.json"
+    with open(new_path, "w", encoding="utf-8") as f:
+        json.dump(spec, f)
+
+    FormatBase.reload_field_spec(str(new_path))
+    assert not hasattr(FormatBase, "reserved")
+    FormatBase.reload_field_spec()
+
+
 def test_request_reload_updates_offset(tmp_path):
     """Request.reload_request_spec() が開始位置を再計算するか確認"""
     spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/request_fields.json"
@@ -118,3 +134,20 @@ def test_min_packet_size_consistency():
     assert req.get_min_packet_size() == base_size
     fixed_size = sum(Response.FIXED_FIELD_LENGTH.values()) // 8
     assert res.get_min_packet_size() == base_size + fixed_size
+
+
+def test_extended_field_removal_cleans_properties(tmp_path):
+    """拡張フィールド削除時のプロパティ残存を確認"""
+    spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/extended_fields.json"
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    spec.pop("source")
+    new_path = tmp_path / "rm_ext.json"
+    with open(new_path, "w", encoding="utf-8") as f:
+        json.dump(spec, f)
+
+    reload_extended_spec(str(new_path))
+    assert not hasattr(ExtendedFieldType, "SOURCE")
+    assert not hasattr(ExtendedField, "source")
+    reload_extended_spec()

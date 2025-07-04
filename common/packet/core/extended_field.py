@@ -32,6 +32,13 @@ _EXTENDED_SPEC: Dict[str, int] = load_extended_fields()
 
 def _apply_extended_spec(spec: Dict[str, int]) -> None:
     """内部利用: 拡張フィールド定義をクラスに適用"""
+    removed = set(ExtendedField.FIELD_MAPPING_STR) - set(spec)
+    for name in removed:
+        if hasattr(ExtendedField, name):
+            delattr(ExtendedField, name)
+        upper = name.upper()
+        if hasattr(ExtendedFieldType, upper):
+            delattr(ExtendedFieldType, upper)
     # ExtendedFieldType のID定義を更新
     for name, value in spec.items():
         setattr(ExtendedFieldType, name.upper(), value)

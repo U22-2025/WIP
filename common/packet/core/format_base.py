@@ -98,7 +98,9 @@ class FormatBase:
     @classmethod
     def reload_field_spec(cls, file_name: str | Path = "request_fields.json") -> None:
         """JSON定義を再読み込みしてフィールド仕様を更新する"""
+        old_fields = set(cls.FIELD_LENGTH)
         cls.FIELD_LENGTH = reload_base_fields(file_name)
+        new_fields = set(cls.FIELD_LENGTH)
 
         cls.FIELD_POSITION = {}
         current_pos = 0
@@ -115,6 +117,11 @@ class FormatBase:
             field: (0, (1 << length) - 1)
             for field, length in cls.FIELD_LENGTH.items()
         }
+
+        removed = old_fields - new_fields
+        for field in removed:
+            if hasattr(cls, field):
+                delattr(cls, field)
 
         cls._generate_properties()
 
