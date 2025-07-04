@@ -108,27 +108,22 @@ packet = Format(
 特定用途に最適化されたパケットクラス：
 
 ```python
-from common.packet.location_packet import LocationPacket
-from common.packet.query_packet import QueryPacket
+from common.packet.location_packet import LocationRequest
+from common.packet.query_packet import QueryRequest
 
-# 天気情報パケット
-weather = WeatherPacket(
-    area_code=13101,
-    weather_code=100,  # 晴れ
-    temperature=25.5
-)
-
-# 位置情報パケット
-location = LocationPacket(
+# 位置情報リクエスト
+location = LocationRequest.create_coordinate_lookup(
     latitude=35.6895,
     longitude=139.6917,
-    elevation=10.5
+    packet_id=1
 )
 
-# クエリパケット
-query = QueryPacket(
-    query_type="weather",
-    target_area=13101
+# 気象データリクエスト
+query = QueryRequest.create_query_request(
+    area_code="13101",
+    packet_id=2,
+    weather=True,
+    temperature=True
 )
 ```
 

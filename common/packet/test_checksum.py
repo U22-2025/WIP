@@ -201,25 +201,16 @@ class TestChecksum(unittest.TestCase):
         )
         data_with_checksum = packet.to_bytes()
         
-        # 正常なパケットのテスト
-        print(f"\n--- 正常なパケットのテスト ---")
-        print(f"元のパケット: {packet}")
-        print(f"元のチェックサム: {packet.checksum}")
-        print(f"バイト列 (正常): {data_with_checksum.hex()}")
-        
+        # 正常なパケットを復元できるか確認
         try:
             restored_packet = FormatBase.from_bytes(data_with_checksum)
-            print(f"復元されたパケット: {restored_packet}")
-            print(f"復元されたチェックサム: {restored_packet.checksum}")
             self.assertIsInstance(restored_packet, FormatBase)
             self.assertEqual(restored_packet.packet_id, packet.packet_id)
             self.assertEqual(restored_packet.checksum, packet.checksum)
-            print("結果: 正常なパケットの検証に成功しました。")
         except BitFieldError as e:
             self.fail(f"正常なパケットでBitFieldErrorが発生しました: {e}")
 
         # 破損したパケットのテスト
-        print(f"\n--- 破損したパケットのテスト ---")
         tampered_data_list = list(data_with_checksum)
         checksum_start, checksum_length = FormatBase._BIT_FIELDS['checksum']
         checksum_start_byte = checksum_start // 8
@@ -233,12 +224,40 @@ class TestChecksum(unittest.TestCase):
                 self.skipTest("空のバイト列では改ざんテストができません")
 
         tampered_data = bytes(tampered_data_list)
-        print(f"改ざんされたバイト列: {tampered_data.hex()}")
-        
+
         # 改ざんされたバイト列からの復元はBitFieldErrorを発生させることを確認
-        with self.assertRaises(BitFieldError) as cm:
+        with self.assertRaises(BitFieldError):
             FormatBase.from_bytes(tampered_data)
-        print(f"結果: 破損したパケットで期待通りBitFieldErrorが発生しました: {cm.exception}")
+
+    def test_from_bytes_auto_checksum_behavior(self):
+        """
+        from_bytesでの自動チェックサム計算が抑制されているかを確認
+        """
+        packet = FormatBase(
+            version=1,
+            packet_id=1,
+            type=0,
+            timestamp=int(datetime.now().timestamp()),
+            area_code="130000"
+        )
+        data = packet.to_bytes()
+
+        call_count = 0
+        original = FormatBase._recalculate_checksum
+
+        def patched(self):
+            nonlocal call_count
+            call_count += 1
+            return original(self)
+
+        FormatBase._recalculate_checksum = patched
+        try:
+            FormatBase.from_bytes(data)
+        finally:
+            FormatBase._recalculate_checksum = original
+
+        expected = 2 * (len(FormatBase.FIELD_LENGTH) - 1)
+        self.assertEqual(call_count, expected)
 
 if __name__ == '__main__':
     unittest.main()
