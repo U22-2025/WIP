@@ -201,25 +201,16 @@ class TestChecksum(unittest.TestCase):
         )
         data_with_checksum = packet.to_bytes()
         
-        # 正常なパケットのテスト
-        print(f"\n--- 正常なパケットのテスト ---")
-        print(f"元のパケット: {packet}")
-        print(f"元のチェックサム: {packet.checksum}")
-        print(f"バイト列 (正常): {data_with_checksum.hex()}")
-        
+        # 正常なパケットを復元できるか確認
         try:
             restored_packet = FormatBase.from_bytes(data_with_checksum)
-            print(f"復元されたパケット: {restored_packet}")
-            print(f"復元されたチェックサム: {restored_packet.checksum}")
             self.assertIsInstance(restored_packet, FormatBase)
             self.assertEqual(restored_packet.packet_id, packet.packet_id)
             self.assertEqual(restored_packet.checksum, packet.checksum)
-            print("結果: 正常なパケットの検証に成功しました。")
         except BitFieldError as e:
             self.fail(f"正常なパケットでBitFieldErrorが発生しました: {e}")
 
         # 破損したパケットのテスト
-        print(f"\n--- 破損したパケットのテスト ---")
         tampered_data_list = list(data_with_checksum)
         checksum_start, checksum_length = FormatBase._BIT_FIELDS['checksum']
         checksum_start_byte = checksum_start // 8
@@ -233,12 +224,10 @@ class TestChecksum(unittest.TestCase):
                 self.skipTest("空のバイト列では改ざんテストができません")
 
         tampered_data = bytes(tampered_data_list)
-        print(f"改ざんされたバイト列: {tampered_data.hex()}")
-        
+
         # 改ざんされたバイト列からの復元はBitFieldErrorを発生させることを確認
-        with self.assertRaises(BitFieldError) as cm:
+        with self.assertRaises(BitFieldError):
             FormatBase.from_bytes(tampered_data)
-        print(f"結果: 破損したパケットで期待通りBitFieldErrorが発生しました: {cm.exception}")
 
 if __name__ == '__main__':
     unittest.main()
