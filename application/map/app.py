@@ -228,6 +228,7 @@ def _get_weekly_weather_parallel(area_code):
 # 週間予報を取得するエンドポイント
 @app.route('/weekly_forecast', methods=['POST'])
 def weekly_forecast():
+    """週間天気予報を取得し、日付順で並び替えて返す"""
     from datetime import datetime, timedelta
     
     data = request.get_json()
@@ -238,29 +239,81 @@ def weekly_forecast():
         return jsonify({'status': 'error', 'message': '緯度と経度が必要です'}), 400
     
     try:
-        # 今日の天気データを取得
-        today_weather = _get_today_weather(lat, lng)
+        # 座標を設定
+        client.set_coordinates(lat, lng)
+        
+        # 今日の天気データを取得してarea_codeを取得
+        today_weather = client.get_weather(day=0)
+        if not today_weather or isinstance(today_weather, dict) and 'error_code' in today_weather:
+            return jsonify({'status': 'error', 'message': '今日の天気データの取得に失敗しました'}), 500
+        
+        if 'area_code' not in today_weather:
+            return jsonify({'status': 'error', 'message': 'エリアコードが見つかりませんでした'}), 500
+        
         area_code = today_weather['area_code']
-        today_weather = _add_date_info(today_weather)
         
-        # 週間予報を並列で取得
-        weekly_data = [today_weather] + _get_weekly_weather_parallel(area_code)
+        # 7日分の天気予報データを順次取得（0日後から6日後まで）
+        weekly_forecast_list = []
         
-        # 日付順にソートされた配列として返す
-        sorted_forecast = sorted(
-            weekly_data,
-            key=lambda x: x['day']
-        )
+        for day in range(7):  # 0日後（今日）から6日後まで
+            try:
+                # 日付情報を計算
+                base_date = datetime.now()
+                target_date = base_date + timedelta(days=day)
+                date_str = target_date.strftime('%Y-%m-%d')
+                day_of_week = target_date.strftime('%A')
+                
+                # 天気データを取得
+                if day == 0:
+                    # 今日のデータは既に取得済み
+                    weather_data = today_weather.copy()
+                else:
+                    # 1日後以降はarea_codeで取得
+                    weather_data = client.get_weather_by_area_code(area_code=area_code, day=day)
+                    
+                    if not weather_data or isinstance(weather_data, dict) and 'error_code' in weather_data:
+                        # エラーの場合はダミーデータを作成
+                        weather_data = {
+                            'weather_code': '100',  # 晴れをデフォルト
+                            'temperature': '--',
+                            'precipitation_prob': '--',
+                            'area_code': area_code
+                        }
+                
+                # 日付情報を追加
+                weather_data['date'] = date_str
+                weather_data['day_of_week'] = day_of_week
+                weather_data['day'] = day
+                
+                # リストに追加
+                weekly_forecast_list.append(weather_data)
+                
+            except Exception as e:
+                print(f"Error getting weather for day {day}: {e}")
+                # エラーの場合はダミーデータを作成
+                base_date = datetime.now()
+                target_date = base_date + timedelta(days=day)
+                dummy_data = {
+                    'date': target_date.strftime('%Y-%m-%d'),
+                    'day_of_week': target_date.strftime('%A'),
+                    'weather_code': '100',
+                    'temperature': '--',
+                    'precipitation_prob': '--',
+                    'area_code': area_code,
+                    'day': day
+                }
+                weekly_forecast_list.append(dummy_data)
+        
+        # 念のため日付順でソート（day の値で）
+        weekly_forecast_list.sort(key=lambda x: x['day'])
         
         return jsonify({
             'status': 'ok',
             'coordinates': {'lat': lat, 'lng': lng},
             'area_code': area_code,
-            'weekly_forecast': sorted_forecast  # 配列形式で返す
+            'weekly_forecast': weekly_forecast_list
         })
         
-    except ValueError as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
     except Exception as e:
         print(f"Error in weekly_forecast: {e}")
         return jsonify({'status': 'error', 'message': '週間予報の取得に失敗しました'}), 500
