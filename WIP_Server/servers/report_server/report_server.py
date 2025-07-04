@@ -292,10 +292,10 @@ class ReportServer(BaseServer):
                     f.write("timestamp,area_code,weather_code,temperature,precipitation_prob,alert,disaster\n")
             
             if self.debug:
-                print(f"ログファイルを初期化しました: {self.log_file_path}")
+                print(f"[{self.server_name}] ログファイルを初期化しました: {self.log_file_path}")
                 
         except Exception as e:
-            print(f"ログファイル初期化エラー: {e}")
+            print(f"[{self.server_name}] ログファイル初期化エラー: {e}")
             if self.debug:
                 traceback.print_exc()
     
@@ -332,14 +332,14 @@ class ReportServer(BaseServer):
                 print(f"  ✓ ログファイルに追記: {area_code}")
             
         except Exception as e:
-            print(f"ログファイル記録エラー: {e}")
+            print(f"[{self.server_name}] ログファイル記録エラー: {e}")
             if self.debug:
                 traceback.print_exc()
     
     def _save_to_database(self, request, sensor_data, source_addr=None):
         """データベースに保存（実装予定）"""
         if self.debug:
-            print(f"  データベース保存: {sensor_data['area_code']} (未実装)")
+            print(f"  [{self.server_name}] データベース保存: {sensor_data['area_code']} (未実装)")
         # TODO: データベース保存機能を実装
         pass
     
@@ -467,7 +467,7 @@ class ReportServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== 受信レポートパケット ===")
+        print(f"\n[{self.server_name}] === 受信レポートパケット ===")
         print(f"Total Length: {len(data)} bytes")
         print(f"Packet Class: {type(parsed).__name__}")
         
