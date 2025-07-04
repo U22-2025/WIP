@@ -7,6 +7,7 @@ from common.packet.core.extended_field import (
     reload_extended_spec,
 )
 from common.packet.core.format_base import FormatBase
+from common.packet.models.request import Request
 from common.packet.types.location_packet import LocationRequest
 
 from common.packet.examples import example_usage
@@ -70,3 +71,23 @@ def test_reload_base_fields(tmp_path):
     assert "new_flag" in FormatBase._BIT_FIELDS
 
     FormatBase.reload_field_spec()
+
+
+def test_request_reload_updates_offset(tmp_path):
+    """Request.reload_request_spec() が開始位置を再計算するか確認"""
+    spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/request_fields.json"
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    spec["dummy"] = 2
+    new_path = tmp_path / "req_spec.json"
+    with open(new_path, "w", encoding="utf-8") as f:
+        json.dump(spec, f)
+
+    FormatBase.reload_field_spec(str(new_path))
+    Request.reload_request_spec()
+
+    assert Request.VARIABLE_FIELD_START == sum(FormatBase.FIELD_LENGTH.values())
+
+    FormatBase.reload_field_spec()
+    Request.reload_request_spec()
