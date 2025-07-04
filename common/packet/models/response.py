@@ -81,12 +81,13 @@ class Response(FormatBase):
     def get_min_packet_size(self) -> int:
         """
         レスポンスパケットの最小サイズを取得する
-        
+
         Returns:
-            最小パケットサイズ（バイト） - 基本フィールド(16バイト) + 固定長拡張フィールド(4バイト) = 20バイト
+            最小パケットサイズ（バイト） - 基本フィールド + 固定長拡張フィールド
         """
-        # 基本フィールド（128ビット = 16バイト）+ 固定長拡張フィールド（32ビット = 4バイト）= 20バイト
-        return 20
+        base_size = super().get_min_packet_size()
+        fixed_bits = sum(self.FIXED_FIELD_LENGTH.values())
+        return base_size + fixed_bits // 8
 
     def __init__(
         self, 

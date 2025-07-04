@@ -39,12 +39,11 @@ class Request(FormatBase):
     def get_min_packet_size(self) -> int:
         """
         リクエストパケットの最小サイズを取得する
-        
+
         Returns:
-            最小パケットサイズ（バイト） - 基本フィールドのみ（16バイト）
+            最小パケットサイズ（バイト） - 基本フィールドのみ
         """
-        # 基本フィールド（128ビット = 16バイト）
-        return 16
+        return super().get_min_packet_size()
 
     def __init__(self, *, ex_field: Optional[Union[Dict[str, Any], ExtendedField]] = None, **kwargs) -> None:
         """

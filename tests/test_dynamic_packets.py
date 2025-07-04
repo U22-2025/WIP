@@ -7,6 +7,8 @@ from common.packet.core.extended_field import (
     reload_extended_spec,
 )
 from common.packet.core.format_base import FormatBase
+from common.packet.models.request import Request
+from common.packet.models.response import Response
 from common.packet.types.location_packet import LocationRequest
 
 from common.packet.examples import example_usage
@@ -69,4 +71,23 @@ def test_reload_base_fields(tmp_path):
     assert FormatBase.FIELD_LENGTH.get("new_flag") == 1
     assert "new_flag" in FormatBase._BIT_FIELDS
 
+    expected_size = sum(spec.values()) // 8
+    dummy = FormatBase.__new__(FormatBase)
+    assert dummy.get_min_packet_size() == expected_size
+
     FormatBase.reload_field_spec()
+    with open(spec_path, "r", encoding="utf-8") as f:
+        orig_spec = json.load(f)
+    original_size = sum(orig_spec.values()) // 8
+    dummy = FormatBase.__new__(FormatBase)
+    assert dummy.get_min_packet_size() == original_size
+
+
+def test_min_packet_size_consistency():
+    """Request/Responseクラスの最小サイズ計算を確認"""
+    base_size = sum(FormatBase.FIELD_LENGTH.values()) // 8
+    req = Request()
+    res = Response()
+    assert req.get_min_packet_size() == base_size
+    fixed_size = sum(Response.FIXED_FIELD_LENGTH.values()) // 8
+    assert res.get_min_packet_size() == base_size + fixed_size
