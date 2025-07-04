@@ -45,9 +45,11 @@ def test_json_change_reflects_fields(tmp_path):
     reload_extended_spec(str(new_path))
     assert hasattr(ExtendedFieldType, "EXTRA")
     assert ExtendedFieldType.EXTRA == 60
+    assert hasattr(ExtendedField, "extra")
 
     # 新フィールド付き拡張フィールドを作成し、ビット列変換
     ex = ExtendedField({"extra": "test"})
+    assert ex.extra == "test"
     bits = ex.to_bits()
     ex_restored = ExtendedField.from_bits(bits, 16 + len("test".encode("utf-8")) * 8)
     assert "extra" in ex_restored.to_dict()
@@ -70,6 +72,11 @@ def test_reload_base_fields(tmp_path):
     FormatBase.reload_field_spec(str(new_path))
     assert FormatBase.FIELD_LENGTH.get("new_flag") == 1
     assert "new_flag" in FormatBase._BIT_FIELDS
+    assert hasattr(FormatBase, "new_flag")
+
+    dummy_instance = FormatBase()
+    dummy_instance.new_flag = 1
+    assert dummy_instance.new_flag == 1
 
     expected_size = sum(spec.values()) // 8
     dummy = FormatBase.__new__(FormatBase)
