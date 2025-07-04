@@ -93,8 +93,8 @@ class QueryClient:
             if weather_code is not None:
                 self.logger.debug(f"Weather Code: {weather_code}")
                 
-        if hasattr(response, 'get_temperature_celsius'):
-            temp = response.get_temperature_celsius()
+        if hasattr(response, 'get_temperature'):
+            temp = response.get_temperature()
             if temp is not None:
                 self.logger.debug(f"Temperature: {temp}℃")
                 

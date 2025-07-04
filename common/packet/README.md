@@ -68,7 +68,6 @@ common/packet/
 ├── exceptions.py                # 例外定義
 ├── request.py                   # リクエストパケット
 ├── response.py                  # レスポンスパケット
-├── weather_packet.py            # 天気専用パケット
 ├── location_packet.py           # 位置情報専用パケット
 ├── query_packet.py              # クエリ専用パケット
 ├── debug_extended_bits.py       # デバッグツール
@@ -109,7 +108,6 @@ packet = Format(
 特定用途に最適化されたパケットクラス：
 
 ```python
-from common.packet.weather_packet import WeatherPacket
 from common.packet.location_packet import LocationPacket
 from common.packet.query_packet import QueryPacket
 

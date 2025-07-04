@@ -21,7 +21,6 @@ if __name__ == "__main__":
 # モジュールとして使用される場合
 from ..base_server import BaseServer
 from common.packet import (
-    WeatherRequest, WeatherResponse,
     LocationRequest, LocationResponse,
     QueryRequest, QueryResponse,
     ReportRequest, ReportResponse,
@@ -220,7 +219,7 @@ class WeatherServer(BaseServer):
                 self._handle_weather_request(request, addr)
             elif request.type == 3:
                 # Type 3: 気象データレスポンス
-                self._handle_weather_response(data, addr)
+                self._handle_query_response(data, addr)
             elif request.type == 4:
                 # Type 4: データレポートリクエスト
                 self._handle_report_request(request, addr)
@@ -328,32 +327,29 @@ class WeatherServer(BaseServer):
             ):
                 print("キャッシュヒット！\nweather_requestを作成します。")
                 try:
-                    # キャッシュからWeatherRequestを生成 (source_infoがある場合のみsourceを含め、常に座標を含める)
-                    ex_field_content = {}
-                    if source_info:
-                        ex_field_content['source'] = source_info
-                    # 座標を拡張フィールドに追加
-                    ex_field_content['latitude'] = lat
-                    ex_field_content['longitude'] = long
-                    ex_flag_val = 1  # 座標を含むので常に1
-                    
                     # キャッシュされたエリアコードを使用
                     cached_area_code = cached_data.get("area_code") if isinstance(cached_data, dict) else None
-                    weather_request = WeatherRequest(
-                        version=self.version,
-                        packet_id=request.packet_id,
-                        type=2,  # WeatherRequest
+                    weather_request = QueryRequest.create_query_request(
                         area_code=cached_area_code if cached_area_code else request.area_code,
-                        day=request.day,  # 当日
-                        timestamp=int(datetime.now().timestamp()),
-                        weather_flag=request.weather_flag,
-                        temperature_flag=request.temperature_flag,
-                        pop_flag=request.pop_flag,
-                        alert_flag=request.alert_flag,
-                        disaster_flag=request.disaster_flag,
-                        ex_flag=ex_flag_val,
-                        ex_field=ex_field_content
+                        packet_id=request.packet_id,
+                        day=request.day,
+                        weather=bool(request.weather_flag),
+                        temperature=bool(request.temperature_flag),
+                        precipitation_prob=bool(request.pop_flag),
+                        alert=bool(request.alert_flag),
+                        disaster=bool(request.disaster_flag),
+                        source=source_info,
+                        version=self.version
                     )
+                    
+                    # 座標情報を拡張フィールドに追加
+                    if lat is not None and long is not None:
+                        if not hasattr(weather_request, 'ex_field') or weather_request.ex_field is None:
+                            from common.packet.extended_field import ExtendedField
+                            weather_request.ex_field = ExtendedField()
+                        weather_request.ex_field.latitude = lat
+                        weather_request.ex_field.longitude = long
+                        weather_request.ex_flag = 1
                     
                     # _handle_weather_requestに処理を移譲
                     return self._handle_weather_request(weather_request, addr)
@@ -365,19 +361,8 @@ class WeatherServer(BaseServer):
                     # エラーが発生した場合はキャッシュを削除して通常処理を続行
                     self.cache_area.delete(cache_key)
             
-            # 専用クラスを使用してLocationRequestに変換
-            if isinstance(request, WeatherRequest):
-                # WeatherRequestからLocationRequestに変換
-                location_request = LocationRequest.from_weather_request(
-                    request, 
-                    source=source_info
-                )
-            else:
-                # 既にLocationRequestの場合は、source情報を追加
-                location_request = request
-                location_request.ex_field.source = source_info
-            
-            # LocationRequest変換のデバッグ出力を削除
+            location_request = request
+            location_request.ex_field.source = source_info
             
             # Location Resolverに転送
             packet_data = location_request.to_bytes()
@@ -476,22 +461,35 @@ class WeatherServer(BaseServer):
 
         return True
 
-    def _create_response_from_cache(self, cached_data, packet_id, area_code, day, flags, lat=None, long=None):
-        """キャッシュデータからWeatherResponseを生成"""
+    def _create_response_from_cache(self, cached_data, packet_id, area_code, day, flags, lat=None, long=None, source=None):
+        """キャッシュデータからQueryResponseを生成"""
 
-        weather_response = WeatherResponse(
+        # 拡張フィールドの準備
+        ex_field = {}
+        if source:
+            ex_field["source"] = source
+        if lat is not None:
+            ex_field['latitude'] = lat
+        if long is not None:
+            ex_field['longitude'] = long
+
+        weather_response = QueryResponse(
             version=self.version,
             packet_id=packet_id,
-            type=3,
-            area_code=area_code,
+            type=3,  # 気象データレスポンス
+            weather_flag=1 if flags.get('weather', False) else 0,
+            temperature_flag=1 if flags.get('temperature', False) else 0,
+            pop_flag=1 if flags.get('pop', False) else 0,
+            alert_flag=1 if flags.get('alert', False) else 0,
+            disaster_flag=1 if flags.get('disaster', False) else 0,
+            ex_flag=1 if ex_field else 0,
             day=day,
             timestamp=int(datetime.now().timestamp()),
-            weather_flag=flags.get('weather', False),
-            temperature_flag=flags.get('temperature', False),
-            pop_flag=flags.get('pop', False),
-            alert_flag=flags.get('alert', False),
-            disaster_flag=flags.get('disaster', False),
-            ex_flag=0
+            area_code=area_code,
+            weather_code=0,  # 後で設定
+            temperature=100,  # 後で設定（0℃のデフォルト値）
+            pop=0,  # 後で設定
+            ex_field=ex_field if ex_field else None
         )
 
         if weather_response.weather_flag:
@@ -581,25 +579,26 @@ class WeatherServer(BaseServer):
                     }
                     is_valid = self._validate_cache_data(cached_data, flags)
                     if is_valid:
-                        weather_response = self._create_response_from_cache(
+                        query_response = self._create_response_from_cache(
                             cached_data,
                             response.packet_id,
                             response.area_code,
                             response.day,
                             flags,
                             lat,
-                            long
+                            long,
+                            response.get_source_info()
                         )
 
                         if self.debug:
-                            print(f"  WeatherResponse生成完了")
-                            print(f"  生成されたオブジェクト: {weather_response}")
-                            print(f"  座標情報: {weather_response.get_coordinates()}")
-                            if hasattr(weather_response, 'ex_field'):
-                                print(f"  ex_field内容: {weather_response.ex_field.to_dict()}")
+                            print(f"  QueryResponse生成完了")
+                            print(f"  生成されたオブジェクト: {query_response}")
+                            print(f"  座標情報: {query_response.get_coordinates()}")
+                            if hasattr(query_response, 'ex_field'):
+                                print(f"  ex_field内容: {query_response.ex_field.to_dict()}")
 
                         # レスポンスを送信
-                        response_data = weather_response.to_bytes()
+                        response_data = query_response.to_bytes()
                         source_info = response.get_source_info()
 
                         if source_info:
@@ -640,18 +639,15 @@ class WeatherServer(BaseServer):
                         print('キャッシュデータを削除して新しいリクエストを処理します')
                     self.cache_weather.delete(cache_key)
                     print(f"[WARNING] キャッシュデータが不完全です: {str(e)}")  # loggerが使えない場合の代替
-                    # キャッシュが不完全でもクエリサーバーへリクエストを継続
-                    return self._send_weather_request(response)
 
-            # 専用クラスの変換メソッドを使用
-            weather_request = response.to_weather_request()
+            query_request = QueryRequest.from_location_response(response)
 
             if self.debug:
                 print(f"  WeatherRequest (タイプ2) に変換しました")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
             
             # Query Generatorに送信
-            packet_data = weather_request.to_bytes()
+            packet_data = query_request.to_bytes()
             # パケットサイズのデバッグ出力を削除
                 
             # メインソケットを使用して送信
@@ -712,15 +708,22 @@ class WeatherServer(BaseServer):
                     
                     is_valid = self._validate_cache_data(cached_data, flags)
                     if is_valid:
-                        weather_response = self._create_response_from_cache(
+                        # requestから座標情報を取得
+                        coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
+                        req_lat, req_long = coords if coords else (None, None)
+                        
+                        query_response = self._create_response_from_cache(
                             cached_data,
                             request.packet_id,
                             request.area_code,
                             request.day,
-                            flags
+                            flags,
+                            req_lat,
+                            req_long,
+                            request.get_source_info()
                         )
 
-                        response_data = weather_response.to_bytes()
+                        response_data = query_response.to_bytes()
                         self.sock.sendto(response_data, addr)
 
                         if self.debug:
@@ -745,27 +748,25 @@ class WeatherServer(BaseServer):
                 if not cached_data:
                     print(f"  キャッシュミス: {cache_key}")
                 print(f"  バックエンドサーバーにリクエストを転送します")
+
+            # 既にQueryRequestの場合は、source情報を追加
+            query_request = request
             
-            # 専用クラスを使用してQueryRequestに変換
-            if isinstance(request, WeatherRequest):
-                # WeatherRequestからQueryRequestに変換
-                query_request = QueryRequest.from_weather_request(
-                    request,
-                    source=source_info
-                )
-            else:
-                # 既にQueryRequestの場合は、source情報を追加
-                query_request = request
-                query_request.ex_field.source = source_info
+            # 拡張フィールドが存在しない場合は作成
+            if not hasattr(query_request, 'ex_field') or query_request.ex_field is None:
+                from common.packet.extended_field import ExtendedField
+                query_request.ex_field = ExtendedField()
+            
+            # source情報をセット
+            query_request.ex_field.source = source_info
+            query_request.ex_flag = 1  # 拡張フィールドを使用するのでフラグを1に
             
             if self.debug:
-                print(f"  QueryRequest に変換しました")
                 if hasattr(query_request, 'get_source_info'):
                     print(f"  送信元を追加しました: {query_request.get_source_info()}")
             
             # Query Generatorに転送
             packet_data = query_request.to_bytes()
-            # パケットサイズのデバッグ出力を削除
                 
             # メインソケットを使用して送信
             try:
@@ -834,21 +835,7 @@ class WeatherServer(BaseServer):
                     print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
             return
 
-    def _send_weather_request(self, location_response):
-        """LocationResponseからWeatherRequestを生成して処理する補助メソッド"""
-        try:
-            weather_request = location_response.to_weather_request()
-            source = location_response.get_source_info()
-            if source is None:
-                # source情報が無い場合は空タプルを渡す
-                source = ("", 0)
-            return self._handle_weather_request(weather_request, source)
-        except Exception:
-            if self.debug:
-                traceback.print_exc()
-            raise
-
-    def _handle_weather_response(self, data, addr):
+    def _handle_query_response(self, data, addr):
         """気象データレスポンスの処理（Type 3・改良版）"""
         try:
             # 専用クラスでレスポンスをパース
@@ -884,7 +871,7 @@ class WeatherServer(BaseServer):
                     
                     # 気温データフラグ
                     if response.temperature_flag:
-                        cache_data["temperature"] = response.get_temperature_celsius() if hasattr(response, 'get_temperature_celsius') else 0
+                        cache_data["temperature"] = response.get_temperature() if hasattr(response, 'get_temperature') else 0
                     
                     # 降水確率フラグ
                     if response.pop_flag:
@@ -969,10 +956,8 @@ class WeatherServer(BaseServer):
                     print(f"  拡張フィールドフラグ: {response.ex_field.flag}")
             
             try:
-                # WeatherResponseに変換（バージョンを現在のサーバーバージョンで設定）
-                weather_response = WeatherResponse.from_query_response(response)
-                weather_response.version = self.version  # バージョンを正規化
-                final_data = weather_response.to_bytes()
+                response.version = self.version  # バージョンを正規化
+                final_data = response.to_bytes()
                 
                 # 元のクライアントに送信
                 try:
@@ -1388,13 +1373,13 @@ class WeatherServer(BaseServer):
         # タイプに応じて適切な専用クラスでパース
         if packet_type == 0:
             # 座標解決リクエスト
-            return WeatherRequest.from_bytes(data)
+            return LocationRequest.from_bytes(data)
         elif packet_type == 1:
             # 座標解決レスポンス
             return LocationResponse.from_bytes(data)
         elif packet_type == 2:
             # 気象データリクエスト
-            return WeatherRequest.from_bytes(data)
+            return QueryRequest.from_bytes(data)
         elif packet_type == 3:
             # 気象データレスポンス
             return QueryResponse.from_bytes(data)
