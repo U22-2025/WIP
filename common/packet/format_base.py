@@ -493,12 +493,18 @@ class FormatBase:
         
         # インスタンスを作成（bitstrは渡さない）
         instance = cls()
-        
+
+        # from_bits中の不要なチェックサム再計算を防ぐため一時的に無効化
+        instance._auto_checksum = False
+
         # パケット全体のビット長を保存
         instance._total_bits = len(data) * 8
-        
+
         # from_bitsを手動で呼び出す（_total_bitsが設定された後）
         instance.from_bits(bitstr)
+
+        # チェックサム自動計算を再有効化
+        instance._auto_checksum = True
         
         # チェックサムを検証
         if not instance.verify_checksum12(data):
