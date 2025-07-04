@@ -70,9 +70,8 @@ common/packet/
 ├── response.py                  # レスポンスパケット
 ├── location_packet.py           # 位置情報専用パケット
 ├── query_packet.py              # クエリ専用パケット
-├── debug_extended_bits.py       # デバッグツール
 ├── example_usage.py             # 使用例
-└── test_specialized_packets.py  # テストコード
+``` 
 ```
 
 ## 🔧 メインクラス
@@ -189,13 +188,7 @@ alerts = packet.ex_field.alert
 
 ### デバッグツール
 
-```python
-from common.packet.debug_extended_bits import debug_packet_bits
-
-# パケットのビット構造を詳細解析
-analyzer = debug_packet_bits(packet, detailed=True)
-print(f"総ビット長: {analyzer.get_total_bits()}")
-```
+現在、デバッグ専用スクリプトは提供していません。
 
 ### ビット操作
 
@@ -252,12 +245,6 @@ response = Response(
 ## 🧪 テスト
 
 ```bash
-# テストの実行
-python -m common.packet.test_specialized_packets
-
-# デバッグツールの実行
-python -m common.packet.debug_extended_bits
-
 # 使用例の確認
 python -m common.packet.example_usage
 ```
@@ -320,16 +307,11 @@ def query_weather_by_location(lat, lon):
 
 - [PACKET_STRUCTURE.md](./PACKET_STRUCTURE.md) - 詳細なパケット構造仕様
 - [example_usage.py](./example_usage.py) - 実践的な使用例
-- [debug_extended_bits.py](./debug_extended_bits.py) - デバッグツール
 
 ## 📞 サポート
 
-パケットフォーマットに関する質問や問題は、デバッグツールを使用してパケット構造を確認してください：
-
-```python
-from common.packet.debug_extended_bits import debug_packet_bits
-debug_packet_bits(your_packet, detailed=True)
-```
+パケットフォーマットに関する質問や問題は、`example_usage.py` を参考に
+パケット生成と解析方法を確認してください。
 
 ## 📄 ライセンス
 
