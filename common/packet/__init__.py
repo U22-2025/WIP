@@ -8,7 +8,6 @@ WIP Packet - Weather Transport Protocol Packet Implementation
 - Format: 基本的なパケットフォーマット実装
 
 専用パケットクラス（推奨）:
-- WeatherRequest, WeatherResponse: エンドユーザー向けAPI
 - LocationRequest, LocationResponse: サーバー間通信（座標解決）
 - QueryRequest, QueryResponse: サーバー間通信（気象データ取得）
 """
@@ -38,8 +37,6 @@ __all__ = [
     "Request",
     "Response",
     # 専用パケットクラス
-    "WeatherRequest",
-    "WeatherResponse",
     "LocationRequest",
     "LocationResponse",
     "QueryRequest",
