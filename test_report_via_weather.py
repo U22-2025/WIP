@@ -32,8 +32,7 @@ def test_report_via_weather_server():
             area_code="130000",  # 東京
             weather_code=100,    # 晴れ
             temperature=25.0,    # 25℃
-            precipitation_prob=30,  # 30%
-            source=("localhost", 12345)  # テスト用source
+            precipitation_prob=30   # 30%
         )
         
         print(f"\n送信データ:")
@@ -41,7 +40,7 @@ def test_report_via_weather_server():
         print(f"  天気コード: {client.weather_code}")
         print(f"  気温: {client.temperature}℃")
         print(f"  降水確率: {client.precipitation_prob}%")
-        print(f"  送信元: {client.source}")
+        print(f"  送信元: Weather Serverが自動付加")
         
         # レポート送信
         print(f"\nWeather Server (4110) 経由でReport Server (4112) にレポート送信中...")
