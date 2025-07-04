@@ -75,6 +75,9 @@ class LocationServer(BaseServer):
         # プロトコルバージョンを設定から取得
         self.version = self.config.getint('system', 'protocol_version', 1)
         
+        # 認証設定を読み込む
+        self._setup_auth()
+        
         # データベース接続とキャッシュの初期化
         self._setup_database()
         self._setup_cache(max_cache_size)
@@ -88,6 +91,19 @@ class LocationServer(BaseServer):
             print(f"  Database: {self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}")
             print(f"  Cache size: {max_cache_size}")
             print(f"  Protocol Version: {self.version}")
+            print(f"  Authentication: {'Enabled' if self.auth_enabled else 'Disabled'}")
+    
+    def _setup_auth(self):
+        """認証設定を初期化"""
+        # 認証が有効かどうか
+        auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+        self.auth_enabled = auth_enabled_str.lower() == 'true'
+        
+        # パスフレーズ
+        self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        if self.auth_enabled and not self.auth_passphrase:
+            raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
     
     def _setup_database(self):
         """データベース接続プールを初期化"""
@@ -171,6 +187,20 @@ class LocationServer(BaseServer):
         Returns:
             tuple: (is_valid, error_code)
         """
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                if self.debug:
+                    print(f"[{self.server_name}] 認証失敗")
+                return False, "403", "認証に失敗しました"
+            
+            if self.debug:
+                print(f"[{self.server_name}] 認証成功")
+        
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
             return False, "400", "拡張フィールドが設定されていません"

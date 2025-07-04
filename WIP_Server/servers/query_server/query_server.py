@@ -67,6 +67,9 @@ class QueryServer(BaseServer):
         # プロトコルバージョンを設定から取得
         self.version = self.config.getint('system', 'protocol_version', 1)
         
+        # 認証設定を読み込む
+        self._setup_auth()
+        
         # 各コンポーネントの初期化
         self._setup_components()
         
@@ -81,6 +84,19 @@ class QueryServer(BaseServer):
             print(f"  Server: {host}:{port}")
             print(f"  Protocol Version: {self.version}")
             print(f"  Max Workers: {max_workers}")
+            print(f"  Authentication: {'Enabled' if self.auth_enabled else 'Disabled'}")
+    
+    def _setup_auth(self):
+        """認証設定を初期化"""
+        # 認証が有効かどうか
+        auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+        self.auth_enabled = auth_enabled_str.lower() == 'true'
+        
+        # パスフレーズ
+        self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        if self.auth_enabled and not self.auth_passphrase:
+            raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
     
     def _setup_components(self):
         """各コンポーネントを初期化"""
@@ -128,9 +144,23 @@ class QueryServer(BaseServer):
         Returns:
             tuple: (is_valid, error_message)
         """
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                if self.debug:
+                    print(f"[{self.server_name}] 認証失敗")
+                return False, "403", "認証に失敗しました"
+            
+            if self.debug:
+                print(f"[{self.server_name}] 認証成功")
+        
         # バージョンのチェック
         if request.version != self.version:
-            return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, "406", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック
         if request.type != 2:
@@ -141,7 +171,7 @@ class QueryServer(BaseServer):
             return False, "402", "エリアコードが未設定"
         
         # フラグのチェック（少なくとも1つは必要）
-        if not any([request.weather_flag, request.temperature_flag, 
+        if not any([request.weather_flag, request.temperature_flag,
                    request.pop_flag, request.alert_flag, request.disaster_flag]):
             return False, "400", "不正なパケット"
         

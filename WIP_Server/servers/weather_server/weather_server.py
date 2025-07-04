@@ -77,6 +77,9 @@ class WeatherServer(BaseServer):
         version = self.config.getint('system', 'protocol_version', 1)
         self.version = version & 0x0F  # 4ビットにマスク
         
+        # 認証設定を読み込む
+        self._setup_auth()
+        
         # 他のサーバーへの接続設定を読み込む
         self.location_resolver_host = self.config.get('connections', 'location_server_host', 'localhost')
         self.location_resolver_port = self.config.getint('connections', 'location_server_port', 4109)
@@ -124,6 +127,35 @@ class WeatherServer(BaseServer):
             if self.debug:
                 traceback.print_exc()
             raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
+    
+    def _setup_auth(self):
+        """認証設定を初期化（プロキシサーバー用）"""
+        # weather_server自身の認証設定（通常は無効にする）
+        auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+        self.auth_enabled = auth_enabled_str.lower() == 'true'
+        self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        # バックエンドサーバーの認証設定を読み込み
+        self.backend_auth = {
+            'location': {
+                'enabled': self.config.get('auth', 'location_server_auth_enabled', 'false').lower() == 'true',
+                'passphrase': self.config.get('auth', 'location_server_passphrase', '')
+            },
+            'query': {
+                'enabled': self.config.get('auth', 'query_server_auth_enabled', 'false').lower() == 'true',
+                'passphrase': self.config.get('auth', 'query_server_passphrase', '')
+            },
+            'report': {
+                'enabled': self.config.get('auth', 'report_server_auth_enabled', 'false').lower() == 'true',
+                'passphrase': self.config.get('auth', 'report_server_passphrase', '')
+            }
+        }
+            
+        if self.debug:
+            print(f"[{self.server_name}] 認証設定:")
+            print(f"  Weather Server: {'有効' if self.auth_enabled else '無効'}")
+            for server_type, config in self.backend_auth.items():
+                print(f"  {server_type.title()} Server: {'有効' if config['enabled'] else '無効'}")
         
     def handle_request(self, data, addr):
         """
@@ -1331,16 +1363,37 @@ class WeatherServer(BaseServer):
     
     def validate_request(self, request):
         """
-        リクエストの妥当性をチェック（改良版）
+        リクエストの妥当性をチェック（プロキシサーバー用）
         
         Args:
             request: リクエストオブジェクト
             
         Returns:
-            tuple: (is_valid, error_message)
+            tuple: (is_valid, error_code, error_message)
         """
         if request.version != self.version:
-            return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, "406", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+        
+        # リクエストタイプに応じた認証設定を決定
+        auth_config = self._get_auth_config_for_request(request)
+        
+        # 認証チェック（認証が有効な場合のみ）
+        if auth_config['enabled']:
+            if not hasattr(request, 'verify_auth_from_extended_field') or not callable(getattr(request, 'verify_auth_from_extended_field')):
+                return False, "403", "認証機能に対応していないパケット形式です"
+            
+            # 認証のためにリクエストにパスフレーズを設定
+            request.enable_auth(auth_config['passphrase'])
+            
+            if not request.verify_auth_from_extended_field():
+                if self.debug:
+                    print(f"[{self.server_name}] 認証失敗: パスフレーズが一致しません")
+                    print(f"  使用した認証設定: {auth_config}")
+                return False, "403", "認証に失敗しました"
+            
+            if self.debug:
+                print(f"[{self.server_name}] 認証成功")
+                print(f"  使用した認証設定: {auth_config}")
         
         # タイプのチェック（0-3,4,5,7が有効）
         if request.type not in [0, 1, 2, 3, 4, 5, 7]:
@@ -1355,7 +1408,27 @@ class WeatherServer(BaseServer):
             if not request.is_valid():
                 return False, "400", "専用クラスのバリデーションに失敗"
         
-        return True, None, None
+        return True, "200", "OK"
+    
+    def _get_auth_config_for_request(self, request):
+        """リクエストパケットのタイプに応じた認証設定を取得"""
+        # LocationRequest/Response の場合
+        if request.type in [0, 1] or hasattr(request, 'longitude') and hasattr(request, 'latitude'):
+            return self.backend_auth['location']
+        
+        # QueryRequest/Response の場合（エリアコード指定）
+        if request.type in [2, 3] or hasattr(request, 'area_code'):
+            return self.backend_auth['query']
+        
+        # ReportRequest/Response の場合
+        if request.type in [4, 5] or (hasattr(request, 'temperature') and hasattr(request, 'humidity')):
+            return self.backend_auth['report']
+        
+        # デフォルト（weather_server自身の設定）
+        return {
+            'enabled': self.auth_enabled,
+            'passphrase': self.auth_passphrase
+        }
     
     def _debug_print_request(self, data, parsed):
         """リクエストのデバッグ情報を出力（改良版・専用クラス対応）"""

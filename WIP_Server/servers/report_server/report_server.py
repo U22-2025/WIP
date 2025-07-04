@@ -121,7 +121,7 @@ class ReportServer(BaseServer):
         
         # バージョンチェック
         if request.version != self.version:
-            return False, 403, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, 406, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプチェック（Type 4のみ有効）
         if request.type != 4:

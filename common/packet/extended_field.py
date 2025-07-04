@@ -29,6 +29,7 @@ class ExtendedFieldType:
     """拡張フィールドタイプの定数定義"""
     ALERT = 1
     DISASTER = 2
+    AUTH_HASH = 4
     LATITUDE = 33
     LONGITUDE = 34
     SOURCE = 40
@@ -37,6 +38,7 @@ class ExtendedFieldType:
     STRING_LIST_FIELDS = {ALERT, DISASTER}
     COORDINATE_FIELDS = {LATITUDE, LONGITUDE}
     STRING_FIELDS = {SOURCE}
+    BINARY_FIELDS = {AUTH_HASH}
     
     # 座標値の範囲制限
     LATITUDE_MIN = -90.0
@@ -71,6 +73,7 @@ class ExtendedField:
     FIELD_MAPPING_INT = {
         ExtendedFieldType.ALERT: 'alert',
         ExtendedFieldType.DISASTER: 'disaster',
+        ExtendedFieldType.AUTH_HASH: 'auth_hash',
         ExtendedFieldType.LATITUDE: 'latitude',
         ExtendedFieldType.LONGITUDE: 'longitude',
         ExtendedFieldType.SOURCE: 'source',
@@ -79,6 +82,7 @@ class ExtendedField:
     FIELD_MAPPING_STR = {
         'alert': ExtendedFieldType.ALERT,
         'disaster': ExtendedFieldType.DISASTER,
+        'auth_hash': ExtendedFieldType.AUTH_HASH,
         'latitude': ExtendedFieldType.LATITUDE,
         'longitude': ExtendedFieldType.LONGITUDE,
         'source': ExtendedFieldType.SOURCE,
@@ -94,6 +98,7 @@ class ExtendedField:
         self._data: Dict[str, Any] = {}
         self._observers: List[Callable[[], None]] = []
         self.flag: int = 1  # 拡張フィールドフラグ（1=有効、0=無効）
+        self._total_bits: Optional[int] = None  # 実際に使用されたビット長
         
         # 初期データを設定（警告を出さないよう直接登録）
         if data:
@@ -239,35 +244,43 @@ class ExtendedField:
     
     @property
     def alert(self) -> Optional[str]:
-        return self.get('alert')
+        return self._data.get('alert')
 
     @alert.setter
     def alert(self, value: Union[List[str], str]) -> None:
-        self.set('alert', value)
+        validated_value = self._validate_value('alert', value)
+        self._data['alert'] = validated_value
+        self._notify_observers()
 
     @property
     def disaster(self) -> Optional[str]:
-        return self.get('disaster')
+        return self._data.get('disaster')
 
     @disaster.setter
     def disaster(self, value: Union[List[str], str]) -> None:
-        self.set('disaster', value)
+        validated_value = self._validate_value('disaster', value)
+        self._data['disaster'] = validated_value
+        self._notify_observers()
 
     @property
     def latitude(self) -> Union[float, None]:
-        return self.get('latitude')
+        return self._data.get('latitude')
 
     @latitude.setter
     def latitude(self, value: float) -> None:
-        self.set('latitude', value)
+        validated_value = self._validate_value('latitude', value)
+        self._data['latitude'] = validated_value
+        self._notify_observers()
 
     @property
     def longitude(self) -> Union[float, None]:
-        return self.get('longitude')
+        return self._data.get('longitude')
 
     @longitude.setter
     def longitude(self, value: float) -> None:
-        self.set('longitude', value)
+        validated_value = self._validate_value('longitude', value)
+        self._data['longitude'] = validated_value
+        self._notify_observers()
 
     @property
     def source(self) -> Optional[tuple[str, int]]:
@@ -276,7 +289,7 @@ class ExtendedField:
             tuple: (ip, port)形式のタプル
             None: 未設定の場合
         """
-        value = self.get('source')
+        value = self._data.get('source')
         if value is None:
             return None
         if isinstance(value, tuple):
@@ -294,31 +307,37 @@ class ExtendedField:
                 str: "ip:port"形式の文字列
                 tuple: (ip, port)形式のタプル（portは文字列または数値）
         """
-        if isinstance(value, str):
-            if ":" not in value:
-                raise ValueError("source文字列は'ip:port'形式である必要があります")
-            ip, port_str = value.split(":")
-            try:
-                port = int(port_str)
-            except ValueError:
-                raise ValueError(f"無効なポート番号: {port_str}")
-            value = (ip, port)
+        validated_value = self._validate_value('source', value)
+        self._data['source'] = validated_value
+        self._notify_observers()
+
+    @property
+    def auth_hash(self) -> Optional[bytes]:
+        """認証ハッシュフィールドのゲッター
+        Returns:
+            bytes: 16バイトのMD5ハッシュ値
+            None: 未設定の場合
+        """
+        return self._data.get('auth_hash')
+
+    @auth_hash.setter
+    def auth_hash(self, value: bytes) -> None:
+        """認証ハッシュフィールドのセッター
+        Args:
+            value: 16バイトのMD5ハッシュ値
+        """
+        # キーの検証
+        if 'auth_hash' not in self.FIELD_MAPPING_STR:
+            raise ValueError(f"不正なキー: 'auth_hash'")
         
-        if not isinstance(value, tuple) or len(value) != 2:
-            raise ValueError("sourceは(ip, port)形式のタプルである必要があります")
+        # 値の検証と正規化
+        validated_value = self._validate_value('auth_hash', value)
         
-        ip, port = value
-        if not isinstance(ip, str) or not ip:
-            raise ValueError("IPアドレスは空でない文字列である必要があります")
+        # 値を設定
+        self._data['auth_hash'] = validated_value
         
-        try:
-            port = int(port)
-            if not (0 <= port <= 65535):
-                raise ValueError("ポート番号は0-65535の範囲である必要があります")
-        except ValueError:
-            raise ValueError(f"無効なポート番号: {port}")
-        
-        self.set('source', (ip, port))
+        # 変更を通知
+        self._notify_observers()
 
     def _validate_value(self, key: str, value: Any) -> Any:
         """
@@ -392,6 +411,16 @@ class ExtendedField:
             
             return (ip, port)
         
+        # auth_hashフィールドの検証
+        elif key == 'auth_hash':
+            if not isinstance(value, bytes):
+                raise ValueError("認証ハッシュはbytesオブジェクトである必要があります")
+            
+            if len(value) != 16:
+                raise ValueError(f"認証ハッシュは16バイト固定長である必要があります。現在の長さ: {len(value)}バイト")
+            
+            return value
+        
         # その他の未知のキーはそのまま返す
         return value
 
@@ -426,7 +455,14 @@ class ExtendedField:
                 # _validate_valueで既に正規化されているため、直接valueを使用
                 values_to_process = value
                 
-                if key == 'source':
+                if key == 'auth_hash':
+                    # 認証ハッシュは16バイト固定長のバイナリデータ
+                    if not isinstance(values_to_process, bytes):
+                        raise BitFieldError("認証ハッシュはbytesオブジェクトである必要があります")
+                    if len(values_to_process) != 16:
+                        raise BitFieldError(f"認証ハッシュは16バイト固定長である必要があります。現在の長さ: {len(values_to_process)}バイト")
+                    value_bytes = values_to_process
+                elif key == 'source':
                     # sourceフィールドは"ip:port"形式でシリアライズ
                     ip, port = values_to_process
                     value_str = f"{ip}:{port}"
@@ -467,6 +503,9 @@ class ExtendedField:
             except Exception as e:
                 raise BitFieldError(f"キー '{key}' の処理中にエラー: {e}")
         
+        # 実際に使用されたビット長を記録
+        self._total_bits = current_pos
+        
         return result_bits
 
     @classmethod
@@ -496,6 +535,9 @@ class ExtendedField:
             value_bytes = value_bits.to_bytes(bytes_length, byteorder='little')
             if key in ExtendedFieldType.STRING_LIST_FIELDS:
                 return value_bytes.decode('utf-8').rstrip('\x00#')
+            if key == ExtendedFieldType.AUTH_HASH:
+                # 認証ハッシュは16バイト固定長のバイナリデータとして返す
+                return value_bytes
             if key == ExtendedFieldType.SOURCE:
                 value_str = value_bytes.decode('utf-8').rstrip('\x00#')
                 if ':' in value_str:
@@ -539,8 +581,38 @@ class ExtendedField:
             result = []
             current_pos = 0
             
-            # ビット長を計算（最低でもヘッダー分必要）
-            total_bits = total_bits if total_bits is not None else bitstr.bit_length()
+            # ビット長を計算
+            if total_bits is None:
+                # bitstr.bit_length()は最上位ビットが0の場合実際より短い値を返すため
+                # 動的に必要なビット長を計算する
+                temp_pos = 0
+                temp_total = bitstr.bit_length()
+                
+                # 最初に概算のビット長を計算
+                while temp_pos < temp_total:
+                    if temp_total - temp_pos < cls.EXTENDED_HEADER_TOTAL:
+                        break
+                    
+                    header = extract_bits(bitstr, temp_pos, cls.EXTENDED_HEADER_TOTAL)
+                    if header == 0:
+                        temp_pos += cls.EXTENDED_HEADER_TOTAL
+                        continue
+                    
+                    bytes_length = header & cls.MAX_EXTENDED_LENGTH
+                    if bytes_length == 0:
+                        temp_pos += cls.EXTENDED_HEADER_TOTAL
+                        continue
+                    
+                    bits_length = bytes_length * 8
+                    required_bits = cls.EXTENDED_HEADER_TOTAL + bits_length
+                    
+                    # より大きなビット長が必要な場合は更新
+                    if temp_pos + required_bits > temp_total:
+                        temp_total = temp_pos + required_bits
+                    
+                    temp_pos += required_bits
+                
+                total_bits = temp_total
             
             while current_pos < total_bits:
                 parsed = cls._parse_header(bitstr, current_pos, total_bits)
@@ -563,6 +635,9 @@ class ExtendedField:
             # 結果を辞書に変換
             converted_dict = cls._extended_field_to_dict(result)
             instance._data = converted_dict
+            
+            # 実際に使用されたビット長を記録
+            instance._total_bits = current_pos
             
             # 拡張フィールドが空の場合はフラグを0に設定
             if instance.is_empty():
@@ -611,6 +686,11 @@ class ExtendedField:
                     else:
                         # なければそのまま設定
                         result[key] = stripped_value
+                elif key == "auth_hash":
+                    # 認証ハッシュはバイナリデータとしてそのまま設定
+                    if not isinstance(value, bytes):
+                        raise BitFieldError(f"認証ハッシュの値の型が不正です: {type(value)}")
+                    result[key] = value
                 else:
                     result[key] = value
             
