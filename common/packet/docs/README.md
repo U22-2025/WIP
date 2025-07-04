@@ -214,6 +214,20 @@ value = extract_bits(data, position=0, length=4)
 result = set_bits(data, position=0, length=4, value=15)
 ```
 
+### フィールド定義の再読み込み
+
+`format_spec/` 以下の JSON を更新した後は、以下のように再読み込みを行います。
+
+```python
+from common.packet.core.format_base import FormatBase
+from common.packet.models.request import Request
+
+FormatBase.reload_field_spec("custom_request_fields.json")
+Request.reload_request_spec()
+```
+
+`reload_field_spec()` だけでは可変長フィールドの開始位置が更新されません。必ず `Request.reload_request_spec()` を続けて呼び出してください。
+
 ## 🔍 Request/Response パターン
 
 ```python

@@ -34,17 +34,21 @@ class Request(FormatBase):
         return None
     
     # 可変長拡張フィールドの開始位置
-    VARIABLE_FIELD_START = 128  # 基本フィールドの後から開始
+    VARIABLE_FIELD_START = sum(FormatBase.FIELD_LENGTH.values())
+
+    @classmethod
+    def reload_request_spec(cls) -> None:
+        """基本フィールド定義変更時に開始位置を再計算する"""
+        cls.VARIABLE_FIELD_START = sum(FormatBase.FIELD_LENGTH.values())
 
     def get_min_packet_size(self) -> int:
         """
         リクエストパケットの最小サイズを取得する
-        
+
         Returns:
-            最小パケットサイズ（バイト） - 基本フィールドのみ（16バイト）
+            最小パケットサイズ（バイト）
         """
-        # 基本フィールド（128ビット = 16バイト）
-        return 16
+        return self.VARIABLE_FIELD_START // 8
 
     def __init__(self, *, ex_field: Optional[Union[Dict[str, Any], ExtendedField]] = None, **kwargs) -> None:
         """
