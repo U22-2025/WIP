@@ -3,6 +3,7 @@
 共通ヘッダー部分の構造を定義し、ビット操作の基本機能を提供します
 """
 from typing import Optional, Union, Dict, Any
+from ..dynamic_format import load_base_fields
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
 
@@ -29,23 +30,8 @@ class FormatBase:
     - checksum:         117-128bit (12ビット)
     """
     
-    # ビットフィールドの長さ定義
-    FIELD_LENGTH = {
-        'version': 4,          # バージョン番号
-        'packet_id': 12,       # パケットID
-        'type': 3,            # パケットタイプ
-        'weather_flag': 1,     # 天気フラグ
-        'temperature_flag': 1, # 気温フラグ
-        'pop_flag': 1,       # 降水確率フラグ
-        'alert_flag': 1,      # 警報フラグ
-        'disaster_flag': 1,    # 災害フラグ
-        'ex_flag': 1,         # 拡張フラグ
-        'day': 3,             # 日数
-        'reserved': 4,        # 予約領域
-        'timestamp': 64,      # タイムスタンプ
-        'area_code': 20,      # エリアコード
-        'checksum': 12,       # チェックサム
-    }
+    # ビットフィールドの長さ定義を動的に読み込む
+    FIELD_LENGTH = load_base_fields()
 
     # ビットフィールドの開始位置を計算
     FIELD_POSITION = {}
@@ -339,9 +325,13 @@ class FormatBase:
         else:
             raise BitFieldError(f"エリアコードは文字列または数値である必要があります。受け取った型: {type(value)}")
         
-        # 20ビットの範囲チェック
-        if not (0 <= area_code_int <= 1048575):  # 2^20 - 1
-            raise BitFieldError(f"エリアコード {area_code_int} が20ビットの範囲（0-1048575）を超えています")
+        # ビット長に基づく範囲チェック
+        area_len = self.FIELD_LENGTH.get('area_code', 20)
+        max_area = (1 << area_len) - 1
+        if not (0 <= area_code_int <= max_area):
+            raise BitFieldError(
+                f"エリアコード {area_code_int} が{area_len}ビットの範囲（0-{max_area}）を超えています"
+            )
         
         # 内部では数値として保存（パケット化のため）
         self._set_validated_field('area_code', area_code_int)
