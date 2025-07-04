@@ -95,9 +95,12 @@ class ExtendedField:
         self._observers: List[Callable[[], None]] = []
         self.flag: int = 1  # 拡張フィールドフラグ（1=有効、0=無効）
         
-        # 初期データを設定
+        # 初期データを設定（警告を出さないよう直接登録）
         if data:
-            self.update(data)
+            for key, value in data.items():
+                if key not in self.FIELD_MAPPING_STR:
+                    raise ValueError(f"不正なキー: '{key}'")
+                self._data[key] = self._validate_value(key, value)
     
     def set(self, key: str, value: Any) -> None:
         """
