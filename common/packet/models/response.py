@@ -2,10 +2,39 @@
 レスポンスパケット（統合版）
 """
 from typing import Optional, Dict, Any, Union
+from pathlib import Path
 from ..core.exceptions import BitFieldError
 from ..core.format_base import FormatBase
 from ..core.extended_field import ExtendedField
 from ..core.bit_utils import extract_bits, extract_rest_bits
+from ..dynamic_format import load_response_fields
+
+
+_RESPONSE_SPEC: Dict[str, int] = load_response_fields()
+
+
+def _apply_response_spec(spec: Dict[str, int]) -> None:
+    """内部利用: レスポンスフィールド定義をクラスに適用"""
+    fixed_length = {
+        k: int(v) for k, v in spec.items() if k not in FormatBase.FIELD_LENGTH
+    }
+
+    Response.FIXED_FIELD_LENGTH = fixed_length
+    Response.FIXED_FIELD_POSITION = {}
+    current_pos = sum(FormatBase.FIELD_LENGTH.values())
+    for field, length in fixed_length.items():
+        Response.FIXED_FIELD_POSITION[field] = current_pos
+        current_pos += length
+
+    Response.VARIABLE_FIELD_START = current_pos
+
+    ranges: Dict[str, tuple[int, int]] = {}
+    for field, length in fixed_length.items():
+        if field == "pop":
+            ranges[field] = (0, 100)
+        else:
+            ranges[field] = (0, (1 << length) - 1)
+    Response.FIXED_FIELD_RANGES = ranges
 
 
 class Response(FormatBase):
@@ -48,29 +77,6 @@ class Response(FormatBase):
             return (float(ex_dict['latitude']), float(ex_dict['longitude']))
         return None
     
-    # 固定長拡張フィールドの長さ定義
-    FIXED_FIELD_LENGTH = {
-        'weather_code': 16,  # 天気コード
-        'temperature': 8,    # 気温
-        'pop': 8,          # 降水確率
-    }
-
-    # 固定長拡張フィールドの開始位置を計算
-    FIXED_FIELD_POSITION = {}
-    _current_pos = 128  # 基本フィールドの後から開始
-    for field, length in FIXED_FIELD_LENGTH.items():
-        FIXED_FIELD_POSITION[field] = _current_pos
-        _current_pos += length
-
-    # 可変長拡張フィールドの開始位置
-    VARIABLE_FIELD_START = _current_pos  # 161bit-
-
-    # 固定長拡張フィールドの有効範囲
-    FIXED_FIELD_RANGES = {
-        'weather_code': (0, (1 << 16) - 1),  # 0-65535
-        'temperature': (0, (1 << 8) - 1),    # 0-255 (-100℃～+155℃)
-        'pop': (0, 100),                    # 0-100%
-    }
 
     def get_min_packet_size(self) -> int:
         """
@@ -323,3 +329,12 @@ class Response(FormatBase):
         # 可変長拡張フィールドを追加（ExtendedFieldオブジェクトを辞書形式で）
         result['ex_field'] = self._ex_field.to_dict()
         return result
+
+
+_apply_response_spec(_RESPONSE_SPEC)
+
+
+def reload_response_spec(file_name: str | Path = "response_fields.json") -> None:
+    """レスポンスフィールド定義を再読み込みする"""
+    spec = load_response_fields(file_name)
+    _apply_response_spec(spec)
