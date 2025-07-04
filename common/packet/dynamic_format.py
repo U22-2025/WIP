@@ -49,6 +49,11 @@ def load_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str,
         ) from e
 
 
+def reload_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str, int]:
+    """基本フィールド定義を再読み込みする"""
+    return load_base_fields(file_name)
+
+
 def load_extended_fields(file_name: str | Path = "extended_fields.json") -> Dict[str, int]:
     """拡張フィールド定義を読み込む
 
