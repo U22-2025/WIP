@@ -18,7 +18,7 @@ except ImportError:
         pass
 import traceback
 from common.packet import ErrorResponse
-
+from common.packet import Format
 class BaseServer(ABC):
     """UDPサーバーの基底クラス"""
     
@@ -290,7 +290,6 @@ class BaseServer(ABC):
                 self._handle_error(0x0003, request, addr)  # 0x0003はサーバー内部エラー
             else:
                 # リクエストのパースに失敗している場合は最小限のエラーパケットを送信
-                from common.packet import Format
                 dummy_request = Format()
                 dummy_request.packet_id = 0  # 不明のため0
                 self._handle_error(0x0001, dummy_request, addr)
