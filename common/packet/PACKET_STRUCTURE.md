@@ -363,14 +363,6 @@ except ChecksumMismatchError as e:
     logger.error(f"チェックサム不一致: {e}")
 ```
 
-### 3. デバッグ支援
-```python
-from common.packet.debug_extended_bits import debug_packet_bits
-
-# パケット構造の詳細解析
-analyzer = debug_packet_bits(packet, detailed=True)
-analyzer.print_bit_visualization()
-```
 
 ## 📚 参考資料
 
