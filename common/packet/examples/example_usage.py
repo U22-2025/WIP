@@ -3,11 +3,11 @@
 従来のRequest/Responseクラスと新しい専用クラスの使いやすさを比較
 """
 from datetime import datetime
-from .request import Request
-from .response import Response
+from ..models.request import Request
+from ..models.response import Response
 from ..clients.utils.packet_id_generator import PacketIDGenerator12Bit
-from location_packet import LocationRequest, LocationResponse
-from query_packet import QueryRequest,QueryResponse
+from ..types.location_packet import LocationRequest, LocationResponse
+from ..types.query_packet import QueryRequest, QueryResponse
 
 # パケットIDジェネレーター
 PIDG = PacketIDGenerator12Bit()

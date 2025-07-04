@@ -16,7 +16,7 @@ WIPパケットは以下の特徴を持つ2層構造のプロトコルです：
 ### 基本的な使用方法
 
 ```python
-from common.packet.format import Format
+from common.packet import Format
 from datetime import datetime
 
 # 基本パケットの作成
@@ -57,21 +57,32 @@ alert_packet = Format(
 
 ```
 common/packet/
-├── README.md                    # このファイル
-├── PACKET_STRUCTURE.md          # パケット構造詳細
-├── __init__.py                  # パッケージ初期化
-├── format.py                    # メインパケットクラス
-├── format_base.py               # 基本フィールド実装
-├── format_extended.py           # 拡張フィールド実装
-├── extended_field.py            # 拡張フィールド管理
-├── bit_utils.py                 # ビット操作ユーティリティ
-├── exceptions.py                # 例外定義
-├── request.py                   # リクエストパケット
-├── response.py                  # レスポンスパケット
-├── location_packet.py           # 位置情報専用パケット
-├── query_packet.py              # クエリ専用パケット
-├── example_usage.py             # 使用例
-``` 
+├── __init__.py
+├── core/
+│   ├── __init__.py
+│   ├── bit_utils.py
+│   ├── exceptions.py
+│   ├── extended_field.py
+│   ├── format_base.py
+│   ├── format_extended.py
+│   └── format.py
+├── models/
+│   ├── __init__.py
+│   ├── request.py
+│   └── response.py
+├── types/
+│   ├── __init__.py
+│   ├── location_packet.py
+│   ├── query_packet.py
+│   ├── report_packet.py
+│   └── error_response.py
+├── examples/
+│   └── example_usage.py
+└── docs/
+    ├── README.md
+    ├── PACKET_STRUCTURE.md
+    └── HIERARCHY.md
+```
 ```
 
 ## 🔧 メインクラス
@@ -81,7 +92,7 @@ common/packet/
 メインのパケットフォーマットクラス。基本フィールドと拡張フィールドの両方をサポート。
 
 ```python
-from common.packet.format import Format
+from common.packet import Format
 
 # 初期化
 packet = Format(
@@ -107,8 +118,8 @@ packet = Format(
 特定用途に最適化されたパケットクラス：
 
 ```python
-from common.packet.location_packet import LocationRequest
-from common.packet.query_packet import QueryRequest
+from common.packet import LocationRequest
+from common.packet import QueryRequest
 
 # 位置情報リクエスト
 location = LocationRequest.create_coordinate_lookup(
@@ -205,8 +216,8 @@ result = set_bits(data, position=0, length=4, value=15)
 ## 🔍 Request/Response パターン
 
 ```python
-from common.packet.request import Request
-from common.packet.response import Response
+from common.packet import Request
+from common.packet import Response
 
 # リクエストパケット
 request = Request(
@@ -246,7 +257,7 @@ response = Response(
 
 ```bash
 # 使用例の確認
-python -m common.packet.example_usage
+python -m common.packet.examples.example_usage
 ```
 
 ## 📝 使用例とベストプラクティス
@@ -306,7 +317,7 @@ def query_weather_by_location(lat, lon):
 ## 🔗 関連ドキュメント
 
 - [PACKET_STRUCTURE.md](./PACKET_STRUCTURE.md) - 詳細なパケット構造仕様
-- [example_usage.py](./example_usage.py) - 実践的な使用例
+- [example_usage.py](../examples/example_usage.py) - 実践的な使用例
 
 ## 📞 サポート
 
