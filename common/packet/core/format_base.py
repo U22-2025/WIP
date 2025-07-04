@@ -383,12 +383,12 @@ class FormatBase:
     def get_min_packet_size(self) -> int:
         """
         パケットの最小サイズを取得する（子クラスでオーバーライド可能）
-        
+
         Returns:
             最小パケットサイズ（バイト）
         """
-        # 基本フィールド（128ビット = 16バイト）
-        return 16
+        cls = self.__class__
+        return sum(cls.FIELD_LENGTH.values()) // 8
 
     def to_bits(self) -> int:
         """
