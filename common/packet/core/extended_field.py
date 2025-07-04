@@ -18,12 +18,41 @@
     新しいプロパティアクセス方式に移行してください。
 """
 from typing import Optional, Dict, Any, List, Union, Callable, Tuple
+from pathlib import Path
+from ..dynamic_format import load_extended_fields
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
 
 import csv
 import io
 import warnings
+
+# JSONから読み込んだ拡張フィールド定義
+_EXTENDED_SPEC: Dict[str, int] = {}
+
+
+def reload_extended_spec(file_name: str | Path = "extended_fields.json") -> Dict[str, int]:
+    """拡張フィールド定義を再読み込みして定数を更新"""
+    global _EXTENDED_SPEC
+    spec = load_extended_fields(file_name)
+    _EXTENDED_SPEC = spec
+
+    for name, value in spec.items():
+        setattr(ExtendedFieldType, name.upper(), value)
+
+    ExtendedFieldType.STRING_LIST_FIELDS = {
+        ExtendedFieldType.ALERT,
+        ExtendedFieldType.DISASTER,
+    }
+    ExtendedFieldType.COORDINATE_FIELDS = {
+        ExtendedFieldType.LATITUDE,
+        ExtendedFieldType.LONGITUDE,
+    }
+    ExtendedFieldType.STRING_FIELDS = {ExtendedFieldType.SOURCE}
+
+    ExtendedField.FIELD_MAPPING_INT = {v: k for k, v in spec.items()}
+    ExtendedField.FIELD_MAPPING_STR = spec.copy()
+    return spec
 
 class ExtendedFieldType:
     """拡張フィールドタイプの定数定義"""
@@ -67,22 +96,9 @@ class ExtendedField:
     MAX_EXTENDED_LENGTH = (1 << EXTENDED_HEADER_LENGTH) - 1  # 最大バイト長
     MAX_EXTENDED_KEY = (1 << EXTENDED_HEADER_KEY) - 1       # 最大キー値
     
-    # 拡張フィールドのキーと値のマッピング
-    FIELD_MAPPING_INT = {
-        ExtendedFieldType.ALERT: 'alert',
-        ExtendedFieldType.DISASTER: 'disaster',
-        ExtendedFieldType.LATITUDE: 'latitude',
-        ExtendedFieldType.LONGITUDE: 'longitude',
-        ExtendedFieldType.SOURCE: 'source',
-    }
-    
-    FIELD_MAPPING_STR = {
-        'alert': ExtendedFieldType.ALERT,
-        'disaster': ExtendedFieldType.DISASTER,
-        'latitude': ExtendedFieldType.LATITUDE,
-        'longitude': ExtendedFieldType.LONGITUDE,
-        'source': ExtendedFieldType.SOURCE,
-    }
+    # 拡張フィールドのキーと値のマッピング（reload_extended_specで更新）
+    FIELD_MAPPING_INT: Dict[int, str] = {}
+    FIELD_MAPPING_STR: Dict[str, int] = {}
     
     def __init__(self, data: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -630,3 +646,7 @@ class ExtendedField:
         elif isinstance(other, dict):
             return self._data == other
         return False
+
+
+# 初期ロード
+reload_extended_spec()
