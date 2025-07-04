@@ -10,7 +10,6 @@
 common/packet/
 ├── __init__.py
 ├── bit_utils.py
-├── debug_extended_bits.py
 ├── error_response.py
 ├── exceptions.py
 ├── extended_field.py
@@ -22,8 +21,6 @@ common/packet/
 ├── location_packet.py
 ├── query_packet.py
 ├── example_usage.py
-├── test_checksum.py
-├── test_specialized_packets.py
 ├── PACKET_STRUCTURE.md
 └── README.md
 ```
@@ -41,8 +38,7 @@ common/packet/
 - **location_packet.py**, **query_packet.py**:
   上記 Request/Response を継承した用途別のパケットクラス群です。
 - **error_response.py**: エラー情報を返す専用レスポンスです。
-- **debug_extended_bits.py** / **example_usage.py** / **test_*.py**:
-  デバッグや使用例、テストコードが含まれます。
+- **example_usage.py**: 使用例をまとめたスクリプトです。
 
 ## クラス間の関係
 
