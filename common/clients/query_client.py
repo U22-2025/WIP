@@ -211,9 +211,9 @@ class QueryClient:
         finally:
             sock.close()
 
-    def get_weather_data_simple(self, area_code, include_all=False, timeout=5.0):
+    def get_weather_simple(self, area_code, include_all=False, timeout=5.0):
         """
-        簡便なメソッド：基本的な気象データを一括取得
+        簡便なメソッド：基本的な気象データを一括取得（統一命名規則版）
         
         Args:
             area_code: エリアコード
@@ -255,7 +255,7 @@ class QueryClient:
             for i in range(requests_per_thread):
                 area_code = area_codes[i % len(area_codes)]
                 try:
-                    result = self.get_weather_data_simple(
+                    result = self.get_weather_simple(
                         area_code=area_code,
                         include_all=(i % 2 == 0)  # 交互に全データ取得
                     )
@@ -327,6 +327,11 @@ class QueryClient:
             'errors': errors
         }
 
+    # 後方互換性のためのエイリアスメソッド
+    def get_weather_data_simple(self, area_code, include_all=False, timeout=5.0):
+        """後方互換性のため - get_weather_simple()を使用してください"""
+        return self.get_weather_simple(area_code, include_all, timeout)
+
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
@@ -368,7 +373,7 @@ def main():
     logger.info("\n2. Simple Method Test")
     logger.info("-" * 30)
     
-    simple_result = client.get_weather_data_simple(
+    simple_result = client.get_weather_simple(
         area_code="130010",  # 東京
         include_all=True
     )

@@ -93,9 +93,9 @@ class LocationClient:
         self.logger.debug(self._hex_dump(response.to_bytes()))
         self.logger.debug("============================\n")
 
-    def get_location_info(self, latitude, longitude, source=None, preserve_flags=None):
+    def get_location_data(self, latitude, longitude, source=None, preserve_flags=None):
         """
-        座標から位置情報を取得（改良版）
+        座標から位置情報を取得（統一命名規則版）
         
         Args:
             latitude: 緯度
@@ -168,9 +168,9 @@ class LocationClient:
                 self.logger.exception("Traceback:")
             return None, 0
 
-    def get_area_code_from_coordinates(self, latitude, longitude, source=None):
+    def get_area_code_simple(self, latitude, longitude, source=None):
         """
-        座標からエリアコードのみを取得する簡便メソッド
+        座標からエリアコードのみを取得する簡便メソッド（統一命名規則版）
         
         Args:
             latitude: 緯度
@@ -180,11 +180,20 @@ class LocationClient:
         Returns:
             str: エリアコード（失敗時はNone）
         """
-        response, _ = self.get_location_info(latitude, longitude, source)
+        response, _ = self.get_location_data(latitude, longitude, source)
         if response and response.is_valid():
             return response.get_area_code()
         self.logger.error("400: クライアントエラー: 不正なパケット")
         return None
+
+    # 後方互換性のためのエイリアスメソッド
+    def get_location_info(self, latitude, longitude, source=None, preserve_flags=None):
+        """後方互換性のため - get_location_data()を使用してください"""
+        return self.get_location_data(latitude, longitude, source, preserve_flags)
+
+    def get_area_code_from_coordinates(self, latitude, longitude, source=None):
+        """後方互換性のため - get_area_code_simple()を使用してください"""
+        return self.get_area_code_simple(latitude, longitude, source)
 
     def close(self):
         """ソケットを閉じる"""
@@ -209,7 +218,7 @@ def main():
         logger.info("-" * 50)
         
         # 改良版のメソッドを使用
-        response, total_time = client.get_location_info(
+        response, total_time = client.get_location_data(
             latitude=latitude,
             longitude=longitude,
             source=("127.0.0.1", 9999)
@@ -222,7 +231,7 @@ def main():
             
             # 簡便メソッドのテスト
             logger.info(f"\n--- Testing convenience method ---")
-            area_code = client.get_area_code_from_coordinates(latitude, longitude)
+            area_code = client.get_area_code_simple(latitude, longitude)
             logger.info(f"Area Code (convenience method): {area_code}")
             
         else:

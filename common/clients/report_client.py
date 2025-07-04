@@ -161,8 +161,8 @@ class ReportClient:
         self.logger.debug(self._hex_dump(response.to_bytes()))
         self.logger.debug("=====================================\n")
 
-    def send_report(self) -> Optional[Dict[str, Any]]:
-        """設定されたセンサーデータでレポートを送信"""
+    def send_report_data(self) -> Optional[Dict[str, Any]]:
+        """設定されたセンサーデータでレポートを送信（統一命名規則版）"""
         if self.area_code is None:
             self.logger.error("エリアコードが設定されていません")
             return None
@@ -236,9 +236,9 @@ class ReportClient:
                 self.logger.exception("Traceback:")
             return None
 
-    def send_current_data(self) -> Optional[Dict[str, Any]]:
-        """現在設定されているデータでレポートを送信（send_report の別名）"""
-        return self.send_report()
+    def send_data_simple(self) -> Optional[Dict[str, Any]]:
+        """現在設定されているデータでレポートを送信（統一命名規則版）"""
+        return self.send_report_data()
 
     def clear_data(self):
         """設定されているセンサーデータをクリア"""
@@ -267,6 +267,15 @@ class ReportClient:
         """ソケットを閉じる"""
         self.sock.close()
 
+    # 後方互換性のためのエイリアスメソッド
+    def send_report(self) -> Optional[Dict[str, Any]]:
+        """後方互換性のため - send_report_data()を使用してください"""
+        return self.send_report_data()
+
+    def send_current_data(self) -> Optional[Dict[str, Any]]:
+        """後方互換性のため - send_data_simple()を使用してください"""
+        return self.send_data_simple()
+
 
 
 
@@ -294,7 +303,7 @@ def main():
         current_data = client.get_current_data()
         logger.info(f"Current data: {current_data}")
 
-        result = client.send_report()
+        result = client.send_report_data()
         if result:
             logger.info("\n✓ Report sent successfully!")
             logger.info(f"Response: {result}")
@@ -312,7 +321,7 @@ def main():
             alert=["大雨注意報"],
         )
 
-        result = client.send_current_data()
+        result = client.send_data_simple()
         if result:
             logger.info("\n✓ Batch report sent successfully!")
             logger.info(f"Response: {result}")
@@ -332,7 +341,7 @@ def main():
             disaster=["河川氾濫危険情報"]
         )
 
-        result = client.send_report()
+        result = client.send_report_data()
         if result:
             logger.info("\n✓ Alert report sent successfully!")
             logger.info(f"Response: {result}")
@@ -368,7 +377,7 @@ def send_sensor_report(area_code, weather_code=None, temperature=None,
             disaster=disaster
         )
 
-        return client.send_report()
+        return client.send_report_data()
 
     finally:
         client.close()
