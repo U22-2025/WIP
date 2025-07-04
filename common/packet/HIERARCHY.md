@@ -57,10 +57,8 @@ graph TD
     FormatBase --> Response
     ExtendedField --> Request
     ExtendedField --> Response
-    Request --> WeatherRequest
     Request --> LocationRequest
     Request --> QueryRequest
-    Response --> WeatherResponse
     Response --> LocationResponse
     Response --> QueryResponse
     Response --> ErrorResponse
