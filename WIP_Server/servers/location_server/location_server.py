@@ -76,20 +76,20 @@ class LocationServer(BaseServer):
         self.version = self.config.getint('system', 'protocol_version', 1)
         
         # データベース接続とキャッシュの初期化
-        self._init_database()
-        self._init_cache(max_cache_size)
+        self._setup_database()
+        self._setup_cache(max_cache_size)
         
         # Weather server configuration
         self.weather_host = "127.0.0.1"  # Default to localhost
         
         if self.debug:
-            print(f"\n[位置情報サーバー] 設定:")
+            print(f"\n[{self.server_name}] 設定:")
             print(f"  Server: {host}:{port}")
             print(f"  Database: {self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}")
             print(f"  Cache size: {max_cache_size}")
             print(f"  Protocol Version: {self.version}")
     
-    def _init_database(self):
+    def _setup_database(self):
         """データベース接続プールを初期化"""
         try:
             # Initialize connection pool
@@ -111,7 +111,7 @@ class LocationServer(BaseServer):
             self.connection_pool.putconn(conn)
             
             if self.debug:
-                print(f"データベース {self.DB_NAME} に正常に接続しました")
+                print(f"[{self.server_name}] データベース {self.DB_NAME} に正常に接続しました")
             
         except (Exception, psycopg2.Error) as error:
             print(f"PostgreSQL データベースへの接続エラー: {error}")
@@ -119,11 +119,11 @@ class LocationServer(BaseServer):
                 self.connection_pool.closeall()
             raise SystemExit(1)
     
-    def _init_cache(self, max_cache_size):
+    def _setup_cache(self, max_cache_size):
         """キャッシュを初期化"""
         self.cache = Cache()
         if self.debug:
-            print(f"TTLベースのキャッシュを初期化しました")
+            print(f"[{self.server_name}] TTLベースのキャッシュを初期化しました")
     
     def parse_request(self, data):
         """
@@ -173,17 +173,17 @@ class LocationServer(BaseServer):
         """
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
-            return False, "400"
+            return False, "400", "拡張フィールドが設定されていません"
         
         # 緯度経度が必要
         if not hasattr(request, 'ex_field') or not request.ex_field:
-            return False, "400"
+            return False, "400", "拡張フィールドオブジェクトが存在しません"
         
         # ExtendedFieldオブジェクトのgetメソッドを使用
         latitude = request.ex_field.get("latitude")
         longitude = request.ex_field.get("longitude")
         if not latitude or not longitude:
-            return False, "401"
+            return False, "401", "緯度経度の情報が不足しています"
         
         return True, None, None
 
@@ -207,11 +207,26 @@ class LocationServer(BaseServer):
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
+            
+            # 元のリクエストからsource情報を引き継ぐ
+            if hasattr(request, 'ex_field') and request.ex_field:
+                source = request.ex_field.get('source')
+                if source:
+                    from common.packet.extended_field import ExtendedField
+                    error_response.ex_field = ExtendedField()
+                    error_response.ex_field.source = source
+                    error_response.ex_flag = 1
+                    if self.debug:
+                        print(f"[{self.server_name}] バリデーションエラーレスポンスにsource情報を設定: {source}")
+            
+            if self.debug:
+                print(f"[{self.server_name}] バリデーションエラーレスポンス作成 (コード: {error_code})")
+            
             return error_response.to_bytes()
     
         # 位置情報から地域コードを取得
         try:
-            area_code = self.get_district_code(
+            area_code = self._get_area_code_from_coordinates(
                 request.ex_field.get("longitude"),
                 request.ex_field.get("latitude")
             )
@@ -259,11 +274,24 @@ class LocationServer(BaseServer):
                 error_code="510",
                 timestamp=int(datetime.now().timestamp())
             )
+            
+            # 元のリクエストからsource情報を引き継ぐ
+            if hasattr(request, 'ex_field') and request.ex_field:
+                source = request.ex_field.get('source')
+                if source:
+                    from common.packet.extended_field import ExtendedField
+                    error_response.ex_field = ExtendedField()
+                    error_response.ex_field.source = source
+                    error_response.ex_flag = 1
+                    if self.debug:
+                        print(f"[{self.server_name}] 内部エラーレスポンスにsource情報を設定: {source}")
+            
             if self.debug:
-                print(f"510: [位置情報サーバー] エラーレスポンスを生成: {error_response.error_code}")
+                print(f"[{self.server_name}] 内部エラーレスポンス作成 (コード: 510, エラー: {e})")
+            
             return error_response.to_bytes()
     
-    def get_district_code(self, longitude, latitude):
+    def _get_area_code_from_coordinates(self, longitude, latitude):
         """
         緯度経度から地域コードを取得（キャッシュ機能付き）
         
@@ -281,7 +309,7 @@ class LocationServer(BaseServer):
         cached_value = self.cache.get(cache_key)
         if cached_value is not None:
             if self.debug:
-                print("キャッシュヒット！")
+                print(f"[{self.server_name}] キャッシュヒット！")
             return cached_value
         
         conn = None
@@ -307,7 +335,7 @@ class LocationServer(BaseServer):
             self.cache.set(cache_key, district_code)
             
             if self.debug:
-                print(f"({longitude}, {latitude}) のクエリ結果: {district_code}")
+                print(f"[{self.server_name}] ({longitude}, {latitude}) のクエリ結果: {district_code}")
             
             return district_code
             
@@ -326,7 +354,7 @@ class LocationServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== 受信リクエストパケット ===")
+        print(f"\n[{self.server_name}] === 受信リクエストパケット ===")
         print(f"Total Length: {len(data)} bytes")
         print("\nHeader:")
         print(f"Version: {parsed.version}")
@@ -347,7 +375,7 @@ class LocationServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== 送信レスポンスパケット ===")
+        print(f"\n[{self.server_name}] === 送信レスポンスパケット ===")
         print(f"Total Length: {len(response)} bytes")
         
         # レスポンスから地域コードを抽出（デバッグ用）

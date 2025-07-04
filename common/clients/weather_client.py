@@ -139,12 +139,12 @@ class WeatherClient:
         self.logger.debug(self._hex_dump(response.to_bytes()))
         self.logger.debug("==============================\n")
         
-    def get_weather_by_area_code(self, area_code,
-                                weather=True, temperature=True,
-                                precipitation_prob=True, alert=False, disaster=False,
-                                day=0):
+    def get_weather_data(self, area_code,
+                        weather=True, temperature=True,
+                        precipitation_prob=True, alert=False, disaster=False,
+                        day=0):
         """
-        エリアコードから天気情報を取得（Type 2 → Type 3）
+        エリアコードから天気情報を取得（統一命名規則版）
         
         Args:
             area_code: エリアコード（文字列または数値、例: "011000" または 11000）
@@ -324,6 +324,36 @@ class WeatherClient:
             if self.debug:
                 self.logger.exception("Traceback:")
             return None
+
+    def get_weather_simple(self, area_code, include_all=False, day=0):
+        """
+        基本的な気象データを一括取得する簡便メソッド（統一命名規則版）
+        
+        Args:
+            area_code: エリアコード
+            include_all: すべてのデータを取得するか（警報・災害情報も含む）
+            day: 予報日（0: 今日, 1: 明日, ...）
+            
+        Returns:
+            dict: 気象データ
+        """
+        return self.get_weather_data(
+            area_code=area_code,
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            alert=include_all,
+            disaster=include_all,
+            day=day
+        )
+
+    # 後方互換性のためのエイリアスメソッド
+    def get_weather_by_area_code(self, area_code,
+                                weather=True, temperature=True,
+                                precipitation_prob=True, alert=False, disaster=False,
+                                day=0):
+        """後方互換性のため - get_weather_data()を使用してください"""
+        return self.get_weather_data(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
         
     def close(self):
         """ソケットを閉じる"""
@@ -442,7 +472,7 @@ def main():
         logger.info("\n4. Getting weather by area code - Traditional method")
         logger.info("-" * 55)
         
-        result = client.get_weather_by_area_code(
+        result = client.get_weather_data(
             area_code="011000",
             weather=True,
             temperature=True,

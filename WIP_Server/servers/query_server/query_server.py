@@ -68,21 +68,21 @@ class QueryServer(BaseServer):
         self.version = self.config.getint('system', 'protocol_version', 1)
         
         # 各コンポーネントの初期化
-        self._init_components()
+        self._setup_components()
         
         # スキップエリアリストを初期化
         self.skip_area = []
 
         # スケジューラーを開始
-        self._start_weather_update_scheduler()
+        self._setup_scheduler()
 
         if self.debug:
-            print(f"\n[クエリサーバー] 設定:")
+            print(f"\n[{self.server_name}] 設定:")
             print(f"  Server: {host}:{port}")
             print(f"  Protocol Version: {self.version}")
             print(f"  Max Workers: {max_workers}")
     
-    def _init_components(self):
+    def _setup_components(self):
         """各コンポーネントを初期化"""
         # デバッグヘルパー
         self.debug_helper = DebugHelper(self.debug)
@@ -168,13 +168,13 @@ class QueryServer(BaseServer):
                 timestamp=int(datetime.now().timestamp())
             )
             if self.debug:
-                print(f"{error_code}: [クエリサーバー] エラーレスポンスを生成: {error_code}")
+                print(f"{error_code}: [{self.server_name}] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
 
         try:
             # デバッグ：リクエストの状態を確認
             if self.debug:
-                print(f"\n[クエリサーバー] リクエストに対するレスポンスを作成中:")
+                print(f"\n[{self.server_name}] リクエストに対するレスポンスを作成中:")
                 print(f"  Area code: {request.area_code}")
                 print(f"  ex_flag: {request.ex_flag}")
                 print(f"  Source info: {request.get_source_info()}")
@@ -209,7 +209,7 @@ class QueryServer(BaseServer):
                         response.ex_field.longitude = long
                         response.ex_flag = 1
                         if self.debug:
-                            print(f"[クエリサーバー] 座標をレスポンスに追加しました: {lat},{long}")
+                            print(f"[{self.server_name}] 座標をレスポンスに追加しました: {lat},{long}")
         except Exception as e:
             # 内部エラー発生時は500エラーを返す
             error_response = ErrorResponse(
@@ -219,12 +219,12 @@ class QueryServer(BaseServer):
                 timestamp=int(datetime.now().timestamp())
             )
             if self.debug:
-                print(f"520: [クエリサーバー] エラーレスポンスを生成: {error_code}")
+                print(f"520: [{self.server_name}] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
         
         # 最終確認
         if self.debug:
-            print(f"[クエリサーバー] 最終レスポンス状態:")
+            print(f"[{self.server_name}] 最終レスポンス状態:")
             print(f"  ex_flag: {response.ex_flag}")
             print(f"  Source info: {response.get_source_info()}")
             if hasattr(response, 'ex_field') and response.ex_field:
@@ -237,7 +237,7 @@ class QueryServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== 受信リクエストパケット ===")
+        print(f"\n[{self.server_name}] === 受信リクエストパケット ===")
         print(f"Total Length: {len(data)} bytes")
         print("\nHeader:")
         print(f"Version: {parsed.version}")
@@ -269,7 +269,7 @@ class QueryServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== 送信レスポンスパケット ===")
+        print(f"\n[{self.server_name}] === 送信レスポンスパケット ===")
         print(f"Total Length: {len(response)} bytes")
         
         # レスポンスオブジェクトの詳細情報を表示
@@ -300,7 +300,7 @@ class QueryServer(BaseServer):
         if hasattr(self, 'weather_manager'):
             self.weather_manager.close()
 
-    def _start_weather_update_scheduler(self):
+    def _setup_scheduler(self):
         """
         気象データ更新のスケジューラーを開始
         """
@@ -308,16 +308,16 @@ class QueryServer(BaseServer):
         update_times = [t.strip() for t in update_times_str.split(',')]
         
         if self.debug:
-            print(f"[クエリサーバー] 気象データ更新を毎日 {', '.join(update_times)} にスケジュールします。")
+            print(f"[{self.server_name}] 気象データ更新を毎日 {', '.join(update_times)} にスケジュールします。")
         
         for update_time in update_times:
-            schedule.every().day.at(update_time).do(self.update_weather_data_scheduled)
+            schedule.every().day.at(update_time).do(self._update_weather_data_scheduled)
         
         # configからskip_areaの確認と更新間隔を取得
         skip_area_interval = self.config.getint('schedule', 'skip_area_check_interval_minutes', 10)
         if self.debug:
-            print(f"[クエリサーバー] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。")
-        schedule.every(skip_area_interval).minutes.do(self.check_and_update_skip_area_scheduled)
+            print(f"[{self.server_name}] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。")
+        schedule.every(skip_area_interval).minutes.do(self._check_and_update_skip_area_scheduled)
 
         # スケジュールを実行するスレッドを開始
         def run_scheduler():
@@ -328,46 +328,46 @@ class QueryServer(BaseServer):
         scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
         scheduler_thread.start()
 
-    def update_weather_data_scheduled(self):
+    def _update_weather_data_scheduled(self):
         """
         スケジュールされた気象データ更新処理
         """
         if self.debug:
-            print(f"[クエリサーバー] スケジュールされた気象データ更新を実行中...")
+            print(f"[{self.server_name}] スケジュールされた気象データ更新を実行中...")
         try:
             # WIP_Server/scripts/update_weather_data.py の関数を呼び出す
             self.skip_area = update_redis_weather_data(debug=self.debug)
             if self.debug:
-                print(f"[クエリサーバー] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。")
+                print(f"[{self.server_name}] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。")
         except Exception as e:
-            print(f"[クエリサーバー] 気象データ更新エラー: {e}")
+            print(f"[{self.server_name}] 気象データ更新エラー: {e}")
             if self.debug:
                 traceback.print_exc()
 
-    def check_and_update_skip_area_scheduled(self):
+    def _check_and_update_skip_area_scheduled(self):
         """
         スケジュールされたskip_areaの確認と更新処理
         """
         if self.debug:
-            print(f"[クエリサーバー] スケジュールされたskip_areaの確認と更新を実行中...")
+            print(f"[{self.server_name}] スケジュールされたskip_areaの確認と更新を実行中...")
         
         if self.skip_area:
             if self.debug:
-                print(f"[クエリサーバー] skip_areaに地域コードが存在します: {self.skip_area}")
-                print(f"[クエリサーバー] update_redis_weather_dataをskip_areaを引数に実行します。")
+                print(f"[{self.server_name}] skip_areaに地域コードが存在します: {self.skip_area}")
+                print(f"[{self.server_name}] update_redis_weather_dataをskip_areaを引数に実行します。")
             try:
                 # skip_areaを引数としてupdate_redis_weather_dataを呼び出す
                 updated_skip_area = update_redis_weather_data(debug=self.debug, area_codes=self.skip_area)
                 self.skip_area = updated_skip_area
                 if self.debug:
-                    print(f"[クエリサーバー] skip_areaの更新完了。現在のskip_area: {self.skip_area}")
+                    print(f"[{self.server_name}] skip_areaの更新完了。現在のskip_area: {self.skip_area}")
             except Exception as e:
-                print(f"[クエリサーバー] skip_area更新エラー: {e}")
+                print(f"[{self.server_name}] skip_area更新エラー: {e}")
                 if self.debug:
                     traceback.print_exc()
         else:
             if self.debug:
-                print(f"[クエリサーバー] skip_areaは空です。更新はスキップされます。")
+                print(f"[{self.server_name}] skip_areaは空です。更新はスキップされます。")
 
 
 if __name__ == "__main__":

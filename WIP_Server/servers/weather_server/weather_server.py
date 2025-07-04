@@ -135,7 +135,7 @@ class WeatherServer(BaseServer):
         start_time = time.time()
         
         if self.debug:
-                print(f"\n[天気サーバー] {addr} から {len(data)} バイトを受信しました")
+                print(f"\n[{self.server_name}] {addr} から {len(data)} バイトを受信しました")
                 print(f"生データ（最初の20バイト）: {' '.join(f'{b:02x}' for b in data[:min(20, len(data))])}")
         try:
             # リクエストカウントを増加（スレッドセーフ）
@@ -154,7 +154,7 @@ class WeatherServer(BaseServer):
                 timing_info['parse'] = parse_time
                 # リクエストパース成功のデバッグ出力を削除
             except Exception as e:
-                print(f"530: [天気サーバー] リクエストのパース中にエラーが発生しました: {e}")
+                print(f"530: [{self.server_name}] リクエストのパース中にエラーが発生しました: {e}")
                 if self.debug:
                     traceback.print_exc()
                 # ErrorResponseを作成して返す（パースエラー時はpacket_id=0とする）
@@ -265,7 +265,7 @@ class WeatherServer(BaseServer):
         except Exception as e:
             with self.lock:
                 self.error_count += 1
-            print(f"530: [{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
+            print(f"530: [{self.server_name}:{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
             # ErrorResponseを作成して返す（requestが未定義の場合の処理を追加）
@@ -302,9 +302,36 @@ class WeatherServer(BaseServer):
         """座標解決リクエストの処理（Type 0・改良版）"""
         source_info = (addr[0], addr[1])  # タプル形式で保持
         try:
-            # 気象キャッシュ処理
-            lat, long = request.get_coordinates()
-            cache_key = f"{lat}_{long}"
+            # 気象キャッシュ処理 - 座標を安全に取得（デバッグ強化版）
+            if self.debug:
+                print(f"[{self.server_name}] 座標取得開始 - パケットタイプ: {type(request).__name__}")
+                print(f"  hasattr(get_coordinates): {hasattr(request, 'get_coordinates')}")
+                print(f"  hasattr(ex_field): {hasattr(request, 'ex_field')}")
+                if hasattr(request, 'ex_field') and request.ex_field:
+                    print(f"  ex_field contents: {request.ex_field.to_dict()}")
+                    
+            coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
+            if coords:
+                lat, long = coords
+                if self.debug:
+                    print(f"  ✓ get_coordinates()から取得: {lat}, {long}")
+            else:
+                # 拡張フィールドから直接座標を取得
+                lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
+                long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
+                if self.debug:
+                    print(f"  拡張フィールドから直接取得: {lat}, {long}")
+                
+            if lat is None or long is None:
+                if self.debug:
+                    print(f"[{self.server_name}] ❌ 座標情報が取得できません")
+                # 座標が取得できない場合はキャッシュ処理をスキップ
+                lat, long = None, None
+            else:
+                if self.debug:
+                    print(f"[{self.server_name}] ✓ 座標取得成功: {lat}, {long}")
+            
+            cache_key = f"{lat}_{long}" if lat is not None and long is not None else None
             cached_data = self.cache_area.get(cache_key)
 
             # キャッシュの有効期限チェック
@@ -324,6 +351,7 @@ class WeatherServer(BaseServer):
             if (
                 area_code_valid
                 and (datetime.now() - cached_data["timestamp"]) < cache_expiration_for_area
+                and cache_key is not None  # キャッシュキーが有効な場合のみ
             ):
                 print("キャッシュヒット！\nweather_requestを作成します。")
                 try:
@@ -361,8 +389,67 @@ class WeatherServer(BaseServer):
                     # エラーが発生した場合はキャッシュを削除して通常処理を続行
                     self.cache_area.delete(cache_key)
             
-            location_request = request
+            # LocationRequestを正しく作成（常にType 0になることを保証）
+            if isinstance(request, LocationRequest):
+                location_request = request
+                # タイプが正しくType 0であることを明示的に設定
+                location_request.type = 0
+            else:
+                # 他のタイプから変換される場合は新規作成 - 安全な座標取得
+                coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
+                if coords:
+                    lat, long = coords
+                else:
+                    # 拡張フィールドから直接座標を取得
+                    lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
+                    long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
+                    
+                location_request = LocationRequest.create_location_request(
+                    latitude=lat,
+                    longitude=long,
+                    packet_id=request.packet_id,
+                    day=request.day,
+                    weather=bool(request.weather_flag),
+                    temperature=bool(request.temperature_flag),
+                    precipitation_prob=bool(request.pop_flag),
+                    alert=bool(request.alert_flag),
+                    disaster=bool(request.disaster_flag),
+                    version=self.version
+                )
+            
+            # 既存の座標情報を保持
+            coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
+            if coords:
+                lat, long = coords
+            else:
+                # 拡張フィールドから直接座標を取得
+                lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
+                long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
+            
+            # 拡張フィールドを確実に初期化（既存のものがあっても新規作成）
+            from common.packet.extended_field import ExtendedField
+            location_request.ex_field = ExtendedField()
+            
+            # 座標情報を拡張フィールドに追加
+            if lat is not None and long is not None:
+                location_request.ex_field.latitude = lat
+                location_request.ex_field.longitude = long
+                if self.debug:
+                    print(f"  座標を拡張フィールドに追加: {lat}, {long}")
+            else:
+                if self.debug:
+                    print(f"  警告: 座標情報が取得できませんでした")
+            
+            # source情報を追加
             location_request.ex_field.source = source_info
+            location_request.ex_flag = 1
+            
+            if self.debug:
+                print(f"  LocationRequestタイプ: {location_request.type} (Type 0であることを確認)")
+                print(f"  ex_flag: {location_request.ex_flag}")
+                print(f"  source情報: {location_request.ex_field.source}")
+                print(f"  拡張フィールド内容: {location_request.ex_field.to_dict() if hasattr(location_request.ex_field, 'to_dict') else 'N/A'}")
+                print(f"  送信先: {self.location_resolver_host}:{self.location_resolver_port}")
             
             # Location Resolverに転送
             packet_data = location_request.to_bytes()
@@ -405,7 +492,7 @@ class WeatherServer(BaseServer):
                 return
             
         except Exception as e:
-            print(f"530: [天気サーバー] 位置情報リクエストの処理中にエラーが発生しました: {e}")
+            print(f"530: [{self.server_name}] 位置情報リクエストの処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
             # ErrorResponseを作成して返す
@@ -524,7 +611,7 @@ class WeatherServer(BaseServer):
         """座標解決レスポンスの処理（Type 1・改良版）"""
         try:
             if self.debug:
-                print(f"\n[天気サーバー] タイプ1: 位置情報レスポンス処理開始")
+                print(f"\n[{self.server_name}] タイプ1: 位置情報レスポンス処理開始")
                 print(f"  受信データサイズ: {len(data)}バイト")
                 print(f"  受信アドレス: {addr}")
             
@@ -555,7 +642,7 @@ class WeatherServer(BaseServer):
                     self.cache_area.set(cache_key, cache_data)
 
             if self.debug:
-                print(f"\n[天気サーバー] タイプ1: 位置情報レスポンスを天気リクエストに変換中")
+                print(f"\n[{self.server_name}] タイプ1: 位置情報レスポンスを天気リクエストに変換中")
                 print(f"  Area code: {response.get_area_code()}")
                 print(f"  Source: {response.get_source_info()}")
                 print(f"  Valid: {response.is_valid()}")
@@ -656,7 +743,7 @@ class WeatherServer(BaseServer):
                 raise RuntimeError(f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})")
             
         except Exception as e:
-            print(f"107: [天気サーバー] 位置情報レスポンスの処理中にエラーが発生しました: {e}")
+            print(f"107: [{self.server_name}] 位置情報レスポンスの処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
             source_ip,source_port = data.get_source_info()
@@ -680,7 +767,7 @@ class WeatherServer(BaseServer):
             source_info = (addr[0], addr[1])  # タプル形式で保持
             
             if self.debug:
-                print(f"\n[天気サーバー] タイプ2: 天気リクエストを処理中")
+                print(f"\n[{self.server_name}] タイプ2: 天気リクエストを処理中")
                 print(f"  Source: {source_info}")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
                 print(f"  Area code: {request.area_code}")
@@ -842,7 +929,7 @@ class WeatherServer(BaseServer):
             response = QueryResponse.from_bytes(data)
             
             if self.debug:
-                print(f"\n[天気サーバー] タイプ3: 天気レスポンスを処理中")
+                print(f"\n[{self.server_name}] タイプ3: 天気レスポンスを処理中")
                 print(f"  Success: {response.is_success()}")
                 if hasattr(response, 'get_response_summary'):
                     summary = response.get_response_summary()
@@ -906,7 +993,7 @@ class WeatherServer(BaseServer):
             # 専用クラスのメソッドでsource情報を取得
             source_info = response.get_source_info()
             if not source_info:
-                print("530: 気象サーバでの処理エラー: 天気レスポンスに送信元情報がありません")
+                print(f"530: [{self.server_name}] 処理エラー: 天気レスポンスに送信元情報がありません")
                 if self.debug and hasattr(response, 'ex_field'):
                     print(f"  ex_field の内容: {response.ex_field.to_dict()}")
                 return
@@ -920,10 +1007,10 @@ class WeatherServer(BaseServer):
                         raise ValueError("Invalid port number")
                     dest_addr = (host, port)
                 except (ValueError, TypeError) as e:
-                    print(f"[天気サーバー] 不正なポート番号: {port}")
+                    print(f"[{self.server_name}] 不正なポート番号: {port}")
                     return
             else:
-                print(f"[天気サーバー] 不正なsource_info形式: {source_info}")
+                print(f"[{self.server_name}] 不正なsource_info形式: {source_info}")
                 return
             
             if self.debug:
@@ -996,7 +1083,7 @@ class WeatherServer(BaseServer):
                 return
                 
         except Exception as e:
-            print(f"530: [天気サーバー] 基本エラー: リクエスト処理失敗: {e}")
+            print(f"530: [{self.server_name}] 基本エラー: リクエスト処理失敗: {e}")
             if self.debug:
                 traceback.print_exc()
             # ErrorResponseを作成して返す
@@ -1013,7 +1100,7 @@ class WeatherServer(BaseServer):
         """エラーパケットの処理（Type 7）"""
         try:
             if self.debug:
-                print(f"\n[天気サーバー] タイプ7: エラーパケットを処理中")
+                print(f"\n[{self.server_name}] タイプ7: エラーパケットを処理中")
                 print(f"  エラーコード: {request.error_code}")
                 print(f"  送信元アドレス: {addr}")
             
@@ -1034,16 +1121,16 @@ class WeatherServer(BaseServer):
                         if self.debug:
                             print(f"  エラーパケットを {source} に送信しました")
                     except (ValueError, TypeError) as e:
-                        print(f"[天気サーバー] 不正なポート番号: {port}")
+                        print(f"[{self.server_name}] 不正なポート番号: {port}")
                 else:
-                    print(f"[天気サーバー] 不正なsource形式: {source}")
+                    print(f"[{self.server_name}] 不正なsource形式: {source}")
             else:
-                print(f"[天気サーバー] エラー: エラーパケットにsourceが含まれていません")
+                print(f"[{self.server_name}] エラー: エラーパケットにsourceが含まれていません")
                 if self.debug:
                     print(f"  拡張フィールド: {request.ex_field.to_dict() if request.ex_field else 'なし'}")
                     
         except Exception as e:
-            print(f"[天気サーバー] エラーパケット処理中にエラーが発生しました: {e}")
+            print(f"[{self.server_name}] エラーパケット処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
             # ErrorResponseを作成して返す
@@ -1079,7 +1166,7 @@ class WeatherServer(BaseServer):
             source_info = (addr[0], addr[1])  # タプル形式で保持
             
             if self.debug:
-                print(f"\n[天気サーバー] タイプ4: データレポートリクエストを処理中")
+                print(f"\n[{self.server_name}] タイプ4: データレポートリクエストを処理中")
                 print(f"  Source: {source_info}")
                 print(f"  Target: {self.report_server_host}:{self.report_server_port}")
                 print(f"  Area code: {request.area_code}")
@@ -1193,7 +1280,7 @@ class WeatherServer(BaseServer):
                 return
                 
         except Exception as e:
-            print(f"530: [天気サーバー] レポートリクエストの処理中にエラーが発生しました: {e}")
+            print(f"530: [{self.server_name}] レポートリクエストの処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
             # ErrorResponseを作成して返す
@@ -1230,7 +1317,7 @@ class WeatherServer(BaseServer):
             response = ReportResponse.from_bytes(data)
             
             if self.debug:
-                print(f"\n[天気サーバー] タイプ5: データレポートレスポンスを処理中")
+                print(f"\n[{self.server_name}] タイプ5: データレポートレスポンスを処理中")
                 print(f"  Success: {response.is_success()}")
                 print(f"  Area code: {response.area_code}")
                 print(f"  Packet ID: {response.packet_id}")
@@ -1238,7 +1325,7 @@ class WeatherServer(BaseServer):
             # 専用クラスのメソッドでsource情報を取得
             source_info = response.get_source_info()
             if not source_info:
-                print("530: 天気サーバーでの処理エラー: レポートレスポンスに送信元情報がありません")
+                print(f"530: [{self.server_name}] 処理エラー: レポートレスポンスに送信元情報がありません")
                 if self.debug and hasattr(response, 'ex_field'):
                     print(f"  ex_field の内容: {response.ex_field.to_dict()}")
                 return
@@ -1252,10 +1339,10 @@ class WeatherServer(BaseServer):
                         raise ValueError("Invalid port number")
                     dest_addr = (host, port)
                 except (ValueError, TypeError) as e:
-                    print(f"[天気サーバー] 不正なポート番号: {port}")
+                    print(f"[{self.server_name}] 不正なポート番号: {port}")
                     return
             else:
-                print(f"[天気サーバー] 不正なsource_info形式: {source_info}")
+                print(f"[{self.server_name}] 不正なsource_info形式: {source_info}")
                 return
             
             if self.debug:
@@ -1311,7 +1398,7 @@ class WeatherServer(BaseServer):
                     raise RuntimeError(f"天気サーバーでの処理エラー: クライアントへの転送に失敗 {str(e)}")
                     
             except Exception as conv_e:
-                print(f"530: 天気サーバーでの処理エラー: {conv_e}")
+                print(f"530: [{self.server_name}] 処理エラー: {conv_e}")
                 if self.debug:
                     traceback.print_exc()
                 # ErrorResponseを作成して返す
@@ -1326,7 +1413,7 @@ class WeatherServer(BaseServer):
                 return
                 
         except Exception as e:
-            print(f"530: [天気サーバー] レポートレスポンス処理中にエラーが発生しました: {e}")
+            print(f"530: [{self.server_name}] レポートレスポンス処理中にエラーが発生しました: {e}")
             if self.debug:
                 traceback.print_exc()
             # ErrorResponseを作成して返す（responseが未定義の場合の処理を追加）
@@ -1428,7 +1515,7 @@ class WeatherServer(BaseServer):
         if not self.debug:
             return
             
-        print("\n=== 受信パケット (拡張版) ===")
+        print(f"\n[{self.server_name}] === 受信パケット (拡張版) ===")
         print(f"Total Length: {len(data)} bytes")
         print(f"Packet Class: {type(parsed).__name__}")
         

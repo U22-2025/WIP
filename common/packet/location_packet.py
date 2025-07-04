@@ -89,6 +89,22 @@ class LocationRequest(Request):
             ex_field=ex_field
         )
     
+    def get_coordinates(self) -> Optional[tuple[float, float]]:
+        """
+        拡張フィールドから緯度経度を取得する
+        
+        Returns:
+            緯度経度のタプル (latitude, longitude)、存在しない場合はNone
+        """
+        if hasattr(self, 'ex_field') and self.ex_field:
+            try:
+                ex_dict = self.ex_field.to_dict()
+                if 'latitude' in ex_dict and 'longitude' in ex_dict:
+                    return (float(ex_dict['latitude']), float(ex_dict['longitude']))
+            except Exception:
+                pass
+        return None
+    
     def get_source_info(self) -> Optional[tuple[str, int]]:
         """
         送信元情報を取得
@@ -168,6 +184,22 @@ class LocationResponse(Response):
             6桁のエリアコード文字列
         """
         return self.area_code
+    
+    def get_coordinates(self) -> Optional[tuple[float, float]]:
+        """
+        拡張フィールドから緯度経度を取得する
+        
+        Returns:
+            緯度経度のタプル (latitude, longitude)、存在しない場合はNone
+        """
+        if hasattr(self, 'ex_field') and self.ex_field:
+            try:
+                ex_dict = self.ex_field.to_dict()
+                if 'latitude' in ex_dict and 'longitude' in ex_dict:
+                    return (float(ex_dict['latitude']), float(ex_dict['longitude']))
+            except Exception:
+                pass
+        return None
     
     def get_source_info(self) -> Optional[tuple[str, int]]:
         """
