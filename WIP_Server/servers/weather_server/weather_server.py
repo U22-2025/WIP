@@ -29,7 +29,6 @@ from common.packet import (
 from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
-from common.utils.cache import Cache
 from common.packet import ErrorResponse
 from datetime import timedelta
 
@@ -89,21 +88,21 @@ class WeatherServer(BaseServer):
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
-        # キャッシュストレージの初期化（設定ファイルからTTLを取得）
-        self.cache_ttl_weather = self.config.getint('cache', 'expiration_time_weather', 600)
-        self.cache_ttl_area = self.config.getint('cache', 'expiration_time_area', 604800)
-        self.cache_weather = Cache(default_ttl=timedelta(seconds=self.cache_ttl_weather))
-        self.cache_area = Cache(default_ttl=timedelta(seconds=self.cache_ttl_area))
+        # weather cache は query_client で統一管理
+        # エリアキャッシュはlocation_clientで統一管理
         
         
         # サーバー設定情報のデバッグ出力を削除
         
-        # クライアントの初期化（改良版）
+        # クライアントの初期化（改良版・キャッシュ統合）
         try:
+            # location_clientでエリアキャッシュを統一管理（TTLを設定から取得）
+            area_cache_ttl_minutes = self.config.getint('cache', 'expiration_time_area', 604800) // 60
             self.location_client = LocationClient(
                 host=self.location_resolver_host,
                 port=self.location_resolver_port,
-                debug=self.debug
+                debug=self.debug,
+                cache_ttl_minutes=area_cache_ttl_minutes
             )
         except Exception as e:
             print(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
@@ -112,10 +111,13 @@ class WeatherServer(BaseServer):
             raise RuntimeError(f"ロケーションクライアント初期化エラー: {str(e)}")
 
         try:
+            # query_clientでweatherキャッシュも統一管理（TTLを設定から取得）
+            weather_cache_ttl_minutes = self.config.getint('cache', 'expiration_time_weather', 600) // 60
             self.query_client = QueryClient(
                 host=self.query_generator_host,
                 port=self.query_generator_port,
-                debug=self.debug
+                debug=self.debug,
+                cache_ttl_minutes=weather_cache_ttl_minutes
             )
         except Exception as e:
             print( f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
@@ -302,92 +304,63 @@ class WeatherServer(BaseServer):
         """座標解決リクエストの処理（Type 0・改良版）"""
         source_info = (addr[0], addr[1])  # タプル形式で保持
         try:
-            # 気象キャッシュ処理 - 座標を安全に取得（デバッグ強化版）
-            if self.debug:
-                print(f"[{self.server_name}] 座標取得開始 - パケットタイプ: {type(request).__name__}")
-                print(f"  hasattr(get_coordinates): {hasattr(request, 'get_coordinates')}")
-                print(f"  hasattr(ex_field): {hasattr(request, 'ex_field')}")
-                if hasattr(request, 'ex_field') and request.ex_field:
-                    print(f"  ex_field contents: {request.ex_field.to_dict()}")
-                    
+            # location_clientのキャッシュを使用してエリアコード取得を試行
             coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
             if coords:
                 lat, long = coords
                 if self.debug:
-                    print(f"  ✓ get_coordinates()から取得: {lat}, {long}")
-            else:
-                # 拡張フィールドから直接座標を取得
-                lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
-                long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
-                if self.debug:
-                    print(f"  拡張フィールドから直接取得: {lat}, {long}")
+                    print(f"[{self.server_name}] 座標取得成功: {lat}, {long}")
+                    print(f"[{self.server_name}] location_clientのキャッシュを確認中...")
                 
-            if lat is None or long is None:
-                if self.debug:
-                    print(f"[{self.server_name}] ❌ 座標情報が取得できません")
-                # 座標が取得できない場合はキャッシュ処理をスキップ
-                lat, long = None, None
-            else:
-                if self.debug:
-                    print(f"[{self.server_name}] ✓ 座標取得成功: {lat}, {long}")
-            
-            cache_key = f"{lat}_{long}" if lat is not None and long is not None else None
-            cached_data = self.cache_area.get(cache_key)
-
-            # キャッシュの有効期限チェック
-            cache_expiration_for_area = timedelta(seconds=self.cache_ttl_area)
-
-            if cached_data and cached_data.get("area_code") == "000000":
-                # 無効なキャッシュは削除
-                self.cache_area.delete(cache_key)
-                cached_data = None
-
-            area_code_valid = (
-                cached_data
-                and cached_data.get("area_code")
-                and cached_data.get("area_code") != "000000"
-            )
-
-            if (
-                area_code_valid
-                and (datetime.now() - cached_data["timestamp"]) < cache_expiration_for_area
-                and cache_key is not None  # キャッシュキーが有効な場合のみ
-            ):
-                print("キャッシュヒット！\nweather_requestを作成します。")
-                try:
-                    # キャッシュされたエリアコードを使用
-                    cached_area_code = cached_data.get("area_code") if isinstance(cached_data, dict) else None
-                    weather_request = QueryRequest.create_query_request(
-                        area_code=cached_area_code if cached_area_code else request.area_code,
-                        packet_id=request.packet_id,
-                        day=request.day,
-                        weather=bool(request.weather_flag),
-                        temperature=bool(request.temperature_flag),
-                        precipitation_prob=bool(request.pop_flag),
-                        alert=bool(request.alert_flag),
-                        disaster=bool(request.disaster_flag),
-                        source=source_info,
-                        version=self.version
-                    )
+                # location_clientのキャッシュからエリアコードを取得
+                cached_area_code = self.location_client.get_area_code_simple(lat, long, use_cache=True)
+                
+                if cached_area_code:
+                    if self.debug:
+                        print(f"[{self.server_name}] エリアキャッシュヒット: {cached_area_code}")
+                        print(f"[{self.server_name}] weather_requestを作成します")
                     
-                    # 座標情報を拡張フィールドに追加
-                    if lat is not None and long is not None:
+                    try:
+                        weather_request = QueryRequest.create_query_request(
+                            area_code=cached_area_code,
+                            packet_id=request.packet_id,
+                            day=request.day,
+                            weather=bool(request.weather_flag),
+                            temperature=bool(request.temperature_flag),
+                            precipitation_prob=bool(request.pop_flag),
+                            alert=bool(request.alert_flag),
+                            disaster=bool(request.disaster_flag),
+                            source=source_info,
+                            version=self.version
+                        )
+                        
+                        # 座標情報を拡張フィールドに追加
                         if not hasattr(weather_request, 'ex_field') or weather_request.ex_field is None:
                             from common.packet.extended_field import ExtendedField
                             weather_request.ex_field = ExtendedField()
                         weather_request.ex_field.latitude = lat
                         weather_request.ex_field.longitude = long
                         weather_request.ex_flag = 1
-                    
-                    # _handle_weather_requestに処理を移譲
-                    return self._handle_weather_request(weather_request, addr)
-                    
-                except Exception as e:
-                    print(f"キャッシュデータの処理中にエラーが発生しました: {e}")
+                        
+                        # _handle_weather_requestに処理を移譲
+                        return self._handle_weather_request(weather_request, addr)
+                        
+                    except Exception as e:
+                        print(f"キャッシュデータの処理中にエラーが発生しました: {e}")
+                        if self.debug:
+                            traceback.print_exc()
+                        # エラーが発生した場合は通常処理を続行
+                else:
                     if self.debug:
-                        traceback.print_exc()
-                    # エラーが発生した場合はキャッシュを削除して通常処理を続行
-                    self.cache_area.delete(cache_key)
+                        print(f"[{self.server_name}] エリアキャッシュミス - location_serverに転送")
+            else:
+                # 拡張フィールドから直接座標を取得
+                lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
+                long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
+                
+                if lat is None or long is None:
+                    if self.debug:
+                        print(f"[{self.server_name}] ❌ 座標情報が取得できません - location_serverに転送")
             
             # LocationRequestを正しく作成（常にType 0になることを保証）
             if isinstance(request, LocationRequest):
@@ -522,90 +495,6 @@ class WeatherServer(BaseServer):
                         print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                 return
     
-    def _validate_cache_data(self, cached_data, flags):
-        """キャッシュデータのバリデーションを行う"""
-        if not cached_data:
-            if self.debug:
-                print("[DEBUG] キャッシュデータが存在しません")
-            return False
-
-        missing_fields = []
-        if flags.get('weather') and "weather_code" not in cached_data:
-            missing_fields.append("weather_code")
-        if flags.get('temperature') and "temperature" not in cached_data:
-            missing_fields.append("temperature")
-        if flags.get('pop') and "pop" not in cached_data:
-            missing_fields.append("pop")
-        if flags.get('alert') and ("ex_field" not in cached_data or "alert" not in cached_data.get("ex_field", {})):
-            missing_fields.append("alert")
-        if flags.get('disaster') and ("ex_field" not in cached_data or "disaster" not in cached_data.get("ex_field", {})):
-            missing_fields.append("disaster")
-
-        if missing_fields:
-            if self.debug:
-                print(f"[DEBUG] キャッシュ検証失敗: {', '.join(missing_fields)} が不足しています")
-            return False
-
-        return True
-
-    def _create_response_from_cache(self, cached_data, packet_id, area_code, day, flags, lat=None, long=None, source=None):
-        """キャッシュデータからQueryResponseを生成"""
-
-        # 拡張フィールドの準備
-        ex_field = {}
-        if source:
-            ex_field["source"] = source
-        if lat is not None:
-            ex_field['latitude'] = lat
-        if long is not None:
-            ex_field['longitude'] = long
-
-        weather_response = QueryResponse(
-            version=self.version,
-            packet_id=packet_id,
-            type=3,  # 気象データレスポンス
-            weather_flag=1 if flags.get('weather', False) else 0,
-            temperature_flag=1 if flags.get('temperature', False) else 0,
-            pop_flag=1 if flags.get('pop', False) else 0,
-            alert_flag=1 if flags.get('alert', False) else 0,
-            disaster_flag=1 if flags.get('disaster', False) else 0,
-            ex_flag=1 if ex_field else 0,
-            day=day,
-            timestamp=int(datetime.now().timestamp()),
-            area_code=area_code,
-            weather_code=0,  # 後で設定
-            temperature=100,  # 後で設定（0℃のデフォルト値）
-            pop=0,  # 後で設定
-            ex_field=ex_field if ex_field else None
-        )
-
-        if weather_response.weather_flag:
-            weather_response.weather_code = cached_data["weather_code"]
-        if weather_response.temperature_flag:
-            weather_response.temperature = int(cached_data["temperature"]) + 100
-        if weather_response.pop_flag:
-            weather_response.pop = cached_data["pop"]
-        if weather_response.disaster_flag or weather_response.alert_flag:
-            weather_response.ex_flag = 1
-            # alertとdisasterのデータを分離して設定
-            if cached_data.get("ex_field"):
-                ex_data = cached_data["ex_field"]
-                filtered_ex_field = {}
-                if weather_response.alert_flag:
-                    alert_val = ex_data.get("alert")
-                    if alert_val:
-                        filtered_ex_field["alert"] = alert_val
-                if weather_response.disaster_flag:
-                    disaster_val = ex_data.get("disaster")
-                    if disaster_val:
-                        filtered_ex_field["disaster"] = disaster_val
-                if lat is not None:
-                    filtered_ex_field['latitude'] = lat
-                if long is not None:
-                    filtered_ex_field['longitude'] = long
-                weather_response.ex_field = filtered_ex_field
-
-        return weather_response
 
     def _handle_location_response(self, data, addr):
         """座標解決レスポンスの処理（Type 1・改良版）"""
@@ -620,26 +509,9 @@ class WeatherServer(BaseServer):
 
             lat, long = response.get_coordinates()
             
-            # エリアキャッシュ処理
-            # キャッシュキーの生成: 緯度_経度
-            cache_key = f"{lat}_{long}"
-            
-            # キャッシュが存在しないか有効期限切れの場合に更新
-            # TTLは地域キャッシュ設定(expiration_time_area)を参照
-            cached_data = self.cache_area.get(cache_key)
-            cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_area', 604800))
-            
-            if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
-                # キャッシュデータの作成
-                cache_data = {
-                    "timestamp": datetime.now(),
-                    "area_code": response.area_code
-                }
-
-                # "000000" は無効とみなし、キャッシュしない
-                if response.area_code != "000000":
-                    # キャッシュに保存（デフォルトTTLを使用）
-                    self.cache_area.set(cache_key, cache_data)
+            # エリアキャッシュはlocation_clientで管理されているため、
+            # ここでは明示的なキャッシュ処理は不要
+            # location_clientが自動的にキャッシュを更新する
 
             if self.debug:
                 print(f"\n[{self.server_name}] タイプ1: 位置情報レスポンスを天気リクエストに変換中")
@@ -651,81 +523,92 @@ class WeatherServer(BaseServer):
                 print(f"  タイプ: {response.type}")
                 print(f"  タイムスタンプ: {response.timestamp}")
             
-            # 気象キャッシュ処理
-            cache_key = f"{response.area_code}_{response.day}"
-            cached_data = self.cache_weather.get(cache_key)
-
-            if cached_data:
-                try:
-                    flags = {
-                        'weather': response.weather_flag,
-                        'temperature': response.temperature_flag,
-                        'pop': response.pop_flag,
-                        'alert': response.alert_flag,
-                        'disaster': response.disaster_flag,
-                    }
-                    is_valid = self._validate_cache_data(cached_data, flags)
-                    if is_valid:
-                        query_response = self._create_response_from_cache(
-                            cached_data,
-                            response.packet_id,
-                            response.area_code,
-                            response.day,
-                            flags,
-                            lat,
-                            long,
-                            response.get_source_info()
-                        )
-
-                        if self.debug:
-                            print(f"  QueryResponse生成完了")
-                            print(f"  生成されたオブジェクト: {query_response}")
-                            print(f"  座標情報: {query_response.get_coordinates()}")
-                            if hasattr(query_response, 'ex_field'):
-                                print(f"  ex_field内容: {query_response.ex_field.to_dict()}")
-
-                        # レスポンスを送信
-                        response_data = query_response.to_bytes()
-                        source_info = response.get_source_info()
-
-                        if source_info:
-                            # source_infoがタプルの場合と文字列の場合を処理
-                            if isinstance(source_info, tuple):
-                                host, port_str = source_info[0], str(source_info[1])
-                            else:
-                                host, port_str = source_info.split(':')
-                            port = int(port_str)
-                            source_addr = (host, port)
-
-                            if self.debug:
-                                print(f"  キャッシュレスポンスを送信: {len(response_data)}バイト")
-                                print(f"  送信先アドレス: {source_addr}")
-
-                            bytes_sent = self.sock.sendto(response_data, source_addr)
-                            if bytes_sent != len(response_data):
-                                raise RuntimeError(f"送信バイト数不一致: {bytes_sent}/{len(response_data)}")
-
-                            if self.debug:
-                                print(f"  送信成功: {bytes_sent}バイト")
-                                print(f"  送信先ソケット: {source_addr}")
-                                print(f"  送信データサイズ: {len(response_data)}バイト")
-                                print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
-                                print(f"  レスポンス成功フラグ: True")
-
-                            return  # キャッシュヒット時はここで終了
-                        raise RuntimeError("source情報が見つかりません")
-                    else:
-                        if self.debug:
-                            print('  キャッシュデータのバリデーションに失敗しました')
-                        self.cache_weather.delete(cache_key)
-                        # 以降の処理でキャッシュミスとして扱う
-                        
-                except Exception as e:
+            # query_clientのキャッシュを使用してクエリを実行
+            try:
+                weather_data = self.query_client.get_weather_data(
+                    area_code=response.area_code,
+                    weather=bool(response.weather_flag),
+                    temperature=bool(response.temperature_flag),
+                    precipitation_prob=bool(response.pop_flag),
+                    alert=bool(response.alert_flag),
+                    disaster=bool(response.disaster_flag),
+                    day=response.day,
+                    use_cache=True,
+                    timeout=10.0
+                )
+                
+                if weather_data and 'error' not in weather_data:
+                    # query_clientから直接データを取得できた場合
                     if self.debug:
-                        print(f'キャッシュデータの処理中にエラーが発生しました: {str(e)}')
-                        print('キャッシュデータを削除して新しいリクエストを処理します')
-                    self.cache_weather.delete(cache_key)
-                    print(f"[WARNING] キャッシュデータが不完全です: {str(e)}")  # loggerが使えない場合の代替
+                        print(f"  query_clientキャッシュヒット/成功: {response.area_code}")
+                        print(f"  Weather data: {weather_data}")
+                    
+                    # 拡張フィールドの準備
+                    ex_field_data = {}
+                    if lat and long:
+                        ex_field_data['latitude'] = lat
+                        ex_field_data['longitude'] = long
+                    
+                    # alertとdisasterのデータをキャッシュから取得して拡張フィールドに追加
+                    if response.alert_flag and 'alert' in weather_data:
+                        ex_field_data['alert'] = weather_data['alert']
+                    if response.disaster_flag and 'disaster' in weather_data:
+                        ex_field_data['disaster'] = weather_data['disaster']
+                    
+                    # QueryResponseを作成
+                    query_response = QueryResponse(
+                        version=self.version,
+                        packet_id=response.packet_id,
+                        type=3,  # 気象データレスポンス
+                        weather_flag=response.weather_flag,
+                        temperature_flag=response.temperature_flag,
+                        pop_flag=response.pop_flag,
+                        alert_flag=response.alert_flag,
+                        disaster_flag=response.disaster_flag,
+                        ex_flag=1 if ex_field_data else 0,
+                        day=response.day,
+                        timestamp=int(datetime.now().timestamp()),
+                        area_code=response.area_code,
+                        weather_code=weather_data.get('weather_code', '0000'),
+                        temperature=weather_data.get('temperature', 0) + 100,  # パケット形式に変換（+100）
+                        pop=weather_data.get('precipitation_prob', 0),
+                        ex_field=ex_field_data if ex_field_data else None
+                    )
+                    
+                    # レスポンスを送信
+                    response_data = query_response.to_bytes()
+                    source_info = response.get_source_info()
+
+                    if source_info:
+                        # source_infoがタプルの場合と文字列の場合を処理
+                        if isinstance(source_info, tuple):
+                            host, port_str = source_info[0], str(source_info[1])
+                        else:
+                            host, port_str = source_info.split(':')
+                        port = int(port_str)
+                        source_addr = (host, port)
+
+                        if self.debug:
+                            print(f"  query_clientキャッシュレスポンスを送信: {len(response_data)}バイト")
+                            print(f"  送信先アドレス: {source_addr}")
+
+                        bytes_sent = self.sock.sendto(response_data, source_addr)
+                        if bytes_sent != len(response_data):
+                            raise RuntimeError(f"送信バイト数不一致: {bytes_sent}/{len(response_data)}")
+
+                        if self.debug:
+                            print(f"  送信成功: {bytes_sent}バイト")
+                            print(f"  query_clientから生成したレスポンスを {addr} へ送信しました")
+
+                        return  # query_clientキャッシュヒット/成功時はここで終了
+                    raise RuntimeError("source情報が見つかりません")
+                else:
+                    if self.debug:
+                        print(f"  query_clientキャッシュミス/エラー - 通常のクエリサーバ転送を実行")
+            except Exception as e:
+                if self.debug:
+                    print(f'query_clientでの処理中にエラーが発生: {str(e)}')
+                    print('通常のクエリサーバ転送にフォールバック')
 
             query_request = QueryRequest.from_location_response(response)
 
@@ -775,65 +658,79 @@ class WeatherServer(BaseServer):
                     data_types = request.get_requested_data_types()
                     print(f"  Requested data: {data_types}")
             
-            # キャッシュ処理
-            cache_key = f"{request.area_code}_{request.day}"
-            cached_data = self.cache_weather.get(cache_key)
-            
-            if cached_data:
-                try:
-                    flags = {
-                        'weather': request.weather_flag,
-                        'temperature': request.temperature_flag,
-                        'pop': request.pop_flag,
-                        'alert': request.alert_flag,
-                        'disaster': request.disaster_flag
-                    }
-                    
+            # query_clientのキャッシュを使用してクエリを実行
+            try:
+                weather_data = self.query_client.get_weather_data(
+                    area_code=request.area_code,
+                    weather=bool(request.weather_flag),
+                    temperature=bool(request.temperature_flag),
+                    precipitation_prob=bool(request.pop_flag),
+                    alert=bool(request.alert_flag),
+                    disaster=bool(request.disaster_flag),
+                    day=request.day,
+                    use_cache=True,
+                    timeout=10.0
+                )
+                
+                if weather_data and 'error' not in weather_data:
+                    # query_clientから直接データを取得できた場合
                     if self.debug:
-                        print(f"  キャッシュヒット: {cache_key}")
-                        print(f"  キャッシュデータをクライアントに返します")
+                        print(f"  query_clientキャッシュヒット/成功: {request.area_code}")
+                        print(f"  Weather data: {weather_data}")
                     
-                    is_valid = self._validate_cache_data(cached_data, flags)
-                    if is_valid:
-                        # requestから座標情報を取得
-                        coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
-                        req_lat, req_long = coords if coords else (None, None)
-                        
-                        query_response = self._create_response_from_cache(
-                            cached_data,
-                            request.packet_id,
-                            request.area_code,
-                            request.day,
-                            flags,
-                            req_lat,
-                            req_long,
-                            request.get_source_info()
-                        )
-
-                        response_data = query_response.to_bytes()
-                        self.sock.sendto(response_data, addr)
-
-                        if self.debug:
-                            print(f"  キャッシュから生成したレスポンスを {addr} へ送信しました")
-                            print(f"  パケットサイズ: {len(response_data)} バイト")
-                            print(f"  レスポンス成功フラグ: True")
-
-                        return  # キャッシュヒット時はここで終了
-                    else:
-                        if self.debug:
-                            print('  キャッシュデータのバリデーションに失敗しました')
-                        self.cache_weather.delete(cache_key)
-                        # キャッシュミスとして処理継続
+                    # requestから座標情報を取得
+                    coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
+                    req_lat, req_long = coords if coords else (None, None)
                     
-                except Exception as e:
+                    # 拡張フィールドの準備
+                    ex_field_data = {}
+                    if req_lat and req_long:
+                        ex_field_data['latitude'] = req_lat
+                        ex_field_data['longitude'] = req_long
+                    
+                    # alertとdisasterのデータをキャッシュから取得して拡張フィールドに追加
+                    if request.alert_flag and 'alert' in weather_data:
+                        ex_field_data['alert'] = weather_data['alert']
+                    if request.disaster_flag and 'disaster' in weather_data:
+                        ex_field_data['disaster'] = weather_data['disaster']
+                    
+                    # QueryResponseを作成
+                    query_response = QueryResponse(
+                        version=self.version,
+                        packet_id=request.packet_id,
+                        type=3,  # 気象データレスポンス
+                        weather_flag=request.weather_flag,
+                        temperature_flag=request.temperature_flag,
+                        pop_flag=request.pop_flag,
+                        alert_flag=request.alert_flag,
+                        disaster_flag=request.disaster_flag,
+                        ex_flag=1 if ex_field_data else 0,
+                        day=request.day,
+                        timestamp=int(datetime.now().timestamp()),
+                        area_code=request.area_code,
+                        weather_code=weather_data.get('weather_code', '0000'),
+                        temperature=weather_data.get('temperature', 0) + 100,  # パケット形式に変換（+100）
+                        pop=weather_data.get('precipitation_prob', 0),
+                        ex_field=ex_field_data if ex_field_data else None
+                    )
+
+                    response_data = query_response.to_bytes()
+                    self.sock.sendto(response_data, addr)
+
                     if self.debug:
-                        print(f'キャッシュデータの処理中にエラーが発生しました: {str(e)}')
-                        print('キャッシュデータを削除して新しいリクエストを処理します')
-                    self.cache_weather.delete(cache_key)
-            
+                        print(f"  query_clientから生成したレスポンスを {addr} へ送信しました")
+                        print(f"  パケットサイズ: {len(response_data)} バイト")
+
+                    return  # query_clientキャッシュヒット/成功時はここで終了
+                else:
+                    if self.debug:
+                        print(f"  query_clientキャッシュミス/エラー - 通常のクエリサーバ転送を実行")
+            except Exception as e:
+                if self.debug:
+                    print(f'query_clientでの処理中にエラーが発生: {str(e)}')
+                    print('通常のクエリサーバ転送にフォールバック')
+
             if self.debug:
-                if not cached_data:
-                    print(f"  キャッシュミス: {cache_key}")
                 print(f"  バックエンドサーバーにリクエストを転送します")
 
             # 既にQueryRequestの場合は、source情報を追加
@@ -935,60 +832,10 @@ class WeatherServer(BaseServer):
                     summary = response.get_response_summary()
                     print(f"  Summary: {summary}")
             
-            # 成功レスポンスでキャッシュミスの場合のみキャッシュに保存
-            if response.is_success():
-                # キャッシュキーの生成: 地域コード + 日付
-                cache_key = f"{response.area_code}_{response.day}"
-                
-                # キャッシュが存在しないか有効期限切れの場合に更新
-                cached_data = self.cache_weather.get(cache_key)
-                cache_expiration = timedelta(seconds=self.config.getint('cache', 'expiration_time_weather', 1800))
-                
-                if not cached_data or (datetime.now() - cached_data["timestamp"]) > cache_expiration:
-                    # キャッシュデータの作成 (フラグに基づいて必要なデータのみ保存)
-                    ex_data = response.ex_field.to_dict() if response.ex_field else {}
-                    cache_data = {
-                        "timestamp": datetime.now(),
-                        "area_code": response.area_code
-                    }
-                    
-                    # 天気データフラグ
-                    if response.weather_flag:
-                        cache_data["weather_code"] = response.get_weather_code() if hasattr(response, 'get_weather_code') else "0000"
-                    
-                    # 気温データフラグ
-                    if response.temperature_flag:
-                        cache_data["temperature"] = response.get_temperature() if hasattr(response, 'get_temperature') else 0
-                    
-                    # 降水確率フラグ
-                    if response.pop_flag:
-                        cache_data["pop"] = response.get_precipitation() if hasattr(response, 'get_precipitation') else 0
-                    
-                    # アラート/災害フラグ
-                    if response.alert_flag or response.disaster_flag:
-                        ex_field = {}
-                        if response.alert_flag:
-                            ex_field["alert"] = ex_data.get("alert", [])
-                        if response.disaster_flag:
-                            ex_field["disaster"] = ex_data.get("disaster", [])
-                        cache_data["ex_field"] = ex_field
-                    
-                    # キャッシュに保存（デフォルトTTLを使用）
-                    try:
-                        self.cache_weather.set(cache_key, cache_data)
-                    except Exception as e:
-                        error_msg = f"キャッシュへのデータ保存に失敗しました: {cache_key} - {str(e)}"
-                        if self.debug:
-                            traceback.print_exc()
-                        raise RuntimeError(error_msg)
-                    
-                    if self.debug:
-                        print(f"  キャッシュを更新しました: {cache_key}")
-                        print(f"  キャッシュ内容: {cache_data}")
-                        print(f"  キャッシュエントリ数: {self.cache_weather.size()}")
-                else:
-                    if self.debug:
-                        print(f"  キャッシュが既に存在するため更新をスキップ: {cache_key}")
+            # キャッシュ処理はquery_clientで統一管理されるため、
+            # weather_serverでの重複キャッシュ保存は削除
+            if self.debug and response.is_success():
+                print(f"  成功レスポンスを受信 - キャッシュはquery_clientで管理済み")
             
             # 専用クラスのメソッドでsource情報を取得
             source_info = response.get_source_info()

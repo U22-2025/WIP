@@ -285,7 +285,7 @@ class QueryResponse(Response):
             return self.weather_code
         return None
     
-    def get_precipitation(self) -> Optional[int]:
+    def get_precipitation_prob(self) -> Optional[int]:
         """
         降水確率を取得
         
@@ -295,6 +295,11 @@ class QueryResponse(Response):
         if self.pop_flag and hasattr(self, 'pop'):
             return self.pop
         return None
+    
+    # 後方互換性のためのエイリアス
+    def get_precipitation(self) -> Optional[int]:
+        """降水確率を取得（後方互換性のため）"""
+        return self.get_precipitation_prob()
     
     def get_alert(self) -> List[str]:
         """

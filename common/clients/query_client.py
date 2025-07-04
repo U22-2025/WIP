@@ -10,9 +10,10 @@ import threading
 import concurrent.futures
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
+from ..utils.cache import Cache
 import traceback
 PIDG = PacketIDGenerator12Bit()
 
@@ -26,7 +27,7 @@ class QueryClient:
         # このメソッドは空実装とする
         pass
     
-    def __init__(self, host=None, port=None, debug=False):
+    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10):
         if host is None:
             host = os.getenv('QUERY_GENERATOR_HOST', 'localhost')
         if port is None:
@@ -38,6 +39,7 @@ class QueryClient:
             host: Query Serverのホスト
             port: Query Serverのポート
             debug: デバッグモード
+            cache_ttl_minutes: キャッシュの有効期限（分）
         """
         self.host = host
         self.port = port
@@ -46,6 +48,10 @@ class QueryClient:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
+        
+        # キャッシュの初期化
+        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
+        self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes")
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -117,11 +123,53 @@ class QueryClient:
         self.logger.debug(self._hex_dump(response.to_bytes()))
         self.logger.debug("==============================\n")
 
-    def get_weather_data(self, area_code, weather=False, temperature=False, 
-                        precipitation_prob=False, alert=False, disaster=False,
-                        source=None, timeout=5.0):
+    def _get_cache_key(self, area_code, weather, temperature, precipitation_prob, alert, disaster, day=0):
         """
-        指定されたエリアの気象データを取得する（改良版）
+        クエリ条件からキャッシュキーを生成
+        
+        Args:
+            area_code: エリアコード
+            weather: 天気データフラグ
+            temperature: 気温データフラグ
+            precipitation_prob: 降水確率データフラグ
+            alert: 警報データフラグ
+            disaster: 災害データフラグ
+            day: 日数
+            
+        Returns:
+            str: キャッシュキー
+        """
+        # 各フラグを文字列化してキーに含める
+        flags = f"w{int(weather)}t{int(temperature)}p{int(precipitation_prob)}a{int(alert)}d{int(disaster)}"
+        return f"query:{area_code}:{flags}:d{day}"
+
+    def _create_cached_response(self, cached_data, area_code):
+        """
+        キャッシュされたデータから簡易的なQueryResponseを作成
+        
+        Args:
+            cached_data: キャッシュされたデータ
+            area_code: エリアコード
+            
+        Returns:
+            dict: 簡易的なレスポンスデータ
+        """
+        # キャッシュからの場合はsourceを'cache'として返す
+        result = cached_data.copy()
+        result['source'] = 'cache'
+        result['area_code'] = area_code
+        
+        # キャッシュされた気温はパケット形式（+100）なので実際の気温に変換
+        if 'temperature' in result and result['temperature'] is not None:
+            result['temperature'] = result['temperature'] - 100
+            
+        return result
+
+    def get_weather_data(self, area_code, weather=False, temperature=False,
+                        precipitation_prob=False, alert=False, disaster=False,
+                        source=None, timeout=5.0, use_cache=True, day=0, force_refresh=False):
+        """
+        指定されたエリアの気象データを取得する（改良版・キャッシュ対応）
         
         Args:
             area_code: エリアコード
@@ -132,6 +180,9 @@ class QueryClient:
             disaster: 災害情報データを取得するか
             source: 送信元情報 (ip, port) のタプル
             timeout: タイムアウト時間（秒）
+            use_cache: キャッシュを使用するかどうか
+            day: 予報日
+            force_refresh: キャッシュを無視して強制的に再取得するか
             
         Returns:
             dict: 取得した気象データ
@@ -140,11 +191,30 @@ class QueryClient:
         sock.settimeout(timeout)
         
         try:
-            start_time = time.time()
+            start_time = datetime.now()
+            
+            # キャッシュチェック
+            if use_cache and not force_refresh:
+                cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
+                cached_data = self.cache.get(cache_key)
+                
+                if cached_data:
+                    self.logger.debug(f"Cache hit for query: {cache_key}")
+                    cached_response = self._create_cached_response(cached_data, area_code)
+                    cache_time = datetime.now() - start_time
+                    cached_response['timing'] = {
+                        'request_creation': 0,
+                        'network_roundtrip': 0,
+                        'response_parsing': 0,
+                        'total_time': cache_time.total_seconds() * 1000
+                    }
+                    return cached_response
+                else:
+                    self.logger.debug(f"Cache miss for query: {cache_key}")
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
-            request_start = time.time()
-            request = QueryRequest.create_weather_data_request(
+            request_start = datetime.now()
+            request = QueryRequest.create_query_request(
                 area_code=area_code,
                 packet_id=PIDG.next_id(),
                 weather=weather,
@@ -153,14 +223,15 @@ class QueryClient:
                 alert=alert,
                 disaster=disaster,
                 source=source,
+                day=day,
                 version=self.VERSION
             )
-            request_time = time.time() - request_start
+            request_time = datetime.now() - request_start
             
             self._debug_print_request(request, area_code)
             
             # リクエスト送信
-            network_start = time.time()
+            network_start = datetime.now()
             sock.sendto(request.to_bytes(), (self.host, self.port))
             
             # レスポンス受信（専用クラス使用）
@@ -168,9 +239,9 @@ class QueryClient:
             network_time = datetime.now() - network_start
             
             # レスポンス解析（専用クラス使用）
-            parse_start = time.time()
+            parse_start = datetime.now()
             response = QueryResponse.from_bytes(response_data)
-            parse_time = time.time() - parse_start
+            parse_time = datetime.now() - parse_start
             
             self._debug_print_response(response)
             
@@ -178,21 +249,34 @@ class QueryClient:
             if response.is_success():
                 result = response.get_weather_data()
                 
+                # レスポンスが有効で、キャッシュ使用が有効な場合はキャッシュに保存
+                if use_cache and result:
+                    cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
+                    # タイミング情報を除いてキャッシュに保存
+                    cache_data = {k: v for k, v in result.items() if k != 'timing'}
+                    
+                    # 気温はパケット形式（+100）でキャッシュに保存（設計の一貫性のため）
+                    if 'temperature' in cache_data and cache_data['temperature'] is not None:
+                        cache_data['temperature'] = cache_data['temperature'] + 100
+                        
+                    self.cache.set(cache_key, cache_data)
+                    self.logger.debug(f"Cached query result for: {cache_key} (temperature stored in packet format)")
+                
                 # タイミング情報を追加
-                total_time = time.time() - start_time
+                total_time = datetime.now() - start_time
                 result['timing'] = {
-                    'request_creation': request_time * 1000,
-                    'network_roundtrip': network_time * 1000,
-                    'response_parsing': parse_time * 1000,
-                    'total_time': total_time * 1000
+                    'request_creation': request_time.total_seconds() * 1000,
+                    'network_roundtrip': network_time.total_seconds() * 1000,
+                    'response_parsing': parse_time.total_seconds() * 1000,
+                    'total_time': total_time.total_seconds() * 1000
                 }
                 
                 if self.debug:
                     self.logger.debug("\n=== TIMING INFORMATION ===")
-                    self.logger.debug(f"Request creation time: {request_time*1000:.2f}ms")
-                    self.logger.debug(f"Network round-trip time: {network_time*1000:.2f}ms")
-                    self.logger.debug(f"Response parsing time: {parse_time*1000:.2f}ms")
-                    self.logger.debug(f"Total operation time: {total_time*1000:.2f}ms")
+                    self.logger.debug(f"Request creation time: {request_time.total_seconds()*1000:.2f}ms")
+                    self.logger.debug(f"Network round-trip time: {network_time.total_seconds()*1000:.2f}ms")
+                    self.logger.debug(f"Response parsing time: {parse_time.total_seconds()*1000:.2f}ms")
+                    self.logger.debug(f"Total operation time: {total_time.total_seconds()*1000:.2f}ms")
                     self.logger.debug("========================\n")
                 
                 return result
@@ -211,14 +295,34 @@ class QueryClient:
         finally:
             sock.close()
 
-    def get_weather_simple(self, area_code, include_all=False, timeout=5.0):
+    def get_cache_stats(self):
         """
-        簡便なメソッド：基本的な気象データを一括取得（統一命名規則版）
+        キャッシュの統計情報を取得
+        
+        Returns:
+            dict: キャッシュの統計情報
+        """
+        return {
+            "cache_size": self.cache.size(),
+            "cache_ttl_minutes": self.cache.default_ttl.total_seconds() / 60
+        }
+    
+    def clear_cache(self):
+        """
+        キャッシュをクリア
+        """
+        self.cache.clear()
+        self.logger.debug("Query client cache cleared")
+
+    def get_weather_simple(self, area_code, include_all=False, timeout=5.0, use_cache=True):
+        """
+        簡便なメソッド：基本的な気象データを一括取得（統一命名規則版・キャッシュ対応）
         
         Args:
             area_code: エリアコード
             include_all: すべてのデータを取得するか（警報・災害情報も含む）
             timeout: タイムアウト時間（秒）
+            use_cache: キャッシュを使用するかどうか
             
         Returns:
             dict: 取得した気象データ
@@ -230,7 +334,8 @@ class QueryClient:
             precipitation_prob=True,
             alert=include_all,
             disaster=include_all,
-            timeout=timeout
+            timeout=timeout,
+            use_cache=use_cache
         )
 
     def test_concurrent_requests(self, area_codes, num_threads=10, requests_per_thread=5):
@@ -290,7 +395,7 @@ class QueryClient:
             return thread_results, thread_errors
         
         self.logger.info(f"Starting concurrent test: {num_threads} threads, {requests_per_thread} requests each")
-        start_time = time.time()
+        start_time = datetime.now()
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures = [executor.submit(worker_thread, i) for i in range(num_threads)]
@@ -300,7 +405,7 @@ class QueryClient:
                 results.extend(thread_results)
                 errors.extend(thread_errors)
         
-        total_time = time.time() - start_time
+        total_time = datetime.now() - start_time
         
         # 統計情報の計算
         successful_requests = len(results)
@@ -319,8 +424,8 @@ class QueryClient:
             'successful_requests': successful_requests,
             'failed_requests': failed_requests,
             'success_rate': (successful_requests / total_requests * 100) if total_requests > 0 else 0,
-            'total_test_time': total_time,
-            'requests_per_second': total_requests / total_time if total_time > 0 else 0,
+            'total_test_time': total_time.total_seconds(),
+            'requests_per_second': total_requests / total_time.total_seconds() if total_time.total_seconds() > 0 else 0,
             'avg_response_time_ms': avg_response_time,
             'min_response_time_ms': min_response_time,
             'max_response_time_ms': max_response_time,
