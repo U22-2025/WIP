@@ -227,6 +227,8 @@ Request.reload_request_spec()
 ```
 
 `reload_field_spec()` だけでは可変長フィールドの開始位置が更新されません。必ず `Request.reload_request_spec()` を続けて呼び出してください。
+フィールドを追加・変更した場合でも、上記の再読み込み処理を行うだけで`FormatBase`クラスに新しいプロパティが自動生成されます。
+拡張フィールド定義も`reload_extended_spec()`を実行することで同様にプロパティが再生成されます。
 
 ## 🔍 Request/Response パターン
 
