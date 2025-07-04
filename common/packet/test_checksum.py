@@ -229,5 +229,35 @@ class TestChecksum(unittest.TestCase):
         with self.assertRaises(BitFieldError):
             FormatBase.from_bytes(tampered_data)
 
+    def test_from_bytes_auto_checksum_behavior(self):
+        """
+        from_bytesでの自動チェックサム計算が抑制されているかを確認
+        """
+        packet = FormatBase(
+            version=1,
+            packet_id=1,
+            type=0,
+            timestamp=int(datetime.now().timestamp()),
+            area_code="130000"
+        )
+        data = packet.to_bytes()
+
+        call_count = 0
+        original = FormatBase._recalculate_checksum
+
+        def patched(self):
+            nonlocal call_count
+            call_count += 1
+            return original(self)
+
+        FormatBase._recalculate_checksum = patched
+        try:
+            FormatBase.from_bytes(data)
+        finally:
+            FormatBase._recalculate_checksum = original
+
+        expected = 2 * (len(FormatBase.FIELD_LENGTH) - 1)
+        self.assertEqual(call_count, expected)
+
 if __name__ == '__main__':
     unittest.main()
