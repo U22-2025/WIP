@@ -6,6 +6,7 @@ from common.packet.core.extended_field import (
     ExtendedFieldType,
     reload_extended_spec,
 )
+from common.packet.core.format_base import FormatBase
 from common.packet.types.location_packet import LocationRequest
 
 from common.packet.examples import example_usage
@@ -51,3 +52,21 @@ def test_json_change_reflects_fields(tmp_path):
 
     # 元に戻す
     reload_extended_spec()
+
+
+def test_reload_base_fields(tmp_path):
+    """基本フィールド定義の再読み込みを確認"""
+    spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/request_fields.json"
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    spec["new_flag"] = 1
+    new_path = tmp_path / "new_base.json"
+    with open(new_path, "w", encoding="utf-8") as f:
+        json.dump(spec, f)
+
+    FormatBase.reload_field_spec(str(new_path))
+    assert FormatBase.FIELD_LENGTH.get("new_flag") == 1
+    assert "new_flag" in FormatBase._BIT_FIELDS
+
+    FormatBase.reload_field_spec()

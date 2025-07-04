@@ -3,7 +3,8 @@
 共通ヘッダー部分の構造を定義し、ビット操作の基本機能を提供します
 """
 from typing import Optional, Union, Dict, Any
-from ..dynamic_format import load_base_fields
+from pathlib import Path
+from ..dynamic_format import load_base_fields, reload_base_fields
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
 
@@ -50,6 +51,27 @@ class FormatBase:
         field: (0, (1 << length) - 1)
         for field, length in FIELD_LENGTH.items()
     }
+
+    @classmethod
+    def reload_field_spec(cls, file_name: str | Path = "request_fields.json") -> None:
+        """JSON定義を再読み込みしてフィールド仕様を更新する"""
+        cls.FIELD_LENGTH = reload_base_fields(file_name)
+
+        cls.FIELD_POSITION = {}
+        current_pos = 0
+        for field, length in cls.FIELD_LENGTH.items():
+            cls.FIELD_POSITION[field] = current_pos
+            current_pos += length
+
+        cls._BIT_FIELDS = {
+            field: (pos, cls.FIELD_LENGTH[field])
+            for field, pos in cls.FIELD_POSITION.items()
+        }
+
+        cls._FIELD_RANGES = {
+            field: (0, (1 << length) - 1)
+            for field, length in cls.FIELD_LENGTH.items()
+        }
 
     def __init__(
         self,
