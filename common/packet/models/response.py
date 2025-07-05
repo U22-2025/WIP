@@ -15,6 +15,7 @@ _RESPONSE_SPEC: Dict[str, int] = load_response_fields()
 
 def _apply_response_spec(spec: Dict[str, int]) -> None:
     """内部利用: レスポンスフィールド定義をクラスに適用"""
+    old_fields = set(getattr(Response, "FIXED_FIELD_LENGTH", {}))
     fixed_length = {
         k: int(v) for k, v in spec.items() if k not in FormatBase.FIELD_LENGTH
     }
@@ -35,6 +36,11 @@ def _apply_response_spec(spec: Dict[str, int]) -> None:
         else:
             ranges[field] = (0, (1 << length) - 1)
     Response.FIXED_FIELD_RANGES = ranges
+
+    removed = old_fields - set(fixed_length)
+    for field in removed:
+        if hasattr(Response, field):
+            delattr(Response, field)
 
 
 class Response(FormatBase):

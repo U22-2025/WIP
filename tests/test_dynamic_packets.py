@@ -8,7 +8,7 @@ from common.packet.core.extended_field import (
 )
 from common.packet.core.format_base import FormatBase
 from common.packet.models.request import Request
-from common.packet.models.response import Response
+from common.packet.models.response import Response, reload_response_spec
 from common.packet.types.location_packet import LocationRequest
 
 from common.packet.examples import example_usage
@@ -151,3 +151,25 @@ def test_extended_field_removal_cleans_properties(tmp_path):
     assert not hasattr(ExtendedFieldType, "SOURCE")
     assert not hasattr(ExtendedField, "source")
     reload_extended_spec()
+
+
+def test_response_field_removal(tmp_path):
+    """Response定義からフィールドを削除しても動作するか確認"""
+    spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/response_fields.json"
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    spec.pop("temperature")
+    new_path = tmp_path / "rm_res.json"
+    with open(new_path, "w", encoding="utf-8") as f:
+        json.dump(spec, f)
+
+    reload_response_spec(str(new_path))
+    assert "temperature" not in Response.FIXED_FIELD_LENGTH
+    assert not hasattr(Response, "temperature")
+
+    res = Response(weather_code=1, pop=50)
+    bits = res.to_bits()
+    restored = Response(bitstr=bits)
+    assert "temperature" not in restored.as_dict()
+    reload_response_spec()
