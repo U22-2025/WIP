@@ -51,7 +51,7 @@ class WeatherServer(BaseServer):
         try:
             self.config = ConfigLoader(self.config_path)
         except Exception as e:
-            error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
+            error_msg = f"設定ファイルの読み込みに失敗しました: {self.config_path} - {str(e)}"
             if self.debug:
                 traceback.print_exc()
             raise RuntimeError(f"設定ファイル読み込みエラー: {str(e)}")
@@ -783,7 +783,6 @@ class WeatherServer(BaseServer):
             print(f"  DEBUG: キャッシュ統計: {cache_stats}")
             
             # query_clientのキャッシュを使用してクエリを実行
-            cache_hit = False
             try:
                 weather_data = self.query_client.get_weather_data(
                     area_code=request.area_code,
@@ -803,16 +802,10 @@ class WeatherServer(BaseServer):
                     print(f"  DEBUG: source値: {weather_data['source']}")
                 
                 if weather_data and 'error' not in weather_data:
-                    # query_clientから直接データを取得できた場合（成功）
-                    is_from_cache = weather_data.get('source') == 'cache'
-                    if is_from_cache:
-                        print(f"  DEBUG: *** キャッシュヒット確認 *** - 直接レスポンス送信")
-                        print(f"  query_clientキャッシュヒット/成功: {request.area_code}")
-                    else:
-                        print(f"  DEBUG: *** サーバーレスポンス確認 *** - 直接レスポンス送信")
-                        print(f"  query_clientサーバーレスポンス/成功: {request.area_code}")
+                    # query_clientから正常データを取得できた場合（キャッシュ/サーバー問わず）
+                    print(f"  DEBUG: *** query_client成功レスポンス *** - 直接レスポンス送信")
+                    print(f"  query_client成功: {request.area_code}")
                     print(f"  Weather data: {weather_data}")
-                    cache_hit = True
                     
                     # requestから座標情報を取得
                     coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
@@ -853,13 +846,10 @@ class WeatherServer(BaseServer):
                     response_data = query_response.to_bytes()
                     self.sock.sendto(response_data, addr)
 
-                    if is_from_cache:
-                        print(f"  *** キャッシュレスポンス送信完了 *** {addr} へ送信しました")
-                    else:
-                        print(f"  *** サーバーレスポンス送信完了 *** {addr} へ送信しました")
+                    print(f"  *** query_clientレスポンス送信完了 *** {addr} へ送信しました")
                     print(f"  パケットサイズ: {len(response_data)} バイト")
 
-                    return  # キャッシュヒット時はここで完全に終了
+                    return  # query_clientから応答取得時はここで完全に終了
                 elif weather_data and 'error' in weather_data:
                     # query_clientからエラーレスポンスを受信した場合
                     print(f"  DEBUG: *** query_clientエラー受信 *** - 通常の認証付きリクエストにフォールバック")
@@ -873,12 +863,8 @@ class WeatherServer(BaseServer):
                 print(f'DEBUG: query_clientでの処理中にエラーが発生: {str(e)}')
                 print('通常のクエリサーバ転送にフォールバック')
 
-            # キャッシュがヒットしなかった場合のみここに到達
-            if not cache_hit:
-                print(f"  DEBUG: バックエンドサーバーにリクエストを転送します（キャッシュミスのため）")
-            else:
-                print(f"  ERROR: キャッシュヒット後にバックエンド処理が実行されました（これは異常です）")
-                return  # 念のため再度return
+            # query_clientからエラーまたはタイムアウトの場合のみここに到達
+            print(f"  DEBUG: バックエンドサーバーにリクエストを転送します（query_clientがエラー/タイムアウトのため）")
             request_auth_config = self._get_request_auth_config()
             print(f"  リクエスト送信時認証設定: {request_auth_config}")
 

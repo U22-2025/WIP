@@ -163,8 +163,6 @@ class QueryClient:
         """
         result = cached_data.copy()
         result['area_code'] = area_code
-        # キャッシュからの場合のみsourceを'cache'として設定
-        result['source'] = 'cache'
         
         # キャッシュされた気温はパケット形式（+100）なので実際の気温に変換
         if 'temperature' in result and result['temperature'] is not None:
