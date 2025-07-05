@@ -12,6 +12,7 @@ from pathlib import Path
 from datetime import datetime
 from common.utils.cache import Cache
 from common.packet import ErrorResponse
+from common.packet import ExtendedField
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -212,7 +213,6 @@ class LocationServer(BaseServer):
             if hasattr(request, 'ex_field') and request.ex_field:
                 source = request.ex_field.get('source')
                 if source:
-                    from common.packet.extended_field import ExtendedField
                     error_response.ex_field = ExtendedField()
                     error_response.ex_field.source = source
                     error_response.ex_flag = 1
@@ -279,7 +279,6 @@ class LocationServer(BaseServer):
             if hasattr(request, 'ex_field') and request.ex_field:
                 source = request.ex_field.get('source')
                 if source:
-                    from common.packet.extended_field import ExtendedField
                     error_response.ex_field = ExtendedField()
                     error_response.ex_field.source = source
                     error_response.ex_flag = 1

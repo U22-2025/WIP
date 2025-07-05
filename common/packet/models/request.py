@@ -2,10 +2,10 @@
 リクエストパケット
 """
 from typing import Optional, Dict, Any, Union
-from .exceptions import BitFieldError
-from .format_base import FormatBase
-from .extended_field import ExtendedField
-from .bit_utils import extract_rest_bits
+from ..core.exceptions import BitFieldError
+from ..core.format_base import FormatBase
+from ..core.extended_field import ExtendedField
+from ..core.bit_utils import extract_rest_bits
 
 
 class Request(FormatBase):
@@ -34,17 +34,21 @@ class Request(FormatBase):
         return None
     
     # 可変長拡張フィールドの開始位置
-    VARIABLE_FIELD_START = 128  # 基本フィールドの後から開始
+    VARIABLE_FIELD_START = sum(FormatBase.FIELD_LENGTH.values())
+
+    @classmethod
+    def reload_request_spec(cls) -> None:
+        """基本フィールド定義変更時に開始位置を再計算する"""
+        cls.VARIABLE_FIELD_START = sum(FormatBase.FIELD_LENGTH.values())
 
     def get_min_packet_size(self) -> int:
         """
         リクエストパケットの最小サイズを取得する
-        
+
         Returns:
-            最小パケットサイズ（バイト） - 基本フィールドのみ（16バイト）
+            最小パケットサイズ（バイト） - 基本フィールドのみ
         """
-        # 基本フィールド（128ビット = 16バイト）
-        return 16
+        return super().get_min_packet_size()
 
     def __init__(self, *, ex_field: Optional[Union[Dict[str, Any], ExtendedField]] = None, **kwargs) -> None:
         """
@@ -60,8 +64,9 @@ class Request(FormatBase):
         # 拡張フィールド用のパラメータを抽出
         ex_field_params = {}
         base_kwargs = {}
+        extended_keys = set(ExtendedField.FIELD_MAPPING_STR)
         for key, value in kwargs.items():
-            if key in ['source', 'alert', 'disaster', 'latitude', 'longitude']:
+            if key in extended_keys:
                 ex_field_params[key] = value
             else:
                 base_kwargs[key] = value

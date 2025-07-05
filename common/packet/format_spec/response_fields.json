@@ -1,0 +1,19 @@
+{
+    "version": 4,
+    "packet_id": 12,
+    "type": 3,
+    "weather_flag": 1,
+    "temperature_flag": 1,
+    "pop_flag": 1,
+    "alert_flag": 1,
+    "disaster_flag": 1,
+    "ex_flag": 1,
+    "day": 3,
+    "reserved": 4,
+    "timestamp": 64,
+    "area_code": 20,
+    "checksum": 12,
+    "weather_code": 16,
+    "temperature": 8,
+    "pop": 8
+}

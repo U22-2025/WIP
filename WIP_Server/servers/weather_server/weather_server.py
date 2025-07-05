@@ -10,6 +10,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 import traceback
+from common.packet import ExtendedField
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -30,6 +31,7 @@ from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
+from common.packet import ExtendedField
 from datetime import timedelta
 
 
@@ -336,7 +338,6 @@ class WeatherServer(BaseServer):
                         
                         # 座標情報を拡張フィールドに追加
                         if not hasattr(weather_request, 'ex_field') or weather_request.ex_field is None:
-                            from common.packet.extended_field import ExtendedField
                             weather_request.ex_field = ExtendedField()
                         weather_request.ex_field.latitude = lat
                         weather_request.ex_field.longitude = long
@@ -400,7 +401,6 @@ class WeatherServer(BaseServer):
                 long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
             
             # 拡張フィールドを確実に初期化（既存のものがあっても新規作成）
-            from common.packet.extended_field import ExtendedField
             location_request.ex_field = ExtendedField()
             
             # 座標情報を拡張フィールドに追加
@@ -738,7 +738,6 @@ class WeatherServer(BaseServer):
             
             # 拡張フィールドが存在しない場合は作成
             if not hasattr(query_request, 'ex_field') or query_request.ex_field is None:
-                from common.packet.extended_field import ExtendedField
                 query_request.ex_field = ExtendedField()
             
             # source情報をセット
@@ -1025,7 +1024,6 @@ class WeatherServer(BaseServer):
             
             try:
                 # 拡張フィールドフラグが0でも強制的にsource情報を追加
-                from common.packet.extended_field import ExtendedField
                 
                 # 既存の拡張フィールドデータを保持
                 existing_data = {}

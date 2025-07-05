@@ -12,8 +12,10 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.clients.weather_client import WeatherClient
-from common.packet.query_packet import QueryRequest, QueryResponse
-from common.packet.location_packet import LocationRequest, LocationResponse
+from common.packet import (
+    LocationRequest, LocationResponse,
+    QueryRequest, QueryResponse
+)
 
 
 load_dotenv()

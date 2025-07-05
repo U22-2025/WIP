@@ -12,8 +12,8 @@ import os
 from datetime import datetime
 from typing import Optional, Dict, Any, Union, List
 
-from ..packet.report_packet import ReportRequest, ReportResponse
-from ..packet.error_response import ErrorResponse
+from ..packet.types.report_packet import ReportRequest, ReportResponse
+from ..packet.types.error_response import ErrorResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
 

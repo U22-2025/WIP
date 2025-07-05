@@ -3,6 +3,8 @@
 共通ヘッダー部分の構造を定義し、ビット操作の基本機能を提供します
 """
 from typing import Optional, Union, Dict, Any
+from pathlib import Path
+from ..dynamic_format import load_base_fields, reload_base_fields
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
 
@@ -29,23 +31,8 @@ class FormatBase:
     - checksum:         117-128bit (12ビット)
     """
     
-    # ビットフィールドの長さ定義
-    FIELD_LENGTH = {
-        'version': 4,          # バージョン番号
-        'packet_id': 12,       # パケットID
-        'type': 3,            # パケットタイプ
-        'weather_flag': 1,     # 天気フラグ
-        'temperature_flag': 1, # 気温フラグ
-        'pop_flag': 1,       # 降水確率フラグ
-        'alert_flag': 1,      # 警報フラグ
-        'disaster_flag': 1,    # 災害フラグ
-        'ex_flag': 1,         # 拡張フラグ
-        'day': 3,             # 日数
-        'reserved': 4,        # 予約領域
-        'timestamp': 64,      # タイムスタンプ
-        'area_code': 20,      # エリアコード
-        'checksum': 12,       # チェックサム
-    }
+    # ビットフィールドの長さ定義を動的に読み込む
+    FIELD_LENGTH = load_base_fields()
 
     # ビットフィールドの開始位置を計算
     FIELD_POSITION = {}
@@ -64,6 +51,79 @@ class FormatBase:
         field: (0, (1 << length) - 1)
         for field, length in FIELD_LENGTH.items()
     }
+
+    # 初期ロード時にプロパティを生成
+    # （メソッド定義後に実行するためプレースホルダ。実際の呼び出しはクラス定義末尾で行う）
+
+    @classmethod
+    def _generate_properties(cls) -> None:
+        """FIELD_LENGTH に基づきプロパティを動的に生成する"""
+        for field in cls.FIELD_LENGTH:
+            if field == "area_code":
+                def getter(self, *, _f=field):
+                    area_code_int = getattr(self, f"_{_f}", 0)
+                    return f"{area_code_int:06d}"
+
+                def setter(self, value: Union[int, str], *, _f=field) -> None:
+                    if isinstance(value, str):
+                        try:
+                            area_code_int = int(value)
+                        except ValueError:
+                            raise BitFieldError(
+                                f"エリアコード '{value}' は有効な数値ではありません"
+                            )
+                    elif isinstance(value, (int, float)):
+                        area_code_int = int(value)
+                    else:
+                        raise BitFieldError(
+                            f"エリアコードは文字列または数値である必要があります。受け取った型: {type(value)}"
+                        )
+                    area_len = cls.FIELD_LENGTH.get("area_code", 20)
+                    max_area = (1 << area_len) - 1
+                    if not (0 <= area_code_int <= max_area):
+                        raise BitFieldError(
+                            f"エリアコード {area_code_int} が{area_len}ビットの範囲（0-{max_area}）を超えています"
+                        )
+                    self._set_validated_field(_f, area_code_int)
+
+            else:
+                def getter(self, *, _f=field):
+                    return getattr(self, f"_{_f}", 0)
+
+                def setter(self, value: Union[int, float], *, _f=field) -> None:
+                    self._set_validated_field(_f, value)
+
+            setattr(cls, field, property(getter, setter))
+
+    @classmethod
+    def reload_field_spec(cls, file_name: str | Path = "request_fields.json") -> None:
+        """JSON定義を再読み込みしてフィールド仕様を更新する"""
+        old_fields = set(cls.FIELD_LENGTH)
+        cls.FIELD_LENGTH = reload_base_fields(file_name)
+        new_fields = set(cls.FIELD_LENGTH)
+
+        cls.FIELD_POSITION = {}
+        current_pos = 0
+        for field, length in cls.FIELD_LENGTH.items():
+            cls.FIELD_POSITION[field] = current_pos
+            current_pos += length
+
+        cls._BIT_FIELDS = {
+            field: (pos, cls.FIELD_LENGTH[field])
+            for field, pos in cls.FIELD_POSITION.items()
+        }
+
+        cls._FIELD_RANGES = {
+            field: (0, (1 << length) - 1)
+            for field, length in cls.FIELD_LENGTH.items()
+        }
+
+        removed = old_fields - new_fields
+        for field in removed:
+            if hasattr(cls, field):
+                delattr(cls, field)
+
+        cls._generate_properties()
 
     def __init__(
         self,
@@ -222,137 +282,6 @@ class FormatBase:
             self._checksum = original_checksum
             raise BitFieldError(f"チェックサム再計算中にエラー: {e}")
 
-    # プロパティを定義してフィールド更新時の自動チェックサム計算を実現
-    @property
-    def version(self) -> int:
-        return getattr(self, '_version', 0)
-    
-    @version.setter
-    def version(self, value: Union[int, float]) -> None:
-        self._set_validated_field('version', value)
-    
-    @property
-    def packet_id(self) -> int:
-        return getattr(self, '_packet_id', 0)
-    
-    @packet_id.setter
-    def packet_id(self, value: Union[int, float]) -> None:
-        self._set_validated_field('packet_id', value)
-    
-    @property
-    def type(self) -> int:
-        return getattr(self, '_type', 0)
-    
-    @type.setter
-    def type(self, value: Union[int, float]) -> None:
-        self._set_validated_field('type', value)
-    
-    @property
-    def weather_flag(self) -> int:
-        return getattr(self, '_weather_flag', 0)
-    
-    @weather_flag.setter
-    def weather_flag(self, value: Union[int, float]) -> None:
-        self._set_validated_field('weather_flag', value)
-    
-    @property
-    def temperature_flag(self) -> int:
-        return getattr(self, '_temperature_flag', 0)
-    
-    @temperature_flag.setter
-    def temperature_flag(self, value: Union[int, float]) -> None:
-        self._set_validated_field('temperature_flag', value)
-    
-    @property
-    def pop_flag(self) -> int:
-        return getattr(self, '_pop_flag', 0)
-    
-    @pop_flag.setter
-    def pop_flag(self, value: Union[int, float]) -> None:
-        self._set_validated_field('pop_flag', value)
-    
-    @property
-    def alert_flag(self) -> int:
-        return getattr(self, '_alert_flag', 0)
-    
-    @alert_flag.setter
-    def alert_flag(self, value: Union[int, float]) -> None:
-        self._set_validated_field('alert_flag', value)
-    
-    @property
-    def disaster_flag(self) -> int:
-        return getattr(self, '_disaster_flag', 0)
-    
-    @disaster_flag.setter
-    def disaster_flag(self, value: Union[int, float]) -> None:
-        self._set_validated_field('disaster_flag', value)
-    
-    @property
-    def ex_flag(self) -> int:
-        return getattr(self, '_ex_flag', 0)
-    
-    @ex_flag.setter
-    def ex_flag(self, value: Union[int, float]) -> None:
-        self._set_validated_field('ex_flag', value)
-    
-    @property
-    def day(self) -> int:
-        return getattr(self, '_day', 0)
-    
-    @day.setter
-    def day(self, value: Union[int, float]) -> None:
-        self._set_validated_field('day', value)
-    
-    @property
-    def reserved(self) -> int:
-        return getattr(self, '_reserved', 0)
-    
-    @reserved.setter
-    def reserved(self, value: Union[int, float]) -> None:
-        self._set_validated_field('reserved', value)
-    
-    @property
-    def timestamp(self) -> int:
-        return getattr(self, '_timestamp', 0)
-    
-    @timestamp.setter
-    def timestamp(self, value: Union[int, float]) -> None:
-        self._set_validated_field('timestamp', value)
-    
-    @property
-    def area_code(self) -> str:
-        """エリアコードを6桁の文字列として返す"""
-        area_code_int = getattr(self, '_area_code', 0)
-        return f"{area_code_int:06d}"
-    
-    @area_code.setter
-    def area_code(self, value: Union[int, str]) -> None:
-        """エリアコードを設定する（数値または文字列を受け取り、内部では数値として保存）"""
-        if isinstance(value, str):
-            # 文字列の場合は数値に変換
-            try:
-                area_code_int = int(value)
-            except ValueError:
-                raise BitFieldError(f"エリアコード '{value}' は有効な数値ではありません")
-        elif isinstance(value, (int, float)):
-            area_code_int = int(value)
-        else:
-            raise BitFieldError(f"エリアコードは文字列または数値である必要があります。受け取った型: {type(value)}")
-        
-        # 20ビットの範囲チェック
-        if not (0 <= area_code_int <= 1048575):  # 2^20 - 1
-            raise BitFieldError(f"エリアコード {area_code_int} が20ビットの範囲（0-1048575）を超えています")
-        
-        # 内部では数値として保存（パケット化のため）
-        self._set_validated_field('area_code', area_code_int)
-    
-    @property
-    def checksum(self) -> int:
-        return getattr(self, '_checksum', 0)
-    
-    @checksum.setter
-    def checksum(self, value: Union[int, float]) -> None:
-        self._set_validated_field('checksum', value)
 
     def from_bits(self, bitstr: int) -> None:
         """
@@ -371,12 +300,12 @@ class FormatBase:
     def get_min_packet_size(self) -> int:
         """
         パケットの最小サイズを取得する（子クラスでオーバーライド可能）
-        
+
         Returns:
             最小パケットサイズ（バイト）
         """
-        # 基本フィールド（128ビット = 16バイト）
-        return 16
+        cls = self.__class__
+        return sum(cls.FIELD_LENGTH.values()) // 8
 
     def to_bits(self) -> int:
         """
@@ -594,3 +523,7 @@ class FormatBase:
             フィールド名と値の辞書
         """
         return {field: getattr(self, field) for field in self._BIT_FIELDS}
+
+
+# クラス定義後にプロパティを生成
+FormatBase._generate_properties()

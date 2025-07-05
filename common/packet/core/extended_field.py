@@ -20,23 +20,51 @@
 from typing import Optional, Dict, Any, List, Union, Callable, Tuple
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
+from ..dynamic_format import load_extended_fields
+from pathlib import Path
 
 import csv
 import io
 import warnings
 
+_EXTENDED_SPEC: Dict[str, int] = load_extended_fields()
+
+
+def _apply_extended_spec(spec: Dict[str, int]) -> None:
+    """内部利用: 拡張フィールド定義をクラスに適用"""
+    removed = set(ExtendedField.FIELD_MAPPING_STR) - set(spec)
+    for name in removed:
+        if hasattr(ExtendedField, name):
+            delattr(ExtendedField, name)
+        upper = name.upper()
+        if hasattr(ExtendedFieldType, upper):
+            delattr(ExtendedFieldType, upper)
+    # ExtendedFieldType のID定義を更新
+    for name, value in spec.items():
+        setattr(ExtendedFieldType, name.upper(), value)
+
+    ExtendedFieldType.STRING_LIST_FIELDS = {
+        spec.get("alert"),
+        spec.get("disaster"),
+    }
+    ExtendedFieldType.COORDINATE_FIELDS = {
+        spec.get("latitude"),
+        spec.get("longitude"),
+    }
+    ExtendedFieldType.STRING_FIELDS = {
+        spec.get("source"),
+    }
+
+    ExtendedField.FIELD_MAPPING_STR = spec.copy()
+    ExtendedField.FIELD_MAPPING_INT = {v: k for k, v in spec.items()}
+    ExtendedField._generate_properties()
+
 class ExtendedFieldType:
     """拡張フィールドタイプの定数定義"""
-    ALERT = 1
-    DISASTER = 2
-    LATITUDE = 33
-    LONGITUDE = 34
-    SOURCE = 40
-    
-    # フィールドタイプ分類
-    STRING_LIST_FIELDS = {ALERT, DISASTER}
-    COORDINATE_FIELDS = {LATITUDE, LONGITUDE}
-    STRING_FIELDS = {SOURCE}
+    # 動的にロードされるため初期値は設定しない
+    STRING_LIST_FIELDS: set[int] = set()
+    COORDINATE_FIELDS: set[int] = set()
+    STRING_FIELDS: set[int] = set()
     
     # 座標値の範囲制限
     LATITUDE_MIN = -90.0
@@ -67,22 +95,21 @@ class ExtendedField:
     MAX_EXTENDED_LENGTH = (1 << EXTENDED_HEADER_LENGTH) - 1  # 最大バイト長
     MAX_EXTENDED_KEY = (1 << EXTENDED_HEADER_KEY) - 1       # 最大キー値
     
-    # 拡張フィールドのキーと値のマッピング
-    FIELD_MAPPING_INT = {
-        ExtendedFieldType.ALERT: 'alert',
-        ExtendedFieldType.DISASTER: 'disaster',
-        ExtendedFieldType.LATITUDE: 'latitude',
-        ExtendedFieldType.LONGITUDE: 'longitude',
-        ExtendedFieldType.SOURCE: 'source',
-    }
-    
-    FIELD_MAPPING_STR = {
-        'alert': ExtendedFieldType.ALERT,
-        'disaster': ExtendedFieldType.DISASTER,
-        'latitude': ExtendedFieldType.LATITUDE,
-        'longitude': ExtendedFieldType.LONGITUDE,
-        'source': ExtendedFieldType.SOURCE,
-    }
+    # 拡張フィールドのキーと値のマッピングは動的に設定される
+    FIELD_MAPPING_INT: Dict[int, str] = {}
+    FIELD_MAPPING_STR: Dict[str, int] = {}
+
+    @classmethod
+    def _generate_properties(cls) -> None:
+        """FIELD_MAPPING_STR に基づきプロパティを生成"""
+        for key in cls.FIELD_MAPPING_STR:
+            def getter(self, *, _k=key):
+                return self.get(_k)
+
+            def setter(self, value, *, _k=key):
+                self.set(_k, value)
+
+            setattr(cls, key, property(getter, setter))
     
     def __init__(self, data: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -237,88 +264,6 @@ class ExtendedField:
                 # オブザーバーのエラーは無視
                 pass
     
-    @property
-    def alert(self) -> Optional[str]:
-        return self.get('alert')
-
-    @alert.setter
-    def alert(self, value: Union[List[str], str]) -> None:
-        self.set('alert', value)
-
-    @property
-    def disaster(self) -> Optional[str]:
-        return self.get('disaster')
-
-    @disaster.setter
-    def disaster(self, value: Union[List[str], str]) -> None:
-        self.set('disaster', value)
-
-    @property
-    def latitude(self) -> Union[float, None]:
-        return self.get('latitude')
-
-    @latitude.setter
-    def latitude(self, value: float) -> None:
-        self.set('latitude', value)
-
-    @property
-    def longitude(self) -> Union[float, None]:
-        return self.get('longitude')
-
-    @longitude.setter
-    def longitude(self, value: float) -> None:
-        self.set('longitude', value)
-
-    @property
-    def source(self) -> Optional[tuple[str, int]]:
-        """sourceフィールドのゲッター
-        Returns:
-            tuple: (ip, port)形式のタプル
-            None: 未設定の場合
-        """
-        value = self.get('source')
-        if value is None:
-            return None
-        if isinstance(value, tuple):
-            return value
-        if isinstance(value, str) and ":" in value:
-            ip, port = value.split(":")
-            return (ip, int(port))
-        raise ValueError(f"Invalid source format: {value}")
-
-    @source.setter
-    def source(self, value: Union[str, tuple[str, Union[str, int]]]) -> None:
-        """sourceフィールドのセッター
-        Args:
-            value: 設定する値
-                str: "ip:port"形式の文字列
-                tuple: (ip, port)形式のタプル（portは文字列または数値）
-        """
-        if isinstance(value, str):
-            if ":" not in value:
-                raise ValueError("source文字列は'ip:port'形式である必要があります")
-            ip, port_str = value.split(":")
-            try:
-                port = int(port_str)
-            except ValueError:
-                raise ValueError(f"無効なポート番号: {port_str}")
-            value = (ip, port)
-        
-        if not isinstance(value, tuple) or len(value) != 2:
-            raise ValueError("sourceは(ip, port)形式のタプルである必要があります")
-        
-        ip, port = value
-        if not isinstance(ip, str) or not ip:
-            raise ValueError("IPアドレスは空でない文字列である必要があります")
-        
-        try:
-            port = int(port)
-            if not (0 <= port <= 65535):
-                raise ValueError("ポート番号は0-65535の範囲である必要があります")
-        except ValueError:
-            raise ValueError(f"無効なポート番号: {port}")
-        
-        self.set('source', (ip, port))
 
     def _validate_value(self, key: str, value: Any) -> Any:
         """
@@ -630,3 +575,14 @@ class ExtendedField:
         elif isinstance(other, dict):
             return self._data == other
         return False
+
+
+# 初期ロード
+_apply_extended_spec(_EXTENDED_SPEC)
+
+
+def reload_extended_spec(file_name: str | Path = "extended_fields.json") -> None:
+    """拡張フィールド定義を再読み込みする"""
+    spec = load_extended_fields(file_name)
+    _apply_extended_spec(spec)
+

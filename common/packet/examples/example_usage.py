@@ -3,13 +3,17 @@
 従来のRequest/Responseクラスと新しい専用クラスの使いやすさを比較
 """
 from datetime import datetime
-from .request import Request
-from .response import Response
-from ..clients.utils.packet_id_generator import PacketIDGenerator12Bit
-from location_packet import LocationRequest, LocationResponse
-from query_packet import QueryRequest,QueryResponse
+from ..models.request import Request
+from ..models.response import Response
+from ...clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from ..core.extended_field import reload_extended_spec
+from ..types.location_packet import LocationRequest, LocationResponse
+from ..types.query_packet import QueryRequest, QueryResponse
 
 # パケットIDジェネレーター
+# JSON定義を読み込んでフィールド仕様を更新
+reload_extended_spec()
+
 PIDG = PacketIDGenerator12Bit()
 
 
