@@ -73,6 +73,9 @@ class ReportServer(BaseServer):
         version = self.config.getint('system', 'protocol_version', 1)
         self.version = version & 0x0F  # 4ビットにマスク
         
+        # 認証設定を読み込む
+        self._setup_auth()
+        
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
@@ -102,6 +105,19 @@ class ReportServer(BaseServer):
             print(f"  データ検証: {self.enable_data_validation}")
             print(f"  ログファイル: {self.log_file_path if self.enable_file_logging else '無効'}")
             print(f"  データベース: {self.enable_database}")
+            print(f"  認証: {'有効' if self.auth_enabled else '無効'}")
+    
+    def _setup_auth(self):
+        """認証設定を初期化"""
+        # 認証が有効かどうか
+        auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+        self.auth_enabled = auth_enabled_str.lower() == 'true'
+        
+        # パスフレーズ
+        self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        if self.auth_enabled and not self.auth_passphrase:
+            raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
     
     def validate_request(self, request):
         """
@@ -122,6 +138,20 @@ class ReportServer(BaseServer):
         # バージョンチェック
         if request.version != self.version:
             return False, 406, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+        
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                if self.debug:
+                    print(f"[{self.server_name}] 認証失敗")
+                return False, "403", "認証に失敗しました"
+            
+            if self.debug:
+                print(f"[{self.server_name}] 認証成功")
         
         # タイプチェック（Type 4のみ有効）
         if request.type != 4:

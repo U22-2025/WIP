@@ -47,9 +47,9 @@ class WeatherServer(BaseServer):
             max_workers: スレッドプールのワーカー数（Noneの場合は設定ファイルから取得）
         """
         # 設定ファイルを読み込む
-        config_path = Path(__file__).parent / 'config.ini'
+        self.config_path = Path(__file__).parent / 'config.ini'
         try:
-            self.config = ConfigLoader(config_path)
+            self.config = ConfigLoader(self.config_path)
         except Exception as e:
             error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
             if self.debug:
@@ -94,6 +94,15 @@ class WeatherServer(BaseServer):
         # weather cache は query_client で統一管理
         # エリアキャッシュはlocation_clientで統一管理
         
+        # backend_auth 設定を初期化（デバッグ出力用）
+        self.backend_auth = {
+            'location': {
+                'enabled': self.request_auth_enabled
+            },
+            'query': {
+                'enabled': self.request_auth_enabled
+            }
+        }
         
         # サーバー設定情報のデバッグ出力を削除
         
@@ -129,33 +138,37 @@ class WeatherServer(BaseServer):
             raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
     
     def _setup_auth(self):
-        """認証設定を初期化（プロキシサーバー用）"""
-        # weather_server自身の認証設定（通常は無効にする）
+        """認証設定を初期化（リクエスト・レスポンス分離対応）"""
+        # 受信時認証設定（このサーバーへの接続時）
         auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
         self.auth_enabled = auth_enabled_str.lower() == 'true'
         self.auth_passphrase = self.config.get('auth', 'passphrase', '')
         
-        # バックエンドサーバーの認証設定を読み込み
-        self.backend_auth = {
-            'location': {
-                'enabled': self.config.get('auth', 'location_server_auth_enabled', 'false').lower() == 'true',
-                'passphrase': self.config.get('auth', 'location_server_passphrase', '')
-            },
-            'query': {
-                'enabled': self.config.get('auth', 'query_server_auth_enabled', 'false').lower() == 'true',
-                'passphrase': self.config.get('auth', 'query_server_passphrase', '')
-            },
-            'report': {
-                'enabled': self.config.get('auth', 'report_server_auth_enabled', 'false').lower() == 'true',
-                'passphrase': self.config.get('auth', 'report_server_passphrase', '')
-            }
-        }
+        # リクエスト送信時認証設定（他サーバーへのリクエスト送信時）
+        self.request_auth_enabled = self.config.get('auth', 'request_auth_enabled', 'false').lower() == 'true'
+        self.request_auth_passphrase = self.config.get('auth', 'request_passphrase', '')
+        
+        # レスポンス送信時認証設定（クライアントへのレスポンス送信時）
+        self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
+        self.response_auth_passphrase = self.config.get('auth', 'response_passphrase', '')
             
+        # 常に認証設定を表示（デバッグモード関係なく）
+        print(f"[{self.server_name}] 認証設定:")
+        print(f"  受信時認証: {'有効' if self.auth_enabled else '無効'}")
+        if self.auth_enabled:
+            print(f"    パスフレーズ: '{self.auth_passphrase}'")
+        print(f"  リクエスト送信時認証: {'有効' if self.request_auth_enabled else '無効'}")
+        if self.request_auth_enabled:
+            print(f"    パスフレーズ: '{self.request_auth_passphrase}'")
+        print(f"  レスポンス送信時認証: {'有効' if self.response_auth_enabled else '無効'}")
+        if self.response_auth_enabled:
+            print(f"    パスフレーズ: '{self.response_auth_passphrase}'")
+        
         if self.debug:
-            print(f"[{self.server_name}] 認証設定:")
-            print(f"  Weather Server: {'有効' if self.auth_enabled else '無効'}")
-            for server_type, config in self.backend_auth.items():
-                print(f"  {server_type.title()} Server: {'有効' if config['enabled'] else '無効'}")
+            print(f"[{self.server_name}] デバッグモード詳細:")
+            print(f"  設定ファイルパス: {self.config_path}")
+            print(f"  環境変数 WEATHER_SERVER_REQUEST_AUTH_ENABLED: {os.getenv('WEATHER_SERVER_REQUEST_AUTH_ENABLED')}")
+            print(f"  環境変数 WEATHER_SERVER_REQUEST_PASSPHRASE: {os.getenv('WEATHER_SERVER_REQUEST_PASSPHRASE')}")
         
     def handle_request(self, data, addr):
         """
@@ -206,8 +219,8 @@ class WeatherServer(BaseServer):
             # デバッグ出力（改良版）
             self._debug_print_request(data, request)
             
-            # リクエストの妥当性をチェック
-            is_valid, error_code, error_msg = self.validate_request(request)
+            # リクエストの妥当性をチェック（送信元アドレスを渡す）
+            is_valid, error_code, error_msg = self.validate_request(request, addr)
             if not is_valid:
                 # ErrorResponseを作成して返す
                 error_response = ErrorResponse(
@@ -409,7 +422,7 @@ class WeatherServer(BaseServer):
                     lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
                     long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
                     
-                location_request = LocationRequest.create_location_request(
+                location_request = LocationRequest.create_coordinate_lookup(
                     latitude=lat,
                     longitude=long,
                     packet_id=request.packet_id,
@@ -431,9 +444,21 @@ class WeatherServer(BaseServer):
                 lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
                 long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
             
-            # 拡張フィールドを確実に初期化（既存のものがあっても新規作成）
+            # 既存の拡張フィールドデータを保持
+            existing_data = {}
+            if hasattr(location_request, 'ex_field') and location_request.ex_field:
+                try:
+                    if hasattr(location_request.ex_field, 'to_dict'):
+                        existing_data = location_request.ex_field.to_dict()
+                    elif hasattr(location_request.ex_field, '_data'):
+                        existing_data = location_request.ex_field._data.copy()
+                except Exception as preserve_e:
+                    if self.debug:
+                        print(f"  既存データ保持エラー: {preserve_e}")
+            
+            # 拡張フィールドを初期化（既存データを引き継ぎ）
             from common.packet.extended_field import ExtendedField
-            location_request.ex_field = ExtendedField()
+            location_request.ex_field = ExtendedField(existing_data)
             
             # 座標情報を拡張フィールドに追加
             if lat is not None and long is not None:
@@ -449,6 +474,18 @@ class WeatherServer(BaseServer):
             location_request.ex_field.source = source_info
             location_request.ex_flag = 1
             
+            # Location Resolverへのリクエスト送信時認証を有効化（拡張フィールド初期化後に実行）
+            request_auth_config = self._get_request_auth_config()
+            if request_auth_config['enabled']:
+                if self.debug:
+                    print(f"  Location Resolverへのリクエスト認証を有効化中...")
+                location_request.enable_auth(request_auth_config['passphrase'])
+                
+                # 認証ハッシュを拡張フィールドに追加
+                location_request.add_auth_to_extended_field()
+                if self.debug:
+                    print(f"  認証ハッシュが拡張フィールドに追加されました")
+            
             if self.debug:
                 print(f"  LocationRequestタイプ: {location_request.type} (Type 0であることを確認)")
                 print(f"  ex_flag: {location_request.ex_flag}")
@@ -460,6 +497,7 @@ class WeatherServer(BaseServer):
             packet_data = location_request.to_bytes()
             if self.debug:
                 print(f"  パケットサイズ: {len(packet_data)} バイト")
+                print(f"  認証設定: {'有効' if self.backend_auth['location']['enabled'] else '無効'}")
                 
             # メインソケットを使用して送信
             try:
@@ -648,6 +686,21 @@ class WeatherServer(BaseServer):
                 print(f"  WeatherRequest (タイプ2) に変換しました")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
             
+            # Query Generatorへのリクエスト送信時認証を有効化
+            request_auth_config = self._get_request_auth_config()
+            if request_auth_config['enabled']:
+                if self.debug:
+                    print(f"  Query Generatorへのリクエスト認証を有効化中（location_response経由）...")
+                    print(f"  使用するパスフレーズ: '{request_auth_config['passphrase']}'")
+                
+                query_request.enable_auth(request_auth_config['passphrase'])
+                query_request.add_auth_to_extended_field()
+                
+                if self.debug:
+                    print(f"  認証ハッシュが拡張フィールドに追加されました")
+                    if hasattr(query_request, 'ex_field') and query_request.ex_field:
+                        print(f"  拡張フィールド内容: {query_request.ex_field.to_dict() if hasattr(query_request.ex_field, 'to_dict') else query_request.ex_field}")
+            
             # Query Generatorに送信
             packet_data = query_request.to_bytes()
             # パケットサイズのデバッグ出力を削除
@@ -681,15 +734,15 @@ class WeatherServer(BaseServer):
         try:
             source_info = (addr[0], addr[1])  # タプル形式で保持
             
-            if self.debug:
-                print(f"\n[{self.server_name}] タイプ2: 天気リクエストを処理中")
-                print(f"  Source: {source_info}")
-                print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
-                print(f"  Area code: {request.area_code}")
-                if hasattr(request, 'get_requested_data_types'):
-                    data_types = request.get_requested_data_types()
-                    print(f"  Requested data: {data_types}")
+            print(f"\n[{self.server_name}] DEBUG: _handle_weather_request開始")
+            print(f"  Source: {source_info}")
+            print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
+            print(f"  Area code: {request.area_code}")
+            if hasattr(request, 'get_requested_data_types'):
+                data_types = request.get_requested_data_types()
+                print(f"  Requested data: {data_types}")
             
+            print(f"  DEBUG: query_clientキャッシュチェック開始")
             # query_clientのキャッシュを使用してクエリを実行
             try:
                 weather_data = self.query_client.get_weather_data(
@@ -704,11 +757,13 @@ class WeatherServer(BaseServer):
                     timeout=10.0
                 )
                 
+                print(f"  DEBUG: query_clientキャッシュ結果: {weather_data}")
+                
                 if weather_data and 'error' not in weather_data:
                     # query_clientから直接データを取得できた場合
-                    if self.debug:
-                        print(f"  query_clientキャッシュヒット/成功: {request.area_code}")
-                        print(f"  Weather data: {weather_data}")
+                    print(f"  DEBUG: query_clientキャッシュヒット - 直接レスポンス送信")
+                    print(f"  query_clientキャッシュヒット/成功: {request.area_code}")
+                    print(f"  Weather data: {weather_data}")
                     
                     # requestから座標情報を取得
                     coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
@@ -749,29 +804,38 @@ class WeatherServer(BaseServer):
                     response_data = query_response.to_bytes()
                     self.sock.sendto(response_data, addr)
 
-                    if self.debug:
-                        print(f"  query_clientから生成したレスポンスを {addr} へ送信しました")
-                        print(f"  パケットサイズ: {len(response_data)} バイト")
+                    print(f"  query_clientから生成したレスポンスを {addr} へ送信しました")
+                    print(f"  パケットサイズ: {len(response_data)} バイト")
 
                     return  # query_clientキャッシュヒット/成功時はここで終了
                 else:
-                    if self.debug:
-                        print(f"  query_clientキャッシュミス/エラー - 通常のクエリサーバ転送を実行")
+                    print(f"  DEBUG: query_clientキャッシュミス/エラー - 通常のクエリサーバ転送を実行")
             except Exception as e:
-                if self.debug:
-                    print(f'query_clientでの処理中にエラーが発生: {str(e)}')
-                    print('通常のクエリサーバ転送にフォールバック')
+                print(f'DEBUG: query_clientでの処理中にエラーが発生: {str(e)}')
+                print('通常のクエリサーバ転送にフォールバック')
 
-            if self.debug:
-                print(f"  バックエンドサーバーにリクエストを転送します")
+            print(f"  DEBUG: バックエンドサーバーにリクエストを転送します")
+            request_auth_config = self._get_request_auth_config()
+            print(f"  リクエスト送信時認証設定: {request_auth_config}")
 
             # 既にQueryRequestの場合は、source情報を追加
             query_request = request
             
-            # 拡張フィールドが存在しない場合は作成
-            if not hasattr(query_request, 'ex_field') or query_request.ex_field is None:
-                from common.packet.extended_field import ExtendedField
-                query_request.ex_field = ExtendedField()
+            # 既存の拡張フィールドデータを保持
+            existing_data = {}
+            if hasattr(query_request, 'ex_field') and query_request.ex_field:
+                try:
+                    if hasattr(query_request.ex_field, 'to_dict'):
+                        existing_data = query_request.ex_field.to_dict()
+                    elif hasattr(query_request.ex_field, '_data'):
+                        existing_data = query_request.ex_field._data.copy()
+                except Exception as preserve_e:
+                    if self.debug:
+                        print(f"  既存データ保持エラー: {preserve_e}")
+            
+            # 拡張フィールドを初期化（既存データを引き継ぎ）
+            from common.packet.extended_field import ExtendedField
+            query_request.ex_field = ExtendedField(existing_data)
             
             # source情報をセット
             query_request.ex_field.source = source_info
@@ -780,6 +844,47 @@ class WeatherServer(BaseServer):
             if self.debug:
                 if hasattr(query_request, 'get_source_info'):
                     print(f"  送信元を追加しました: {query_request.get_source_info()}")
+            
+            # Query Generatorへのリクエスト送信時認証を有効化（拡張フィールド初期化後に実行）
+            request_auth_config = self._get_request_auth_config()
+            if self.debug:
+                print(f"  認証設定確認: {request_auth_config}")
+                print(f"  拡張フィールド（認証前）: {query_request.ex_field.to_dict() if hasattr(query_request.ex_field, 'to_dict') else query_request.ex_field}")
+            
+            if request_auth_config['enabled']:
+                if self.debug:
+                    print(f"  Query Generatorへのリクエスト認証を有効化中...")
+                    print(f"  使用するパスフレーズ: '{request_auth_config['passphrase']}'")
+                
+                try:
+                    query_request.enable_auth(request_auth_config['passphrase'])
+                    if self.debug:
+                        print(f"  enable_auth実行完了")
+                        print(f"  認証有効状態: {query_request.is_auth_enabled()}")
+                        print(f"  認証パスフレーズ: {query_request.get_auth_passphrase()}")
+                    
+                    # 認証ハッシュを計算してテスト
+                    auth_hash = query_request.calculate_auth_hash()
+                    if self.debug:
+                        print(f"  計算された認証ハッシュ: {auth_hash.hex() if auth_hash else 'None'}")
+                    
+                    # 認証ハッシュを拡張フィールドに追加
+                    query_request.add_auth_to_extended_field()
+                    if self.debug:
+                        print(f"  add_auth_to_extended_field実行完了")
+                        print(f"  拡張フィールド内容（認証後）: {query_request.ex_field.to_dict() if hasattr(query_request.ex_field, 'to_dict') else query_request.ex_field}")
+                        if hasattr(query_request.ex_field, 'auth_hash'):
+                            print(f"  拡張フィールドのauth_hash: {query_request.ex_field.auth_hash.hex() if query_request.ex_field.auth_hash else 'None'}")
+                        else:
+                            print(f"  拡張フィールドにauth_hash属性が存在しません")
+                        
+                except Exception as auth_e:
+                    if self.debug:
+                        print(f"  認証処理エラー: {auth_e}")
+                        traceback.print_exc()
+            else:
+                if self.debug:
+                    print(f"  認証は無効です")
             
             # Query Generatorに転送
             packet_data = query_request.to_bytes()
@@ -1361,12 +1466,13 @@ class WeatherServer(BaseServer):
             # 不明なタイプの場合は基本クラスを返す
             return temp_request
     
-    def validate_request(self, request):
+    def validate_request(self, request, sender_addr=None):
         """
         リクエストの妥当性をチェック（プロキシサーバー用）
         
         Args:
             request: リクエストオブジェクト
+            sender_addr: 送信元アドレス（host, port）のタプル
             
         Returns:
             tuple: (is_valid, error_code, error_message)
@@ -1374,16 +1480,24 @@ class WeatherServer(BaseServer):
         if request.version != self.version:
             return False, "406", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # リクエストタイプに応じた認証設定を決定
-        auth_config = self._get_auth_config_for_request(request)
+        # リクエストタイプと送信元に応じた認証設定を決定
+        auth_config = self._get_auth_config_for_request(request, sender_addr)
         
         # 認証チェック（認証が有効な場合のみ）
         if auth_config['enabled']:
+            if self.debug:
+                print(f"[{self.server_name}] 認証チェック開始:")
+                print(f"  パケットタイプ: {request.type}")
+                print(f"  認証設定: {auth_config}")
+            
             if not hasattr(request, 'verify_auth_from_extended_field') or not callable(getattr(request, 'verify_auth_from_extended_field')):
                 return False, "403", "認証機能に対応していないパケット形式です"
             
             # 認証のためにリクエストにパスフレーズを設定
             request.enable_auth(auth_config['passphrase'])
+            
+            if self.debug and hasattr(request, 'ex_field') and request.ex_field:
+                print(f"  拡張フィールド内容: {request.ex_field.to_dict() if hasattr(request.ex_field, 'to_dict') else request.ex_field}")
             
             if not request.verify_auth_from_extended_field():
                 if self.debug:
@@ -1410,24 +1524,39 @@ class WeatherServer(BaseServer):
         
         return True, "200", "OK"
     
-    def _get_auth_config_for_request(self, request):
-        """リクエストパケットのタイプに応じた認証設定を取得"""
-        # LocationRequest/Response の場合
-        if request.type in [0, 1] or hasattr(request, 'longitude') and hasattr(request, 'latitude'):
-            return self.backend_auth['location']
-        
-        # QueryRequest/Response の場合（エリアコード指定）
-        if request.type in [2, 3] or hasattr(request, 'area_code'):
-            return self.backend_auth['query']
-        
-        # ReportRequest/Response の場合
-        if request.type in [4, 5] or (hasattr(request, 'temperature') and hasattr(request, 'humidity')):
-            return self.backend_auth['report']
-        
-        # デフォルト（weather_server自身の設定）
+    def _get_auth_config_for_request(self, request, sender_addr=None):
+        """
+        受信パケットの認証設定を取得
+        Weather Serverが受信するすべてのパケットは、Weather Server自身の認証設定で検証する
+        """
+        # 受信時は常にWeather Server自身の認証設定を使用
         return {
             'enabled': self.auth_enabled,
             'passphrase': self.auth_passphrase
+        }
+    
+    def _get_request_auth_config(self):
+        """
+        リクエスト送信時の認証設定を取得（他のサーバーへのリクエスト送信時に使用）
+        
+        Returns:
+            dict: 認証設定 {'enabled': bool, 'passphrase': str}
+        """
+        return {
+            'enabled': self.request_auth_enabled,
+            'passphrase': self.request_auth_passphrase
+        }
+    
+    def _get_response_auth_config(self):
+        """
+        レスポンス送信時の認証設定を取得（クライアントへのレスポンス送信時に使用）
+        
+        Returns:
+            dict: 認証設定 {'enabled': bool, 'passphrase': str}
+        """
+        return {
+            'enabled': self.response_auth_enabled,
+            'passphrase': self.response_auth_passphrase
         }
     
     def _debug_print_request(self, data, parsed):

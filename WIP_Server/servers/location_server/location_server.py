@@ -95,15 +95,16 @@ class LocationServer(BaseServer):
     
     def _setup_auth(self):
         """認証設定を初期化"""
-        # 認証が有効かどうか
+        # 共有認証設定（リクエスト受信・レスポンス送信で同じパスフレーズを使用）
         auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
         self.auth_enabled = auth_enabled_str.lower() == 'true'
-        
-        # パスフレーズ
         self.auth_passphrase = self.config.get('auth', 'passphrase', '')
         
         if self.auth_enabled and not self.auth_passphrase:
             raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
+        
+        if self.debug:
+            print(f"[{self.server_name}] 共有認証設定: {'有効' if self.auth_enabled else '無効'}")
     
     def _setup_database(self):
         """データベース接続プールを初期化"""
@@ -189,6 +190,13 @@ class LocationServer(BaseServer):
         """
         # 認証チェック（認証が有効な場合）
         if self.auth_enabled:
+            if self.debug:
+                print(f"[{self.server_name}] 認証チェック開始:")
+                print(f"  パケットタイプ: {request.type}")
+                print(f"  設定されたパスフレーズ: '{self.auth_passphrase}'")
+                if hasattr(request, 'ex_field') and request.ex_field:
+                    print(f"  受信した拡張フィールド: {request.ex_field.to_dict() if hasattr(request.ex_field, 'to_dict') else request.ex_field}")
+            
             # リクエストに認証機能を設定
             request.enable_auth(self.auth_passphrase)
             
@@ -249,6 +257,15 @@ class LocationServer(BaseServer):
                     if self.debug:
                         print(f"[{self.server_name}] バリデーションエラーレスポンスにsource情報を設定: {source}")
             
+            # エラーレスポンスにも認証ハッシュを追加
+            if self.auth_enabled:
+                if self.debug:
+                    print(f"[{self.server_name}] バリデーション失敗エラーレスポンスに認証ハッシュを追加中...")
+                error_response.enable_auth(self.auth_passphrase)
+                error_response.add_auth_to_extended_field()
+                if self.debug:
+                    print(f"[{self.server_name}] バリデーション失敗エラーレスポンスに認証ハッシュが追加されました")
+            
             if self.debug:
                 print(f"[{self.server_name}] バリデーションエラーレスポンス作成 (コード: {error_code})")
             
@@ -294,6 +311,15 @@ class LocationServer(BaseServer):
                     if self.debug:
                         print ("座標解決レスポンスに座標を追加しました")
             
+            # レスポンスに認証ハッシュを追加（共有パスフレーズを使用）
+            if self.auth_enabled:
+                if self.debug:
+                    print(f"[{self.server_name}] レスポンスに認証ハッシュを追加中...")
+                response.enable_auth(self.auth_passphrase)
+                response.add_auth_to_extended_field()
+                if self.debug:
+                    print(f"[{self.server_name}] 認証ハッシュが拡張フィールドに追加されました")
+            
             return response.to_bytes()
             
         except Exception as e:
@@ -315,6 +341,15 @@ class LocationServer(BaseServer):
                     error_response.ex_flag = 1
                     if self.debug:
                         print(f"[{self.server_name}] 内部エラーレスポンスにsource情報を設定: {source}")
+            
+            # エラーレスポンスにも認証ハッシュを追加
+            if self.auth_enabled:
+                if self.debug:
+                    print(f"[{self.server_name}] 内部エラーレスポンスに認証ハッシュを追加中...")
+                error_response.enable_auth(self.auth_passphrase)
+                error_response.add_auth_to_extended_field()
+                if self.debug:
+                    print(f"[{self.server_name}] 内部エラーレスポンスに認証ハッシュが追加されました")
             
             if self.debug:
                 print(f"[{self.server_name}] 内部エラーレスポンス作成 (コード: 510, エラー: {e})")

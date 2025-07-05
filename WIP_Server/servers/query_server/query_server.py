@@ -87,13 +87,31 @@ class QueryServer(BaseServer):
             print(f"  Authentication: {'Enabled' if self.auth_enabled else 'Disabled'}")
     
     def _setup_auth(self):
-        """認証設定を初期化"""
-        # 認証が有効かどうか
+        """認証設定を初期化（リクエスト・レスポンス分離対応）"""
+        # 受信時認証設定（このサーバーへの接続時）
         auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
         self.auth_enabled = auth_enabled_str.lower() == 'true'
-        
-        # パスフレーズ
         self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        # リクエスト送信時認証設定（他サーバーへのリクエスト送信時）
+        self.request_auth_enabled = self.config.get('auth', 'request_auth_enabled', 'false').lower() == 'true'
+        self.request_auth_passphrase = self.config.get('auth', 'request_passphrase', '')
+        
+        # レスポンス送信時認証設定（クライアントへのレスポンス送信時）
+        self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
+        self.response_auth_passphrase = self.config.get('auth', 'response_passphrase', '')
+        
+        if self.debug:
+            print(f"[{self.server_name}] 認証設定:")
+            print(f"  受信時認証: {'有効' if self.auth_enabled else '無効'}")
+            if self.auth_enabled:
+                print(f"    パスフレーズ: '{self.auth_passphrase}'")
+            print(f"  リクエスト送信時認証: {'有効' if self.request_auth_enabled else '無効'}")
+            if self.request_auth_enabled:
+                print(f"    パスフレーズ: '{self.request_auth_passphrase}'")
+            print(f"  レスポンス送信時認証: {'有効' if self.response_auth_enabled else '無効'}")
+            if self.response_auth_enabled:
+                print(f"    パスフレーズ: '{self.response_auth_passphrase}'")
         
         if self.auth_enabled and not self.auth_passphrase:
             raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
@@ -146,6 +164,12 @@ class QueryServer(BaseServer):
         """
         # 認証チェック（認証が有効な場合）
         if self.auth_enabled:
+            if self.debug:
+                print(f"[{self.server_name}] 認証チェック開始:")
+                print(f"  設定されたパスフレーズ: '{self.auth_passphrase}'")
+                if hasattr(request, 'ex_field') and request.ex_field:
+                    print(f"  受信した拡張フィールド: {request.ex_field.to_dict() if hasattr(request.ex_field, 'to_dict') else request.ex_field}")
+            
             # リクエストに認証機能を設定
             request.enable_auth(self.auth_passphrase)
             
@@ -197,6 +221,16 @@ class QueryServer(BaseServer):
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
+            
+            # エラーレスポンスにも認証ハッシュを追加（レスポンス送信時認証設定を使用）
+            if self.response_auth_enabled:
+                if self.debug:
+                    print(f"[{self.server_name}] バリデーション失敗エラーレスポンスに認証ハッシュを追加中...")
+                error_response.enable_auth(self.response_auth_passphrase)
+                error_response.add_auth_to_extended_field()
+                if self.debug:
+                    print(f"[{self.server_name}] バリデーション失敗エラーレスポンスに認証ハッシュが追加されました")
+            
             if self.debug:
                 print(f"{error_code}: [{self.server_name}] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
@@ -248,9 +282,31 @@ class QueryServer(BaseServer):
                 error_code="520",
                 timestamp=int(datetime.now().timestamp())
             )
+            
+            # エラーレスポンスにも認証ハッシュを追加（レスポンス送信時認証設定を使用）
+            if self.response_auth_enabled:
+                if self.debug:
+                    print(f"[{self.server_name}] エラーレスポンスに認証ハッシュを追加中...")
+                error_response.enable_auth(self.response_auth_passphrase)
+                error_response.add_auth_to_extended_field()
+                if self.debug:
+                    print(f"[{self.server_name}] エラーレスポンスに認証ハッシュが追加されました")
+            
             if self.debug:
-                print(f"520: [{self.server_name}] エラーレスポンスを生成: {error_code}")
+                print(f"520: [{self.server_name}] エラーレスポンスを生成: 520")
             return error_response.to_bytes()
+        
+        # レスポンスに認証ハッシュを追加（レスポンス送信時認証設定を使用）
+        if self.response_auth_enabled:
+            if self.debug:
+                print(f"[{self.server_name}] レスポンスに認証ハッシュを追加中...")
+                print(f"[{self.server_name}] 使用するパスフレーズ: '{self.response_auth_passphrase}'")
+            response.enable_auth(self.response_auth_passphrase)
+            response.add_auth_to_extended_field()
+            if self.debug:
+                print(f"[{self.server_name}] 認証ハッシュが拡張フィールドに追加されました")
+                if hasattr(response, 'ex_field') and response.ex_field:
+                    print(f"[{self.server_name}] 拡張フィールド内容: {response.ex_field.to_dict() if hasattr(response.ex_field, 'to_dict') else response.ex_field}")
         
         # 最終確認
         if self.debug:
