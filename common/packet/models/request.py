@@ -64,8 +64,9 @@ class Request(FormatBase):
         # 拡張フィールド用のパラメータを抽出
         ex_field_params = {}
         base_kwargs = {}
+        extended_keys = set(ExtendedField.FIELD_MAPPING_STR)
         for key, value in kwargs.items():
-            if key in ['source', 'alert', 'disaster', 'latitude', 'longitude']:
+            if key in extended_keys:
                 ex_field_params[key] = value
             else:
                 base_kwargs[key] = value

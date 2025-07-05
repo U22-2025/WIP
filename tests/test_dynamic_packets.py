@@ -58,6 +58,23 @@ def test_json_change_reflects_fields(tmp_path):
     reload_extended_spec()
 
 
+def test_request_accepts_new_extended_field(tmp_path):
+    """Requestが新しい拡張フィールドを受け取れるか確認"""
+    spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/extended_fields.json"
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    spec["another"] = 61
+    new_path = tmp_path / "req_ext.json"
+    with open(new_path, "w", encoding="utf-8") as f:
+        json.dump(spec, f)
+
+    reload_extended_spec(str(new_path))
+    req = Request(ex_flag=1, another="hello")
+    assert req.ex_field.another == "hello"
+    reload_extended_spec()
+
+
 def test_reload_base_fields(tmp_path):
     """基本フィールド定義の再読み込みを確認"""
     spec_path = Path(__file__).resolve().parents[1] / "common/packet/format_spec/request_fields.json"
