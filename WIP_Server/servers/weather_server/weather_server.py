@@ -108,13 +108,15 @@ class WeatherServer(BaseServer):
         
         # クライアントの初期化（改良版・キャッシュ統合）
         try:
-            # location_clientでエリアキャッシュを統一管理（TTLを設定から取得）
-            area_cache_ttl_minutes = self.config.getint('cache', 'expiration_time_area', 604800) // 60
+            # location_clientでエリアキャッシュを統一管理（TTLを設定から取得、デフォルト30分）
+            area_cache_ttl_minutes = self.config.getint('cache', 'expiration_time_area', 1800) // 60
             self.location_client = LocationClient(
                 host=self.location_resolver_host,
                 port=self.location_resolver_port,
                 debug=self.debug,
-                cache_ttl_minutes=area_cache_ttl_minutes
+                cache_ttl_minutes=area_cache_ttl_minutes,
+                auth_enabled=self.request_auth_enabled,
+                auth_passphrase=self.request_auth_passphrase
             )
         except Exception as e:
             print(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
@@ -123,13 +125,15 @@ class WeatherServer(BaseServer):
             raise RuntimeError(f"ロケーションクライアント初期化エラー: {str(e)}")
 
         try:
-            # query_clientでweatherキャッシュも統一管理（TTLを設定から取得）
+            # query_clientでweatherキャッシュも統一管理（TTLを設定から取得、デフォルト10分）
             weather_cache_ttl_minutes = self.config.getint('cache', 'expiration_time_weather', 600) // 60
             self.query_client = QueryClient(
                 host=self.query_generator_host,
                 port=self.query_generator_port,
                 debug=self.debug,
-                cache_ttl_minutes=weather_cache_ttl_minutes
+                cache_ttl_minutes=weather_cache_ttl_minutes,
+                auth_enabled=self.request_auth_enabled,
+                auth_passphrase=self.request_auth_passphrase
             )
         except Exception as e:
             print( f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
@@ -594,7 +598,11 @@ class WeatherServer(BaseServer):
                 print(f"  タイムスタンプ: {response.timestamp}")
             
             # query_clientのキャッシュを使用してクエリを実行
+            cache_hit_location = False
             try:
+                if self.debug:
+                    print(f"  DEBUG: location_response経由でquery_clientキャッシュチェック")
+                
                 weather_data = self.query_client.get_weather_data(
                     area_code=response.area_code,
                     weather=bool(response.weather_flag),
@@ -608,9 +616,10 @@ class WeatherServer(BaseServer):
                 )
                 
                 if weather_data and 'error' not in weather_data:
-                    # query_clientから直接データを取得できた場合
+                    # query_clientから直接データを取得できた場合（成功）
+                    cache_hit_location = True
                     if self.debug:
-                        print(f"  query_clientキャッシュヒット/成功: {response.area_code}")
+                        print(f"  *** location_response経由キャッシュヒット *** {response.area_code}")
                         print(f"  Weather data: {weather_data}")
                     
                     # 拡張フィールドの準備
@@ -670,15 +679,31 @@ class WeatherServer(BaseServer):
                             print(f"  送信成功: {bytes_sent}バイト")
                             print(f"  query_clientから生成したレスポンスを {addr} へ送信しました")
 
-                        return  # query_clientキャッシュヒット/成功時はここで終了
+                        return  # location_response経由キャッシュヒット時はここで完全に終了
                     raise RuntimeError("source情報が見つかりません")
+                elif weather_data and 'error' in weather_data:
+                    # query_clientからエラーレスポンスを受信した場合
+                    if self.debug:
+                        print(f"  *** query_clientエラー受信 *** {response.area_code}")
+                        print(f"  Error data: {weather_data}")
+                        print(f"  query_clientは認証情報なしでリクエストを送信するため、認証付きリクエストにフォールバック")
+                    # cache_hit_locationはFalseのままで、通常の認証付きリクエスト処理を実行
                 else:
                     if self.debug:
-                        print(f"  query_clientキャッシュミス/エラー - 通常のクエリサーバ転送を実行")
+                        print(f"  query_clientからレスポンスなし/タイムアウト - 通常のクエリサーバ転送を実行")
             except Exception as e:
                 if self.debug:
                     print(f'query_clientでの処理中にエラーが発生: {str(e)}')
                     print('通常のクエリサーバ転送にフォールバック')
+
+            # キャッシュがヒットしなかった場合のみここに到達
+            if not cache_hit_location:
+                if self.debug:
+                    print(f"  DEBUG: location_response経由でバックエンドサーバーに転送（キャッシュミスのため）")
+            else:
+                if self.debug:
+                    print(f"  ERROR: location_response経由キャッシュヒット後にバックエンド処理が実行されました")
+                return
 
             query_request = QueryRequest.from_location_response(response)
 
@@ -743,7 +768,22 @@ class WeatherServer(BaseServer):
                 print(f"  Requested data: {data_types}")
             
             print(f"  DEBUG: query_clientキャッシュチェック開始")
+            print(f"  DEBUG: リクエストパラメータ:")
+            print(f"    area_code: {request.area_code}")
+            print(f"    weather: {bool(request.weather_flag)}")
+            print(f"    temperature: {bool(request.temperature_flag)}")
+            print(f"    precipitation_prob: {bool(request.pop_flag)}")
+            print(f"    alert: {bool(request.alert_flag)}")
+            print(f"    disaster: {bool(request.disaster_flag)}")
+            print(f"    day: {request.day}")
+            print(f"    use_cache: True")
+            
+            # キャッシュの状態を確認
+            cache_stats = self.query_client.get_cache_stats()
+            print(f"  DEBUG: キャッシュ統計: {cache_stats}")
+            
             # query_clientのキャッシュを使用してクエリを実行
+            cache_hit = False
             try:
                 weather_data = self.query_client.get_weather_data(
                     area_code=request.area_code,
@@ -758,12 +798,21 @@ class WeatherServer(BaseServer):
                 )
                 
                 print(f"  DEBUG: query_clientキャッシュ結果: {weather_data}")
+                print(f"  DEBUG: レスポンスにsourceフィールドが含まれているか: {'source' in weather_data if weather_data else 'N/A'}")
+                if weather_data and 'source' in weather_data:
+                    print(f"  DEBUG: source値: {weather_data['source']}")
                 
                 if weather_data and 'error' not in weather_data:
-                    # query_clientから直接データを取得できた場合
-                    print(f"  DEBUG: query_clientキャッシュヒット - 直接レスポンス送信")
-                    print(f"  query_clientキャッシュヒット/成功: {request.area_code}")
+                    # query_clientから直接データを取得できた場合（成功）
+                    is_from_cache = weather_data.get('source') == 'cache'
+                    if is_from_cache:
+                        print(f"  DEBUG: *** キャッシュヒット確認 *** - 直接レスポンス送信")
+                        print(f"  query_clientキャッシュヒット/成功: {request.area_code}")
+                    else:
+                        print(f"  DEBUG: *** サーバーレスポンス確認 *** - 直接レスポンス送信")
+                        print(f"  query_clientサーバーレスポンス/成功: {request.area_code}")
                     print(f"  Weather data: {weather_data}")
+                    cache_hit = True
                     
                     # requestから座標情報を取得
                     coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
@@ -804,17 +853,32 @@ class WeatherServer(BaseServer):
                     response_data = query_response.to_bytes()
                     self.sock.sendto(response_data, addr)
 
-                    print(f"  query_clientから生成したレスポンスを {addr} へ送信しました")
+                    if is_from_cache:
+                        print(f"  *** キャッシュレスポンス送信完了 *** {addr} へ送信しました")
+                    else:
+                        print(f"  *** サーバーレスポンス送信完了 *** {addr} へ送信しました")
                     print(f"  パケットサイズ: {len(response_data)} バイト")
 
-                    return  # query_clientキャッシュヒット/成功時はここで終了
+                    return  # キャッシュヒット時はここで完全に終了
+                elif weather_data and 'error' in weather_data:
+                    # query_clientからエラーレスポンスを受信した場合
+                    print(f"  DEBUG: *** query_clientエラー受信 *** - 通常の認証付きリクエストにフォールバック")
+                    print(f"  query_clientエラー受信: {request.area_code}")
+                    print(f"  Error data: {weather_data}")
+                    print(f"  query_clientは認証情報なしでリクエストを送信するため、認証付きリクエストを送信します")
+                    # cache_hitはFalseのままで、通常の認証付きリクエスト処理を実行
                 else:
-                    print(f"  DEBUG: query_clientキャッシュミス/エラー - 通常のクエリサーバ転送を実行")
+                    print(f"  DEBUG: query_clientからレスポンスなし/タイムアウト - 通常のクエリサーバ転送を実行")
             except Exception as e:
                 print(f'DEBUG: query_clientでの処理中にエラーが発生: {str(e)}')
                 print('通常のクエリサーバ転送にフォールバック')
 
-            print(f"  DEBUG: バックエンドサーバーにリクエストを転送します")
+            # キャッシュがヒットしなかった場合のみここに到達
+            if not cache_hit:
+                print(f"  DEBUG: バックエンドサーバーにリクエストを転送します（キャッシュミスのため）")
+            else:
+                print(f"  ERROR: キャッシュヒット後にバックエンド処理が実行されました（これは異常です）")
+                return  # 念のため再度return
             request_auth_config = self._get_request_auth_config()
             print(f"  リクエスト送信時認証設定: {request_auth_config}")
 

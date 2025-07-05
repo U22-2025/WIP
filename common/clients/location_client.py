@@ -22,11 +22,12 @@ load_dotenv()
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
 
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30):
+    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30,
+                 auth_enabled=False, auth_passphrase=None):
         if host is None:
-            host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
+            host = os.getenv('LOCATION_SERVER_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('LOCATION_RESOLVER_PORT', '4111'))
+            port = int(os.getenv('LOCATION_SERVER_PORT', '4109'))
         """
         初期化
         
@@ -35,11 +36,15 @@ class LocationClient:
             port: Location Serverのポート
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
+            auth_enabled: 認証を有効にするか
+            auth_passphrase: 認証用パスフレーズ
         """
         self.server_host = host
         self.server_port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.debug = debug
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
         logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
@@ -48,6 +53,8 @@ class LocationClient:
         # キャッシュの初期化
         self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
         self.logger.debug(f"Location client cache initialized with TTL: {cache_ttl_minutes} minutes")
+        if self.auth_enabled:
+            self.logger.debug(f"Location client authentication enabled")
 
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -177,6 +184,14 @@ class LocationClient:
                 day=day,
                 version=self.VERSION
             )
+            
+            # 認証が有効な場合は認証情報を追加
+            if self.auth_enabled and self.auth_passphrase:
+                self.logger.debug(f"Location client authentication enabled, adding auth hash...")
+                request.enable_auth(self.auth_passphrase)
+                request.add_auth_to_extended_field()
+                self.logger.debug(f"Authentication hash added to request")
+            
             request_time = time.time() - request_start
             
             if debug_enabled:

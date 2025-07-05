@@ -9,7 +9,7 @@ import time
 import sys
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from common.utils.cache import Cache
 from common.packet import ErrorResponse
 
@@ -138,9 +138,11 @@ class LocationServer(BaseServer):
     
     def _setup_cache(self, max_cache_size):
         """キャッシュを初期化"""
-        self.cache = Cache()
+        # キャッシュTTLを設定から取得（デフォルト30分）
+        cache_ttl_minutes = self.config.getint('cache', 'expiration_time_location', 1800) // 60
+        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
         if self.debug:
-            print(f"[{self.server_name}] TTLベースのキャッシュを初期化しました")
+            print(f"[{self.server_name}] TTLベースのキャッシュを初期化しました (TTL: {cache_ttl_minutes}分)")
     
     def parse_request(self, data):
         """
