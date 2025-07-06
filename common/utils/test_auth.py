@@ -32,8 +32,6 @@ class TestWIPAuth(unittest.TestCase):
             self.passphrase
         )
         
-        # MD5ハッシュは16バイト
-        self.assertEqual(len(hash_value), 16)
         self.assertIsInstance(hash_value, bytes)
     
     def test_calculate_auth_hash_reproducible(self):

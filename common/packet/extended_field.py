@@ -315,7 +315,7 @@ class ExtendedField:
     def auth_hash(self) -> Optional[bytes]:
         """認証ハッシュフィールドのゲッター
         Returns:
-            bytes: 16バイトのMD5ハッシュ値
+            bytes: 認証ハッシュ値（可変長）
             None: 未設定の場合
         """
         return self._data.get('auth_hash')
@@ -324,7 +324,7 @@ class ExtendedField:
     def auth_hash(self, value: bytes) -> None:
         """認証ハッシュフィールドのセッター
         Args:
-            value: 16バイトのMD5ハッシュ値
+            value: 認証ハッシュ値（可変長バイナリデータ）
         """
         # キーの検証
         if 'auth_hash' not in self.FIELD_MAPPING_STR:
@@ -416,8 +416,11 @@ class ExtendedField:
             if not isinstance(value, bytes):
                 raise ValueError("認証ハッシュはbytesオブジェクトである必要があります")
             
-            if len(value) != 16:
-                raise ValueError(f"認証ハッシュは16バイト固定長である必要があります。現在の長さ: {len(value)}バイト")
+            if len(value) == 0:
+                raise ValueError("認証ハッシュは空であってはなりません")
+            
+            if len(value) > self.MAX_EXTENDED_LENGTH:
+                raise ValueError(f"認証ハッシュが最大サイズを超えています: {len(value)}バイト (最大: {self.MAX_EXTENDED_LENGTH}バイト)")
             
             return value
         
@@ -456,11 +459,11 @@ class ExtendedField:
                 values_to_process = value
                 
                 if key == 'auth_hash':
-                    # 認証ハッシュは16バイト固定長のバイナリデータ
+                    # 認証ハッシュは可変長のバイナリデータ
                     if not isinstance(values_to_process, bytes):
                         raise BitFieldError("認証ハッシュはbytesオブジェクトである必要があります")
-                    if len(values_to_process) != 16:
-                        raise BitFieldError(f"認証ハッシュは16バイト固定長である必要があります。現在の長さ: {len(values_to_process)}バイト")
+                    if len(values_to_process) == 0:
+                        raise BitFieldError("認証ハッシュは空であってはなりません")
                     value_bytes = values_to_process
                 elif key == 'source':
                     # sourceフィールドは"ip:port"形式でシリアライズ
@@ -536,7 +539,7 @@ class ExtendedField:
             if key in ExtendedFieldType.STRING_LIST_FIELDS:
                 return value_bytes.decode('utf-8').rstrip('\x00#')
             if key == ExtendedFieldType.AUTH_HASH:
-                # 認証ハッシュは16バイト固定長のバイナリデータとして返す
+                # 認証ハッシュは可変長のバイナリデータとして返す
                 return value_bytes
             if key == ExtendedFieldType.SOURCE:
                 value_str = value_bytes.decode('utf-8').rstrip('\x00#')
