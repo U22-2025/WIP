@@ -3,5 +3,6 @@
     "disaster": {"id": 2, "type": "list_str"},
     "latitude": {"id": 33, "type": "float"},
     "longitude": {"id": 34, "type": "float"},
-    "source": {"id": 40, "type": "str"}
+    "source": {"id": 40, "type": "str"},
+    "auth_hash": {"id": 4, "type":"str"}
 }
