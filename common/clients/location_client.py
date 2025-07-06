@@ -124,6 +124,7 @@ class LocationClient:
                 
                 if cached_area_code:
                     cached_response = self._create_cached_response(cached_area_code, latitude, longitude)
+                    cached_response.cache_hit = True
                     cache_time = time.time() - start_time
                     return cached_response, cache_time
 
@@ -184,6 +185,9 @@ class LocationClient:
             if debug_enabled:
                 self.logger.debug(f"Location request timing: network={network_time*1000:.1f}ms, total={total_time*1000:.1f}ms")
 
+            # サーバーからのレスポンスの場合はcache_hitをFalseに設定
+            if response:
+                response.cache_hit = False
             return response, total_time
 
         except socket.timeout:
@@ -222,6 +226,7 @@ class LocationClient:
                 self.latitude = latitude
                 self.longitude = longitude
                 self.type = 0  # タイプ0（座標解決レスポンス）
+                self.cache_hit = False  # デフォルトはFalse、後で設定される
                 
             def is_valid(self):
                 return True
@@ -246,7 +251,7 @@ class LocationClient:
         
         return CachedLocationResponse(area_code, latitude, longitude)
 
-    def get_area_code_simple(self, latitude, longitude, source=None, use_cache=True):
+    def get_area_code_simple(self, latitude, longitude, source=None, use_cache=True, return_cache_info=False):
         """
         座標からエリアコードのみを取得する簡便メソッド（統一命名規則版）
         
@@ -255,14 +260,22 @@ class LocationClient:
             longitude: 経度
             source: 送信元情報 (ip, port) のタプル
             use_cache: キャッシュを使用するかどうか
+            return_cache_info: キャッシュ情報も返すかどうか
             
         Returns:
-            str: エリアコード（失敗時はNone）
+            str または tuple: エリアコード（失敗時はNone）
+                              return_cache_info=Trueの場合は (area_code, cache_hit) のタプル
         """
         response, _ = self.get_location_data(latitude, longitude, source, use_cache=use_cache)
         if response and response.is_valid():
-            return response.get_area_code()
+            area_code = response.get_area_code()
+            if return_cache_info:
+                cache_hit = getattr(response, 'cache_hit', False)
+                return area_code, cache_hit
+            return area_code
         self.logger.error("400: クライアントエラー: 不正なパケット")
+        if return_cache_info:
+            return None, False
         return None
 
     # 後方互換性のためのエイリアスメソッド

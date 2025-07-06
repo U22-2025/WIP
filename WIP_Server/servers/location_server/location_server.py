@@ -204,7 +204,12 @@ class LocationServer(BaseServer):
             
             # 認証ハッシュを検証
             if not request.verify_auth_from_extended_field():
+                print(f"[{self.server_name}] Auth: ✗")
                 return False, "403", "認証に失敗しました"
+            
+            print(f"[{self.server_name}] Auth: ✓")
+        else:
+            print(f"[{self.server_name}] Auth: disabled")
         
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:

@@ -362,11 +362,14 @@ class WeatherServer(BaseServer):
                 
                 # location_clientのキャッシュからエリアコードを取得
                 cache_start = time.time()
-                cached_area_code = self.location_client.get_area_code_simple(lat, long, use_cache=True)
+                cached_area_code, cache_hit = self.location_client.get_area_code_simple(lat, long, use_cache=True, return_cache_info=True)
                 cache_time = time.time() - cache_start
                 
                 if cached_area_code:
-                    print(f"[{self.server_name}] Location cache hit: {cached_area_code} ({cache_time*1000:.1f}ms)")
+                    if cache_hit:
+                        print(f"[{self.server_name}] Location cache hit: {cached_area_code} ({cache_time*1000:.1f}ms)")
+                    else:
+                        print(f"[{self.server_name}] Location server response: {cached_area_code} ({cache_time*1000:.1f}ms)")
                     
                     try:
                         weather_request = QueryRequest.create_query_request(
@@ -466,12 +469,11 @@ class WeatherServer(BaseServer):
             
             # 従来の認証機能（拡張フィールド）も有効化
             if request_auth_config['enabled']:
-                if self.debug:
-                    print(f"  Location Resolverへのリクエスト認証を有効化中...")
+                print(f"[{self.server_name}] Request Auth to Location: ✓")
                 location_request.enable_auth(request_auth_config['passphrase'])
-                
-                # 認証ハッシュを拡張フィールドに追加
                 location_request.add_auth_to_extended_field()
+            else:
+                print(f"[{self.server_name}] Request Auth to Location: disabled")
             # Location Resolverに転送
             send_start = time.time()
             packet_data = location_request.to_bytes()
@@ -593,8 +595,12 @@ class WeatherServer(BaseServer):
                 if weather_data and 'error' not in weather_data:
                     # query_clientから直接データを取得できた場合（成功）
                     cache_hit_location = True
+                    cache_hit = weather_data.get('cache_hit', False)
                     if self.debug:
-                        print(f"  *** location_response経由キャッシュヒット *** {response.area_code}")
+                        if cache_hit:
+                            print(f"  *** location_response経由キャッシュヒット *** {response.area_code}")
+                        else:
+                            print(f"  *** location_response経由サーバー応答 *** {response.area_code}")
                         print(f"  Weather data: {weather_data}")
                     
                     # 拡張フィールドの準備
@@ -705,17 +711,11 @@ class WeatherServer(BaseServer):
             
             # 従来の認証機能（拡張フィールド）も有効化
             if request_auth_config['enabled']:
-                if self.debug:
-                    print(f"  Query Generatorへのリクエスト認証を有効化中（location_response経由）...")
-                    print(f"  使用するパスフレーズ: '{request_auth_config['passphrase']}'")
-                
+                print(f"[{self.server_name}] Request Auth to Query (via location): ✓")
                 query_request.enable_auth(request_auth_config['passphrase'])
                 query_request.add_auth_to_extended_field()
-                
-                if self.debug:
-                    print(f"  認証ハッシュが拡張フィールドに追加されました")
-                    if hasattr(query_request, 'ex_field') and query_request.ex_field:
-                        print(f"  拡張フィールド内容: {query_request.ex_field.to_dict() if hasattr(query_request.ex_field, 'to_dict') else query_request.ex_field}")
+            else:
+                print(f"[{self.server_name}] Request Auth to Query (via location): disabled")
             
             # Query Generatorに送信
             packet_data = query_request.to_bytes()
@@ -768,7 +768,11 @@ class WeatherServer(BaseServer):
                 
                 if weather_data and 'error' not in weather_data:
                     # query_clientから正常データを取得できた場合（キャッシュ/サーバー問わず）
-                    print(f"[{self.server_name}] Query cache hit: {request.area_code} ({cache_time*1000:.1f}ms)")
+                    cache_hit = weather_data.get('cache_hit', False)
+                    if cache_hit:
+                        print(f"[{self.server_name}] Query cache hit: {request.area_code} ({cache_time*1000:.1f}ms)")
+                    else:
+                        print(f"[{self.server_name}] Query server response: {request.area_code} ({cache_time*1000:.1f}ms)")
                     
                     # requestから座標情報を取得
                     coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
@@ -861,39 +865,16 @@ class WeatherServer(BaseServer):
             
             # 従来の認証機能（拡張フィールド）も有効化
             if request_auth_config['enabled']:
-                if self.debug:
-                    print(f"  Query Generatorへのリクエスト認証を有効化中...")
-                    print(f"  使用するパスフレーズ: '{request_auth_config['passphrase']}'")
-                
                 try:
+                    print(f"[{self.server_name}] Request Auth to Query: ✓")
                     query_request.enable_auth(request_auth_config['passphrase'])
-                    if self.debug:
-                        print(f"  enable_auth実行完了")
-                        print(f"  認証有効状態: {query_request.is_auth_enabled()}")
-                        print(f"  認証パスフレーズ: {query_request.get_auth_passphrase()}")
-                    
-                    # 認証ハッシュを計算してテスト
-                    auth_hash = query_request.calculate_auth_hash()
-                    if self.debug:
-                        print(f"  計算された認証ハッシュ: {auth_hash.hex() if auth_hash else 'None'}")
-                    
-                    # 認証ハッシュを拡張フィールドに追加
                     query_request.add_auth_to_extended_field()
-                    if self.debug:
-                        print(f"  add_auth_to_extended_field実行完了")
-                        print(f"  拡張フィールド内容（認証後）: {query_request.ex_field.to_dict() if hasattr(query_request.ex_field, 'to_dict') else query_request.ex_field}")
-                        if hasattr(query_request.ex_field, 'auth_hash'):
-                            print(f"  拡張フィールドのauth_hash: {query_request.ex_field.auth_hash.hex() if query_request.ex_field.auth_hash else 'None'}")
-                        else:
-                            print(f"  拡張フィールドにauth_hash属性が存在しません")
-                        
                 except Exception as auth_e:
+                    print(f"[{self.server_name}] Request Auth to Query: ✗ (Error: {auth_e})")
                     if self.debug:
-                        print(f"  認証処理エラー: {auth_e}")
                         traceback.print_exc()
             else:
-                if self.debug:
-                    print(f"  認証は無効です")
+                print(f"[{self.server_name}] Request Auth to Query: disabled")
             
             # Query Generatorに転送
             send_start = time.time()

@@ -154,6 +154,7 @@ class QueryClient:
                         'response_parsing': 0,
                         'total_time': cache_time.total_seconds() * 1000
                     }
+                    cached_response['cache_hit'] = True
                     return cached_response
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
@@ -241,6 +242,7 @@ class QueryClient:
                     'response_parsing': parse_time.total_seconds() * 1000,
                     'total_time': total_time.total_seconds() * 1000
                 }
+                result['cache_hit'] = False
                 
                 if self.debug:
                     self.logger.debug(f"Query request timing: network={network_time.total_seconds()*1000:.1f}ms, total={total_time.total_seconds()*1000:.1f}ms")

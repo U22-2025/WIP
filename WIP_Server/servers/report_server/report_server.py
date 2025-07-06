@@ -168,21 +168,19 @@ class ReportServer(BaseServer):
             if self.request_auth_enabled:
                 # 認証フラグの検証
                 if not request.process_request_auth_flags():
-                    if self.debug:
-                        print(f"[{self.server_name}] 認証フラグ検証失敗")
+                    print(f"[{self.server_name}] Auth Flags: ✗")
                     return False, "403", "認証フラグの検証に失敗しました"
                 
-                if self.debug:
-                    print(f"[{self.server_name}] 認証フラグ検証成功")
+                print(f"[{self.server_name}] Auth Flags: ✓")
             
             # 拡張フィールドベースの認証ハッシュを検証
             if not request.verify_auth_from_extended_field():
-                if self.debug:
-                    print(f"[{self.server_name}] 認証失敗")
+                print(f"[{self.server_name}] Auth: ✗")
                 return False, "403", "認証に失敗しました"
             
-            if self.debug:
-                print(f"[{self.server_name}] 認証成功")
+            print(f"[{self.server_name}] Auth: ✓")
+        else:
+            print(f"[{self.server_name}] Auth: disabled")
         
         # タイプチェック（Type 4のみ有効）
         if request.type != 4:
@@ -440,8 +438,9 @@ class ReportServer(BaseServer):
             if self.auth_enabled and self._get_response_auth_config():
                 response.enable_auth(self.auth_passphrase)
                 response.set_auth_flags()
-                if self.debug:
-                    print(f"[{self.server_name}] レスポンス認証フラグを設定しました")
+                print(f"[{self.server_name}] Response Auth: ✓")
+            else:
+                print(f"[{self.server_name}] Response Auth: disabled")
             
             timing_info['response'] = time.time() - response_start
             
