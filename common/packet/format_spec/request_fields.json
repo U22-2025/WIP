@@ -8,8 +8,10 @@
     "alert_flag": {"length": 1, "type": "int"},
     "disaster_flag": {"length": 1, "type": "int"},
     "ex_flag": {"length": 1, "type": "int"},
+    "request_auth": {"length": 1, "type": "int"},
+    "response_auth": {"length": 1, "type": "int"},
     "day": {"length": 3, "type": "int"},
-    "reserved": {"length": 4, "type": "int"},
+    "reserved": {"length": 2, "type": "int"},
     "timestamp": {"length": 64, "type": "int"},
     "area_code": {"length": 20, "type": "str"},
     "checksum": {"length": 12, "type": "int"}

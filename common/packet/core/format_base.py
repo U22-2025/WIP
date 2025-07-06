@@ -7,7 +7,7 @@ from pathlib import Path
 from ..dynamic_format import load_base_fields, reload_base_fields
 from .exceptions import BitFieldError
 from .bit_utils import extract_bits
-from ..utils.auth import WIPAuth
+from ...utils.auth import WIPAuth
 from datetime import datetime
 
 
