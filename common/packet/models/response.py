@@ -10,14 +10,16 @@ from ..core.bit_utils import extract_bits, extract_rest_bits
 from ..dynamic_format import load_response_fields
 
 
-_RESPONSE_SPEC: Dict[str, int] = load_response_fields()
+_RESPONSE_SPEC: Dict[str, Dict[str, Any]] = load_response_fields()
 
 
-def _apply_response_spec(spec: Dict[str, int]) -> None:
+def _apply_response_spec(spec: Dict[str, Dict[str, Any]]) -> None:
     """内部利用: レスポンスフィールド定義をクラスに適用"""
     old_fields = set(getattr(Response, "FIXED_FIELD_LENGTH", {}))
     fixed_length = {
-        k: int(v) for k, v in spec.items() if k not in FormatBase.FIELD_LENGTH
+        k: int(v.get("length", v))
+        for k, v in spec.items()
+        if k not in FormatBase.FIELD_LENGTH
     }
 
     Response.FIXED_FIELD_LENGTH = fixed_length
@@ -41,6 +43,9 @@ def _apply_response_spec(spec: Dict[str, int]) -> None:
     for field in removed:
         if hasattr(Response, field):
             delattr(Response, field)
+
+    # 新しいフィールドに合わせてプロパティを生成
+    Response._generate_properties()
 
 
 class Response(FormatBase):
@@ -71,6 +76,18 @@ class Response(FormatBase):
         - source: 送信元情報 (ip, port) のタプル
     """
 
+    @classmethod
+    def _generate_properties(cls) -> None:
+        """FIXED_FIELD_LENGTHに基づきプロパティを動的生成"""
+        for field in cls.FIXED_FIELD_LENGTH:
+            def getter(self, *, _f=field):
+                return getattr(self, f"_{_f}", 0)
+
+            def setter(self, value: int, *, _f=field) -> None:
+                self._set_validated_extended_field(_f, value)
+
+            setattr(cls, field, property(getter, setter))
+
     def get_coordinates(self) -> Optional[tuple[float, float]]:
         """
         拡張フィールドから緯度経度を取得する
@@ -96,34 +113,24 @@ class Response(FormatBase):
         return base_size + fixed_bits // 8
 
     def __init__(
-        self, 
+        self,
         *,
-        # 固定長拡張フィールド
-        weather_code: int = 0,
-        temperature: int = 0,
-        pop: int = 0,
-        # 可変長拡張フィールド
         ex_field: Optional[Union[Dict[str, Any], ExtendedField]] = None,
-        # その他のパラメータ
-        **kwargs
+        **kwargs,
     ) -> None:
-        """
-        レスポンスパケットの初期化
-        
+        """レスポンスパケットの初期化
+
         Args:
-            weather_code: 天気コード (16ビット, 0-65535)
-            temperature: 気温 (8ビット, -100℃～+155℃を0-255で表現)
-            pop: 降水確率 (8ビット, 0-100%)
             ex_field: 拡張フィールド（辞書またはExtendedFieldオブジェクト）
-            **kwargs: 基本フィールドのパラメータ
-            
+            **kwargs: 基本フィールドおよび固定長フィールドのパラメータ
+
         Raises:
             BitFieldError: フィールド値が不正な場合
         """
         try:
             # チェックサム自動計算フラグ
             self._auto_checksum = True
-            
+
             # 可変長拡張フィールドの初期化
             if isinstance(ex_field, dict):
                 self._ex_field = ExtendedField(ex_field)
@@ -131,33 +138,33 @@ class Response(FormatBase):
                 self._ex_field = ex_field
             else:
                 self._ex_field = ExtendedField()
-            
-            # ビット列が提供された場合はそれを解析
+
+            fixed_values: Dict[str, Any] = {}
+            base_kwargs: Dict[str, Any] = {}
+            for key, value in kwargs.items():
+                if key in self.FIXED_FIELD_LENGTH:
+                    fixed_values[key] = value
+                else:
+                    base_kwargs[key] = value
+
+            # ビット列が提供された場合はそのまま親クラスに渡す
             if 'bitstr' in kwargs:
-                # 固定長拡張フィールドを初期化（from_bitsで上書きされる）
-                self.weather_code = 0
-                self.temperature = 0
-                self.pop = 0
-                
-                # 親クラスの初期化（from_bitsが呼ばれる）
-                super().__init__(**kwargs)
-                # from_bitsから受け取った場合はチェックサムをそのまま保持
+                for field in self.FIXED_FIELD_LENGTH:
+                    setattr(self, field, 0)
+                super().__init__(**base_kwargs)
                 return
-                
-            # 通常の初期化の場合
-            # 固定長拡張フィールドの初期化
-            self.weather_code = 0
-            self.temperature = 0
-            self.pop = 0
-            
+
+            # 固定長フィールドを初期化
+            for field in self.FIXED_FIELD_LENGTH:
+                setattr(self, field, 0)
+
             # 親クラスの初期化
-            super().__init__(**kwargs)
-            
-            # 引数で与えられた固定長拡張フィールドの値を設定・検証
-            self._set_validated_extended_field('weather_code', weather_code)
-            self._set_validated_extended_field('temperature', temperature)
-            self._set_validated_extended_field('pop', pop)
-            
+            super().__init__(**base_kwargs)
+
+            # 固定長フィールドの値を設定
+            for field, value in fixed_values.items():
+                self._set_validated_extended_field(field, value)
+
             # 拡張フィールドの変更を監視してチェックサムを再計算
             self._ex_field.add_observer(self._on_ex_field_changed)
                 
@@ -213,8 +220,9 @@ class Response(FormatBase):
             if not (min_val <= value <= max_val):
                 raise BitFieldError("フィールド '{}' の値 {} が有効範囲 {}～{} 外です".format(
                     field, value, min_val, max_val))
-                
-        setattr(self, field, value)
+
+        # プロパティを避けて内部属性に直接設定
+        object.__setattr__(self, f"_{field}", value)
 
     def from_bits(self, bitstr: int) -> None:
         """

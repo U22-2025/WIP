@@ -27,11 +27,19 @@ import csv
 import io
 import warnings
 
-_EXTENDED_SPEC: Dict[str, int] = load_extended_fields()
+_EXTENDED_SPEC: Dict[str, Dict[str, Any]] = load_extended_fields()
 
 
-def _apply_extended_spec(spec: Dict[str, int]) -> None:
+def _apply_extended_spec(spec: Dict[str, Dict[str, Any]]) -> None:
     """内部利用: 拡張フィールド定義をクラスに適用"""
+
+    def _get_id(info: Dict[str, Any] | int | None) -> int | None:
+        if info is None:
+            return None
+        if isinstance(info, dict):
+            return int(info.get("id", 0))
+        return int(info)
+
     removed = set(ExtendedField.FIELD_MAPPING_STR) - set(spec)
     for name in removed:
         if hasattr(ExtendedField, name):
@@ -39,24 +47,24 @@ def _apply_extended_spec(spec: Dict[str, int]) -> None:
         upper = name.upper()
         if hasattr(ExtendedFieldType, upper):
             delattr(ExtendedFieldType, upper)
-    # ExtendedFieldType のID定義を更新
-    for name, value in spec.items():
-        setattr(ExtendedFieldType, name.upper(), value)
+
+    for name, info in spec.items():
+        setattr(ExtendedFieldType, name.upper(), _get_id(info))
 
     ExtendedFieldType.STRING_LIST_FIELDS = {
-        spec.get("alert"),
-        spec.get("disaster"),
+        _get_id(spec.get("alert")),
+        _get_id(spec.get("disaster")),
     }
     ExtendedFieldType.COORDINATE_FIELDS = {
-        spec.get("latitude"),
-        spec.get("longitude"),
+        _get_id(spec.get("latitude")),
+        _get_id(spec.get("longitude")),
     }
     ExtendedFieldType.STRING_FIELDS = {
-        spec.get("source"),
+        _get_id(spec.get("source")),
     }
 
-    ExtendedField.FIELD_MAPPING_STR = spec.copy()
-    ExtendedField.FIELD_MAPPING_INT = {v: k for k, v in spec.items()}
+    ExtendedField.FIELD_MAPPING_STR = {k: _get_id(v) for k, v in spec.items()}
+    ExtendedField.FIELD_MAPPING_INT = {v: k for k, v in ExtendedField.FIELD_MAPPING_STR.items() if v is not None}
     ExtendedField._generate_properties()
 
 class ExtendedFieldType:

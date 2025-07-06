@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any
 
 from .core.exceptions import BitFieldError
 
@@ -23,7 +23,7 @@ def _resolve_path(file_name: str | Path) -> Path:
     return path
 
 
-def load_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str, int]:
+def load_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str, Dict[str, Any]]:
     """基本フィールド定義を読み込む
 
     Args:
@@ -31,7 +31,7 @@ def load_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str,
             ``format_spec/`` を基準とします。
 
     Returns:
-        フィールド名をキー、ビット長を値とする辞書
+        フィールド名をキー、``{"length": int, "type": str}`` を値とする辞書
 
     Raises:
         BitFieldError: ファイルの読み込みまたはJSON解析に失敗した場合
@@ -42,19 +42,29 @@ def load_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str,
             data = json.load(fp)
         if not isinstance(data, dict):
             raise ValueError("JSONデータが辞書ではありません")
-        return {str(k): int(v) for k, v in data.items()}
+
+        result: Dict[str, Dict[str, Any]] = {}
+        for key, value in data.items():
+            if isinstance(value, dict):
+                length = int(value.get("length", 0))
+                f_type = str(value.get("type", "int"))
+            else:
+                length = int(value)
+                f_type = "int"
+            result[str(key)] = {"length": length, "type": f_type}
+        return result
     except Exception as e:  # noqa: BLE001
         raise BitFieldError(
             f"基本フィールド定義の読み込みに失敗: {e}"
         ) from e
 
 
-def reload_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str, int]:
+def reload_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str, Dict[str, Any]]:
     """基本フィールド定義を再読み込みする"""
     return load_base_fields(file_name)
 
 
-def load_extended_fields(file_name: str | Path = "extended_fields.json") -> Dict[str, int]:
+def load_extended_fields(file_name: str | Path = "extended_fields.json") -> Dict[str, Dict[str, Any]]:
     """拡張フィールド定義を読み込む
 
     Args:
@@ -62,7 +72,7 @@ def load_extended_fields(file_name: str | Path = "extended_fields.json") -> Dict
             ``format_spec/`` を基準とします。
 
     Returns:
-        フィールド名をキー、ビット長を値とする辞書
+        フィールド名をキー、``{"id": int, "type": str}`` を値とする辞書
 
     Raises:
         BitFieldError: ファイルの読み込みまたはJSON解析に失敗した場合
@@ -73,14 +83,24 @@ def load_extended_fields(file_name: str | Path = "extended_fields.json") -> Dict
             data = json.load(fp)
         if not isinstance(data, dict):
             raise ValueError("JSONデータが辞書ではありません")
-        return {str(k): int(v) for k, v in data.items()}
+
+        result: Dict[str, Dict[str, Any]] = {}
+        for key, value in data.items():
+            if isinstance(value, dict):
+                field_id = int(value.get("id", 0))
+                f_type = str(value.get("type", "str"))
+            else:
+                field_id = int(value)
+                f_type = "str"
+            result[str(key)] = {"id": field_id, "type": f_type}
+        return result
     except Exception as e:  # noqa: BLE001
         raise BitFieldError(
             f"拡張フィールド定義の読み込みに失敗: {e}"
         ) from e
 
 
-def load_response_fields(file_name: str | Path = "response_fields.json") -> Dict[str, int]:
+def load_response_fields(file_name: str | Path = "response_fields.json") -> Dict[str, Dict[str, Any]]:
     """レスポンスフィールド定義を読み込む
 
     Args:
@@ -88,7 +108,7 @@ def load_response_fields(file_name: str | Path = "response_fields.json") -> Dict
             ``format_spec/`` を基準とします。
 
     Returns:
-        フィールド名をキー、ビット長を値とする辞書
+        フィールド名をキー、``{"length": int, "type": str}`` を値とする辞書
 
     Raises:
         BitFieldError: ファイルの読み込みまたはJSON解析に失敗した場合
@@ -99,7 +119,17 @@ def load_response_fields(file_name: str | Path = "response_fields.json") -> Dict
             data = json.load(fp)
         if not isinstance(data, dict):
             raise ValueError("JSONデータが辞書ではありません")
-        return {str(k): int(v) for k, v in data.items()}
+
+        result: Dict[str, Dict[str, Any]] = {}
+        for key, value in data.items():
+            if isinstance(value, dict):
+                length = int(value.get("length", 0))
+                f_type = str(value.get("type", "int"))
+            else:
+                length = int(value)
+                f_type = "int"
+            result[str(key)] = {"length": length, "type": f_type}
+        return result
     except Exception as e:  # noqa: BLE001
         raise BitFieldError(
             f"レスポンスフィールド定義の読み込みに失敗: {e}"

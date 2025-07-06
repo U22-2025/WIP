@@ -31,8 +31,10 @@ class FormatBase:
     - checksum:         117-128bit (12ビット)
     """
     
-    # ビットフィールドの長さ定義を動的に読み込む
-    FIELD_LENGTH = load_base_fields()
+    # JSON定義からフィールド仕様を動的に読み込む
+    FIELD_SPEC = load_base_fields()
+    FIELD_LENGTH = {k: v["length"] for k, v in FIELD_SPEC.items()}
+    FIELD_TYPE = {k: v.get("type", "int") for k, v in FIELD_SPEC.items()}
 
     # ビットフィールドの開始位置を計算
     FIELD_POSITION = {}
@@ -99,7 +101,9 @@ class FormatBase:
     def reload_field_spec(cls, file_name: str | Path = "request_fields.json") -> None:
         """JSON定義を再読み込みしてフィールド仕様を更新する"""
         old_fields = set(cls.FIELD_LENGTH)
-        cls.FIELD_LENGTH = reload_base_fields(file_name)
+        cls.FIELD_SPEC = reload_base_fields(file_name)
+        cls.FIELD_LENGTH = {k: v["length"] for k, v in cls.FIELD_SPEC.items()}
+        cls.FIELD_TYPE = {k: v.get("type", "int") for k, v in cls.FIELD_SPEC.items()}
         new_fields = set(cls.FIELD_LENGTH)
 
         cls.FIELD_POSITION = {}
@@ -125,46 +129,14 @@ class FormatBase:
 
         cls._generate_properties()
 
-    def __init__(
-        self,
-        *,
-        # 基本フィールド
-        version: int = 0,
-        packet_id: int = 0,
-        type: int = 0,
-        weather_flag: int = 0,
-        temperature_flag: int = 0,
-        pop_flag: int = 0,
-        alert_flag: int = 0,
-        disaster_flag: int = 0,
-        ex_flag: int = 0,
-        day: int = 0,
-        reserved: int = 0,
-        timestamp: int = 0,
-        area_code: Union[int, str] = 0,
-        checksum: int = 0,
-        # ビット列
-        bitstr: Optional[int] = None
-    ) -> None:
+    def __init__(self, *, bitstr: Optional[int] = None, **kwargs) -> None:
         """
-        共通フィールドの初期化
-        
+        共通フィールドの初期化。すべてのフィールドはJSON定義に基づき ``kwargs``
+        で指定します。
+
         Args:
-            version: バージョン番号 (4ビット)
-            packet_id: パケットID (12ビット)
-            type: パケットタイプ (3ビット)
-            weather_flag: 天気フラグ (1ビット)
-            temperature_flag: 気温フラグ (1ビット)
-            pop_flag: 降水確率フラグ (1ビット)
-            alert_flag: 警報フラグ (1ビット)
-            disaster_flag: 災害フラグ (1ビット)
-            ex_flag: 拡張フラグ (1ビット)
-            day: 日数 (3ビット)
-            reserved: 予約領域 (4ビット)
-            timestamp: タイムスタンプ (64ビット)
-            area_code: エリアコード (20ビット)
-            checksum: チェックサム (12ビット)
             bitstr: ビット列からの変換用
+            **kwargs: フィールド名と値のペア
             
         Raises:
             BitFieldError: フィールド値が不正な場合
@@ -172,34 +144,20 @@ class FormatBase:
         try:
             # チェックサム自動計算フラグ
             self._auto_checksum = True
-            
+
             # ビット列が提供された場合はそれを解析
             if bitstr is not None:
                 self.from_bits(bitstr)
-                # from_bitsから受け取った場合はチェックサムをそのまま保持
                 return
-                
+
             # フィールドの初期化と検証
-            field_values = {
-                'version': version,
-                'packet_id': packet_id,
-                'type': type,
-                'weather_flag': weather_flag,
-                'temperature_flag': temperature_flag,
-                'pop_flag': pop_flag,
-                'alert_flag': alert_flag,
-                'disaster_flag': disaster_flag,
-                'ex_flag': ex_flag,
-                'day': day,
-                'reserved': reserved,
-                'timestamp': timestamp,
-                'area_code': area_code,
-                'checksum': checksum,
-            }
-            
-            # 各フィールドを設定・検証
-            for field, value in field_values.items():
+            remaining = dict(kwargs)
+            for field in self.FIELD_LENGTH:
+                value = remaining.pop(field, 0)
                 self._set_validated_field(field, value)
+
+            if remaining:
+                raise BitFieldError(f"未知のフィールド: {', '.join(remaining.keys())}")
                 
         except BitFieldError:
             raise
