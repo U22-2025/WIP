@@ -108,16 +108,41 @@ class ReportServer(BaseServer):
             print(f"  認証: {'有効' if self.auth_enabled else '無効'}")
     
     def _setup_auth(self):
-        """認証設定を初期化"""
-        # 認証が有効かどうか
-        auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
-        self.auth_enabled = auth_enabled_str.lower() == 'true'
+        """認証設定を初期化（環境変数対応）"""
+        # 認証が有効かどうか（環境変数を優先）
+        auth_enabled_env = os.getenv('REPORT_SERVER_AUTH_ENABLED')
+        if auth_enabled_env is not None:
+            self.auth_enabled = auth_enabled_env.lower() == 'true'
+        else:
+            auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+            self.auth_enabled = auth_enabled_str.lower() == 'true'
         
-        # パスフレーズ
-        self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        # パスフレーズ（環境変数を優先）
+        self.auth_passphrase = os.getenv('REPORT_SERVER_AUTH_PASSPHRASE')
+        if self.auth_passphrase is None:
+            self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        # リクエスト認証設定（環境変数を優先）
+        request_auth_env = os.getenv('REPORT_SERVER_REQUEST_AUTH_ENABLED')
+        if request_auth_env is not None:
+            self.request_auth_enabled = request_auth_env.lower() == 'true'
+        else:
+            request_auth_str = self.config.get('auth', 'request_auth_enabled', 'false')
+            self.request_auth_enabled = request_auth_str.lower() == 'true'
         
         if self.auth_enabled and not self.auth_passphrase:
             raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
+    
+    def _get_response_auth_config(self):
+        """レスポンス認証設定を取得"""
+        # 環境変数を優先して確認
+        response_auth_env = os.getenv('REPORT_SERVER_RESPONSE_AUTH_ENABLED')
+        if response_auth_env is not None:
+            return response_auth_env.lower() == 'true'
+        
+        # 設定ファイルから取得
+        response_auth_str = self.config.get('auth', 'response_auth_enabled', 'false')
+        return response_auth_str.lower() == 'true'
     
     def validate_request(self, request):
         """
@@ -144,7 +169,18 @@ class ReportServer(BaseServer):
             # リクエストに認証機能を設定
             request.enable_auth(self.auth_passphrase)
             
-            # 認証ハッシュを検証
+            # 認証フラグ処理（リクエスト認証が有効な場合）
+            if self.request_auth_enabled:
+                # 認証フラグの検証
+                if not request.process_request_auth_flags():
+                    if self.debug:
+                        print(f"[{self.server_name}] 認証フラグ検証失敗")
+                    return False, "403", "認証フラグの検証に失敗しました"
+                
+                if self.debug:
+                    print(f"[{self.server_name}] 認証フラグ検証成功")
+            
+            # 拡張フィールドベースの認証ハッシュを検証
             if not request.verify_auth_from_extended_field():
                 if self.debug:
                     print(f"[{self.server_name}] 認証失敗")
@@ -429,6 +465,14 @@ class ReportServer(BaseServer):
                 request=request,
                 version=self.version
             )
+            
+            # 認証フラグ設定（認証が有効でレスポンス認証が有効な場合）
+            if self.auth_enabled and self._get_response_auth_config():
+                response.enable_auth(self.auth_passphrase)
+                response.set_auth_flags()
+                if self.debug:
+                    print(f"[{self.server_name}] レスポンス認証フラグを設定しました")
+            
             timing_info['response'] = time.time() - response_start
             
             # 成功カウント

@@ -87,31 +87,51 @@ class QueryServer(BaseServer):
             print(f"  Authentication: {'Enabled' if self.auth_enabled else 'Disabled'}")
     
     def _setup_auth(self):
-        """認証設定を初期化（リクエスト・レスポンス分離対応）"""
+        """認証設定を初期化（環境変数・認証フラグ対応）"""
+        # 環境変数から認証設定を読み込み（優先）
+        env_auth_enabled = os.getenv('QUERY_SERVER_AUTH_ENABLED', '').lower() == 'true'
+        env_auth_passphrase = os.getenv('QUERY_SERVER_PASSPHRASE', '')
+        env_response_auth_enabled = os.getenv('QUERY_GENERATOR_RESPONSE_AUTH_ENABLED', '').lower() == 'true'
+        
         # 受信時認証設定（このサーバーへの接続時）
-        auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
-        self.auth_enabled = auth_enabled_str.lower() == 'true'
-        self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        if env_auth_enabled and env_auth_passphrase:
+            self.auth_enabled = True
+            self.auth_passphrase = env_auth_passphrase
+            if self.debug:
+                print(f"[{self.server_name}] 環境変数から受信時認証設定を読み込みました")
+        else:
+            auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+            self.auth_enabled = auth_enabled_str.lower() == 'true'
+            self.auth_passphrase = self.config.get('auth', 'passphrase', '')
         
         # リクエスト送信時認証設定（他サーバーへのリクエスト送信時）
         self.request_auth_enabled = self.config.get('auth', 'request_auth_enabled', 'false').lower() == 'true'
         self.request_auth_passphrase = self.config.get('auth', 'request_passphrase', '')
         
         # レスポンス送信時認証設定（クライアントへのレスポンス送信時）
-        self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
-        self.response_auth_passphrase = self.config.get('auth', 'response_passphrase', '')
+        if env_response_auth_enabled:
+            self.response_auth_enabled = True
+            if self.debug:
+                print(f"[{self.server_name}] 環境変数からレスポンス送信時認証が有効化されました")
+        else:
+            self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
+        
+        # レスポンス認証パスフレーズは受信時認証と同じものを使用
+        self.response_auth_passphrase = self.auth_passphrase
         
         if self.debug:
             print(f"[{self.server_name}] 認証設定:")
             print(f"  受信時認証: {'有効' if self.auth_enabled else '無効'}")
             if self.auth_enabled:
                 print(f"    パスフレーズ: '{self.auth_passphrase}'")
+                print(f"    ソース: {'環境変数' if env_auth_enabled and env_auth_passphrase else '設定ファイル'}")
             print(f"  リクエスト送信時認証: {'有効' if self.request_auth_enabled else '無効'}")
             if self.request_auth_enabled:
                 print(f"    パスフレーズ: '{self.request_auth_passphrase}'")
             print(f"  レスポンス送信時認証: {'有効' if self.response_auth_enabled else '無効'}")
             if self.response_auth_enabled:
                 print(f"    パスフレーズ: '{self.response_auth_passphrase}'")
+                print(f"    ソース: {'環境変数' if env_response_auth_enabled else '設定ファイル'}")
         
         if self.auth_enabled and not self.auth_passphrase:
             raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
@@ -296,6 +316,16 @@ class QueryServer(BaseServer):
                 print(f"520: [{self.server_name}] エラーレスポンスを生成: 520")
             return error_response.to_bytes()
         
+        # リクエストの認証フラグをチェックしてレスポンス認証を処理
+        response_auth_config = self._get_response_auth_config()
+        if hasattr(response, 'process_request_auth_flags'):
+            response.process_request_auth_flags(
+                request,
+                response_auth_config['passphrase'] if response_auth_config['enabled'] else None
+            )
+            if self.debug and response_auth_config['enabled']:
+                print(f"[{self.server_name}] リクエストの認証フラグに基づいてレスポンス認証を処理しました")
+        
         # レスポンスに認証ハッシュを追加（レスポンス送信時認証設定を使用）
         if self.response_auth_enabled:
             if self.debug:
@@ -317,6 +347,18 @@ class QueryServer(BaseServer):
                 print(f"  ex_field: {response.ex_field.to_dict() if hasattr(response.ex_field, 'to_dict') else response.ex_field}")
         
         return response.to_bytes()
+    
+    def _get_response_auth_config(self):
+        """
+        レスポンス送信時の認証設定を取得（クライアントへのレスポンス送信時に使用）
+        
+        Returns:
+            dict: 認証設定 {'enabled': bool, 'passphrase': str}
+        """
+        return {
+            'enabled': self.response_auth_enabled,
+            'passphrase': self.response_auth_passphrase
+        }
     
     def _debug_print_request(self, data, parsed):
         """リクエストのデバッグ情報を出力（オーバーライド）"""

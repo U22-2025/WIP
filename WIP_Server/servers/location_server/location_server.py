@@ -94,17 +94,47 @@ class LocationServer(BaseServer):
             print(f"  Authentication: {'Enabled' if self.auth_enabled else 'Disabled'}")
     
     def _setup_auth(self):
-        """認証設定を初期化"""
-        # 共有認証設定（リクエスト受信・レスポンス送信で同じパスフレーズを使用）
-        auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
-        self.auth_enabled = auth_enabled_str.lower() == 'true'
-        self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        """認証設定を初期化（環境変数・認証フラグ対応）"""
+        # 環境変数から認証設定を読み込み（優先）
+        env_auth_enabled = os.getenv('LOCATION_SERVER_AUTH_ENABLED', '').lower() == 'true'
+        env_auth_passphrase = os.getenv('LOCATION_SERVER_PASSPHRASE', '')
+        env_response_auth_enabled = os.getenv('LOCATION_RESOLVER_RESPONSE_AUTH_ENABLED', '').lower() == 'true'
+        
+        # 受信時認証設定（このサーバーへの接続時）
+        if env_auth_enabled and env_auth_passphrase:
+            self.auth_enabled = True
+            self.auth_passphrase = env_auth_passphrase
+            if self.debug:
+                print(f"[{self.server_name}] 環境変数から受信時認証設定を読み込みました")
+        else:
+            auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+            self.auth_enabled = auth_enabled_str.lower() == 'true'
+            self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        # レスポンス送信時認証設定（クライアントへのレスポンス送信時）
+        if env_response_auth_enabled:
+            self.response_auth_enabled = True
+            if self.debug:
+                print(f"[{self.server_name}] 環境変数からレスポンス送信時認証が有効化されました")
+        else:
+            self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
+        
+        # レスポンス認証パスフレーズは受信時認証と同じものを使用
+        self.response_auth_passphrase = self.auth_passphrase
         
         if self.auth_enabled and not self.auth_passphrase:
             raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
         
         if self.debug:
-            print(f"[{self.server_name}] 共有認証設定: {'有効' if self.auth_enabled else '無効'}")
+            print(f"[{self.server_name}] 認証設定:")
+            print(f"  受信時認証: {'有効' if self.auth_enabled else '無効'}")
+            if self.auth_enabled:
+                print(f"    パスフレーズ: '{self.auth_passphrase}'")
+                print(f"    ソース: {'環境変数' if env_auth_enabled and env_auth_passphrase else '設定ファイル'}")
+            print(f"  レスポンス送信時認証: {'有効' if self.response_auth_enabled else '無効'}")
+            if self.response_auth_enabled:
+                print(f"    パスフレーズ: '{self.response_auth_passphrase}'")
+                print(f"    ソース: {'環境変数' if env_response_auth_enabled else '設定ファイル'}")
     
     def _setup_database(self):
         """データベース接続プールを初期化"""
@@ -260,10 +290,10 @@ class LocationServer(BaseServer):
                         print(f"[{self.server_name}] バリデーションエラーレスポンスにsource情報を設定: {source}")
             
             # エラーレスポンスにも認証ハッシュを追加
-            if self.auth_enabled:
+            if self.response_auth_enabled:
                 if self.debug:
                     print(f"[{self.server_name}] バリデーション失敗エラーレスポンスに認証ハッシュを追加中...")
-                error_response.enable_auth(self.auth_passphrase)
+                error_response.enable_auth(self.response_auth_passphrase)
                 error_response.add_auth_to_extended_field()
                 if self.debug:
                     print(f"[{self.server_name}] バリデーション失敗エラーレスポンスに認証ハッシュが追加されました")
@@ -313,11 +343,21 @@ class LocationServer(BaseServer):
                     if self.debug:
                         print ("座標解決レスポンスに座標を追加しました")
             
+            # リクエストの認証フラグをチェックしてレスポンス認証を処理
+            response_auth_config = self._get_response_auth_config()
+            if hasattr(response, 'process_request_auth_flags'):
+                response.process_request_auth_flags(
+                    request,
+                    response_auth_config['passphrase'] if response_auth_config['enabled'] else None
+                )
+                if self.debug and response_auth_config['enabled']:
+                    print(f"[{self.server_name}] リクエストの認証フラグに基づいてレスポンス認証を処理しました")
+            
             # レスポンスに認証ハッシュを追加（共有パスフレーズを使用）
-            if self.auth_enabled:
+            if self.response_auth_enabled:
                 if self.debug:
                     print(f"[{self.server_name}] レスポンスに認証ハッシュを追加中...")
-                response.enable_auth(self.auth_passphrase)
+                response.enable_auth(self.response_auth_passphrase)
                 response.add_auth_to_extended_field()
                 if self.debug:
                     print(f"[{self.server_name}] 認証ハッシュが拡張フィールドに追加されました")
@@ -345,10 +385,10 @@ class LocationServer(BaseServer):
                         print(f"[{self.server_name}] 内部エラーレスポンスにsource情報を設定: {source}")
             
             # エラーレスポンスにも認証ハッシュを追加
-            if self.auth_enabled:
+            if self.response_auth_enabled:
                 if self.debug:
                     print(f"[{self.server_name}] 内部エラーレスポンスに認証ハッシュを追加中...")
-                error_response.enable_auth(self.auth_passphrase)
+                error_response.enable_auth(self.response_auth_passphrase)
                 error_response.add_auth_to_extended_field()
                 if self.debug:
                     print(f"[{self.server_name}] 内部エラーレスポンスに認証ハッシュが追加されました")
@@ -357,6 +397,18 @@ class LocationServer(BaseServer):
                 print(f"[{self.server_name}] 内部エラーレスポンス作成 (コード: 510, エラー: {e})")
             
             return error_response.to_bytes()
+    
+    def _get_response_auth_config(self):
+        """
+        レスポンス送信時の認証設定を取得（クライアントへのレスポンス送信時に使用）
+        
+        Returns:
+            dict: 認証設定 {'enabled': bool, 'passphrase': str}
+        """
+        return {
+            'enabled': self.response_auth_enabled,
+            'passphrase': self.response_auth_passphrase
+        }
     
     def _get_area_code_from_coordinates(self, longitude, latitude):
         """

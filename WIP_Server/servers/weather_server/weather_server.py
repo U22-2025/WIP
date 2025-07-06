@@ -115,8 +115,8 @@ class WeatherServer(BaseServer):
                 port=self.location_resolver_port,
                 debug=self.debug,
                 cache_ttl_minutes=area_cache_ttl_minutes,
-                auth_enabled=self.request_auth_enabled,
-                auth_passphrase=self.request_auth_passphrase
+                auth_enabled=self.location_server_request_auth_enabled,
+                auth_passphrase=self.location_server_passphrase
             )
         except Exception as e:
             print(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
@@ -132,8 +132,8 @@ class WeatherServer(BaseServer):
                 port=self.query_generator_port,
                 debug=self.debug,
                 cache_ttl_minutes=weather_cache_ttl_minutes,
-                auth_enabled=self.request_auth_enabled,
-                auth_passphrase=self.request_auth_passphrase
+                auth_enabled=self.query_server_request_auth_enabled,
+                auth_passphrase=self.query_server_passphrase
             )
         except Exception as e:
             print( f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
@@ -155,6 +155,16 @@ class WeatherServer(BaseServer):
         # レスポンス送信時認証設定（クライアントへのレスポンス送信時）
         self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
         self.response_auth_passphrase = self.config.get('auth', 'response_passphrase', '')
+        
+        # 各宛先サーバーのリクエスト認証設定（宛先サーバーが認証を要求するかどうか）
+        self.location_server_request_auth_enabled = self.config.get('auth', 'location_server_request_auth_enabled', 'false').lower() == 'true'
+        self.query_server_request_auth_enabled = self.config.get('auth', 'query_server_request_auth_enabled', 'false').lower() == 'true'
+        self.report_server_request_auth_enabled = self.config.get('auth', 'report_server_request_auth_enabled', 'false').lower() == 'true'
+        
+        # 各サーバーのパスフレーズ設定（レスポンス検証用）
+        self.location_server_passphrase = self.config.get('auth', 'location_server_passphrase', '')
+        self.query_server_passphrase = self.config.get('auth', 'query_server_passphrase', '')
+        self.report_server_passphrase = self.config.get('auth', 'report_server_passphrase', '')
             
         # 常に認証設定を表示（デバッグモード関係なく）
         print(f"[{self.server_name}] 認証設定:")
@@ -167,6 +177,18 @@ class WeatherServer(BaseServer):
         print(f"  レスポンス送信時認証: {'有効' if self.response_auth_enabled else '無効'}")
         if self.response_auth_enabled:
             print(f"    パスフレーズ: '{self.response_auth_passphrase}'")
+        
+        # 各サーバーのパスフレーズ表示
+        print(f"  各サーバーパスフレーズ:")
+        print(f"    Location Server: '{self.location_server_passphrase}' (送信時署名・レスポンス検証)")
+        print(f"    Query Server: '{self.query_server_passphrase}' (送信時署名・レスポンス検証)")
+        print(f"    Report Server: '{self.report_server_passphrase}' (送信時署名・レスポンス検証)")
+        
+        # 各宛先サーバーのリクエスト認証設定表示
+        print(f"  各宛先サーバーリクエスト認証設定:")
+        print(f"    Location Server Request Auth: {'有効' if self.location_server_request_auth_enabled else '無効'}")
+        print(f"    Query Server Request Auth: {'有効' if self.query_server_request_auth_enabled else '無効'}")
+        print(f"    Report Server Request Auth: {'有効' if self.report_server_request_auth_enabled else '無効'}")
         
         if self.debug:
             print(f"[{self.server_name}] デバッグモード詳細:")
@@ -478,8 +500,17 @@ class WeatherServer(BaseServer):
             location_request.ex_field.source = source_info
             location_request.ex_flag = 1
             
-            # Location Resolverへのリクエスト送信時認証を有効化（拡張フィールド初期化後に実行）
-            request_auth_config = self._get_request_auth_config()
+            # Location Resolverへのリクエスト送信時認証設定
+            request_auth_config = self._get_request_auth_config('location')
+            response_auth_config = self._get_response_auth_config()
+            
+            # 認証フラグを設定
+            location_request.set_auth_flags(
+                server_request_auth_enabled=request_auth_config['enabled'],
+                response_auth_enabled=response_auth_config['enabled']
+            )
+            
+            # 従来の認証機能（拡張フィールド）も有効化
             if request_auth_config['enabled']:
                 if self.debug:
                     print(f"  Location Resolverへのリクエスト認証を有効化中...")
@@ -654,6 +685,13 @@ class WeatherServer(BaseServer):
                         ex_field=ex_field_data if ex_field_data else None
                     )
                     
+                    # リクエストの認証フラグをチェックしてレスポンス認証を処理
+                    response_auth_config = self._get_response_auth_config()
+                    query_response.process_request_auth_flags(
+                        response,
+                        response_auth_config['passphrase'] if response_auth_config['enabled'] else None
+                    )
+                    
                     # レスポンスを送信
                     response_data = query_response.to_bytes()
                     source_info = response.get_source_info()
@@ -711,8 +749,17 @@ class WeatherServer(BaseServer):
                 print(f"  WeatherRequest (タイプ2) に変換しました")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
             
-            # Query Generatorへのリクエスト送信時認証を有効化
-            request_auth_config = self._get_request_auth_config()
+            # Query Generatorへのリクエスト送信時認証設定
+            request_auth_config = self._get_request_auth_config('query')
+            response_auth_config = self._get_response_auth_config()
+            
+            # 認証フラグを設定
+            query_request.set_auth_flags(
+                server_request_auth_enabled=request_auth_config['enabled'],
+                response_auth_enabled=response_auth_config['enabled']
+            )
+            
+            # 従来の認証機能（拡張フィールド）も有効化
             if request_auth_config['enabled']:
                 if self.debug:
                     print(f"  Query Generatorへのリクエスト認証を有効化中（location_response経由）...")
@@ -843,6 +890,13 @@ class WeatherServer(BaseServer):
                         ex_field=ex_field_data if ex_field_data else None
                     )
 
+                    # リクエストの認証フラグをチェックしてレスポンス認証を処理
+                    response_auth_config = self._get_response_auth_config()
+                    query_response.process_request_auth_flags(
+                        request,
+                        response_auth_config['passphrase'] if response_auth_config['enabled'] else None
+                    )
+
                     response_data = query_response.to_bytes()
                     self.sock.sendto(response_data, addr)
 
@@ -865,7 +919,7 @@ class WeatherServer(BaseServer):
 
             # query_clientからエラーまたはタイムアウトの場合のみここに到達
             print(f"  DEBUG: バックエンドサーバーにリクエストを転送します（query_clientがエラー/タイムアウトのため）")
-            request_auth_config = self._get_request_auth_config()
+            request_auth_config = self._get_request_auth_config('query')
             print(f"  リクエスト送信時認証設定: {request_auth_config}")
 
             # 既にQueryRequestの場合は、source情報を追加
@@ -895,12 +949,21 @@ class WeatherServer(BaseServer):
                 if hasattr(query_request, 'get_source_info'):
                     print(f"  送信元を追加しました: {query_request.get_source_info()}")
             
-            # Query Generatorへのリクエスト送信時認証を有効化（拡張フィールド初期化後に実行）
-            request_auth_config = self._get_request_auth_config()
+            # Query Generatorへのリクエスト送信時認証設定（拡張フィールド初期化後に実行）
+            request_auth_config = self._get_request_auth_config('query')
+            response_auth_config = self._get_response_auth_config()
+            
+            # 認証フラグを設定
+            query_request.set_auth_flags(
+                server_request_auth_enabled=request_auth_config['enabled'],
+                response_auth_enabled=response_auth_config['enabled']
+            )
+            
             if self.debug:
                 print(f"  認証設定確認: {request_auth_config}")
                 print(f"  拡張フィールド（認証前）: {query_request.ex_field.to_dict() if hasattr(query_request.ex_field, 'to_dict') else query_request.ex_field}")
             
+            # 従来の認証機能（拡張フィールド）も有効化
             if request_auth_config['enabled']:
                 if self.debug:
                     print(f"  Query Generatorへのリクエスト認証を有効化中...")
@@ -1577,25 +1640,91 @@ class WeatherServer(BaseServer):
     def _get_auth_config_for_request(self, request, sender_addr=None):
         """
         受信パケットの認証設定を取得
-        Weather Serverが受信するすべてのパケットは、Weather Server自身の認証設定で検証する
+        パケットタイプに基づいてweatherサーバーの役割を判断し、適切なパスフレーズを選択する
         """
-        # 受信時は常にWeather Server自身の認証設定を使用
-        return {
-            'enabled': self.auth_enabled,
-            'passphrase': self.auth_passphrase
-        }
+        # パケットタイプに基づいて送信元サーバーを判断
+        if request.type == 1:  # location_response
+            # location serverからのレスポンス（weatherサーバー = クライアント役割）
+            return {
+                'enabled': self.auth_enabled,
+                'passphrase': self.location_server_passphrase
+            }
+        elif request.type == 3:  # query_response
+            # query serverからのレスポンス（weatherサーバー = クライアント役割）
+            return {
+                'enabled': self.auth_enabled,
+                'passphrase': self.query_server_passphrase
+            }
+        elif request.type == 5:  # report_response
+            # report serverからのレスポンス（weatherサーバー = クライアント役割）
+            return {
+                'enabled': self.auth_enabled,
+                'passphrase': self.report_server_passphrase
+            }
+        elif request.type == 7:  # error_response
+            # エラーレスポンス - 送信元によって判別（weatherサーバー = クライアント役割）
+            if sender_addr:
+                host, port = sender_addr
+                # ポートによって送信元サーバーを判別
+                if port == self.location_resolver_port:
+                    return {
+                        'enabled': self.auth_enabled,
+                        'passphrase': self.location_server_passphrase
+                    }
+                elif port == self.query_generator_port:
+                    return {
+                        'enabled': self.auth_enabled,
+                        'passphrase': self.query_server_passphrase
+                    }
+                elif port == self.report_server_port:
+                    return {
+                        'enabled': self.auth_enabled,
+                        'passphrase': self.report_server_passphrase
+                    }
+            # 判別できない場合はweather server自身のパスフレーズを使用
+            return {
+                'enabled': self.auth_enabled,
+                'passphrase': self.auth_passphrase
+            }
+        else:
+            # クライアントからの直接リクエスト（Type 0, 2, 4）
+            # weatherサーバー = サーバー役割 → 自身のパスフレーズで検証
+            return {
+                'enabled': self.auth_enabled,
+                'passphrase': self.auth_passphrase
+            }
     
-    def _get_request_auth_config(self):
+    def _get_request_auth_config(self, target_server=None):
         """
         リクエスト送信時の認証設定を取得（他のサーバーへのリクエスト送信時に使用）
         
+        Args:
+            target_server: 送信先サーバー ('location', 'query', 'report')
+            
         Returns:
             dict: 認証設定 {'enabled': bool, 'passphrase': str}
         """
-        return {
-            'enabled': self.request_auth_enabled,
-            'passphrase': self.request_auth_passphrase
-        }
+        if target_server == 'location':
+            return {
+                'enabled': self.location_server_request_auth_enabled,
+                'passphrase': self.location_server_passphrase
+            }
+        elif target_server == 'query':
+            return {
+                'enabled': self.query_server_request_auth_enabled,
+                'passphrase': self.query_server_passphrase
+            }
+        elif target_server == 'report':
+            return {
+                'enabled': self.report_server_request_auth_enabled,
+                'passphrase': self.report_server_passphrase
+            }
+        else:
+            # デフォルト（互換性のため）
+            return {
+                'enabled': self.request_auth_enabled,
+                'passphrase': self.request_auth_passphrase
+            }
     
     def _get_response_auth_config(self):
         """

@@ -25,7 +25,9 @@ class FormatBase:
     - disaster_flag:    24bit    (1ビット)
     - ex_flag:          25bit    (1ビット)
     - day:              26-28bit (3ビット)
-    - reserved:         29-32bit (4ビット)
+    - request_auth:     29bit    (1ビット)
+    - response_auth:    30bit    (1ビット)
+    - reserved:         31-32bit (2ビット)
     - timestamp:        33-96bit (64ビット)
     - area_code:        97-116bit (20ビット)
     - checksum:         117-128bit (12ビット)
@@ -43,7 +45,9 @@ class FormatBase:
         'disaster_flag': 1,    # 災害フラグ
         'ex_flag': 1,         # 拡張フラグ
         'day': 3,             # 日数
-        'reserved': 4,        # 予約領域
+        'request_auth': 1,    # リクエスト認証フラグ
+        'response_auth': 1,   # レスポンス認証フラグ
+        'reserved': 2,        # 予約領域（残り2ビット）
         'timestamp': 64,      # タイムスタンプ
         'area_code': 20,      # エリアコード
         'checksum': 12,       # チェックサム
@@ -81,6 +85,8 @@ class FormatBase:
         disaster_flag: int = 0,
         ex_flag: int = 0,
         day: int = 0,
+        request_auth: int = 0,
+        response_auth: int = 0,
         reserved: int = 0,
         timestamp: int = 0,
         area_code: Union[int, str] = 0,
@@ -102,7 +108,9 @@ class FormatBase:
             disaster_flag: 災害フラグ (1ビット)
             ex_flag: 拡張フラグ (1ビット)
             day: 日数 (3ビット)
-            reserved: 予約領域 (4ビット)
+            request_auth: リクエスト認証フラグ (1ビット)
+            response_auth: レスポンス認証フラグ (1ビット)
+            reserved: 予約領域 (2ビット)
             timestamp: タイムスタンプ (64ビット)
             area_code: エリアコード (20ビット)
             checksum: チェックサム (12ビット)
@@ -137,6 +145,8 @@ class FormatBase:
                 'disaster_flag': disaster_flag,
                 'ex_flag': ex_flag,
                 'day': day,
+                'request_auth': request_auth,
+                'response_auth': response_auth,
                 'reserved': reserved,
                 'timestamp': timestamp,
                 'area_code': area_code,
@@ -308,6 +318,22 @@ class FormatBase:
     @day.setter
     def day(self, value: Union[int, float]) -> None:
         self._set_validated_field('day', value)
+    
+    @property
+    def request_auth(self) -> int:
+        return getattr(self, '_request_auth', 0)
+    
+    @request_auth.setter
+    def request_auth(self, value: Union[int, float]) -> None:
+        self._set_validated_field('request_auth', value)
+    
+    @property
+    def response_auth(self) -> int:
+        return getattr(self, '_response_auth', 0)
+    
+    @response_auth.setter
+    def response_auth(self, value: Union[int, float]) -> None:
+        self._set_validated_field('response_auth', value)
     
     @property
     def reserved(self) -> int:

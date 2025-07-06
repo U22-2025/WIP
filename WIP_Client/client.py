@@ -62,14 +62,14 @@ class ClientState:
         
         # Location Resolver
         configs['location'] = AuthConfig(
-            enabled=os.getenv("LOCATION_RESOLVER_AUTH_ENABLED", "false").lower() == "true",
-            passphrase=os.getenv("LOCATION_RESOLVER_PASSPHRASE")
+            enabled=os.getenv("LOCATION_SERVER_AUTH_ENABLED", "false").lower() == "true",
+            passphrase=os.getenv("LOCATION_SERVER_PASSPHRASE")
         )
         
         # Query Generator
         configs['query'] = AuthConfig(
-            enabled=os.getenv("QUERY_GENERATOR_AUTH_ENABLED", "false").lower() == "true",
-            passphrase=os.getenv("QUERY_GENERATOR_PASSPHRASE")
+            enabled=os.getenv("QUERY_SERVER_AUTH_ENABLED", "false").lower() == "true",
+            passphrase=os.getenv("QUERY_SERVER_PASSPHRASE")
         )
         
         # Weather Server
@@ -185,7 +185,7 @@ class Client:
     # ---------------------------------------------------------------
     def _setup_auth(self, request, server_type: Literal['location', 'query', 'weather', 'report']) -> None:
         """
-        リクエストに認証機能を設定
+        リクエストに認証機能を設定（認証フラグ対応）
         
         Args:
             request: Request オブジェクト
@@ -201,13 +201,51 @@ class Client:
         
         # 新しいサーバーごとの認証設定を使用
         auth_config = self.state.get_auth_config(server_type)
+        
+        # 認証フラグの設定
+        if hasattr(request, 'set_auth_flags'):
+            # サーバーが認証を要求するかどうかとレスポンス認証を有効にするかを設定
+            server_request_auth_enabled = auth_config.enabled
+            
+            # レスポンス認証の設定（サーバーからの認証を要求）
+            response_auth_enabled = self._get_response_auth_enabled(server_type)
+            
+            request.set_auth_flags(
+                server_request_auth_enabled=server_request_auth_enabled,
+                response_auth_enabled=response_auth_enabled
+            )
+            
+            if self.debug:
+                self.logger.debug(f"Authentication flags set for {server_type}: "
+                                f"server_request_auth={server_request_auth_enabled}, "
+                                f"response_auth={response_auth_enabled}")
+        
+        # 従来の認証機能（拡張フィールドベース）も設定
         if auth_config.enabled and auth_config.passphrase:
             request.enable_auth(auth_config.passphrase)
             request.add_auth_to_extended_field()
             if self.debug:
-                self.logger.debug(f"Authentication enabled for {server_type} server, packet ID {request.packet_id}")
+                self.logger.debug(f"Extended field authentication enabled for {server_type} server, packet ID {request.packet_id}")
         elif self.debug:
             self.logger.debug(f"Authentication disabled for {server_type} server (enabled={auth_config.enabled}, has_passphrase={bool(auth_config.passphrase)})")
+    
+    def _get_response_auth_enabled(self, server_type: Literal['location', 'query', 'weather', 'report']) -> bool:
+        """
+        指定されたサーバータイプのレスポンス認証設定を取得
+        
+        Args:
+            server_type: サーバータイプ
+            
+        Returns:
+            レスポンス認証が有効かどうか
+        """
+        response_auth_map = {
+            'location': os.getenv("LOCATION_RESOLVER_RESPONSE_AUTH_ENABLED", "false").lower() == "true",
+            'query': os.getenv("QUERY_GENERATOR_RESPONSE_AUTH_ENABLED", "false").lower() == "true",
+            'weather': os.getenv("WEATHER_SERVER_RESPONSE_AUTH_ENABLED", "false").lower() == "true",
+            'report': os.getenv("REPORT_SERVER_RESPONSE_AUTH_ENABLED", "false").lower() == "true"
+        }
+        return response_auth_map.get(server_type, False)
 
     # ---------------------------------------------------------------
     # 公開メソッド

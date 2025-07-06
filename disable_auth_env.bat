@@ -9,12 +9,12 @@ set WEATHER_SERVER_AUTH_ENABLED=false
 set WEATHER_SERVER_PASSPHRASE=
 
 :: Location Resolver
-set LOCATION_RESOLVER_AUTH_ENABLED=false
-set LOCATION_RESOLVER_PASSPHRASE=
+set LOCATION_SERVER_AUTH_ENABLED=false
+set LOCATION_SERVER_PASSPHRASE=
 
 :: Query Generator  
-set QUERY_GENERATOR_AUTH_ENABLED=false
-set QUERY_GENERATOR_PASSPHRASE=
+set QUERY_SERVER_AUTH_ENABLED=false
+set QUERY_SERVER_PASSPHRASE=
 
 :: Report Server
 set REPORT_SERVER_AUTH_ENABLED=false
@@ -25,8 +25,8 @@ echo Authentication has been disabled for all servers!
 echo.
 echo Current authentication settings:
 echo   Weather Server: %WEATHER_SERVER_AUTH_ENABLED%
-echo   Location Resolver: %LOCATION_RESOLVER_AUTH_ENABLED%
-echo   Query Generator: %QUERY_GENERATOR_AUTH_ENABLED%
+echo   Location Resolver: %LOCATION_SERVER_AUTH_ENABLED%
+echo   Query Generator: %QUERY_SERVER_AUTH_ENABLED%
 echo   Report Server: %REPORT_SERVER_AUTH_ENABLED%
 echo.
 echo Note: These settings are only valid for the current command session
