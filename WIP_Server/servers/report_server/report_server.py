@@ -121,7 +121,30 @@ class ReportServer(BaseServer):
         
         # バージョンチェック
         if request.version != self.version:
-            return False, 403, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, 406, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+        
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証フラグ処理（リクエスト認証が有効な場合）
+            if self.request_auth_enabled:
+                # 認証フラグの検証
+                if not request.process_request_auth_flags():
+                    print(f"[{self.server_name}] Auth Flags: ✗")
+                    return False, "403", "認証フラグの検証に失敗しました"
+                
+                print(f"[{self.server_name}] Auth Flags: ✓")
+            
+            # 拡張フィールドベースの認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                print(f"[{self.server_name}] Auth: ✗")
+                return False, "403", "認証に失敗しました"
+            
+            print(f"[{self.server_name}] Auth: ✓")
+        else:
+            print(f"[{self.server_name}] Auth: disabled")
         
         # タイプチェック（Type 4のみ有効）
         if request.type != 4:
@@ -399,6 +422,15 @@ class ReportServer(BaseServer):
                 request=request,
                 version=self.version
             )
+            
+            # 認証フラグ設定（認証が有効でレスポンス認証が有効な場合）
+            if self.auth_enabled and self._get_response_auth_config():
+                response.enable_auth(self.auth_passphrase)
+                response.set_auth_flags()
+                print(f"[{self.server_name}] Response Auth: ✓")
+            else:
+                print(f"[{self.server_name}] Response Auth: disabled")
+            
             timing_info['response'] = time.time() - response_start
             
             # 成功カウント

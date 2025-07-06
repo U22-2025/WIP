@@ -128,6 +128,20 @@ class QueryServer(BaseServer):
         Returns:
             tuple: (is_valid, error_message)
         """
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                print(f"[{self.server_name}] Auth: ✗")
+                return False, "403", "認証に失敗しました"
+            
+            print(f"[{self.server_name}] Auth: ✓")
+        else:
+            print(f"[{self.server_name}] Auth: disabled")
+        
         # バージョンのチェック
         if request.version != self.version:
             return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"

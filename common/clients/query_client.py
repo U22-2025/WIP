@@ -208,6 +208,7 @@ class QueryClient:
                         'response_parsing': 0,
                         'total_time': cache_time.total_seconds() * 1000
                     }
+                    cached_response['cache_hit'] = True
                     return cached_response
                 else:
                     self.logger.debug(f"Cache miss for query: {cache_key}")
@@ -270,6 +271,7 @@ class QueryClient:
                     'response_parsing': parse_time.total_seconds() * 1000,
                     'total_time': total_time.total_seconds() * 1000
                 }
+                result['cache_hit'] = False
                 
                 if self.debug:
                     self.logger.debug("\n=== TIMING INFORMATION ===")
