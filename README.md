@@ -119,7 +119,7 @@ conda env create -f environment.yml
 conda activate U22-2025
 
 # pipを使用する場合
-pip install requests python-dotenv redis psycopg2-binary
+pip install -r requirements.txt
 ```
 
 ### 環境変数設定
