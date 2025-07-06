@@ -1,7 +1,7 @@
 {
-    "alert": 1,
-    "disaster": 2,
-    "latitude": 33,
-    "longitude": 34,
-    "source": 40
+    "alert": {"id": 1, "type": "list_str"},
+    "disaster": {"id": 2, "type": "list_str"},
+    "latitude": {"id": 33, "type": "float"},
+    "longitude": {"id": 34, "type": "float"},
+    "source": {"id": 40, "type": "str"}
 }

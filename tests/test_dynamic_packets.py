@@ -81,7 +81,7 @@ def test_reload_base_fields(tmp_path):
     with open(spec_path, "r", encoding="utf-8") as f:
         spec = json.load(f)
 
-    spec["new_flag"] = 1
+    spec["new_flag"] = {"length": 1, "type": "int"}
     new_path = tmp_path / "new_base.json"
     with open(new_path, "w", encoding="utf-8") as f:
         json.dump(spec, f)
@@ -95,7 +95,7 @@ def test_reload_base_fields(tmp_path):
     dummy_instance.new_flag = 1
     assert dummy_instance.new_flag == 1
 
-    expected_size = sum(spec.values()) // 8
+    expected_size = sum(v["length"] for v in spec.values()) // 8
     dummy = FormatBase.__new__(FormatBase)
     assert dummy.get_min_packet_size() == expected_size
 
@@ -124,7 +124,7 @@ def test_request_reload_updates_offset(tmp_path):
     with open(spec_path, "r", encoding="utf-8") as f:
         spec = json.load(f)
 
-    spec["dummy"] = 2
+    spec["dummy"] = {"length": 2, "type": "int"}
     new_path = tmp_path / "req_spec.json"
     with open(new_path, "w", encoding="utf-8") as f:
         json.dump(spec, f)
@@ -138,7 +138,7 @@ def test_request_reload_updates_offset(tmp_path):
     Request.reload_request_spec()
     with open(spec_path, "r", encoding="utf-8") as f:
         orig_spec = json.load(f)
-    original_size = sum(orig_spec.values()) // 8
+    original_size = sum(v["length"] for v in orig_spec.values()) // 8
     dummy = FormatBase.__new__(FormatBase)
     assert dummy.get_min_packet_size() == original_size
 
