@@ -166,35 +166,11 @@ class WeatherServer(BaseServer):
         self.query_server_passphrase = self.config.get('auth', 'query_server_passphrase', '')
         self.report_server_passphrase = self.config.get('auth', 'report_server_passphrase', '')
             
-        # 常に認証設定を表示（デバッグモード関係なく）
-        print(f"[{self.server_name}] 認証設定:")
-        print(f"  受信時認証: {'有効' if self.auth_enabled else '無効'}")
-        if self.auth_enabled:
-            print(f"    パスフレーズ: '{self.auth_passphrase}'")
-        print(f"  リクエスト送信時認証: {'有効' if self.request_auth_enabled else '無効'}")
-        if self.request_auth_enabled:
-            print(f"    パスフレーズ: '{self.request_auth_passphrase}'")
-        print(f"  レスポンス送信時認証: {'有効' if self.response_auth_enabled else '無効'}")
-        if self.response_auth_enabled:
-            print(f"    パスフレーズ: '{self.response_auth_passphrase}'")
-        
-        # 各サーバーのパスフレーズ表示
-        print(f"  各サーバーパスフレーズ:")
-        print(f"    Location Server: '{self.location_server_passphrase}' (送信時署名・レスポンス検証)")
-        print(f"    Query Server: '{self.query_server_passphrase}' (送信時署名・レスポンス検証)")
-        print(f"    Report Server: '{self.report_server_passphrase}' (送信時署名・レスポンス検証)")
-        
-        # 各宛先サーバーのリクエスト認証設定表示
-        print(f"  各宛先サーバーリクエスト認証設定:")
-        print(f"    Location Server Request Auth: {'有効' if self.location_server_request_auth_enabled else '無効'}")
-        print(f"    Query Server Request Auth: {'有効' if self.query_server_request_auth_enabled else '無効'}")
-        print(f"    Report Server Request Auth: {'有効' if self.report_server_request_auth_enabled else '無効'}")
-        
+        # 認証設定を簡潔に表示（デバッグモード時のみ）
         if self.debug:
-            print(f"[{self.server_name}] デバッグモード詳細:")
-            print(f"  設定ファイルパス: {self.config_path}")
-            print(f"  環境変数 WEATHER_SERVER_REQUEST_AUTH_ENABLED: {os.getenv('WEATHER_SERVER_REQUEST_AUTH_ENABLED')}")
-            print(f"  環境変数 WEATHER_SERVER_REQUEST_PASSPHRASE: {os.getenv('WEATHER_SERVER_REQUEST_PASSPHRASE')}")
+            print(f"[{self.server_name}] 認証設定: 受信認証={'有効' if self.auth_enabled else '無効'}, "
+                  f"送信認証={'有効' if self.request_auth_enabled else '無効'}, "
+                  f"レスポンス認証={'有効' if self.response_auth_enabled else '無効'}")
         
     def handle_request(self, data, addr):
         """
@@ -207,9 +183,8 @@ class WeatherServer(BaseServer):
         timing_info = {}
         start_time = time.time()
         
-        if self.debug:
-                print(f"\n[{self.server_name}] {addr} から {len(data)} バイトを受信しました")
-                print(f"生データ（最初の20バイト）: {' '.join(f'{b:02x}' for b in data[:min(20, len(data))])}")
+        # 処理時間測定開始
+        timing_info = {'total_start': time.time()}
         try:
             # リクエストカウントを増加（スレッドセーフ）
             try:
@@ -242,8 +217,9 @@ class WeatherServer(BaseServer):
                     print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                 return
             
-            # デバッグ出力（改良版）
-            self._debug_print_request(data, request)
+            # 簡潔なリクエスト情報出力
+            if self.debug:
+                print(f"[{self.server_name}] Type {request.type} from {addr}, Area: {getattr(request, 'area_code', 'N/A')}")
             
             # リクエストの妥当性をチェック（送信元アドレスを渡す）
             is_valid, error_code, error_msg = self.validate_request(request, addr)
@@ -331,9 +307,9 @@ class WeatherServer(BaseServer):
                             print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                     return
                     
-            # タイミング情報を出力
-            timing_info['total'] = time.time() - start_time
-            # タイミング情報のデバッグ出力を削除
+            # 処理時間記録
+            timing_info['total'] = time.time() - timing_info['total_start']
+            print(f"[{self.server_name}] Request processed in {timing_info['total']*1000:.1f}ms")
                 
         except Exception as e:
             with self.lock:
@@ -376,20 +352,19 @@ class WeatherServer(BaseServer):
         source_info = (addr[0], addr[1])  # タプル形式で保持
         try:
             # location_clientのキャッシュを使用してエリアコード取得を試行
+            # 座標処理時間測定
+            coord_start = time.time()
             coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
             if coords:
                 lat, long = coords
-                if self.debug:
-                    print(f"[{self.server_name}] 座標取得成功: {lat}, {long}")
-                    print(f"[{self.server_name}] location_clientのキャッシュを確認中...")
                 
                 # location_clientのキャッシュからエリアコードを取得
+                cache_start = time.time()
                 cached_area_code = self.location_client.get_area_code_simple(lat, long, use_cache=True)
+                cache_time = time.time() - cache_start
                 
                 if cached_area_code:
-                    if self.debug:
-                        print(f"[{self.server_name}] エリアキャッシュヒット: {cached_area_code}")
-                        print(f"[{self.server_name}] weather_requestを作成します")
+                    print(f"[{self.server_name}] Location cache hit: {cached_area_code} ({cache_time*1000:.1f}ms)")
                     
                     try:
                         weather_request = QueryRequest.create_query_request(
@@ -417,21 +392,12 @@ class WeatherServer(BaseServer):
                         return self._handle_weather_request(weather_request, addr)
                         
                     except Exception as e:
-                        print(f"キャッシュデータの処理中にエラーが発生しました: {e}")
-                        if self.debug:
-                            traceback.print_exc()
+                        print(f"[{self.server_name}] Cache processing error: {e}")
                         # エラーが発生した場合は通常処理を続行
                 else:
-                    if self.debug:
-                        print(f"[{self.server_name}] エリアキャッシュミス - location_serverに転送")
-            else:
-                # 拡張フィールドから直接座標を取得
-                lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
-                long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
-                
-                if lat is None or long is None:
-                    if self.debug:
-                        print(f"[{self.server_name}] ❌ 座標情報が取得できません - location_serverに転送")
+                    print(f"[{self.server_name}] Location cache miss - forwarding to location server")
+            coord_time = time.time() - coord_start
+            print(f"[{self.server_name}] Coordinate processing: {coord_time*1000:.1f}ms")
             
             # LocationRequestを正しく作成（常にType 0になることを保証）
             if isinstance(request, LocationRequest):
@@ -518,25 +484,15 @@ class WeatherServer(BaseServer):
                 
                 # 認証ハッシュを拡張フィールドに追加
                 location_request.add_auth_to_extended_field()
-                if self.debug:
-                    print(f"  認証ハッシュが拡張フィールドに追加されました")
-            
-            if self.debug:
-                print(f"  LocationRequestタイプ: {location_request.type} (Type 0であることを確認)")
-                print(f"  ex_flag: {location_request.ex_flag}")
-                print(f"  source情報: {location_request.ex_field.source}")
-                print(f"  拡張フィールド内容: {location_request.ex_field.to_dict() if hasattr(location_request.ex_field, 'to_dict') else 'N/A'}")
-                print(f"  送信先: {self.location_resolver_host}:{self.location_resolver_port}")
-            
             # Location Resolverに転送
+            send_start = time.time()
             packet_data = location_request.to_bytes()
-            if self.debug:
-                print(f"  パケットサイズ: {len(packet_data)} バイト")
-                print(f"  認証設定: {'有効' if self.backend_auth['location']['enabled'] else '無効'}")
-                
+            
             # メインソケットを使用して送信
             try:
                 bytes_sent = self.send_udp_packet(packet_data, self.location_resolver_host, self.location_resolver_port)
+                send_time = time.time() - send_start
+                print(f"[{self.server_name}] Location request sent: {len(packet_data)} bytes ({send_time*1000:.1f}ms)")
                 if bytes_sent != len(packet_data):
                     raise RuntimeError(f"404: 不正なパケット長 (expected: {len(packet_data)}, sent: {bytes_sent})")
             except Exception as e:
@@ -806,30 +762,8 @@ class WeatherServer(BaseServer):
         try:
             source_info = (addr[0], addr[1])  # タプル形式で保持
             
-            print(f"\n[{self.server_name}] DEBUG: _handle_weather_request開始")
-            print(f"  Source: {source_info}")
-            print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
-            print(f"  Area code: {request.area_code}")
-            if hasattr(request, 'get_requested_data_types'):
-                data_types = request.get_requested_data_types()
-                print(f"  Requested data: {data_types}")
-            
-            print(f"  DEBUG: query_clientキャッシュチェック開始")
-            print(f"  DEBUG: リクエストパラメータ:")
-            print(f"    area_code: {request.area_code}")
-            print(f"    weather: {bool(request.weather_flag)}")
-            print(f"    temperature: {bool(request.temperature_flag)}")
-            print(f"    precipitation_prob: {bool(request.pop_flag)}")
-            print(f"    alert: {bool(request.alert_flag)}")
-            print(f"    disaster: {bool(request.disaster_flag)}")
-            print(f"    day: {request.day}")
-            print(f"    use_cache: True")
-            
-            # キャッシュの状態を確認
-            cache_stats = self.query_client.get_cache_stats()
-            print(f"  DEBUG: キャッシュ統計: {cache_stats}")
-            
             # query_clientのキャッシュを使用してクエリを実行
+            cache_start = time.time()
             try:
                 weather_data = self.query_client.get_weather_data(
                     area_code=request.area_code,
@@ -842,17 +776,11 @@ class WeatherServer(BaseServer):
                     use_cache=True,
                     timeout=10.0
                 )
-                
-                print(f"  DEBUG: query_clientキャッシュ結果: {weather_data}")
-                print(f"  DEBUG: レスポンスにsourceフィールドが含まれているか: {'source' in weather_data if weather_data else 'N/A'}")
-                if weather_data and 'source' in weather_data:
-                    print(f"  DEBUG: source値: {weather_data['source']}")
+                cache_time = time.time() - cache_start
                 
                 if weather_data and 'error' not in weather_data:
                     # query_clientから正常データを取得できた場合（キャッシュ/サーバー問わず）
-                    print(f"  DEBUG: *** query_client成功レスポンス *** - 直接レスポンス送信")
-                    print(f"  query_client成功: {request.area_code}")
-                    print(f"  Weather data: {weather_data}")
+                    print(f"[{self.server_name}] Query cache hit: {request.area_code} ({cache_time*1000:.1f}ms)")
                     
                     # requestから座標情報を取得
                     coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else (None, None)
@@ -898,29 +826,21 @@ class WeatherServer(BaseServer):
                     )
 
                     response_data = query_response.to_bytes()
+                    response_start = time.time()
                     self.sock.sendto(response_data, addr)
+                    response_time = time.time() - response_start
 
-                    print(f"  *** query_clientレスポンス送信完了 *** {addr} へ送信しました")
-                    print(f"  パケットサイズ: {len(response_data)} バイト")
-
+                    print(f"[{self.server_name}] Query response sent: {len(response_data)} bytes ({response_time*1000:.1f}ms)")
                     return  # query_clientから応答取得時はここで完全に終了
                 elif weather_data and 'error' in weather_data:
-                    # query_clientからエラーレスポンスを受信した場合
-                    print(f"  DEBUG: *** query_clientエラー受信 *** - 通常の認証付きリクエストにフォールバック")
-                    print(f"  query_clientエラー受信: {request.area_code}")
-                    print(f"  Error data: {weather_data}")
-                    print(f"  query_clientは認証情報なしでリクエストを送信するため、認証付きリクエストを送信します")
-                    # cache_hitはFalseのままで、通常の認証付きリクエスト処理を実行
+                    print(f"[{self.server_name}] Query cache error - fallback to server ({cache_time*1000:.1f}ms)")
                 else:
-                    print(f"  DEBUG: query_clientからレスポンスなし/タイムアウト - 通常のクエリサーバ転送を実行")
+                    print(f"[{self.server_name}] Query cache miss - forwarding to server ({cache_time*1000:.1f}ms)")
             except Exception as e:
-                print(f'DEBUG: query_clientでの処理中にエラーが発生: {str(e)}')
-                print('通常のクエリサーバ転送にフォールバック')
+                print(f'[{self.server_name}] Query client error: {str(e)} - fallback to server')
 
             # query_clientからエラーまたはタイムアウトの場合のみここに到達
-            print(f"  DEBUG: バックエンドサーバーにリクエストを転送します（query_clientがエラー/タイムアウトのため）")
             request_auth_config = self._get_request_auth_config('query')
-            print(f"  リクエスト送信時認証設定: {request_auth_config}")
 
             # 既にQueryRequestの場合は、source情報を追加
             query_request = request
@@ -1000,11 +920,14 @@ class WeatherServer(BaseServer):
                     print(f"  認証は無効です")
             
             # Query Generatorに転送
+            send_start = time.time()
             packet_data = query_request.to_bytes()
                 
             # メインソケットを使用して送信
             try:
                 bytes_sent = self.send_udp_packet(packet_data, self.query_generator_host, self.query_generator_port)
+                send_time = time.time() - send_start
+                print(f"[{self.server_name}] Query request sent: {len(packet_data)} bytes ({send_time*1000:.1f}ms)")
                 if bytes_sent != len(packet_data):
                     raise RuntimeError(f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})")
             except Exception as e:

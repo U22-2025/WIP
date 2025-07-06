@@ -62,11 +62,6 @@ class ReportClient:
         self.alert = alert
         self.disaster = disaster
 
-        if self.debug:
-            self.logger.debug(
-                f"センサーデータを設定: エリア={area_code}, 天気={weather_code}, "
-                f"気温={temperature}℃, 降水確率={precipitation_prob}%"
-            )
 
     def set_area_code(self, area_code: Union[str, int]):
         """エリアコードを設定"""
@@ -102,64 +97,14 @@ class ReportClient:
         """リクエストのデバッグ情報を出力"""
         if not self.debug:
             return
-
-        self.logger.debug("\n=== SENDING REPORT REQUEST PACKET ===")
-        self.logger.debug("Request Type: Report Data (Type 4)")
-        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
-
-        self.logger.debug("\nHeader:")
-        self.logger.debug(f"Version: {request.version}")
-        self.logger.debug(f"Type: {request.type}")
-        self.logger.debug(f"Packet ID: {request.packet_id}")
-        self.logger.debug(f"Timestamp: {time.ctime(request.timestamp)}")
-        self.logger.debug(f"Area Code: {request.area_code}")
-
-        self.logger.debug("\nFlags:")
-        self.logger.debug(f"Weather: {request.weather_flag}")
-        self.logger.debug(f"Temperature: {request.temperature_flag}")
-        self.logger.debug(f"POP: {request.pop_flag}")
-        self.logger.debug(f"Alert: {request.alert_flag}")
-        self.logger.debug(f"Disaster: {request.disaster_flag}")
-
-        self.logger.debug("\nSensor Data:")
-        if request.weather_flag and hasattr(request, 'weather_code'):
-            self.logger.debug(f"Weather Code: {request.weather_code}")
-        if request.temperature_flag and hasattr(request, 'temperature'):
-            temp_celsius = getattr(request, 'temperature', 0) - 100
-            self.logger.debug(f"Temperature: {temp_celsius}℃")
-        if request.pop_flag and hasattr(request, 'pop'):
-            self.logger.debug(f"Precipitation Prob: {request.pop}%")
-
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(request.to_bytes()))
-        self.logger.debug("====================================\n")
+        self.logger.debug(f"Sending report request: area_code={request.area_code}")
 
     def _debug_print_response(self, response):
         """レスポンスのデバッグ情報を出力"""
         if not self.debug:
             return
-
-        self.logger.debug("\n=== RECEIVED REPORT RESPONSE PACKET ===")
-        self.logger.debug(f"Response Type: {response.type}")
-        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
-
-        self.logger.debug("\nHeader:")
-        self.logger.debug(f"Version: {response.version}")
-        self.logger.debug(f"Type: {response.type}")
-        self.logger.debug(f"Area Code: {response.area_code}")
-        self.logger.debug(f"Packet ID: {response.packet_id}")
-        self.logger.debug(f"Timestamp: {time.ctime(response.timestamp)}")
-
-        if hasattr(response, 'is_success'):
-            self.logger.debug(f"Success: {response.is_success()}")
-
-        if hasattr(response, 'get_response_summary'):
-            summary = response.get_response_summary()
-            self.logger.debug(f"Summary: {summary}")
-
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(response.to_bytes()))
-        self.logger.debug("=====================================\n")
+        success = response.is_success() if hasattr(response, 'is_success') else False
+        self.logger.debug(f"Received report response: success={success}")
 
     def send_report_data(self) -> Optional[Dict[str, Any]]:
         """設定されたセンサーデータでレポートを送信（統一命名規則版）"""
@@ -181,8 +126,12 @@ class ReportClient:
             )
 
             self._debug_print_request(request)
+            
+            # リクエスト送信とレスポンス受信
+            network_start = time.time()
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             response_data, _ = self.sock.recvfrom(1024)
+            network_time = time.time() - network_start
 
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
 
@@ -191,20 +140,21 @@ class ReportClient:
                 self._debug_print_response(response)
 
                 if response.is_success():
+                    total_time = time.time() - start_time
                     result = {
                         'type': 'report_ack',
                         'success': True,
                         'area_code': response.area_code,
                         'packet_id': response.packet_id,
                         'timestamp': response.timestamp,
-                        'response_time_ms': (time.time() - start_time) * 1000
+                        'response_time_ms': total_time * 1000
                     }
 
                     if hasattr(response, 'get_response_summary'):
                         result.update(response.get_response_summary())
 
                     if self.debug:
-                        self.logger.debug(f"\n✓ レポート送信成功: {result}")
+                        self.logger.debug(f"Report timing: network={network_time*1000:.1f}ms, total={total_time*1000:.1f}ms")
 
                     return result
                 else:
@@ -214,9 +164,7 @@ class ReportClient:
             elif response_type == 7:  # エラーレスポンス
                 response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    self.logger.error("\n=== ERROR RESPONSE ===")
-                    self.logger.error(f"Error Code: {response.error_code}")
-                    self.logger.error("=====================\n")
+                    self.logger.error(f"Error response: {response.error_code}")
 
                 return {
                     'type': 'error',
@@ -249,8 +197,6 @@ class ReportClient:
         self.alert = None
         self.disaster = None
 
-        if self.debug:
-            self.logger.debug("センサーデータをクリアしました")
 
     def get_current_data(self) -> Dict[str, Any]:
         """現在設定されているセンサーデータを取得"""

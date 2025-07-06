@@ -56,9 +56,6 @@ class QueryClient:
         
         # キャッシュの初期化
         self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
-        self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes")
-        if self.auth_enabled:
-            self.logger.debug(f"Query client authentication enabled")
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -68,67 +65,12 @@ class QueryClient:
         
     def _debug_print_request(self, request, area_code):
         """リクエストのデバッグ情報を出力（改良版）"""
-
-        self.logger.debug("\n=== SENDING QUERY REQUEST PACKET ===")
-        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
-        self.logger.debug(f"Area Code: {area_code}")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(request, 'get_requested_data_types'):
-            requested_data = request.get_requested_data_types()
-            self.logger.debug(f"Requested Data: {requested_data}")
-            
-        if hasattr(request, 'get_source_info'):
-            source = request.get_source_info()
-            self.logger.debug(f"Source: {source}")
-        
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(request.to_bytes()))
-        self.logger.debug("============================\n")
+        self.logger.debug(f"Sending query request: area_code={area_code}")
         
     def _debug_print_response(self, response):
         """レスポンスのデバッグ情報を出力（改良版）"""
-            
-        self.logger.debug("\n=== RECEIVED QUERY RESPONSE PACKET ===")
-        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(response, 'get_response_summary'):
-            summary = response.get_response_summary()
-            self.logger.debug(f"\nResponse Summary: {summary}")
-            
-        if hasattr(response, 'is_success'):
-            self.logger.debug(f"Success: {response.is_success()}")
-            
-        # 気象データの詳細
-        if hasattr(response, 'get_weather_code'):
-            weather_code = response.get_weather_code()
-            if weather_code is not None:
-                self.logger.debug(f"Weather Code: {weather_code}")
-                
-        if hasattr(response, 'get_temperature'):
-            temp = response.get_temperature()
-            if temp is not None:
-                self.logger.debug(f"Temperature: {temp}℃")
-                
-        if hasattr(response, 'get_precipitation_prob'):
-            pop = response.get_precipitation_prob()
-            if pop is not None:
-                self.logger.debug(f"Precipitation: {pop}%")
-                
-        if hasattr(response, 'get_alert'):
-            alert = response.get_alert()
-            if alert:
-                self.logger.debug(f"Alert: {alert}")
-                
-        if hasattr(response, 'get_disaster_info'):
-            disaster = response.get_disaster_info()
-            if disaster:
-                self.logger.debug(f"Disaster Info: {disaster}")
-        
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(response.to_bytes()))
-        self.logger.debug("==============================\n")
+        success = response.is_success() if hasattr(response, 'is_success') else False
+        self.logger.debug(f"Received query response: success={success}")
 
     def _get_cache_key(self, area_code, weather, temperature, precipitation_prob, alert, disaster, day=0):
         """
@@ -201,17 +143,9 @@ class QueryClient:
             # キャッシュチェック
             if use_cache and not force_refresh:
                 cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
-                print(f"[QueryClient] DEBUG: キャッシュチェック開始")
-                print(f"[QueryClient] DEBUG: 生成されたキャッシュキー: {cache_key}")
-                print(f"[QueryClient] DEBUG: use_cache={use_cache}, force_refresh={force_refresh}")
-                print(f"[QueryClient] DEBUG: 現在のキャッシュサイズ: {self.cache.size()}")
-                
                 cached_data = self.cache.get(cache_key)
                 
                 if cached_data:
-                    print(f"[QueryClient] DEBUG: *** キャッシュヒット *** {cache_key}")
-                    print(f"[QueryClient] DEBUG: キャッシュされたデータ: {cached_data}")
-                    self.logger.debug(f"Cache hit for query: {cache_key}")
                     cached_response = self._create_cached_response(cached_data, area_code)
                     cache_time = datetime.now() - start_time
                     cached_response['timing'] = {
@@ -220,14 +154,7 @@ class QueryClient:
                         'response_parsing': 0,
                         'total_time': cache_time.total_seconds() * 1000
                     }
-                    print(f"[QueryClient] DEBUG: キャッシュレスポンス生成完了: {cached_response}")
                     return cached_response
-                else:
-                    print(f"[QueryClient] DEBUG: *** キャッシュミス *** {cache_key}")
-                    print(f"[QueryClient] DEBUG: サーバーにリクエストを送信します")
-                    self.logger.debug(f"Cache miss for query: {cache_key}")
-            else:
-                print(f"[QueryClient] DEBUG: キャッシュ使用無効 (use_cache={use_cache}, force_refresh={force_refresh})")
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request_start = datetime.now()
@@ -246,11 +173,8 @@ class QueryClient:
             
             # 認証が有効な場合は認証情報を追加
             if self.auth_enabled and self.auth_passphrase:
-                print(f"[QueryClient] DEBUG: 認証を有効化中...")
-                print(f"[QueryClient] DEBUG: パスフレーズ: '{self.auth_passphrase}'")
                 request.enable_auth(self.auth_passphrase)
                 request.add_auth_to_extended_field()
-                print(f"[QueryClient] DEBUG: 認証ハッシュが追加されました")
             
             request_time = datetime.now() - request_start
             
@@ -272,7 +196,6 @@ class QueryClient:
             temp_packet = Request.from_bytes(response_data)
             packet_type = temp_packet.type
             
-            print(f"[QueryClient] DEBUG: 受信パケットタイプ: {packet_type}")
             
             # タイプに応じて適切なクラスでパース
             if packet_type == 7:
@@ -281,7 +204,6 @@ class QueryClient:
                 response = ErrorResponse.from_bytes(response_data)
                 parse_time = datetime.now() - parse_start
                 
-                print(f"[QueryClient] DEBUG: エラーパケットを受信: エラーコード={getattr(response, 'error_code', 'unknown')}")
                 self._debug_print_response(response)
                 
                 # エラーレスポンスの場合は失敗として処理
@@ -292,7 +214,6 @@ class QueryClient:
                 response = QueryResponse.from_bytes(response_data)
                 parse_time = datetime.now() - parse_start
                 
-                print(f"[QueryClient] DEBUG: QueryResponseを受信: success={response.is_success()}")
                 self._debug_print_response(response)
             
             # 専用クラスのメソッドで結果を簡単に取得
@@ -302,9 +223,6 @@ class QueryClient:
                 # レスポンスが有効で、キャッシュ使用が有効な場合はキャッシュに保存
                 if use_cache and result:
                     cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
-                    print(f"[QueryClient] DEBUG: *** キャッシュ保存開始 ***")
-                    print(f"[QueryClient] DEBUG: 保存キー: {cache_key}")
-                    print(f"[QueryClient] DEBUG: 元のレスポンスデータ: {result}")
                     
                     # タイミング情報を除いてキャッシュに保存
                     cache_data = {k: v for k, v in result.items() if k != 'timing'}
@@ -312,14 +230,8 @@ class QueryClient:
                     # 気温はパケット形式（+100）でキャッシュに保存（設計の一貫性のため）
                     if 'temperature' in cache_data and cache_data['temperature'] is not None:
                         cache_data['temperature'] = cache_data['temperature'] + 100
-                        print(f"[QueryClient] DEBUG: 気温をパケット形式に変換: {cache_data['temperature']-100}℃ -> {cache_data['temperature']}")
                     
-                    print(f"[QueryClient] DEBUG: 保存するキャッシュデータ: {cache_data}")
                     self.cache.set(cache_key, cache_data)
-                    print(f"[QueryClient] DEBUG: キャッシュ保存完了 (新しいサイズ: {self.cache.size()})")
-                    self.logger.debug(f"Cached query result for: {cache_key} (temperature stored in packet format)")
-                else:
-                    print(f"[QueryClient] DEBUG: キャッシュ保存スキップ (use_cache={use_cache}, result={bool(result)})")
                 
                 # タイミング情報を追加
                 total_time = datetime.now() - start_time
@@ -331,12 +243,7 @@ class QueryClient:
                 }
                 
                 if self.debug:
-                    self.logger.debug("\n=== TIMING INFORMATION ===")
-                    self.logger.debug(f"Request creation time: {request_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Network round-trip time: {network_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Response parsing time: {parse_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Total operation time: {total_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug("========================\n")
+                    self.logger.debug(f"Query request timing: network={network_time.total_seconds()*1000:.1f}ms, total={total_time.total_seconds()*1000:.1f}ms")
                 
                 return result
             else:
@@ -379,7 +286,6 @@ class QueryClient:
         キャッシュをクリア
         """
         self.cache.clear()
-        self.logger.debug("Query client cache cleared")
 
     def get_weather_simple(self, area_code, include_all=False, timeout=5.0, use_cache=True):
         """
