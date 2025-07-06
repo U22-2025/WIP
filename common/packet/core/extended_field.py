@@ -73,7 +73,6 @@ class ExtendedFieldType:
     STRING_LIST_FIELDS: set[int] = set()
     COORDINATE_FIELDS: set[int] = set()
     STRING_FIELDS: set[int] = set()
-    BINARY_FIELDS: set[int] = set()
     
     # 座標値の範囲制限
     LATITUDE_MIN = -90.0
@@ -130,7 +129,6 @@ class ExtendedField:
         self._data: Dict[str, Any] = {}
         self._observers: List[Callable[[], None]] = []
         self.flag: int = 1  # 拡張フィールドフラグ（1=有効、0=無効）
-        self._total_bits: Optional[int] = None  # 実際に使用されたビット長
         
         # 初期データを設定（警告を出さないよう直接登録）
         if data:
@@ -347,19 +345,6 @@ class ExtendedField:
             
             return (ip, port)
         
-        # auth_hashフィールドの検証
-        elif key == 'auth_hash':
-            if not isinstance(value, bytes):
-                raise ValueError("認証ハッシュはbytesオブジェクトである必要があります")
-            
-            if len(value) == 0:
-                raise ValueError("認証ハッシュは空であってはなりません")
-            
-            if len(value) > self.MAX_EXTENDED_LENGTH:
-                raise ValueError(f"認証ハッシュが最大サイズを超えています: {len(value)}バイト (最大: {self.MAX_EXTENDED_LENGTH}バイト)")
-            
-            return value
-        
         # その他の未知のキーはそのまま返す
         return value
 
@@ -394,14 +379,7 @@ class ExtendedField:
                 # _validate_valueで既に正規化されているため、直接valueを使用
                 values_to_process = value
                 
-                if key == 'auth_hash':
-                    # 認証ハッシュは可変長のバイナリデータ
-                    if not isinstance(values_to_process, bytes):
-                        raise BitFieldError("認証ハッシュはbytesオブジェクトである必要があります")
-                    if len(values_to_process) == 0:
-                        raise BitFieldError("認証ハッシュは空であってはなりません")
-                    value_bytes = values_to_process
-                elif key == 'source':
+                if key == 'source':
                     # sourceフィールドは"ip:port"形式でシリアライズ
                     ip, port = values_to_process
                     value_str = f"{ip}:{port}"
@@ -442,9 +420,6 @@ class ExtendedField:
             except Exception as e:
                 raise BitFieldError(f"キー '{key}' の処理中にエラー: {e}")
         
-        # 実際に使用されたビット長を記録
-        self._total_bits = current_pos
-        
         return result_bits
 
     @classmethod
@@ -474,9 +449,6 @@ class ExtendedField:
             value_bytes = value_bits.to_bytes(bytes_length, byteorder='little')
             if key in ExtendedFieldType.STRING_LIST_FIELDS:
                 return value_bytes.decode('utf-8').rstrip('\x00#')
-            if key == ExtendedFieldType.AUTH_HASH:
-                # 認証ハッシュは可変長のバイナリデータとして返す
-                return value_bytes
             if key == ExtendedFieldType.SOURCE:
                 value_str = value_bytes.decode('utf-8').rstrip('\x00#')
                 if ':' in value_str:
@@ -520,38 +492,8 @@ class ExtendedField:
             result = []
             current_pos = 0
             
-            # ビット長を計算
-            if total_bits is None:
-                # bitstr.bit_length()は最上位ビットが0の場合実際より短い値を返すため
-                # 動的に必要なビット長を計算する
-                temp_pos = 0
-                temp_total = bitstr.bit_length()
-                
-                # 最初に概算のビット長を計算
-                while temp_pos < temp_total:
-                    if temp_total - temp_pos < cls.EXTENDED_HEADER_TOTAL:
-                        break
-                    
-                    header = extract_bits(bitstr, temp_pos, cls.EXTENDED_HEADER_TOTAL)
-                    if header == 0:
-                        temp_pos += cls.EXTENDED_HEADER_TOTAL
-                        continue
-                    
-                    bytes_length = header & cls.MAX_EXTENDED_LENGTH
-                    if bytes_length == 0:
-                        temp_pos += cls.EXTENDED_HEADER_TOTAL
-                        continue
-                    
-                    bits_length = bytes_length * 8
-                    required_bits = cls.EXTENDED_HEADER_TOTAL + bits_length
-                    
-                    # より大きなビット長が必要な場合は更新
-                    if temp_pos + required_bits > temp_total:
-                        temp_total = temp_pos + required_bits
-                    
-                    temp_pos += required_bits
-                
-                total_bits = temp_total
+            # ビット長を計算（最低でもヘッダー分必要）
+            total_bits = total_bits if total_bits is not None else bitstr.bit_length()
             
             while current_pos < total_bits:
                 parsed = cls._parse_header(bitstr, current_pos, total_bits)
@@ -574,9 +516,6 @@ class ExtendedField:
             # 結果を辞書に変換
             converted_dict = cls._extended_field_to_dict(result)
             instance._data = converted_dict
-            
-            # 実際に使用されたビット長を記録
-            instance._total_bits = current_pos
             
             # 拡張フィールドが空の場合はフラグを0に設定
             if instance.is_empty():
@@ -625,11 +564,6 @@ class ExtendedField:
                     else:
                         # なければそのまま設定
                         result[key] = stripped_value
-                elif key == "auth_hash":
-                    # 認証ハッシュはバイナリデータとしてそのまま設定
-                    if not isinstance(value, bytes):
-                        raise BitFieldError(f"認証ハッシュの値の型が不正です: {type(value)}")
-                    result[key] = value
                 else:
                     result[key] = value
             

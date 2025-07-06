@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, asdict
-from typing import Optional, Dict, Literal
+from typing import Optional, Dict
 
 from dotenv import load_dotenv
 
@@ -19,13 +19,6 @@ from common.packet import (
 
 
 load_dotenv()
-
-
-@dataclass
-class AuthConfig:
-    """認証設定"""
-    enabled: bool = False
-    passphrase: Optional[str] = None
 
 
 @dataclass
@@ -48,47 +41,6 @@ class ClientState:
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     area_code: Optional[str | int] = None
-    passphrase: Optional[str] = None  # 後方互換性のため
-    # 各サーバーごとの認証設定
-    auth_configs: Dict[str, AuthConfig] = None
-
-    def __post_init__(self):
-        if self.auth_configs is None:
-            self.auth_configs = self._load_auth_configs()
-
-    def _load_auth_configs(self) -> Dict[str, AuthConfig]:
-        """環境変数から各サーバーの認証設定を読み込み"""
-        configs = {}
-        
-        # Location Resolver
-        configs['location'] = AuthConfig(
-            enabled=os.getenv("LOCATION_SERVER_AUTH_ENABLED", "false").lower() == "true",
-            passphrase=os.getenv("LOCATION_SERVER_PASSPHRASE")
-        )
-        
-        # Query Generator
-        configs['query'] = AuthConfig(
-            enabled=os.getenv("QUERY_SERVER_AUTH_ENABLED", "false").lower() == "true",
-            passphrase=os.getenv("QUERY_SERVER_PASSPHRASE")
-        )
-        
-        # Weather Server
-        configs['weather'] = AuthConfig(
-            enabled=os.getenv("WEATHER_SERVER_AUTH_ENABLED", "false").lower() == "true",
-            passphrase=os.getenv("WEATHER_SERVER_PASSPHRASE")
-        )
-        
-        # Report Server
-        configs['report'] = AuthConfig(
-            enabled=os.getenv("REPORT_SERVER_AUTH_ENABLED", "false").lower() == "true",
-            passphrase=os.getenv("REPORT_SERVER_PASSPHRASE")
-        )
-        
-        return configs
-
-    def get_auth_config(self, server_type: Literal['location', 'query', 'weather', 'report']) -> AuthConfig:
-        """指定されたサーバータイプの認証設定を取得"""
-        return self.auth_configs.get(server_type, AuthConfig())
 
 
 class Client:
@@ -104,7 +56,6 @@ class Client:
         latitude: Optional[float] = None,
         longitude: Optional[float] = None,
         area_code: Optional[str | int] = None,
-        passphrase: Optional[str] = None,
     ) -> None:
         self.config = server_config or ServerConfig()
         if host is not None:
@@ -112,7 +63,7 @@ class Client:
         if port is not None:
             self.config.port = port
         self.debug = debug
-        self.state = ClientState(latitude, longitude, area_code, passphrase)
+        self.state = ClientState(latitude, longitude, area_code)
 
         self.logger = logging.getLogger(__name__)
         if self.debug:
@@ -170,83 +121,6 @@ class Client:
         if self.debug:
             self.logger.debug(f"Area code updated: {value}")
 
-    @property
-    def passphrase(self) -> Optional[str]:
-        return self.state.passphrase
-
-    @passphrase.setter
-    def passphrase(self, value: Optional[str]) -> None:
-        self.state.passphrase = value
-        if self.debug:
-            self.logger.debug(f"Passphrase updated: {'***' if value else None}")
-
-    # ---------------------------------------------------------------
-    # 認証機能
-    # ---------------------------------------------------------------
-    def _setup_auth(self, request, server_type: Literal['location', 'query', 'weather', 'report']) -> None:
-        """
-        リクエストに認証機能を設定（認証フラグ対応）
-        
-        Args:
-            request: Request オブジェクト
-            server_type: サーバータイプ ('location', 'query', 'weather', 'report')
-        """
-        # 後方互換性のため、既存のパスフレーズ設定を確認
-        if self.state.passphrase:
-            request.enable_auth(self.state.passphrase)
-            request.add_auth_to_extended_field()
-            if self.debug:
-                self.logger.debug(f"Authentication enabled (legacy) for packet ID {request.packet_id}")
-            return
-        
-        # 新しいサーバーごとの認証設定を使用
-        auth_config = self.state.get_auth_config(server_type)
-        
-        # 認証フラグの設定
-        if hasattr(request, 'set_auth_flags'):
-            # サーバーが認証を要求するかどうかとレスポンス認証を有効にするかを設定
-            server_request_auth_enabled = auth_config.enabled
-            
-            # レスポンス認証の設定（サーバーからの認証を要求）
-            response_auth_enabled = self._get_response_auth_enabled(server_type)
-            
-            request.set_auth_flags(
-                server_request_auth_enabled=server_request_auth_enabled,
-                response_auth_enabled=response_auth_enabled
-            )
-            
-            if self.debug:
-                self.logger.debug(f"Authentication flags set for {server_type}: "
-                                f"server_request_auth={server_request_auth_enabled}, "
-                                f"response_auth={response_auth_enabled}")
-        
-        # 従来の認証機能（拡張フィールドベース）も設定
-        if auth_config.enabled and auth_config.passphrase:
-            request.enable_auth(auth_config.passphrase)
-            request.add_auth_to_extended_field()
-            if self.debug:
-                self.logger.debug(f"Extended field authentication enabled for {server_type} server, packet ID {request.packet_id}")
-        elif self.debug:
-            self.logger.debug(f"Authentication disabled for {server_type} server (enabled={auth_config.enabled}, has_passphrase={bool(auth_config.passphrase)})")
-    
-    def _get_response_auth_enabled(self, server_type: Literal['location', 'query', 'weather', 'report']) -> bool:
-        """
-        指定されたサーバータイプのレスポンス認証設定を取得
-        
-        Args:
-            server_type: サーバータイプ
-            
-        Returns:
-            レスポンス認証が有効かどうか
-        """
-        response_auth_map = {
-            'location': os.getenv("LOCATION_RESOLVER_RESPONSE_AUTH_ENABLED", "false").lower() == "true",
-            'query': os.getenv("QUERY_GENERATOR_RESPONSE_AUTH_ENABLED", "false").lower() == "true",
-            'weather': os.getenv("WEATHER_SERVER_RESPONSE_AUTH_ENABLED", "false").lower() == "true",
-            'report': os.getenv("REPORT_SERVER_RESPONSE_AUTH_ENABLED", "false").lower() == "true"
-        }
-        return response_auth_map.get(server_type, False)
-
     # ---------------------------------------------------------------
     # 公開メソッド
     # ---------------------------------------------------------------
@@ -275,7 +149,6 @@ class Client:
             raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
 
         if self.state.area_code is not None:
-            # QueryRequestの場合
             request = QueryRequest.create_query_request(
                 area_code=self.state.area_code,
                 packet_id=self._weather_client.PIDG.next_id(),
@@ -287,13 +160,8 @@ class Client:
                 day=day,
                 version=self._weather_client.VERSION
             )
-            
-            # 認証機能を設定（QueryRequestの場合はquery server経由）
-            self._setup_auth(request, 'query')
-            
             result = self._weather_client._execute_query_request(request=request)
         else:
-            # LocationRequestの場合
             request = LocationRequest.create_coordinate_lookup(
                 latitude=self.state.latitude,
                 longitude=self.state.longitude,
@@ -306,10 +174,6 @@ class Client:
                 day=day,
                 version=self._weather_client.VERSION
             )
-            
-            # 認証機能を設定（LocationRequestの場合はlocation server経由）
-            self._setup_auth(request, 'location')
-            
             result = self._weather_client._execute_location_request(request=request)
 
         if isinstance(result, dict) and result.get("type") == "error":

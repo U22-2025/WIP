@@ -40,7 +40,7 @@
 - 複数XMLファイルの統合処理
 - JSON形式での出力
 
-### 3. 災害情報処理: `disaster_processor.py`
+### 3. 災害情報処理: `controllers/disaster_data_processor.py`
 
 **役割**: 災害情報XMLデータの専門処理
 
@@ -94,7 +94,7 @@ result = processor.process_all_alerts('output.json')
 
 ### 災害情報の取得
 ```python
-from disaster_processor import DisasterDataProcessor
+from controllers.disaster_data_processor import DisasterDataProcessor
 
 processor = DisasterDataProcessor()
 # 詳細な処理フローは get_disaster.py を参照
@@ -118,12 +118,19 @@ class NewProcessor(XMLBaseProcessor):
 
 ```
 WIP_Server/data/
-├── xml_base.py              # 基底クラス
-├── alert_processor.py       # 警報・注意報処理
-├── disaster_processor.py    # 災害情報処理
-├── get_alert.py            # 警報・注意報エントリーポイント
-├── get_disaster.py         # 災害情報エントリーポイント
-└── REFACTORING_README.md   # このファイル
+├── xml_base.py                  # 基底クラス
+├── processors/                  # 処理ロジック
+│   ├── disaster_xml_processor.py
+│   ├── time_utils.py
+│   ├── area_code_validator.py
+│   └── volcano_processor.py
+├── controllers/
+│   ├── disaster_data_processor.py
+│   └── disaster_main.py
+├── disaster_processor.py        # 互換レイヤー
+├── get_alert.py                 # 警報・注意報エントリーポイント
+├── get_disaster.py              # 災害情報エントリーポイント
+└── REFACTORING_README.md        # このファイル
 ```
 
 ## 改善効果

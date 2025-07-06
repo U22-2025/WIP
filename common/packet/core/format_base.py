@@ -27,9 +27,7 @@ class FormatBase:
     - disaster_flag:    24bit    (1ビット)
     - ex_flag:          25bit    (1ビット)
     - day:              26-28bit (3ビット)
-    - request_auth:     29bit    (1ビット)
-    - response_auth:    30bit    (1ビット)
-    - reserved:         31-32bit (2ビット)
+    - reserved:         29-32bit (4ビット)
     - timestamp:        33-96bit (64ビット)
     - area_code:        97-116bit (20ビット)
     - checksum:         117-128bit (12ビット)
@@ -149,11 +147,6 @@ class FormatBase:
             # チェックサム自動計算フラグ
             self._auto_checksum = True
 
-            
-            # 認証機能の設定
-            self._auth_enabled = False
-            self._auth_passphrase = None
-            
             # ビット列が提供された場合はそれを解析
             if bitstr is not None:
                 self.from_bits(bitstr)
@@ -490,115 +483,6 @@ class FormatBase:
             フィールド名と値の辞書
         """
         return {field: getattr(self, field) for field in self._BIT_FIELDS}
-
-    # ===================================================================
-    # 認証機能
-    # ===================================================================
-
-    def enable_auth(self, passphrase: str) -> None:
-        """
-        認証機能を有効にする
-        
-        Args:
-            passphrase: 認証用パスフレーズ
-        """
-        self._auth_enabled = True
-        self._auth_passphrase = passphrase
-
-    def disable_auth(self) -> None:
-        """
-        認証機能を無効にする
-        """
-        self._auth_enabled = False
-        self._auth_passphrase = None
-
-    def is_auth_enabled(self) -> bool:
-        """
-        認証機能が有効かどうかを確認
-        
-        Returns:
-            認証機能が有効な場合True
-        """
-        return getattr(self, '_auth_enabled', False)
-
-    def get_auth_passphrase(self) -> Optional[str]:
-        """
-        認証用パスフレーズを取得
-        
-        Returns:
-            パスフレーズまたはNone
-        """
-        return getattr(self, '_auth_passphrase', None)
-
-    def calculate_auth_hash(self) -> Optional[bytes]:
-        """
-        認証ハッシュを計算する
-        
-        Returns:
-            16バイトのMD5ハッシュまたはNone（認証無効時）
-        """
-        if not self.is_auth_enabled() or not self._auth_passphrase:
-            return None
-        
-        return WIPAuth.calculate_auth_hash(
-            self.packet_id,
-            self.timestamp,
-            self._auth_passphrase
-        )
-
-    def verify_auth_hash(self, auth_hash: bytes) -> bool:
-        """
-        認証ハッシュを検証する
-        
-        Args:
-            auth_hash: 検証する16バイトのMD5ハッシュ
-            
-        Returns:
-            検証に成功した場合True
-        """
-        if not self.is_auth_enabled() or not self._auth_passphrase:
-            return False
-        
-        return WIPAuth.verify_auth_hash(
-            self.packet_id,
-            self.timestamp,
-            self._auth_passphrase,
-            auth_hash
-        )
-
-    def add_auth_to_extended_field(self) -> None:
-        """
-        認証ハッシュを拡張フィールドに追加する
-        認証が有効な場合のみ実行
-        """
-        if not self.is_auth_enabled():
-            return
-
-        # 拡張フィールドが存在しない場合は作成
-        if not hasattr(self, 'ex_field') or not self.ex_field:
-            from .extended_field import ExtendedField
-            self.ex_field = ExtendedField()
-
-        auth_hash = self.calculate_auth_hash()
-        if auth_hash:
-            self.ex_field.auth_hash = auth_hash
-            self.ex_flag = 1
-
-    def verify_auth_from_extended_field(self) -> bool:
-        """
-        拡張フィールドから認証ハッシュを取得して検証する
-        
-        Returns:
-            検証に成功した場合True（認証無効時はTrue）
-        """
-        if not self.is_auth_enabled():
-            return True  # 認証無効時は常に成功
-
-        # 拡張フィールドが存在し、認証ハッシュが設定されている場合のみ検証
-        if hasattr(self, 'ex_field') and self.ex_field and self.ex_field.auth_hash:
-            return self.verify_auth_hash(self.ex_field.auth_hash)
-        
-        return False  # 認証有効だが認証ハッシュが無い場合は失敗
 
 
 # クラス定義後にプロパティを生成
