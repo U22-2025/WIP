@@ -190,3 +190,23 @@ class Request(FormatBase):
         # ExtendedFieldオブジェクトを辞書形式で追加
         result['ex_field'] = self._ex_field.to_dict()
         return result
+
+    def set_auth_flags(self, server_request_auth_enabled: bool = False, response_auth_enabled: bool = False) -> None:
+        """
+        認証フラグを設定する
+        
+        Args:
+            server_request_auth_enabled: サーバーがリクエスト認証を要求するかどうか
+            response_auth_enabled: レスポンス認証を有効にするかどうか
+        """
+        # リクエスト認証フラグを設定
+        if server_request_auth_enabled:
+            self.request_auth = 1
+        else:
+            self.request_auth = 0
+            
+        # レスポンス認証フラグを設定
+        if response_auth_enabled:
+            self.response_auth = 1
+        else:
+            self.response_auth = 0

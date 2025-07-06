@@ -9,7 +9,7 @@ import time
 import sys
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from common.utils.cache import Cache
 from common.packet import ErrorResponse
 from common.packet import ExtendedField
@@ -76,6 +76,9 @@ class LocationServer(BaseServer):
         # プロトコルバージョンを設定から取得
         self.version = self.config.getint('system', 'protocol_version', 1)
         
+        # 認証設定を読み込む
+        self._setup_auth()
+        
         # データベース接続とキャッシュの初期化
         self._setup_database()
         self._setup_cache(max_cache_size)
@@ -84,11 +87,36 @@ class LocationServer(BaseServer):
         self.weather_host = "127.0.0.1"  # Default to localhost
         
         if self.debug:
-            print(f"\n[{self.server_name}] 設定:")
-            print(f"  Server: {host}:{port}")
-            print(f"  Database: {self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}")
-            print(f"  Cache size: {max_cache_size}")
-            print(f"  Protocol Version: {self.version}")
+            print(f"[{self.server_name}] 初期化完了: {host}:{port}, DB: {self.DB_NAME}, 認証={'有効' if self.auth_enabled else '無効'}")
+    
+    def _setup_auth(self):
+        """認証設定を初期化（環境変数・認証フラグ対応）"""
+        # 環境変数から認証設定を読み込み（優先）
+        env_auth_enabled = os.getenv('LOCATION_SERVER_AUTH_ENABLED', '').lower() == 'true'
+        env_auth_passphrase = os.getenv('LOCATION_SERVER_PASSPHRASE', '')
+        env_response_auth_enabled = os.getenv('LOCATION_RESOLVER_RESPONSE_AUTH_ENABLED', '').lower() == 'true'
+        
+        # 受信時認証設定（このサーバーへの接続時）
+        if env_auth_enabled and env_auth_passphrase:
+            self.auth_enabled = True
+            self.auth_passphrase = env_auth_passphrase
+        else:
+            auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+            self.auth_enabled = auth_enabled_str.lower() == 'true'
+            self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        # レスポンス送信時認証設定（クライアントへのレスポンス送信時）
+        if env_response_auth_enabled:
+            self.response_auth_enabled = True
+        else:
+            self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
+        
+        # レスポンス認証パスフレーズは受信時認証と同じものを使用
+        self.response_auth_passphrase = self.auth_passphrase
+        
+        if self.auth_enabled and not self.auth_passphrase:
+            raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
+        
     
     def _setup_database(self):
         """データベース接続プールを初期化"""
@@ -111,8 +139,6 @@ class LocationServer(BaseServer):
             cursor.close()
             self.connection_pool.putconn(conn)
             
-            if self.debug:
-                print(f"[{self.server_name}] データベース {self.DB_NAME} に正常に接続しました")
             
         except (Exception, psycopg2.Error) as error:
             print(f"PostgreSQL データベースへの接続エラー: {error}")
@@ -122,9 +148,9 @@ class LocationServer(BaseServer):
     
     def _setup_cache(self, max_cache_size):
         """キャッシュを初期化"""
-        self.cache = Cache()
-        if self.debug:
-            print(f"[{self.server_name}] TTLベースのキャッシュを初期化しました")
+        # キャッシュTTLを設定から取得（デフォルト30分）
+        cache_ttl_minutes = self.config.getint('cache', 'expiration_time_location', 1800) // 60
+        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
     
     def parse_request(self, data):
         """
@@ -153,8 +179,7 @@ class LocationServer(BaseServer):
                         try:
                             port = int(port)
                             self.sock.sendto(data, (host, port))
-                            if self.debug:
-                                print(f"[位置情報サーバー] エラーパケットを {host}:{port} に転送しました")
+                            print(f"[{self.server_name}] Error packet forwarded to {host}:{port}")
                         except Exception as e:
                             print(f"[位置情報サーバー] エラーパケット転送失敗: {e}")
                 return
@@ -172,6 +197,15 @@ class LocationServer(BaseServer):
         Returns:
             tuple: (is_valid, error_code)
         """
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                return False, "403", "認証に失敗しました"
+        
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
             return False, "400", "拡張フィールドが設定されていません"
@@ -216,20 +250,23 @@ class LocationServer(BaseServer):
                     error_response.ex_field = ExtendedField()
                     error_response.ex_field.source = source
                     error_response.ex_flag = 1
-                    if self.debug:
-                        print(f"[{self.server_name}] バリデーションエラーレスポンスにsource情報を設定: {source}")
             
-            if self.debug:
-                print(f"[{self.server_name}] バリデーションエラーレスポンス作成 (コード: {error_code})")
+            # エラーレスポンスにも認証ハッシュを追加
+            if self.response_auth_enabled:
+                error_response.enable_auth(self.response_auth_passphrase)
+                error_response.add_auth_to_extended_field()
             
             return error_response.to_bytes()
     
-        # 位置情報から地域コードを取得
+        # 位置情報から地域コードを取得（処理時間測定）
         try:
+            start_time = time.time()
             area_code = self._get_area_code_from_coordinates(
                 request.ex_field.get("longitude"),
                 request.ex_field.get("latitude")
             )
+            lookup_time = time.time() - start_time
+            print(f"[{self.server_name}] Area code lookup: {area_code} ({lookup_time*1000:.1f}ms)")
             
             # レスポンスを作成
             response = Response(
@@ -253,16 +290,25 @@ class LocationServer(BaseServer):
                 source = request.ex_field.get('source')
                 if source:
                     response.ex_field.source = source
-                    if self.debug:
-                        print(f"[位置情報サーバー] 送信元をレスポンスにコピーしました: {source[0]}:{source[1]}")
 
                 latitude = request.ex_field.get('latitude')
                 longitude = request.ex_field.get('longitude')
                 if latitude and longitude:
                     response.ex_field.latitude = latitude
                     response.ex_field.longitude = longitude
-                    if self.debug:
-                        print ("座標解決レスポンスに座標を追加しました")
+            
+            # リクエストの認証フラグをチェックしてレスポンス認証を処理
+            response_auth_config = self._get_response_auth_config()
+            if hasattr(response, 'process_request_auth_flags'):
+                response.process_request_auth_flags(
+                    request,
+                    response_auth_config['passphrase'] if response_auth_config['enabled'] else None
+                )
+            
+            # レスポンスに認証ハッシュを追加（共有パスフレーズを使用）
+            if self.response_auth_enabled:
+                response.enable_auth(self.response_auth_passphrase)
+                response.add_auth_to_extended_field()
             
             return response.to_bytes()
             
@@ -282,13 +328,27 @@ class LocationServer(BaseServer):
                     error_response.ex_field = ExtendedField()
                     error_response.ex_field.source = source
                     error_response.ex_flag = 1
-                    if self.debug:
-                        print(f"[{self.server_name}] 内部エラーレスポンスにsource情報を設定: {source}")
             
-            if self.debug:
-                print(f"[{self.server_name}] 内部エラーレスポンス作成 (コード: 510, エラー: {e})")
+            # エラーレスポンスにも認証ハッシュを追加
+            if self.response_auth_enabled:
+                error_response.enable_auth(self.response_auth_passphrase)
+                error_response.add_auth_to_extended_field()
+            
+            print(f"[{self.server_name}] Internal error: {e}")
             
             return error_response.to_bytes()
+    
+    def _get_response_auth_config(self):
+        """
+        レスポンス送信時の認証設定を取得（クライアントへのレスポンス送信時に使用）
+        
+        Returns:
+            dict: 認証設定 {'enabled': bool, 'passphrase': str}
+        """
+        return {
+            'enabled': self.response_auth_enabled,
+            'passphrase': self.response_auth_passphrase
+        }
     
     def _get_area_code_from_coordinates(self, longitude, latitude):
         """
@@ -305,15 +365,18 @@ class LocationServer(BaseServer):
         cache_key = f"{longitude},{latitude}"
         
         # Check cache first
+        cache_start = time.time()
         cached_value = self.cache.get(cache_key)
+        cache_time = time.time() - cache_start
+        
         if cached_value is not None:
-            if self.debug:
-                print(f"[{self.server_name}] キャッシュヒット！")
+            print(f"[{self.server_name}] Cache hit for {longitude},{latitude} ({cache_time*1000:.1f}ms)")
             return cached_value
         
         conn = None
         try:
             # Get connection from pool
+            db_start = time.time()
             conn = self.connection_pool.getconn()
             cursor = conn.cursor()
             
@@ -327,19 +390,19 @@ class LocationServer(BaseServer):
             """
             cursor.execute(query)
             result = cursor.fetchone()
+            db_time = time.time() - db_start
             
             district_code = result[0] if result else None
             
             # Store in cache
             self.cache.set(cache_key, district_code)
             
-            if self.debug:
-                print(f"[{self.server_name}] ({longitude}, {latitude}) のクエリ結果: {district_code}")
+            print(f"[{self.server_name}] DB query for {longitude},{latitude}: {district_code} ({db_time*1000:.1f}ms)")
             
             return district_code
             
         except Exception as e:
-            print(f"データベースエラー: {e}")
+            print(f"[{self.server_name}] Database error: {e}")
             return None
             
         finally:
@@ -349,25 +412,11 @@ class LocationServer(BaseServer):
                 self.connection_pool.putconn(conn)
     
     def _debug_print_request(self, data, parsed):
-        """リクエストのデバッグ情報を出力（オーバーライド）"""
-        if not self.debug:
-            return
-            
-        print(f"\n[{self.server_name}] === 受信リクエストパケット ===")
-        print(f"Total Length: {len(data)} bytes")
-        print("\nHeader:")
-        print(f"Version: {parsed.version}")
-        print(f"Type: {parsed.type}")
-        print(f"Packet ID: {parsed.packet_id}")
-        print("\nCoordinates:")
-        if hasattr(parsed, 'ex_field') and parsed.ex_field:
-            print(f"Latitude: {parsed.ex_field.get('latitude')}")
-            print(f"Longitude: {parsed.ex_field.get('longitude')}")
-        else:
-            print("リクエストに座標がありません")
-        print("\nRaw Packet:")
-        print(self._hex_dump(data))
-        print("===========================\n")
+        """簡潔なリクエスト情報を出力"""
+        if self.debug and hasattr(parsed, 'ex_field') and parsed.ex_field:
+            lat = parsed.ex_field.get('latitude')
+            lon = parsed.ex_field.get('longitude')
+            print(f"[{self.server_name}] Location request: ({lat}, {lon}), {len(data)} bytes")
     
     def _debug_print_response(self, response, request=None):
         """レスポンスのデバッグ情報を出力（オーバーライド）"""
@@ -391,17 +440,9 @@ class LocationServer(BaseServer):
     
     def _print_timing_info(self, addr, timing_info):
         """タイミング情報を出力（オーバーライド）"""
-        # 基底クラスの処理に加えて、データベースクエリ時間も出力
-        print(f"\n=== {addr} のタイミング情報 ===")
-        print(f"Request parsing time: {timing_info.get('parse', 0)*1000:.2f}ms")
-        
-        # データベースクエリ時間は response creation に含まれる
+        total_time = timing_info.get('total', 0)
         response_time = timing_info.get('response', 0)
-        print(f"データベースクエリ + レスポンス作成時間: {response_time*1000:.2f}ms")
-        
-        print(f"レスポンス送信時間: {timing_info.get('send', 0)*1000:.2f}ms")
-        print(f"総処理時間: {timing_info.get('total', 0)*1000:.2f}ms")
-        print("================================\n")
+        print(f"[{self.server_name}] Request from {addr} processed in {total_time*1000:.1f}ms (response: {response_time*1000:.1f}ms)")
     
     def print_statistics(self):
         """統計情報を出力（オーバーライド）"""

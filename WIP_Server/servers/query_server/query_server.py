@@ -67,6 +67,9 @@ class QueryServer(BaseServer):
         # プロトコルバージョンを設定から取得
         self.version = self.config.getint('system', 'protocol_version', 1)
         
+        # 認証設定を読み込む
+        self._setup_auth()
+        
         # 各コンポーネントの初期化
         self._setup_components()
         
@@ -77,10 +80,39 @@ class QueryServer(BaseServer):
         self._setup_scheduler()
 
         if self.debug:
-            print(f"\n[{self.server_name}] 設定:")
-            print(f"  Server: {host}:{port}")
-            print(f"  Protocol Version: {self.version}")
-            print(f"  Max Workers: {max_workers}")
+            print(f"[{self.server_name}] Server started: {host}:{port}")
+    
+    def _setup_auth(self):
+        """認証設定を初期化（環境変数・認証フラグ対応）"""
+        # 環境変数から認証設定を読み込み（優先）
+        env_auth_enabled = os.getenv('QUERY_SERVER_AUTH_ENABLED', '').lower() == 'true'
+        env_auth_passphrase = os.getenv('QUERY_SERVER_PASSPHRASE', '')
+        env_response_auth_enabled = os.getenv('QUERY_GENERATOR_RESPONSE_AUTH_ENABLED', '').lower() == 'true'
+        
+        # 受信時認証設定（このサーバーへの接続時）
+        if env_auth_enabled and env_auth_passphrase:
+            self.auth_enabled = True
+            self.auth_passphrase = env_auth_passphrase
+        else:
+            auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+            self.auth_enabled = auth_enabled_str.lower() == 'true'
+            self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        # リクエスト送信時認証設定（他サーバーへのリクエスト送信時）
+        self.request_auth_enabled = self.config.get('auth', 'request_auth_enabled', 'false').lower() == 'true'
+        self.request_auth_passphrase = self.config.get('auth', 'request_passphrase', '')
+        
+        # レスポンス送信時認証設定（クライアントへのレスポンス送信時）
+        if env_response_auth_enabled:
+            self.response_auth_enabled = True
+        else:
+            self.response_auth_enabled = self.config.get('auth', 'response_auth_enabled', 'false').lower() == 'true'
+        
+        # レスポンス認証パスフレーズは受信時認証と同じものを使用
+        self.response_auth_passphrase = self.auth_passphrase
+        
+        if self.auth_enabled and not self.auth_passphrase:
+            raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
     
     def _setup_components(self):
         """各コンポーネントを初期化"""
@@ -128,9 +160,18 @@ class QueryServer(BaseServer):
         Returns:
             tuple: (is_valid, error_message)
         """
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                return False, "403", "認証に失敗しました"
+        
         # バージョンのチェック
         if request.version != self.version:
-            return False, "403", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, "406", f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
         # タイプのチェック
         if request.type != 2:
@@ -141,7 +182,7 @@ class QueryServer(BaseServer):
             return False, "402", "エリアコードが未設定"
         
         # フラグのチェック（少なくとも1つは必要）
-        if not any([request.weather_flag, request.temperature_flag, 
+        if not any([request.weather_flag, request.temperature_flag,
                    request.pop_flag, request.alert_flag, request.disaster_flag]):
             return False, "400", "不正なパケット"
         
@@ -167,21 +208,19 @@ class QueryServer(BaseServer):
                 error_code=error_code,
                 timestamp=int(datetime.now().timestamp())
             )
+            
+            # エラーレスポンスにも認証ハッシュを追加（レスポンス送信時認証設定を使用）
+            if self.response_auth_enabled:
+                error_response.enable_auth(self.response_auth_passphrase)
+                error_response.add_auth_to_extended_field()
+            
             if self.debug:
                 print(f"{error_code}: [{self.server_name}] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
 
         try:
-            # デバッグ：リクエストの状態を確認
-            if self.debug:
-                print(f"\n[{self.server_name}] リクエストに対するレスポンスを作成中:")
-                print(f"  Area code: {request.area_code}")
-                print(f"  ex_flag: {request.ex_flag}")
-                print(f"  Source info: {request.get_source_info()}")
-                coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else None
-                print(f"  Coordinates: {coords}")
-            
             # 気象データを取得
+            data_start = time.time()
             weather_data = self.weather_manager.get_weather_data(
                 area_code=request.area_code,
                 weather_flag=request.weather_flag,
@@ -191,13 +230,19 @@ class QueryServer(BaseServer):
                 disaster_flag=request.disaster_flag,
                 day=request.day
             )
+            data_time = time.time() - data_start
             
             # QueryResponseクラスのcreate_query_responseメソッドを使用
+            response_start = time.time()
             response = QueryResponse.create_query_response(
                 request=request,
                 weather_data=weather_data,
                 version=self.version
             )
+            response_time = time.time() - response_start
+            
+            if self.debug:
+                print(f"[{self.server_name}] Weather data: {data_time*1000:.1f}ms, Response creation: {response_time*1000:.1f}ms")
             
             # 座標情報がある場合は拡張フィールドに追加
             if hasattr(request, 'get_coordinates'):
@@ -208,8 +253,6 @@ class QueryServer(BaseServer):
                         response.ex_field.latitude = lat
                         response.ex_field.longitude = long
                         response.ex_flag = 1
-                        if self.debug:
-                            print(f"[{self.server_name}] 座標をレスポンスに追加しました: {lat},{long}")
         except Exception as e:
             # 内部エラー発生時は500エラーを返す
             error_response = ErrorResponse(
@@ -218,19 +261,42 @@ class QueryServer(BaseServer):
                 error_code="520",
                 timestamp=int(datetime.now().timestamp())
             )
+            
+            # エラーレスポンスにも認証ハッシュを追加（レスポンス送信時認証設定を使用）
+            if self.response_auth_enabled:
+                error_response.enable_auth(self.response_auth_passphrase)
+                error_response.add_auth_to_extended_field()
+            
             if self.debug:
-                print(f"520: [{self.server_name}] エラーレスポンスを生成: {error_code}")
+                print(f"520: [{self.server_name}] エラーレスポンスを生成: 520")
             return error_response.to_bytes()
         
-        # 最終確認
-        if self.debug:
-            print(f"[{self.server_name}] 最終レスポンス状態:")
-            print(f"  ex_flag: {response.ex_flag}")
-            print(f"  Source info: {response.get_source_info()}")
-            if hasattr(response, 'ex_field') and response.ex_field:
-                print(f"  ex_field: {response.ex_field.to_dict() if hasattr(response.ex_field, 'to_dict') else response.ex_field}")
+        # リクエストの認証フラグをチェックしてレスポンス認証を処理
+        response_auth_config = self._get_response_auth_config()
+        if hasattr(response, 'process_request_auth_flags'):
+            response.process_request_auth_flags(
+                request,
+                response_auth_config['passphrase'] if response_auth_config['enabled'] else None
+            )
+        
+        # レスポンスに認証ハッシュを追加（レスポンス送信時認証設定を使用）
+        if self.response_auth_enabled:
+            response.enable_auth(self.response_auth_passphrase)
+            response.add_auth_to_extended_field()
         
         return response.to_bytes()
+    
+    def _get_response_auth_config(self):
+        """
+        レスポンス送信時の認証設定を取得（クライアントへのレスポンス送信時に使用）
+        
+        Returns:
+            dict: 認証設定 {'enabled': bool, 'passphrase': str}
+        """
+        return {
+            'enabled': self.response_auth_enabled,
+            'passphrase': self.response_auth_passphrase
+        }
     
     def _debug_print_request(self, data, parsed):
         """リクエストのデバッグ情報を出力（オーバーライド）"""
@@ -307,16 +373,11 @@ class QueryServer(BaseServer):
         update_times_str = self.config.get('schedule', 'weather_update_time', '03:00')
         update_times = [t.strip() for t in update_times_str.split(',')]
         
-        if self.debug:
-            print(f"[{self.server_name}] 気象データ更新を毎日 {', '.join(update_times)} にスケジュールします。")
-        
         for update_time in update_times:
             schedule.every().day.at(update_time).do(self._update_weather_data_scheduled)
         
         # configからskip_areaの確認と更新間隔を取得
         skip_area_interval = self.config.getint('schedule', 'skip_area_check_interval_minutes', 10)
-        if self.debug:
-            print(f"[{self.server_name}] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。")
         schedule.every(skip_area_interval).minutes.do(self._check_and_update_skip_area_scheduled)
 
         # スケジュールを実行するスレッドを開始
@@ -332,13 +393,13 @@ class QueryServer(BaseServer):
         """
         スケジュールされた気象データ更新処理
         """
-        if self.debug:
-            print(f"[{self.server_name}] スケジュールされた気象データ更新を実行中...")
         try:
+            update_start = time.time()
             # WIP_Server/scripts/update_weather_data.py の関数を呼び出す
             self.skip_area = update_redis_weather_data(debug=self.debug)
+            update_time = time.time() - update_start
             if self.debug:
-                print(f"[{self.server_name}] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。")
+                print(f"[{self.server_name}] Weather data update completed: {update_time:.1f}s, skipped: {len(self.skip_area)} areas")
         except Exception as e:
             print(f"[{self.server_name}] 気象データ更新エラー: {e}")
             if self.debug:
@@ -348,26 +409,19 @@ class QueryServer(BaseServer):
         """
         スケジュールされたskip_areaの確認と更新処理
         """
-        if self.debug:
-            print(f"[{self.server_name}] スケジュールされたskip_areaの確認と更新を実行中...")
-        
         if self.skip_area:
-            if self.debug:
-                print(f"[{self.server_name}] skip_areaに地域コードが存在します: {self.skip_area}")
-                print(f"[{self.server_name}] update_redis_weather_dataをskip_areaを引数に実行します。")
             try:
+                skip_start = time.time()
                 # skip_areaを引数としてupdate_redis_weather_dataを呼び出す
                 updated_skip_area = update_redis_weather_data(debug=self.debug, area_codes=self.skip_area)
                 self.skip_area = updated_skip_area
+                skip_time = time.time() - skip_start
                 if self.debug:
-                    print(f"[{self.server_name}] skip_areaの更新完了。現在のskip_area: {self.skip_area}")
+                    print(f"[{self.server_name}] Skip area update: {skip_time:.1f}s, current skip areas: {len(self.skip_area)}")
             except Exception as e:
                 print(f"[{self.server_name}] skip_area更新エラー: {e}")
                 if self.debug:
                     traceback.print_exc()
-        else:
-            if self.debug:
-                print(f"[{self.server_name}] skip_areaは空です。更新はスキップされます。")
 
 
 if __name__ == "__main__":

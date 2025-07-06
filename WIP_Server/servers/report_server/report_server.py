@@ -73,6 +73,9 @@ class ReportServer(BaseServer):
         version = self.config.getint('system', 'protocol_version', 1)
         self.version = version & 0x0F  # 4ビットにマスク
         
+        # 認証設定を読み込む
+        self._setup_auth()
+        
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
         
@@ -97,11 +100,44 @@ class ReportServer(BaseServer):
         self.success_count = 0
         
         if self.debug:
-            print(f"\n[{self.server_name}] 初期化完了")
-            print(f"  ホスト: {host}:{port}")
-            print(f"  データ検証: {self.enable_data_validation}")
-            print(f"  ログファイル: {self.log_file_path if self.enable_file_logging else '無効'}")
-            print(f"  データベース: {self.enable_database}")
+            print(f"[{self.server_name}] 初期化完了: {host}:{port}, ログ={'有効' if self.enable_file_logging else '無効'}")
+    
+    def _setup_auth(self):
+        """認証設定を初期化（環境変数対応）"""
+        # 認証が有効かどうか（環境変数を優先）
+        auth_enabled_env = os.getenv('REPORT_SERVER_AUTH_ENABLED')
+        if auth_enabled_env is not None:
+            self.auth_enabled = auth_enabled_env.lower() == 'true'
+        else:
+            auth_enabled_str = self.config.get('auth', 'enable_auth', 'false')
+            self.auth_enabled = auth_enabled_str.lower() == 'true'
+        
+        # パスフレーズ（環境変数を優先）
+        self.auth_passphrase = os.getenv('REPORT_SERVER_AUTH_PASSPHRASE')
+        if self.auth_passphrase is None:
+            self.auth_passphrase = self.config.get('auth', 'passphrase', '')
+        
+        # リクエスト認証設定（環境変数を優先）
+        request_auth_env = os.getenv('REPORT_SERVER_REQUEST_AUTH_ENABLED')
+        if request_auth_env is not None:
+            self.request_auth_enabled = request_auth_env.lower() == 'true'
+        else:
+            request_auth_str = self.config.get('auth', 'request_auth_enabled', 'false')
+            self.request_auth_enabled = request_auth_str.lower() == 'true'
+        
+        if self.auth_enabled and not self.auth_passphrase:
+            raise ValueError("認証が有効ですが、パスフレーズが設定されていません")
+    
+    def _get_response_auth_config(self):
+        """レスポンス認証設定を取得"""
+        # 環境変数を優先して確認
+        response_auth_env = os.getenv('REPORT_SERVER_RESPONSE_AUTH_ENABLED')
+        if response_auth_env is not None:
+            return response_auth_env.lower() == 'true'
+        
+        # 設定ファイルから取得
+        response_auth_str = self.config.get('auth', 'response_auth_enabled', 'false')
+        return response_auth_str.lower() == 'true'
     
     def validate_request(self, request):
         """
@@ -121,7 +157,32 @@ class ReportServer(BaseServer):
         
         # バージョンチェック
         if request.version != self.version:
-            return False, 403, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+            return False, 406, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
+        
+        # 認証チェック（認証が有効な場合）
+        if self.auth_enabled:
+            # リクエストに認証機能を設定
+            request.enable_auth(self.auth_passphrase)
+            
+            # 認証フラグ処理（リクエスト認証が有効な場合）
+            if self.request_auth_enabled:
+                # 認証フラグの検証
+                if not request.process_request_auth_flags():
+                    if self.debug:
+                        print(f"[{self.server_name}] 認証フラグ検証失敗")
+                    return False, "403", "認証フラグの検証に失敗しました"
+                
+                if self.debug:
+                    print(f"[{self.server_name}] 認証フラグ検証成功")
+            
+            # 拡張フィールドベースの認証ハッシュを検証
+            if not request.verify_auth_from_extended_field():
+                if self.debug:
+                    print(f"[{self.server_name}] 認証失敗")
+                return False, "403", "認証に失敗しました"
+            
+            if self.debug:
+                print(f"[{self.server_name}] 認証成功")
         
         # タイプチェック（Type 4のみ有効）
         if request.type != 4:
@@ -154,16 +215,19 @@ class ReportServer(BaseServer):
             'data_types': []
         }
         
-        # デバッグ出力でリクエストの詳細を確認（最適化版）
-        if self.debug:
-            flags = [
-                f"weather:{getattr(request, 'weather_flag', 'N')}",
-                f"temp:{getattr(request, 'temperature_flag', 'N')}",
-                f"pop:{getattr(request, 'pop_flag', 'N')}",
-                f"alert:{getattr(request, 'alert_flag', 'N')}",
-                f"disaster:{getattr(request, 'disaster_flag', 'N')}"
-            ]
-            print(f"  [デバッグ] フラグ: {' '.join(flags)}")
+        # データタイプを記録
+        data_types = []
+        if getattr(request, 'weather_flag', False):
+            data_types.append('weather')
+        if getattr(request, 'temperature_flag', False):
+            data_types.append('temperature')
+        if getattr(request, 'pop_flag', False):
+            data_types.append('precipitation')
+        if getattr(request, 'alert_flag', False):
+            data_types.append('alert')
+        if getattr(request, 'disaster_flag', False):
+            data_types.append('disaster')
+        sensor_data['data_types'] = data_types
         
         # 固定長フィールドからセンサーデータを抽出
         try:
@@ -186,28 +250,14 @@ class ReportServer(BaseServer):
                 if pop_value is not None and pop_value != 0:
                     sensor_data['precipitation_prob'] = pop_value
             
-            if self.debug:
-                fields = []
-                if 'weather_code' in sensor_data:
-                    fields.append(f"weather:{sensor_data['weather_code']}")
-                if 'temperature' in sensor_data:
-                    fields.append(f"temp:{sensor_data['temperature']}℃")
-                if 'precipitation_prob' in sensor_data:
-                    fields.append(f"pop:{sensor_data['precipitation_prob']}%")
-                print(f"  [デバッグ] 固定長: {' '.join(fields) if fields else 'なし'}")
             
         except Exception as e:
-            if self.debug:
-                print(f"  [デバッグ] 固定長フィールド処理エラー: {e}")
+            print(f"[{self.server_name}] 固定長フィールド処理エラー: {e}")
         
         # 拡張フィールドから警報・災害情報を抽出
         if hasattr(request, 'ex_field') and request.ex_field:
             try:
                 ex_dict = request.ex_field.to_dict() if hasattr(request.ex_field, 'to_dict') else {}
-                
-                if self.debug:
-                    ex_keys = list(ex_dict.keys()) if ex_dict else []
-                    print(f"  [デバッグ] 拡張フィールド: {ex_keys}")
                 
                 # 警報情報
                 if hasattr(request, 'alert_flag') and request.alert_flag and 'alert' in ex_dict:
@@ -222,8 +272,7 @@ class ReportServer(BaseServer):
                     sensor_data['source'] = ex_dict['source']
                 
             except Exception as e:
-                if self.debug:
-                    print(f"  [デバッグ] 拡張フィールド処理エラー: {e}")
+                print(f"[{self.server_name}] 拡張フィールド処理エラー: {e}")
                     
         return sensor_data
     
@@ -266,14 +315,10 @@ class ReportServer(BaseServer):
         # 警報処理
         if self.enable_alert_processing and 'alert' in sensor_data:
             processed_data['alert_processed'] = True
-            if self.debug:
-                print(f"  警報データを処理しました: {sensor_data['alert']}")
         
         # 災害情報処理
         if self.enable_disaster_processing and 'disaster' in sensor_data:
             processed_data['disaster_processed'] = True
-            if self.debug:
-                print(f"  災害情報を処理しました: {sensor_data['disaster']}")
         
         # 処理時刻を追加
         processed_data['processed_at'] = datetime.now().isoformat()
@@ -291,8 +336,6 @@ class ReportServer(BaseServer):
                 with open(self.log_file_path, 'w', encoding='utf-8') as f:
                     f.write("timestamp,area_code,weather_code,temperature,precipitation_prob,alert,disaster\n")
             
-            if self.debug:
-                print(f"[{self.server_name}] ログファイルを初期化しました: {self.log_file_path}")
                 
         except Exception as e:
             print(f"[{self.server_name}] ログファイル初期化エラー: {e}")
@@ -328,8 +371,6 @@ class ReportServer(BaseServer):
             with open(self.log_file_path, 'a', encoding='utf-8') as f:
                 f.write(log_line)
             
-            if self.debug:
-                print(f"  ✓ ログファイルに追記: {area_code}")
             
         except Exception as e:
             print(f"[{self.server_name}] ログファイル記録エラー: {e}")
@@ -338,8 +379,6 @@ class ReportServer(BaseServer):
     
     def _save_to_database(self, request, sensor_data, source_addr=None):
         """データベースに保存（実装予定）"""
-        if self.debug:
-            print(f"  [{self.server_name}] データベース保存: {sensor_data['area_code']} (未実装)")
         # TODO: データベース保存機能を実装
         pass
     
@@ -362,18 +401,16 @@ class ReportServer(BaseServer):
             with self.lock:
                 self.report_count += 1
             
-            # 常にリクエスト受信をログ出力
-            print(f"\n[{self.server_name}] ===== REPORT REQUEST RECEIVED =====")
-            print(f"  パケットID: {request.packet_id}")
-            print(f"  エリアコード: {request.area_code}")
-            print(f"  タイムスタンプ: {time.ctime(request.timestamp)}")
-            print(f"  レポート番号: {self.report_count}")
+            # 簡潔なリクエスト受信ログ
+            print(f"[{self.server_name}] Report #{self.report_count}: {request.area_code} (ID:{request.packet_id})")
             
             # センサーデータの抽出（時間計測）
             extract_start = time.time()
             sensor_data = self._extract_sensor_data(request)
             timing_info['extract'] = time.time() - extract_start
-            print(f"  センサーデータタイプ: {sensor_data.get('data_types', [])}")
+            data_types = sensor_data.get('data_types', [])
+            if data_types:
+                print(f"  データタイプ: {', '.join(data_types)}")
             
             # データ処理（時間計測）
             process_start = time.time()
@@ -381,11 +418,10 @@ class ReportServer(BaseServer):
             timing_info['process'] = time.time() - process_start
             
             # ログファイルに記録（時間計測）
-            log_start = time.time()
-            self._log_report_data(request, sensor_data, None)
-            timing_info['log'] = time.time() - log_start
             if self.enable_file_logging:
-                print(f"  ✓ ログファイル記録完了 ({timing_info['log']*1000:.1f}ms)")
+                log_start = time.time()
+                self._log_report_data(request, sensor_data, None)
+                timing_info['log'] = time.time() - log_start
             
             # データベース保存（オプション）
             if self.enable_database:
@@ -399,6 +435,14 @@ class ReportServer(BaseServer):
                 request=request,
                 version=self.version
             )
+            
+            # 認証フラグ設定（認証が有効でレスポンス認証が有効な場合）
+            if self.auth_enabled and self._get_response_auth_config():
+                response.enable_auth(self.auth_passphrase)
+                response.set_auth_flags()
+                if self.debug:
+                    print(f"[{self.server_name}] レスポンス認証フラグを設定しました")
+            
             timing_info['response'] = time.time() - response_start
             
             # 成功カウント
@@ -408,29 +452,21 @@ class ReportServer(BaseServer):
             # 総処理時間
             timing_info['total'] = time.time() - start_time
             
-            print(f"  ✓ ACKレスポンス作成完了 ({timing_info['response']*1000:.1f}ms)")
-            print(f"  ✓ 成功率: {(self.success_count/self.report_count)*100:.1f}%")
-            
-            # 処理時間の詳細を出力
-            print(f"  📊 処理時間詳細:")
-            print(f"    - データ抽出: {timing_info['extract']*1000:.1f}ms")
-            print(f"    - データ処理: {timing_info['process']*1000:.1f}ms")
+            # 処理時間サマリー
+            timing_summary = [f"extract:{timing_info['extract']*1000:.1f}ms",
+                             f"process:{timing_info['process']*1000:.1f}ms"]
             if self.enable_file_logging:
-                print(f"    - ログ記録: {timing_info['log']*1000:.1f}ms")
+                timing_summary.append(f"log:{timing_info['log']*1000:.1f}ms")
             if 'database' in timing_info:
-                print(f"    - DB保存: {timing_info['database']*1000:.1f}ms")
-            print(f"    - レスポンス作成: {timing_info['response']*1000:.1f}ms")
-            print(f"    - 合計: {timing_info['total']*1000:.1f}ms")
+                timing_summary.append(f"db:{timing_info['database']*1000:.1f}ms")
+            timing_summary.append(f"response:{timing_info['response']*1000:.1f}ms")
+            
+            print(f"  処理完了: {timing_info['total']*1000:.1f}ms ({', '.join(timing_summary)})")
+            print(f"  成功率: {(self.success_count/self.report_count)*100:.1f}%")
             
             # 遅延警告（20ms以上の場合）
             if timing_info['total'] > 0.02:
-                print(f"  ⚠️  遅延検出: 総処理時間が{timing_info['total']*1000:.1f}msです")
-                if self.enable_file_logging and timing_info['log'] > 0.005:
-                    print(f"     - ログ記録が遅い: {timing_info['log']*1000:.1f}ms")
-                if timing_info['extract'] > 0.005:
-                    print(f"     - データ抽出が遅い: {timing_info['extract']*1000:.1f}ms")
-            
-            print(f"  ===== RESPONSE SENT =====\n")
+                print(f"  ⚠️ 遅延検出: {timing_info['total']*1000:.1f}ms")
             
             return response.to_bytes()
             
@@ -463,35 +499,9 @@ class ReportServer(BaseServer):
             raise ValueError(f"サポートされていないパケットタイプ: {packet_type}")
     
     def _debug_print_request(self, data, parsed):
-        """リクエストのデバッグ情報を出力"""
-        if not self.debug:
-            return
-            
-        print(f"\n[{self.server_name}] === 受信レポートパケット ===")
-        print(f"Total Length: {len(data)} bytes")
-        print(f"Packet Class: {type(parsed).__name__}")
-        
-        print("\nHeader:")
-        print(f"Version: {parsed.version}")
-        print(f"Type: {parsed.type}")
-        print(f"Area Code: {parsed.area_code}")
-        print(f"Packet ID: {parsed.packet_id}")
-        print(f"Timestamp: {time.ctime(parsed.timestamp)}")
-        
-        print("\nFlags:")
-        print(f"Weather: {parsed.weather_flag}")
-        print(f"Temperature: {parsed.temperature_flag}")
-        print(f"POP: {parsed.pop_flag}")
-        print(f"Alert: {parsed.alert_flag}")
-        print(f"Disaster: {parsed.disaster_flag}")
-        
-        # センサーデータ情報
-        sensor_data = self._extract_sensor_data(parsed)
-        print(f"\nSensor Data: {sensor_data}")
-        
-        print("\nRaw Packet:")
-        print(self._hex_dump(data))
-        print("========================\n")
+        """簡潔なリクエスト情報を出力"""
+        if self.debug:
+            print(f"[{self.server_name}] Request: Type {parsed.type}, {len(data)} bytes, Area: {parsed.area_code}")
     
     def get_statistics(self):
         """サーバー統計情報を取得"""

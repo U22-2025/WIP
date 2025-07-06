@@ -27,11 +27,12 @@ class QueryClient:
         # このメソッドは空実装とする
         pass
     
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10):
+    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10,
+                 auth_enabled=False, auth_passphrase=None):
         if host is None:
-            host = os.getenv('QUERY_GENERATOR_HOST', 'localhost')
+            host = os.getenv('QUERY_SERVER_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('QUERY_GENERATOR_PORT', '4112'))
+            port = int(os.getenv('QUERY_SERVER_PORT', '4111'))
         """
         初期化
         
@@ -40,10 +41,14 @@ class QueryClient:
             port: Query Serverのポート
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
+            auth_enabled: 認証を有効にするか
+            auth_passphrase: 認証用パスフレーズ
         """
         self.host = host
         self.port = port
         self.debug = debug
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
         logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
@@ -51,7 +56,6 @@ class QueryClient:
         
         # キャッシュの初期化
         self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
-        self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes")
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -61,67 +65,12 @@ class QueryClient:
         
     def _debug_print_request(self, request, area_code):
         """リクエストのデバッグ情報を出力（改良版）"""
-
-        self.logger.debug("\n=== SENDING QUERY REQUEST PACKET ===")
-        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
-        self.logger.debug(f"Area Code: {area_code}")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(request, 'get_requested_data_types'):
-            requested_data = request.get_requested_data_types()
-            self.logger.debug(f"Requested Data: {requested_data}")
-            
-        if hasattr(request, 'get_source_info'):
-            source = request.get_source_info()
-            self.logger.debug(f"Source: {source}")
-        
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(request.to_bytes()))
-        self.logger.debug("============================\n")
+        self.logger.debug(f"Sending query request: area_code={area_code}")
         
     def _debug_print_response(self, response):
         """レスポンスのデバッグ情報を出力（改良版）"""
-            
-        self.logger.debug("\n=== RECEIVED QUERY RESPONSE PACKET ===")
-        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(response, 'get_response_summary'):
-            summary = response.get_response_summary()
-            self.logger.debug(f"\nResponse Summary: {summary}")
-            
-        if hasattr(response, 'is_success'):
-            self.logger.debug(f"Success: {response.is_success()}")
-            
-        # 気象データの詳細
-        if hasattr(response, 'get_weather_code'):
-            weather_code = response.get_weather_code()
-            if weather_code is not None:
-                self.logger.debug(f"Weather Code: {weather_code}")
-                
-        if hasattr(response, 'get_temperature'):
-            temp = response.get_temperature()
-            if temp is not None:
-                self.logger.debug(f"Temperature: {temp}℃")
-                
-        if hasattr(response, 'get_precipitation_prob'):
-            pop = response.get_precipitation_prob()
-            if pop is not None:
-                self.logger.debug(f"Precipitation: {pop}%")
-                
-        if hasattr(response, 'get_alert'):
-            alert = response.get_alert()
-            if alert:
-                self.logger.debug(f"Alert: {alert}")
-                
-        if hasattr(response, 'get_disaster_info'):
-            disaster = response.get_disaster_info()
-            if disaster:
-                self.logger.debug(f"Disaster Info: {disaster}")
-        
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(response.to_bytes()))
-        self.logger.debug("==============================\n")
+        success = response.is_success() if hasattr(response, 'is_success') else False
+        self.logger.debug(f"Received query response: success={success}")
 
     def _get_cache_key(self, area_code, weather, temperature, precipitation_prob, alert, disaster, day=0):
         """
@@ -154,9 +103,7 @@ class QueryClient:
         Returns:
             dict: 簡易的なレスポンスデータ
         """
-        # キャッシュからの場合はsourceを'cache'として返す
         result = cached_data.copy()
-        result['source'] = 'cache'
         result['area_code'] = area_code
         
         # キャッシュされた気温はパケット形式（+100）なので実際の気温に変換
@@ -199,7 +146,6 @@ class QueryClient:
                 cached_data = self.cache.get(cache_key)
                 
                 if cached_data:
-                    self.logger.debug(f"Cache hit for query: {cache_key}")
                     cached_response = self._create_cached_response(cached_data, area_code)
                     cache_time = datetime.now() - start_time
                     cached_response['timing'] = {
@@ -209,8 +155,6 @@ class QueryClient:
                         'total_time': cache_time.total_seconds() * 1000
                     }
                     return cached_response
-                else:
-                    self.logger.debug(f"Cache miss for query: {cache_key}")
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request_start = datetime.now()
@@ -226,6 +170,12 @@ class QueryClient:
                 day=day,
                 version=self.VERSION
             )
+            
+            # 認証が有効な場合は認証情報を追加
+            if self.auth_enabled and self.auth_passphrase:
+                request.enable_auth(self.auth_passphrase)
+                request.add_auth_to_extended_field()
+            
             request_time = datetime.now() - request_start
             
             self._debug_print_request(request, area_code)
@@ -240,27 +190,48 @@ class QueryClient:
             
             # レスポンス解析（専用クラス使用）
             parse_start = datetime.now()
-            response = QueryResponse.from_bytes(response_data)
-            parse_time = datetime.now() - parse_start
             
-            self._debug_print_response(response)
+            # まず基本パケットでタイプを確認
+            from ..packet import Request
+            temp_packet = Request.from_bytes(response_data)
+            packet_type = temp_packet.type
+            
+            
+            # タイプに応じて適切なクラスでパース
+            if packet_type == 7:
+                # エラーパケットの場合
+                from ..packet import ErrorResponse
+                response = ErrorResponse.from_bytes(response_data)
+                parse_time = datetime.now() - parse_start
+                
+                self._debug_print_response(response)
+                
+                # エラーレスポンスの場合は失敗として処理
+                self.logger.error(f"サーバーからエラーレスポンスを受信: エラーコード {getattr(response, 'error_code', 'unknown')}")
+                return {'error': 'Server returned error response', 'error_code': getattr(response, 'error_code', 'unknown'), 'response_type': response.type}
+            else:
+                # 通常のQueryResponseとしてパース
+                response = QueryResponse.from_bytes(response_data)
+                parse_time = datetime.now() - parse_start
+                
+                self._debug_print_response(response)
             
             # 専用クラスのメソッドで結果を簡単に取得
-            if response.is_success():
+            if hasattr(response, 'is_success') and response.is_success():
                 result = response.get_weather_data()
                 
                 # レスポンスが有効で、キャッシュ使用が有効な場合はキャッシュに保存
                 if use_cache and result:
                     cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
+                    
                     # タイミング情報を除いてキャッシュに保存
                     cache_data = {k: v for k, v in result.items() if k != 'timing'}
                     
                     # 気温はパケット形式（+100）でキャッシュに保存（設計の一貫性のため）
                     if 'temperature' in cache_data and cache_data['temperature'] is not None:
                         cache_data['temperature'] = cache_data['temperature'] + 100
-                        
+                    
                     self.cache.set(cache_key, cache_data)
-                    self.logger.debug(f"Cached query result for: {cache_key} (temperature stored in packet format)")
                 
                 # タイミング情報を追加
                 total_time = datetime.now() - start_time
@@ -272,16 +243,19 @@ class QueryClient:
                 }
                 
                 if self.debug:
-                    self.logger.debug("\n=== TIMING INFORMATION ===")
-                    self.logger.debug(f"Request creation time: {request_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Network round-trip time: {network_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Response parsing time: {parse_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Total operation time: {total_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug("========================\n")
+                    self.logger.debug(f"Query request timing: network={network_time.total_seconds()*1000:.1f}ms, total={total_time.total_seconds()*1000:.1f}ms")
                 
                 return result
             else:
-                self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
+                # サーバーからエラーレスポンスが返ってきた場合の適切な処理
+                if hasattr(response, 'type') and response.type == 7:
+                    # エラーパケット（type=7）の場合
+                    error_code = getattr(response, 'error_code', 'unknown')
+                    self.logger.error(f"サーバーからエラーレスポンスを受信: エラーコード {error_code}")
+                else:
+                    # その他の失敗レスポンスの場合
+                    self.logger.error(f"クエリリクエストが失敗しました: レスポンスタイプ {response.type}")
+                
                 return {'error': 'Query request failed', 'response_type': response.type}
             
         except socket.timeout:
@@ -290,8 +264,8 @@ class QueryClient:
         except Exception as e:
             if self.debug:
                 self.logger.exception("Traceback:")
-            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない: {e}")
-            return {'420': str(e)}
+            self.logger.error(f"クエリリクエスト処理中にエラーが発生: {e}")
+            return {'error': f'Request processing error: {str(e)}'}
         finally:
             sock.close()
 
@@ -312,7 +286,6 @@ class QueryClient:
         キャッシュをクリア
         """
         self.cache.clear()
-        self.logger.debug("Query client cache cleared")
 
     def get_weather_simple(self, area_code, include_all=False, timeout=5.0, use_cache=True):
         """

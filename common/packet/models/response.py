@@ -345,6 +345,21 @@ class Response(FormatBase):
         result['ex_field'] = self._ex_field.to_dict()
         return result
 
+    def process_request_auth_flags(self, request_packet: 'FormatBase', server_passphrase: str = None) -> None:
+        """
+        リクエストパケットの認証フラグを処理してレスポンス認証フィールドを設定する
+        
+        Args:
+            request_packet: 受信したリクエストパケット
+            server_passphrase: サーバー側のパスフレーズ
+        """
+        # レスポンス認証フラグが1の場合、クライアントがサーバーの認証を希望している
+        if hasattr(request_packet, 'response_auth') and request_packet.response_auth == 1:
+            if server_passphrase:
+                # サーバー側のパスフレーズを使用した認証フィールドを拡張フィールドに追加
+                self.enable_auth(server_passphrase)
+                self.add_auth_to_extended_field()
+
 
 _apply_response_spec(_RESPONSE_SPEC)
 

@@ -53,91 +53,22 @@ class WeatherClient:
         
     def _debug_print_request(self, request, request_type):
         """リクエストのデバッグ情報を出力（改良版）"""
-
-        self.logger.debug("\n=== SENDING REQUEST PACKET ===")
-        self.logger.debug(f"Request Type: {request_type}")
-        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
-        
-        # 専用クラスのサマリー情報を使用
-        if hasattr(request, 'get_request_summary'):
-            summary = request.get_request_summary()
-            self.logger.debug(f"\nRequest Summary: {summary}")
-        
-        self.logger.debug("\nHeader:")
-        self.logger.debug(f"Version: {request.version}")
-        self.logger.debug(f"Type: {request.type}")
-        self.logger.debug(f"Packet ID: {request.packet_id}")
-        self.logger.debug(f"Timestamp: {time.ctime(request.timestamp)}")
-        
         if request.type == 0:
-            # 座標解決リクエスト
-            if hasattr(request, 'ex_field') and request.ex_field:
-                self.logger.debug(f"Latitude: {request.ex_field.get('latitude')}")
-                self.logger.debug(f"Longitude: {request.ex_field.get('longitude')}")
+            coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else None
+            self.logger.debug(f"Sending location request: {coords}")
         elif request.type == 2:
-            # 気象データリクエスト
-            self.logger.debug(f"Area Code: {request.area_code}")
-            self.logger.debug("\nFlags:")
-            self.logger.debug(f"Weather: {request.weather_flag}")
-            self.logger.debug(f"Temperature: {request.temperature_flag}")
-            self.logger.debug(f"pop: {request.pop_flag}")
-            self.logger.debug(f"Alert: {request.alert_flag}")
-            self.logger.debug(f"Disaster: {request.disaster_flag}")
-            
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(request.to_bytes()))
-        self.logger.debug("============================\n")
+            self.logger.debug(f"Sending query request: area_code={request.area_code}")
         
     def _debug_print_response(self, response):
         """レスポンスのデバッグ情報を出力（改良版）"""
-
-        self.logger.debug("\n=== RECEIVED RESPONSE PACKET ===")
-        self.logger.debug(f"Response Type: {response.type}")
-        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(response, 'get_weather_data'):
-            weather_data = response.get_weather_data()
-            self.logger.debug(f"\nWeather Data: {weather_data}")
-            self.logger.debug(f"Success: {response.is_success()}")
-        
-        self.logger.debug("\nHeader:")
-        self.logger.debug(f"Version: {response.version}")
-        self.logger.debug(f"Type: {response.type}")
-        self.logger.debug(f"Area Code: {response.area_code}")
-        self.logger.debug(f"Packet ID: {response.packet_id}")
-        self.logger.debug(f"Timestamp: {time.ctime(response.timestamp)}")
-        
         if response.type == 3:
-            # 気象データレスポンス（専用メソッド使用）
-            if hasattr(response, 'get_weather_code'):
-                weather_code = response.get_weather_code()
-                if weather_code is not None:
-                    self.logger.debug(f"\nWeather Code: {weather_code}")
-            
-            if hasattr(response, 'get_temperature'):
-                temp = response.get_temperature()
-                if temp is not None:
-                    self.logger.debug(f"Temperature: {temp}℃")
-            
-            if hasattr(response, 'get_precipitation_prob'):
-                pop = response.get_precipitation_prob()
-                if pop is not None:
-                    self.logger.debug(f"precipitation_prob: {pop}%")
-                    
-            if hasattr(response, 'get_alert'):
-                alert = response.get_alert()
-                if alert:
-                    self.logger.debug(f"Alert: {alert}")
-                    
-            if hasattr(response, 'get_disaster_info'):
-                disaster = response.get_disaster_info()
-                if disaster:
-                    self.logger.debug(f"Disaster Info: {disaster}")
-            
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(response.to_bytes()))
-        self.logger.debug("==============================\n")
+            success = response.is_success() if hasattr(response, 'is_success') else False
+            self.logger.debug(f"Received weather response: success={success}")
+        elif response.type == 1:
+            area_code = response.get_area_code() if hasattr(response, 'get_area_code') else None
+            self.logger.debug(f"Received location response: area_code={area_code}")
+        else:
+            self.logger.debug(f"Received response: type={response.type}")
         
     def get_weather_data(self, area_code,
                         weather=True, temperature=True,
@@ -189,12 +120,11 @@ class WeatherClient:
             
             self._debug_print_request(request, "Weather Data (Type 2)")
             
-            # リクエスト送信
+            # リクエスト送信とレスポンス受信
+            network_start = time.time()
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
-            
-            # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
-            self.logger.debug(response_data)
+            network_time = time.time() - network_start
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
@@ -208,9 +138,7 @@ class WeatherClient:
                     
                     total_time = time.time() - start_time
                     if self.debug:
-                        self.logger.debug("\n=== TIMING INFORMATION ===")
-                        self.logger.debug(f"Total operation time: {total_time*1000:.2f}ms")
-                        self.logger.debug("========================\n")
+                        self.logger.debug(f"Weather query timing: network={network_time*1000:.1f}ms, total={total_time*1000:.1f}ms")
                     
                     return result
                 else:
@@ -221,9 +149,7 @@ class WeatherClient:
             elif response_type == 7:  # エラーレスポンス
                 response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    self.logger.error("\n=== ERROR RESPONSE ===")
-                    self.logger.error(f"Error Code: {response.error_code}")
-                    self.logger.error("=====================\n")
+                    self.logger.error(f"Error response: {response.error_code}")
                 
                 return {
                     'type': 'error',
@@ -258,22 +184,18 @@ class WeatherClient:
             
             self._debug_print_request(request, "Location Resolution (Type 0)")
             
-            # リクエスト送信
+            # リクエスト送信とレスポンス受信
+            network_start = time.time()
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
-            
-            # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
+            network_time = time.time() - network_start
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
-            self.logger.debug(response_data)
             
             if response_type == 1:  # Location レスポンス
                 response = LocationResponse.from_bytes(response_data)
                 self._debug_print_response(response)
-                
-                if self.debug:
-                    self.logger.debug("LocationResponseを受信。QueryRequestを作成してquery_serverに送信します。")
                 
                 # LocationResponseからQueryRequestを作成
                 query_request = QueryRequest.from_location_response(response)
@@ -290,9 +212,7 @@ class WeatherClient:
                     
                     total_time = time.time() - start_time
                     if self.debug:
-                        self.logger.debug("\n=== TIMING INFORMATION ===")
-                        self.logger.debug(f"Total operation time: {total_time*1000:.2f}ms")
-                        self.logger.debug("========================\n")
+                        self.logger.debug(f"Location query timing: network={network_time*1000:.1f}ms, total={total_time*1000:.1f}ms")
                     
                     return result
                 else:
@@ -303,9 +223,7 @@ class WeatherClient:
             elif response_type == 7:  # エラーレスポンス
                 response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    self.logger.error("\n=== ERROR RESPONSE ===")
-                    self.logger.error(f"Error Code: {response.error_code}")
-                    self.logger.error("=====================\n")
+                    self.logger.error(f"Error response: {response.error_code}")
                 
                 return {
                     'type': 'error',
