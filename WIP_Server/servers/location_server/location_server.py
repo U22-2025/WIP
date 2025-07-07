@@ -171,13 +171,30 @@ class LocationServer(BaseServer):
     
     def validate_request(self, request):
         """
-        リクエストの妥当性をチェック
+        基本的なリクエストの妥当性をチェック（BaseServer用）
+        詳細なバリデーション（認証など）はcreate_response内で実行
         
         Args:
             request: リクエストオブジェクト
             
         Returns:
-            tuple: (is_valid, error_code)
+            tuple: (is_valid, error_code, error_message)
+        """
+        # 基本的なパケット形式のチェックのみ
+        if not hasattr(request, 'packet_id'):
+            return False, "400", "無効なパケット形式です"
+        
+        return True, None, None
+    
+    def _validate_request_detailed(self, request):
+        """
+        詳細なリクエストの妥当性をチェック（create_response内で使用）
+        
+        Args:
+            request: リクエストオブジェクト
+            
+        Returns:
+            tuple: (is_valid, error_code, error_message)
         """
         # 認証チェック（認証が有効な場合）
         if self.auth_enabled:
@@ -219,8 +236,8 @@ class LocationServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
-        # リクエストのバリデーション
-        is_valid, error_code, error_msg = self.validate_request(request)
+        # リクエストの詳細バリデーション
+        is_valid, error_code, error_msg = self._validate_request_detailed(request)
         if not is_valid:
             # ErrorResponseを作成して返す
             error_response = ErrorResponse(

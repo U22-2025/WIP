@@ -65,8 +65,8 @@ def _apply_extended_spec(spec: Dict[str, Dict[str, Any]]) -> None:
         if isinstance(info, dict) and info.get("type") == "str":
             field_id = _get_id(info)
             if field_id is not None:
-                # alert と disaster は STRING_LIST_FIELDS として扱う
-                if name not in ["alert", "disaster"]:
+                # alert、disaster、source は特別処理するため STRING_FIELDS から除外
+                if name not in ["alert", "disaster", "source"]:
                     ExtendedFieldType.STRING_FIELDS.add(field_id)
 
     ExtendedField.FIELD_MAPPING_STR = {k: _get_id(v) for k, v in spec.items()}
@@ -328,7 +328,7 @@ class ExtendedField:
             if isinstance(value, str):
                 if ":" not in value:
                     raise ValueError("source文字列は'ip:port'形式である必要があります")
-                ip, port_str = value.split(":")
+                ip, port_str = value.rsplit(":", 1)
                 try:
                     port = int(port_str)
                 except ValueError:
@@ -387,7 +387,24 @@ class ExtendedField:
                 
                 if key == 'source':
                     # sourceフィールドは"ip:port"形式でシリアライズ
-                    ip, port = values_to_process
+                    if isinstance(values_to_process, str):
+                        # 文字列の場合は分割処理
+                        if ":" not in values_to_process:
+                            raise BitFieldError(f"source文字列は'ip:port'形式である必要があります: {values_to_process}")
+                        ip, port_str = values_to_process.rsplit(":", 1)
+                        try:
+                            port = int(port_str)
+                        except ValueError:
+                            raise BitFieldError(f"無効なポート番号: {port_str}")
+                        ip, port = ip, port
+                    elif isinstance(values_to_process, (tuple, list)):
+                        # タプルまたはリストの場合は長さを確認
+                        if len(values_to_process) != 2:
+                            raise BitFieldError(f"sourceは2つの要素(ip, port)である必要があります。実際の要素数: {len(values_to_process)}, 内容: {values_to_process}")
+                        ip, port = values_to_process
+                    else:
+                        raise BitFieldError(f"sourceは文字列またはタプルである必要があります: {type(values_to_process)}")
+                    
                     value_str = f"{ip}:{port}"
                     value_bytes = value_str.encode('utf-8')
                 elif isinstance(values_to_process, str):

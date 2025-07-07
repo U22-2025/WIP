@@ -58,8 +58,8 @@ class QueryClient:
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
-        # QueryServer向けの認証設定
-        auth_enabled = os.getenv('QUERY_SERVER_AUTH_ENABLED', 'false').lower() == 'true'
+        # QueryServer向けのリクエスト認証設定
+        auth_enabled = os.getenv('QUERY_GENERATOR_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
         auth_passphrase = os.getenv('QUERY_SERVER_PASSPHRASE', '')
         
         self.auth_enabled = auth_enabled

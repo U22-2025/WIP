@@ -19,7 +19,7 @@ class WeatherRequestHandlers:
         """座標解決リクエストの処理（Type 0・改良版）"""
         source_info = (addr[0], addr[1])  # タプル形式で保持
         try:
-            # location_clientのキャッシュを使用してエリアコード取得を試行
+            # location_clientのキャッシュを使用してエリアコード取得を試行（ネットワークリクエストなし）
             coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
             if coords:
                 lat, long = coords
@@ -27,8 +27,9 @@ class WeatherRequestHandlers:
                     print(f"[{self.server_name}] 座標取得成功: {lat}, {long}")
                     print(f"[{self.server_name}] location_clientのキャッシュを確認中...")
                 
-                # location_clientのキャッシュからエリアコードを取得
-                cached_area_code = self.location_client.get_area_code_simple(lat, long, use_cache=True)
+                # キャッシュのみをチェック（ネットワークリクエストは送信しない）
+                cache_key = self.location_client._get_cache_key(lat, long)
+                cached_area_code = self.location_client.cache.get(cache_key)
                 
                 if cached_area_code:
                     if self.debug:
@@ -76,35 +77,10 @@ class WeatherRequestHandlers:
                     if self.debug:
                         print(f"[{self.server_name}] ❌ 座標情報が取得できません - location_serverに転送")
             
-            # LocationRequestを正しく作成（常にType 0になることを保証）
-            if isinstance(request, LocationRequest):
-                location_request = request
-                # タイプが正しくType 0であることを明示的に設定
-                location_request.type = 0
-            else:
-                # 他のタイプから変換される場合は新規作成 - 安全な座標取得
-                coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
-                if coords:
-                    lat, long = coords
-                else:
-                    # 拡張フィールドから直接座標を取得
-                    lat = request.ex_field.get('latitude') if hasattr(request, 'ex_field') and request.ex_field else None
-                    long = request.ex_field.get('longitude') if hasattr(request, 'ex_field') and request.ex_field else None
-                    
-                location_request = LocationRequest.create_location_request(
-                    latitude=lat,
-                    longitude=long,
-                    packet_id=request.packet_id,
-                    day=request.day,
-                    weather=bool(request.weather_flag),
-                    temperature=bool(request.temperature_flag),
-                    precipitation_prob=bool(request.pop_flag),
-                    alert=bool(request.alert_flag),
-                    disaster=bool(request.disaster_flag),
-                    version=self.version
-                )
+            # 既存のLocationRequestをそのまま使用し、必要に応じて拡張フィールドのみ更新
+            location_request = request
             
-            # 既存の座標情報を保持
+            # 座標情報を取得
             coords = request.get_coordinates() if hasattr(request, 'get_coordinates') and callable(request.get_coordinates) else None
             if coords:
                 lat, long = coords
@@ -132,6 +108,7 @@ class WeatherRequestHandlers:
             
             if self.debug:
                 print(f"  LocationRequestタイプ: {location_request.type} (Type 0であることを確認)")
+                print(f"  パケットID: {location_request.packet_id} (元のIDを保持)")
                 print(f"  ex_flag: {location_request.ex_flag}")
                 print(f"  source情報: {location_request.ex_field.source}")
                 print(f"  拡張フィールド内容: {location_request.ex_field.to_dict() if hasattr(location_request.ex_field, 'to_dict') else 'N/A'}")
@@ -670,19 +647,31 @@ class WeatherRequestHandlers:
                     print(f"  ソースを取得: {source}")
                 
                 # エラーパケットを送信
+                # インスタンス化済みエラーパケットのsourceは常にタプル形式であるべき
                 if isinstance(source, tuple) and len(source) == 2:
                     host, port = source
                     try:
                         port = int(port)  # ポート番号のバリデーション
                         if not (0 < port <= 65535):
                             raise ValueError("Invalid port number")
-                        self.sock.sendto(request.to_bytes(), (host, port))
+                        dest_addr = (host, port)
+                        self.sock.sendto(request.to_bytes(), dest_addr)
                         if self.debug:
-                            print(f"  エラーパケットを {source} に送信しました")
+                            print(f"  エラーパケットを {dest_addr} に送信しました")
                     except (ValueError, TypeError) as e:
-                        print(f"[{self.server_name}] 不正なポート番号: {port}")
+                        print(f"[{self.server_name}] 不正なポート番号: {port} - {e}")
+                        if self.debug:
+                            print(f"  source内容: {source} (type: {type(source)})")
                 else:
-                    print(f"[{self.server_name}] 不正なsource形式: {source}")
+                    print(f"[{self.server_name}] 不正なsource形式: {source} (type: {type(source)})")
+                    if self.debug:
+                        print(f"  期待値: タプル (ip, port)")
+                        print(f"  実際の値: {source}")
+                        print(f"  拡張フィールド全体: {request.ex_field.to_dict() if request.ex_field else 'なし'}")
+                        # デシリアライゼーション問題の可能性を調査
+                        if isinstance(source, str):
+                            print(f"  ⚠️  文字列形式のsourceが検出されました。デシリアライゼーション問題の可能性があります。")
+                    return
             else:
                 print(f"[{self.server_name}] エラー: エラーパケットにsourceが含まれていません")
                 if self.debug:

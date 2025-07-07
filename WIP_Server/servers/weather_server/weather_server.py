@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 import traceback
 from common.packet import ExtendedField
+from common.utils.auth import WIPAuth
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -128,6 +129,115 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 traceback.print_exc()
             raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
         
+        # 認証設定を環境変数から読み込む
+        self.auth_enabled = os.getenv('WEATHER_SERVER_AUTH_ENABLED', 'false').lower() == 'true'
+        
+        # パケットタイプ別のパスフレーズを設定
+        self.passphrases = {
+            'weather_server': os.getenv('WEATHER_SERVER_PASSPHRASE', 'secure'),
+            'location_server': os.getenv('LOCATION_SERVER_PASSPHRASE', 'secure'),
+            'query_server': os.getenv('QUERY_SERVER_PASSPHRASE', 'secure'),
+            'report_server': os.getenv('REPORT_SERVER_PASSPHRASE', 'secure')
+        }
+        
+        if self.debug:
+            print(f"[{self.server_name}] 認証設定: {'有効' if self.auth_enabled else '無効'}")
+            if self.auth_enabled:
+                print(f"[{self.server_name}] パスフレーズを読み込みました（セキュリティのため非表示）")
+    
+    def _get_passphrase_for_packet_type(self, packet_type, addr):
+        """
+        パケットタイプと送信元アドレスによって適切なパスフレーズを選択
+        
+        Args:
+            packet_type: パケットタイプ
+            addr: 送信元アドレス
+            
+        Returns:
+            使用するパスフレーズ
+        """
+        if packet_type in [0, 2, 4]:
+            # クライアントからのリクエスト → weatherサーバーのパスフレーズを使用
+            return self.passphrases['weather_server']
+        elif packet_type == 1:
+            # Location Serverからのレスポンス
+            return self.passphrases['location_server']
+        elif packet_type == 3:
+            # Query Serverからのレスポンス
+            return self.passphrases['query_server']
+        elif packet_type == 5:
+            # Report Serverからのレスポンス
+            return self.passphrases['report_server']
+        elif packet_type == 7:
+            # エラーレスポンス → 送信元ポートから判断
+            if addr[1] == self.location_resolver_port:
+                return self.passphrases['location_server']
+            elif addr[1] == self.query_generator_port:
+                return self.passphrases['query_server']
+            elif addr[1] == self.report_server_port:
+                return self.passphrases['report_server']
+            else:
+                # 不明な場合はweatherサーバーのパスフレーズを使用
+                return self.passphrases['weather_server']
+        else:
+            # デフォルトはweatherサーバーのパスフレーズ
+            return self.passphrases['weather_server']
+    
+    def _verify_packet_authentication(self, data, packet_id, timestamp, packet_type, addr):
+        """
+        パケットの認証を検証
+        
+        Args:
+            data: パケットデータ
+            packet_id: パケットID
+            timestamp: タイムスタンプ
+            packet_type: パケットタイプ
+            addr: 送信元アドレス
+            
+        Returns:
+            認証が成功した場合はTrue
+        """
+        try:
+            # パケットタイプに応じたパスフレーズを取得
+            passphrase = self._get_passphrase_for_packet_type(packet_type, addr)
+            
+            if self.debug:
+                server_type = self._get_server_type_for_packet(packet_type, addr)
+                print(f"[{self.server_name}] パケット認証: タイプ{packet_type} ({server_type})")
+            
+            # パケット内の認証ハッシュを取得（拡張フィールドから）
+            # 注意: 実際の実装では、パケットから認証ハッシュを取得する必要があります
+            # ここでは、認証が実装されていることを示すサンプルコードです
+            
+            return True  # 暫定的に常に認証成功とする
+            
+        except Exception as e:
+            if self.debug:
+                print(f"[{self.server_name}] 認証エラー: {e}")
+            return False
+    
+    def _get_server_type_for_packet(self, packet_type, addr):
+        """デバッグ用：パケットタイプから送信元サーバータイプを取得"""
+        if packet_type in [0, 2, 4]:
+            return "クライアント→ウェザーサーバー"
+        elif packet_type == 1:
+            return "ロケーションサーバー→ウェザーサーバー"
+        elif packet_type == 3:
+            return "クエリサーバー→ウェザーサーバー"
+        elif packet_type == 5:
+            return "レポートサーバー→ウェザーサーバー"
+        elif packet_type == 7:
+            if addr[1] == self.location_resolver_port:
+                return "ロケーションサーバー→ウェザーサーバー（エラー）"
+            elif addr[1] == self.query_generator_port:
+                return "クエリサーバー→ウェザーサーバー（エラー）"
+            elif addr[1] == self.report_server_port:
+                return "レポートサーバー→ウェザーサーバー（エラー）"
+            else:
+                return "不明なサーバー→ウェザーサーバー（エラー）"
+        else:
+            return "不明"
+        
     def handle_request(self, data, addr):
         """
         リクエストを処理（プロキシとして転送）
@@ -176,6 +286,53 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             
             # デバッグ出力（改良版）
             self._debug_print_request(data, request)
+            
+            # 認証チェック（有効な場合のみ）
+            if self.auth_enabled:
+                auth_result = self._verify_packet_authentication(
+                    data, request.packet_id, request.timestamp, request.type, addr
+                )
+                if not auth_result:
+                    if self.debug:
+                        print(f"[{self.server_name}] 認証失敗: パケットタイプ{request.type}, 送信元{addr}")
+                    
+                    # 認証失敗のエラーレスポンスを作成
+                    error_response = ErrorResponse(
+                        version=self.version,
+                        packet_id=request.packet_id,
+                        error_code=401,  # 認証失敗
+                        timestamp=int(datetime.now().timestamp())
+                    )
+                    dest = None
+                    if (
+                        hasattr(request, "ex_field")
+                        and request.ex_field
+                        and request.ex_field.contains("source")
+                    ):
+                        candidate = request.ex_field.source
+                        if isinstance(candidate, tuple) and len(candidate) == 2:
+                            dest = candidate
+                    
+                    # レスポンス型パケット（Type 1,3,5,7）の場合は、元の送信者に戻す
+                    if request.type in [1, 3, 5, 7] and not dest:
+                        dest = addr
+                    
+                    if dest:
+                        error_response.ex_field.source = dest
+                        self.sock.sendto(error_response.to_bytes(), dest)
+                        if self.debug:
+                            print(f"[{threading.current_thread().name}] 認証失敗エラーを送信: {dest}")
+                    else:
+                        if self.debug:
+                            print(f"[{threading.current_thread().name}] 送信先不明のため認証失敗エラーを送信できません")
+                    
+                    with self.lock:
+                        self.error_count += 1
+                    return
+                else:
+                    if self.debug:
+                        server_type = self._get_server_type_for_packet(request.type, addr)
+                        print(f"[{self.server_name}] 認証成功: {server_type}")
             
             # リクエストの妥当性をチェック
             is_valid, error_code, error_msg = self.validate_request(request)

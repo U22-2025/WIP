@@ -40,6 +40,9 @@ class ReportClient:
         self.VERSION = 1
         self.PIDG = PacketIDGenerator12Bit()
 
+        # 認証設定を初期化
+        self._init_auth_config()
+
         # 収集データをメンバ変数として保持
         self.area_code: Optional[Union[str, int]] = None
         self.weather_code: Optional[int] = None
@@ -47,6 +50,20 @@ class ReportClient:
         self.precipitation_prob: Optional[int] = None
         self.alert: Optional[List[str]] = None
         self.disaster: Optional[List[str]] = None
+
+    def _init_auth_config(self):
+        """認証設定を環境変数から読み込み"""
+        # ReportServer向けのリクエスト認証設定
+        auth_enabled = os.getenv('REPORT_SERVER_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
+        auth_passphrase = os.getenv('REPORT_SERVER_PASSPHRASE', '')
+        
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
+        
+        if self.debug:
+            self.logger.debug(f"Report client 認証設定:")
+            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
+            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
 
     def set_sensor_data(self, area_code: Union[str, int],
                        weather_code: Optional[int] = None,
@@ -179,6 +196,18 @@ class ReportClient:
                 disaster=self.disaster,
                 version=self.VERSION
             )
+
+            # 認証設定を適用（認証が有効な場合）
+            print(f"[DEBUG] Report client 認証チェック: enabled={self.auth_enabled}, passphrase={'設定済み' if self.auth_passphrase else '未設定'}")
+            if self.auth_enabled and self.auth_passphrase:
+                print(f"[DEBUG] Report client 認証設定を適用します")
+                request.enable_auth(self.auth_passphrase)
+                request.set_auth_flags()
+                print(f"[DEBUG] Report client 認証設定後のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
+                if self.debug:
+                    self.logger.debug("認証ハッシュをReportリクエストに設定しました")
+            else:
+                print(f"[DEBUG] Report client 認証設定をスキップしました")
 
             self._debug_print_request(request)
             self.sock.sendto(request.to_bytes(), (self.host, self.port))

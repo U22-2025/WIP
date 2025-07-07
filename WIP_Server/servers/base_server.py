@@ -244,15 +244,18 @@ class BaseServer(ABC):
             # デバッグ出力
             self._debug_print_request(data, request)
             
-            # リクエストの妥当性をチェック
-            is_valid, error_code,error_msg = self.validate_request(request)
-            if not is_valid:
+            # リクエストの妥当性をチェック（基本チェックのみ）
+            # 詳細なバリデーションは create_response 内で行われる
+            basic_is_valid, basic_error_code, basic_error_msg = self.validate_request(request)
+            if not basic_is_valid:
                 with self.lock:
                     self.error_count += 1
                 if self.debug:
-                    print(f"{error_code}: [{threading.current_thread().name}] Invalid request from {addr}: {error_msg}")
+                    print(f"{basic_error_code}: [{threading.current_thread().name}] Invalid request from {addr}: {basic_error_msg}")
                 # バリデーションエラーの場合はエラーパケットを送信
-                self._handle_error(0x0001, request, addr)  # 0x0001は無効なパケット形式エラー
+                # error_codeが指定されていればそれを使用、なければデフォルトの0x0001を使用
+                error_code_int = int(basic_error_code) if basic_error_code and str(basic_error_code).isdigit() else 0x0001
+                self._handle_error(error_code_int, request, addr)
                 return
             
             # レスポンスを作成
