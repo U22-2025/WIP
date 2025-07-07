@@ -273,13 +273,58 @@ class WeatherClient:
                 self._debug_print_response(response)
                 
                 if self.debug:
-                    self.logger.debug("LocationResponseを受信。QueryRequestを作成してquery_serverに送信します。")
+                    self.logger.debug("LocationResponseを受信しました。weather_serverからの追加処理を待機します。")
                 
-                # LocationResponseからQueryRequestを作成
-                query_request = QueryRequest.from_location_response(response)
-                
-                # QueryRequestを実行
-                return self._execute_query_request(query_request)
+                # weather_serverが座標解決後、直接query_serverにリクエストを送信し、
+                # その結果をクライアントに返すため、ここでは追加のリクエストは送信しません。
+                # 次のレスポンス（Type 3）を待機します。
+                try:
+                    # 次のレスポンス（天気データ）を受信
+                    response_data, addr = self.sock.recvfrom(1024)
+                    response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
+                    
+                    if response_type == 3:  # 天気レスポンス
+                        weather_response = QueryResponse.from_bytes(response_data)
+                        self._debug_print_response(weather_response)
+                        
+                        if weather_response.is_success():
+                            result = weather_response.get_weather_data()
+                            
+                            total_time = time.time() - start_time
+                            if self.debug:
+                                self.logger.debug("\n=== TIMING INFORMATION ===")
+                                self.logger.debug(f"Total operation time: {total_time*1000:.2f}ms")
+                                self.logger.debug("========================\n")
+                            
+                            return result
+                        else:
+                            if self.debug:
+                                self.logger.error("420: クライアントエラー: 天気データ取得に失敗しました")
+                            return None
+                    elif response_type == 7:  # エラーレスポンス
+                        error_response = ErrorResponse.from_bytes(response_data)
+                        if self.debug:
+                            self.logger.error("\n=== ERROR RESPONSE ===")
+                            self.logger.error(f"Error Code: {error_response.error_code}")
+                            self.logger.error("=====================\n")
+                        
+                        return {
+                            'type': 'error',
+                            'error_code': error_response.error_code,
+                        }
+                    else:
+                        if self.debug:
+                            self.logger.error(f"不明なパケットタイプ: {response_type}")
+                        return None
+                        
+                except socket.timeout:
+                    self.logger.error("421: クライアントエラー: 天気データ受信タイムアウト")
+                    return None
+                except Exception as e:
+                    self.logger.error(f"420: クライアントエラー: 天気データ受信エラー - {e}")
+                    if self.debug:
+                        self.logger.exception("Traceback:")
+                    return None
                     
             elif response_type == 3:  # 天気レスポンス（直接応答）
                 response = QueryResponse.from_bytes(response_data)
