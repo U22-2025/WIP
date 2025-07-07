@@ -28,8 +28,7 @@ class WeatherRequestHandlers:
                     print(f"[{self.server_name}] location_clientのキャッシュを確認中...")
                 
                 # キャッシュのみをチェック（ネットワークリクエストは送信しない）
-                cache_key = self.location_client._get_cache_key(lat, long)
-                cached_area_code = self.location_client.cache.get(cache_key)
+                cached_area_code = self.location_client.get_cached_area_code(lat, long)
                 
                 if cached_area_code:
                     if self.debug:
@@ -113,6 +112,39 @@ class WeatherRequestHandlers:
                 print(f"  source情報: {location_request.ex_field.source}")
                 print(f"  拡張フィールド内容: {location_request.ex_field.to_dict() if hasattr(location_request.ex_field, 'to_dict') else 'N/A'}")
                 print(f"  送信先: {self.location_resolver_host}:{self.location_resolver_port}")
+            
+            # 認証が有効な場合は認証ハッシュを追加
+            if self.auth_enabled:
+                try:
+                    from common.utils.auth import WIPAuth
+                    passphrase = self.passphrases['location_server']
+                    auth_hash = WIPAuth.calculate_auth_hash(
+                        location_request.packet_id,
+                        location_request.timestamp,
+                        passphrase
+                    )
+                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
+                    location_request.ex_field.auth_hash = auth_hash.hex()
+                    if self.debug:
+                        print(f"  認証ハッシュを追加しました (location_server)")
+                        print(f"  パスフレーズキー: location_server")
+                        print(f"  認証ハッシュサイズ: {len(auth_hash)} バイト")
+                except Exception as auth_e:
+                    if self.debug:
+                        print(f"  認証ハッシュ追加エラー: {auth_e}")
+                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
+                    error_response = ErrorResponse(
+                        version=self.version,
+                        packet_id=request.packet_id,
+                        error_code=401,  # 認証エラー
+                        timestamp=int(datetime.now().timestamp())
+                    )
+                    if hasattr(request, 'ex_field') and request.ex_field and request.ex_field.contains('source'):
+                        dest = request.ex_field.source
+                        if isinstance(dest, tuple) and len(dest) == 2:
+                            error_response.ex_field.source = dest
+                            self.sock.sendto(error_response.to_bytes(), dest)
+                    return
             
             # Location Resolverに転送
             packet_data = location_request.to_bytes()
@@ -199,9 +231,14 @@ class WeatherRequestHandlers:
     
             lat, long = response.get_coordinates()
             
-            # エリアキャッシュはlocation_clientで管理されているため、
-            # ここでは明示的なキャッシュ処理は不要
-            # location_clientが自動的にキャッシュを更新する
+            # location_serverからのレスポンスでlocation_clientのキャッシュを手動更新
+            if response.is_valid():
+                area_code = response.get_area_code()
+                if area_code and lat is not None and long is not None:
+                    # location_clientのキャッシュを適切なpublicメソッドで更新
+                    self.location_client.set_cached_area_code(lat, long, area_code)
+                    if self.debug:
+                        print(f"[{self.server_name}] location_clientキャッシュを手動更新: {lat}, {long} -> {area_code}")
     
             if self.debug:
                 print(f"\n[{self.server_name}] タイプ1: 位置情報レスポンスを天気リクエストに変換中")
@@ -305,6 +342,41 @@ class WeatherRequestHandlers:
             if self.debug:
                 print(f"  WeatherRequest (タイプ2) に変換しました")
                 print(f"  Target: {self.query_generator_host}:{self.query_generator_port}")
+            
+            # 認証が有効な場合は認証ハッシュを追加
+            if self.auth_enabled:
+                try:
+                    from common.utils.auth import WIPAuth
+                    passphrase = self.passphrases['query_server']
+                    auth_hash = WIPAuth.calculate_auth_hash(
+                        query_request.packet_id,
+                        query_request.timestamp,
+                        passphrase
+                    )
+                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
+                    if not hasattr(query_request, 'ex_field') or query_request.ex_field is None:
+                        query_request.ex_field = ExtendedField()
+                    query_request.ex_field.auth_hash = auth_hash.hex()
+                    query_request.ex_flag = 1
+                    if self.debug:
+                        print(f"  認証ハッシュを追加しました (query_server)")
+                        print(f"  パスフレーズキー: query_server")
+                        print(f"  認証ハッシュサイズ: {len(auth_hash)} バイト")
+                except Exception as auth_e:
+                    if self.debug:
+                        print(f"  認証ハッシュ追加エラー: {auth_e}")
+                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
+                    error_response = ErrorResponse(
+                        version=self.version,
+                        packet_id=response.packet_id,
+                        error_code=401,  # 認証エラー
+                        timestamp=int(datetime.now().timestamp())
+                    )
+                    source_info = response.get_source_info()
+                    if source_info and isinstance(source_info, tuple) and len(source_info) == 2:
+                        error_response.ex_field.source = source_info
+                        self.sock.sendto(error_response.to_bytes(), source_info)
+                    return
             
             # Query Generatorに送信
             packet_data = query_request.to_bytes()
@@ -437,6 +509,39 @@ class WeatherRequestHandlers:
             if self.debug:
                 if hasattr(query_request, 'get_source_info'):
                     print(f"  送信元を追加しました: {query_request.get_source_info()}")
+            
+            # 認証が有効な場合は認証ハッシュを追加
+            if self.auth_enabled:
+                try:
+                    from common.utils.auth import WIPAuth
+                    passphrase = self.passphrases['query_server']
+                    auth_hash = WIPAuth.calculate_auth_hash(
+                        query_request.packet_id,
+                        query_request.timestamp,
+                        passphrase
+                    )
+                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
+                    query_request.ex_field.auth_hash = auth_hash.hex()
+                    if self.debug:
+                        print(f"  認証ハッシュを追加しました (query_server)")
+                        print(f"  パスフレーズキー: query_server")
+                        print(f"  認証ハッシュサイズ: {len(auth_hash)} バイト")
+                except Exception as auth_e:
+                    if self.debug:
+                        print(f"  認証ハッシュ追加エラー: {auth_e}")
+                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
+                    error_response = ErrorResponse(
+                        version=self.version,
+                        packet_id=request.packet_id,
+                        error_code=401,  # 認証エラー
+                        timestamp=int(datetime.now().timestamp())
+                    )
+                    if hasattr(request, 'ex_field') and request.ex_field and request.ex_field.contains('source'):
+                        dest = request.ex_field.source
+                        if isinstance(dest, tuple) and len(dest) == 2:
+                            error_response.ex_field.source = dest
+                            self.sock.sendto(error_response.to_bytes(), dest)
+                    return
             
             # Query Generatorに転送
             packet_data = query_request.to_bytes()
@@ -783,6 +888,39 @@ class WeatherRequestHandlers:
                 except Exception as send_e:
                     print(f"エラーレスポンス送信も失敗: {send_e}")
                 return
+            
+            # 認証が有効な場合は認証ハッシュを追加
+            if self.auth_enabled:
+                try:
+                    from common.utils.auth import WIPAuth
+                    passphrase = self.passphrases['report_server']
+                    auth_hash = WIPAuth.calculate_auth_hash(
+                        request.packet_id,
+                        request.timestamp,
+                        passphrase
+                    )
+                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
+                    request.ex_field.auth_hash = auth_hash.hex()
+                    if self.debug:
+                        print(f"  認証ハッシュを追加しました (report_server)")
+                        print(f"  パスフレーズキー: report_server")
+                        print(f"  認証ハッシュサイズ: {len(auth_hash)} バイト")
+                except Exception as auth_e:
+                    if self.debug:
+                        print(f"  認証ハッシュ追加エラー: {auth_e}")
+                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
+                    error_response = ErrorResponse(
+                        version=self.version,
+                        packet_id=request.packet_id,
+                        error_code=401,  # 認証エラー
+                        timestamp=int(datetime.now().timestamp())
+                    )
+                    if hasattr(request, 'ex_field') and request.ex_field and request.ex_field.contains('source'):
+                        dest = request.ex_field.source
+                        if isinstance(dest, tuple) and len(dest) == 2:
+                            error_response.ex_field.source = dest
+                            self.sock.sendto(error_response.to_bytes(), dest)
+                    return
             
             # レポートサーバーに転送
             packet_data = request.to_bytes()

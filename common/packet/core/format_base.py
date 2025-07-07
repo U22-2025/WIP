@@ -528,12 +528,11 @@ class FormatBase:
             print(f"[DEBUG] extended_fields.jsonの定義に従い、文字列として処理する必要があります")
             return False
         
-        print(f"[DEBUG]   - 受信ハッシュ(base64): {auth_hash_str[:20]}...")
+        print(f"[DEBUG]   - 受信ハッシュ(hex): {auth_hash_str[:20]}...")
         
         try:
-            # base64デコードしてバイト列に戻す
-            import base64
-            auth_hash_bytes = base64.b64decode(auth_hash_str.encode('ascii'))
+            # hex文字列をバイト列に変換
+            auth_hash_bytes = bytes.fromhex(auth_hash_str)
             print(f"[DEBUG]   - 受信ハッシュ(バイト): {auth_hash_bytes.hex()[:20]}...")
             
             # 期待される認証ハッシュを計算
@@ -585,9 +584,8 @@ class FormatBase:
                 timestamp=self.timestamp,
                 passphrase=passphrase
             )
-            # バイト列をbase64エンコードして文字列として保存
-            import base64
-            auth_hash_str = base64.b64encode(auth_hash_bytes).decode('ascii')
+            # バイト列をhex文字列として保存
+            auth_hash_str = auth_hash_bytes.hex()
             
             # 直接_dataに設定（プロパティアクセスの問題を回避）
             self.ex_field._data['auth_hash'] = auth_hash_str

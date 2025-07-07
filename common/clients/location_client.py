@@ -348,6 +348,40 @@ class LocationClient:
             return None, False
         return None
 
+    def get_cached_area_code(self, latitude, longitude):
+        """
+        キャッシュから座標に対応するエリアコードを取得（キャッシュのみ、ネットワークアクセスなし）
+        
+        Args:
+            latitude: 緯度
+            longitude: 経度
+            
+        Returns:
+            str または None: キャッシュされたエリアコード（キャッシュミスの場合はNone）
+        """
+        cache_key = self._get_cache_key(latitude, longitude)
+        cached_area_code = self.cache.get(cache_key)
+        
+        if cached_area_code:
+            self.logger.debug(f"Cache hit for coordinates ({latitude}, {longitude}): {cached_area_code}")
+        else:
+            self.logger.debug(f"Cache miss for coordinates ({latitude}, {longitude})")
+            
+        return cached_area_code
+
+    def set_cached_area_code(self, latitude, longitude, area_code):
+        """
+        指定した座標にエリアコードをキャッシュに保存
+        
+        Args:
+            latitude: 緯度
+            longitude: 経度
+            area_code: エリアコード
+        """
+        cache_key = self._get_cache_key(latitude, longitude)
+        self.cache.set(cache_key, area_code)
+        self.logger.debug(f"Cached area code for coordinates ({latitude}, {longitude}): {area_code}")
+
     # 後方互換性のためのエイリアスメソッド
     def get_location_info(self, latitude, longitude, source=None):
         """後方互換性のため - get_location_data()を使用してください"""
