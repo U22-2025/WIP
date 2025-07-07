@@ -49,9 +49,26 @@ class QueryClient:
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
         
+        # 認証設定を初期化
+        self._init_auth_config()
+        
         # キャッシュの初期化
         self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
         self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes")
+    
+    def _init_auth_config(self):
+        """認証設定を環境変数から読み込み"""
+        # QueryServer向けの認証設定
+        auth_enabled = os.getenv('QUERY_SERVER_AUTH_ENABLED', 'false').lower() == 'true'
+        auth_passphrase = os.getenv('QUERY_SERVER_PASSPHRASE', '')
+        
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
+        
+        if self.debug:
+            self.logger.debug(f"Query client 認証設定:")
+            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
+            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -227,13 +244,31 @@ class QueryClient:
                 day=day,
                 version=self.VERSION
             )
+            
+            # 認証設定を適用（認証が有効な場合）
+            print(f"[DEBUG] 認証チェック: enabled={self.auth_enabled}, passphrase={'設定済み' if self.auth_passphrase else '未設定'}")
+            if self.auth_enabled and self.auth_passphrase:
+                print(f"[DEBUG] 認証設定を適用します")
+                request.enable_auth(self.auth_passphrase)
+                request.set_auth_flags()
+                print(f"[DEBUG] 認証設定後のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
+                if self.debug:
+                    self.logger.debug("認証ハッシュをリクエストに設定しました")
+            else:
+                print(f"[DEBUG] 認証設定をスキップしました")
+            
             request_time = datetime.now() - request_start
             
             self._debug_print_request(request, area_code)
             
+            # パケット送信直前の最終確認
+            print(f"[DEBUG] 送信直前のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
+            packet_bytes = request.to_bytes()
+            print(f"[DEBUG] 送信パケットサイズ: {len(packet_bytes)} bytes")
+            
             # リクエスト送信
             network_start = datetime.now()
-            sock.sendto(request.to_bytes(), (self.host, self.port))
+            sock.sendto(packet_bytes, (self.host, self.port))
             
             # レスポンス受信（専用クラス使用）
             response_data, server_addr = sock.recvfrom(1024)

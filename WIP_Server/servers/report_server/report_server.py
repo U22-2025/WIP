@@ -69,12 +69,36 @@ class ReportServer(BaseServer):
         # サーバー名を設定
         self.server_name = "ReportServer"
         
+        # 認証設定を初期化
+        self._init_auth_config()
+        
         # プロトコルバージョンを設定から取得（4ビット値に制限）
         version = self.config.getint('system', 'protocol_version', 1)
         self.version = version & 0x0F  # 4ビットにマスク
         
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
+    
+    def _init_auth_config(self):
+        """認証設定を環境変数から読み込み（ReportServer固有）"""
+        # ReportServer自身の認証設定
+        auth_enabled = os.getenv('REPORT_SERVER_AUTH_ENABLED', 'false').lower() == 'true'
+        auth_passphrase = os.getenv('REPORT_SERVER_PASSPHRASE', '')
+        request_auth_enabled = os.getenv('REPORT_SERVER_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
+        
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
+        self.request_auth_enabled = request_auth_enabled
+        
+        if self.debug:
+            print(f"[{self.server_name}] 認証設定:")
+            print(f"  - 認証有効: {self.auth_enabled}")
+            print(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
+            print(f"  - リクエスト認証有効: {self.request_auth_enabled}")
+    
+    def _get_response_auth_config(self):
+        """レスポンス認証設定を取得"""
+        return os.getenv('REPORT_SERVER_RESPONSE_AUTH_ENABLED', 'false').lower() == 'true'
         
         # ストレージ設定
         self.enable_file_logging = True  # ログファイル出力を有効化

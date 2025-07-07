@@ -59,9 +59,15 @@ def _apply_extended_spec(spec: Dict[str, Dict[str, Any]]) -> None:
         _get_id(spec.get("latitude")),
         _get_id(spec.get("longitude")),
     }
-    ExtendedFieldType.STRING_FIELDS = {
-        _get_id(spec.get("source")),
-    }
+    # type: "str" のフィールドを自動的に STRING_FIELDS に追加
+    ExtendedFieldType.STRING_FIELDS = set()
+    for name, info in spec.items():
+        if isinstance(info, dict) and info.get("type") == "str":
+            field_id = _get_id(info)
+            if field_id is not None:
+                # alert と disaster は STRING_LIST_FIELDS として扱う
+                if name not in ["alert", "disaster"]:
+                    ExtendedFieldType.STRING_FIELDS.add(field_id)
 
     ExtendedField.FIELD_MAPPING_STR = {k: _get_id(v) for k, v in spec.items()}
     ExtendedField.FIELD_MAPPING_INT = {v: k for k, v in ExtendedField.FIELD_MAPPING_STR.items() if v is not None}
@@ -447,8 +453,16 @@ class ExtendedField:
         """値部分のビット列をデコード"""
         try:
             value_bytes = value_bits.to_bytes(bytes_length, byteorder='little')
+            
+            # STRING_LIST_FIELDS (alert, disaster)
             if key in ExtendedFieldType.STRING_LIST_FIELDS:
                 return value_bytes.decode('utf-8').rstrip('\x00#')
+                
+            # STRING_FIELDS (auth_hash, source など)
+            if key in ExtendedFieldType.STRING_FIELDS:
+                return value_bytes.decode('utf-8').rstrip('\x00#')
+                
+            # SOURCE フィールドの特別処理（後方互換性のため）
             if key == ExtendedFieldType.SOURCE:
                 value_str = value_bytes.decode('utf-8').rstrip('\x00#')
                 if ':' in value_str:
@@ -458,6 +472,8 @@ class ExtendedField:
                     except ValueError:
                         return value_str
                 return value_str
+                
+            # COORDINATE_FIELDS (latitude, longitude)
             if key in ExtendedFieldType.COORDINATE_FIELDS:
                 if bytes_length == 4:
                     int_value = int.from_bytes(value_bytes, byteorder='little', signed=True)
@@ -467,9 +483,12 @@ class ExtendedField:
                     return float(decoded_str)
                 except (UnicodeDecodeError, ValueError):
                     return int.from_bytes(value_bytes, byteorder='little')
+                    
         except UnicodeDecodeError:
+            # UTF-8デコードに失敗した場合は整数として返す
             return value_bits
 
+        # 未知のフィールドは整数として返す
         return value_bits
     
     @classmethod

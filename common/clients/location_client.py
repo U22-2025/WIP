@@ -45,9 +45,26 @@ class LocationClient:
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
         
+        # 認証設定を初期化
+        self._init_auth_config()
+        
         # キャッシュの初期化
         self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
         self.logger.debug(f"Location client cache initialized with TTL: {cache_ttl_minutes} minutes")
+    
+    def _init_auth_config(self):
+        """認証設定を環境変数から読み込み"""
+        # LocationServer向けの認証設定
+        auth_enabled = os.getenv('LOCATION_SERVER_AUTH_ENABLED', 'false').lower() == 'true'
+        auth_passphrase = os.getenv('LOCATION_SERVER_PASSPHRASE', '')
+        
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
+        
+        if self.debug:
+            self.logger.debug(f"Location client 認証設定:")
+            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
+            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
 
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -178,6 +195,19 @@ class LocationClient:
                 day=day,
                 version=self.VERSION
             )
+            
+            # 認証設定を適用（認証が有効な場合）
+            print(f"[DEBUG] Location client 認証チェック: enabled={self.auth_enabled}, passphrase={'設定済み' if self.auth_passphrase else '未設定'}")
+            if self.auth_enabled and self.auth_passphrase:
+                print(f"[DEBUG] Location client 認証設定を適用します")
+                request.enable_auth(self.auth_passphrase)
+                request.set_auth_flags()
+                print(f"[DEBUG] Location client 認証設定後のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
+                if debug_enabled:
+                    self.logger.debug("認証ハッシュをLocationリクエストに設定しました")
+            else:
+                print(f"[DEBUG] Location client 認証設定をスキップしました")
+            
             request_time = time.time() - request_start
             
             if debug_enabled:

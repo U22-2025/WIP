@@ -474,6 +474,139 @@ class FormatBase:
             
         except Exception:
             return False
+    
+    def enable_auth(self, passphrase: str) -> None:
+        """
+        認証機能を有効にし、パスフレーズを設定
+        
+        Args:
+            passphrase: 認証用パスフレーズ
+        """
+        self._auth_enabled = True
+        self._auth_passphrase = passphrase
+    
+    def verify_auth_from_extended_field(self) -> bool:
+        """
+        拡張フィールドから認証ハッシュを検証
+        
+        Returns:
+            認証成功の場合True、失敗の場合False
+        """
+        # 認証が有効でない場合は常にTrue
+        if not getattr(self, '_auth_enabled', False):
+            print(f"[DEBUG] 認証が無効なため認証をスキップ")
+            return True
+        
+        # パスフレーズが設定されていない場合は失敗
+        passphrase = getattr(self, '_auth_passphrase', None)
+        if not passphrase:
+            print(f"[DEBUG] パスフレーズが未設定のため認証失敗")
+            return False
+        
+        # 拡張フィールドが存在しない場合は失敗
+        if not hasattr(self, 'ex_field') or not self.ex_field:
+            print(f"[DEBUG] 拡張フィールドが存在しないため認証失敗")
+            return False
+        
+        # 認証ハッシュを取得（直接_dataからアクセス）
+        auth_hash_str = self.ex_field._data.get('auth_hash')
+        if not auth_hash_str:
+            print(f"[DEBUG] auth_hashフィールドが存在しないため認証失敗")
+            print(f"[DEBUG] 拡張フィールド内容: {self.ex_field._data}")
+            return False
+        
+        print(f"[DEBUG] 認証検証開始:")
+        print(f"[DEBUG]   - パケットID: {self.packet_id}")
+        print(f"[DEBUG]   - タイムスタンプ: {self.timestamp}")
+        print(f"[DEBUG]   - パスフレーズ: {'設定済み' if passphrase else '未設定'}")
+        print(f"[DEBUG]   - auth_hash型: {type(auth_hash_str)}")
+        print(f"[DEBUG]   - auth_hash値: {auth_hash_str}")
+        
+        # auth_hashは文字列型として定義されているため、文字列として処理
+        if not isinstance(auth_hash_str, str):
+            print(f"[DEBUG] auth_hashが文字列ではありません（型: {type(auth_hash_str)}）")
+            print(f"[DEBUG] extended_fields.jsonの定義に従い、文字列として処理する必要があります")
+            return False
+        
+        print(f"[DEBUG]   - 受信ハッシュ(base64): {auth_hash_str[:20]}...")
+        
+        try:
+            # base64デコードしてバイト列に戻す
+            import base64
+            auth_hash_bytes = base64.b64decode(auth_hash_str.encode('ascii'))
+            print(f"[DEBUG]   - 受信ハッシュ(バイト): {auth_hash_bytes.hex()[:20]}...")
+            
+            # 期待される認証ハッシュを計算
+            expected_hash = WIPAuth.calculate_auth_hash(
+                packet_id=self.packet_id,
+                timestamp=self.timestamp,
+                passphrase=passphrase
+            )
+            print(f"[DEBUG]   - 期待ハッシュ(バイト): {expected_hash.hex()[:20]}...")
+            
+            # WIPAuthを使用して認証ハッシュを検証
+            result = WIPAuth.verify_auth_hash(
+                packet_id=self.packet_id,
+                timestamp=self.timestamp,
+                passphrase=passphrase,
+                received_hash=auth_hash_bytes
+            )
+            print(f"[DEBUG] 認証結果: {'成功' if result else '失敗'}")
+            return result
+        except Exception as e:
+            print(f"[DEBUG] 認証検証エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def set_auth_flags(self) -> None:
+        """
+        レスポンス用の認証フラグを設定
+        認証が有効な場合、拡張フィールドに認証ハッシュを追加
+        """
+        # 認証が有効でない場合は何もしない
+        if not getattr(self, '_auth_enabled', False):
+            return
+        
+        # パスフレーズが設定されていない場合は何もしない
+        passphrase = getattr(self, '_auth_passphrase', None)
+        if not passphrase:
+            return
+        
+        try:
+            # 拡張フィールドが存在しない場合は作成
+            if not hasattr(self, 'ex_field') or not self.ex_field:
+                from ..core.extended_field import ExtendedField
+                self.ex_field = ExtendedField()
+            
+            # 認証ハッシュを計算して設定
+            auth_hash_bytes = WIPAuth.calculate_auth_hash(
+                packet_id=self.packet_id,
+                timestamp=self.timestamp,
+                passphrase=passphrase
+            )
+            # バイト列をbase64エンコードして文字列として保存
+            import base64
+            auth_hash_str = base64.b64encode(auth_hash_bytes).decode('ascii')
+            
+            # 直接_dataに設定（プロパティアクセスの問題を回避）
+            self.ex_field._data['auth_hash'] = auth_hash_str
+            
+            # 変更を通知
+            self.ex_field._notify_observers()
+            
+            # 拡張フィールドフラグを有効に設定
+            self.ex_flag = 1
+            
+            # デバッグ出力
+            print(f"[DEBUG] 認証ハッシュを設定しました: {auth_hash_str[:20]}...")
+            print(f"[DEBUG] 拡張フィールド内容: {self.ex_field._data}")
+            
+        except Exception as e:
+            # エラーの場合はデバッグ出力
+            import traceback
+            print(f"認証ハッシュ設定エラー: {e}")
+            traceback.print_exc()
         
     def as_dict(self) -> Dict[str, Any]:
         """

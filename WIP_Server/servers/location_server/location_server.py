@@ -73,22 +73,29 @@ class LocationServer(BaseServer):
         # サーバー名を設定
         self.server_name = "LocationServer"
         
+        # 認証設定を初期化
+        self._init_auth_config()
+        
         # プロトコルバージョンを設定から取得
         self.version = self.config.getint('system', 'protocol_version', 1)
         
         # データベース接続とキャッシュの初期化
         self._setup_database()
         self._setup_cache(max_cache_size)
+    
+    def _init_auth_config(self):
+        """認証設定を環境変数から読み込み（LocationServer固有）"""
+        # LocationServer自身の認証設定
+        auth_enabled = os.getenv('LOCATION_SERVER_AUTH_ENABLED', 'false').lower() == 'true'
+        auth_passphrase = os.getenv('LOCATION_SERVER_PASSPHRASE', '')
         
-        # Weather server configuration
-        self.weather_host = "127.0.0.1"  # Default to localhost
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
         
         if self.debug:
-            print(f"\n[{self.server_name}] 設定:")
-            print(f"  Server: {host}:{port}")
-            print(f"  Database: {self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}")
-            print(f"  Cache size: {max_cache_size}")
-            print(f"  Protocol Version: {self.version}")
+            print(f"[{self.server_name}] 認証設定:")
+            print(f"  - 認証有効: {self.auth_enabled}")
+            print(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
     
     def _setup_database(self):
         """データベース接続プールを初期化"""
@@ -398,7 +405,6 @@ class LocationServer(BaseServer):
         except:
             pass
         
-        print(f"Weather Server IP: {self.weather_host}")
         print("\nRaw Packet:")
         print(self._hex_dump(response))
         print("============================\n")

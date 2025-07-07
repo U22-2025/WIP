@@ -64,23 +64,34 @@ class QueryServer(BaseServer):
         # サーバー名を設定
         self.server_name = "QueryServer"
         
+        # 認証設定を初期化
+        self._init_auth_config()
+        
         # プロトコルバージョンを設定から取得
         self.version = self.config.getint('system', 'protocol_version', 1)
         
         # 各コンポーネントの初期化
         self._setup_components()
+    
+    def _init_auth_config(self):
+        """認証設定を環境変数から読み込み（QueryServer固有）"""
+        # QueryServer自身の認証設定
+        auth_enabled = os.getenv('QUERY_SERVER_AUTH_ENABLED', 'false').lower() == 'true'
+        auth_passphrase = os.getenv('QUERY_SERVER_PASSPHRASE', '')
+        
+        self.auth_enabled = auth_enabled
+        self.auth_passphrase = auth_passphrase
+        
+        if self.debug:
+            print(f"[{self.server_name}] 認証設定:")
+            print(f"  - 認証有効: {self.auth_enabled}")
+            print(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
         
         # スキップエリアリストを初期化
         self.skip_area = []
 
         # スケジューラーを開始
         self._setup_scheduler()
-
-        if self.debug:
-            print(f"\n[{self.server_name}] 設定:")
-            print(f"  Server: {host}:{port}")
-            print(f"  Protocol Version: {self.version}")
-            print(f"  Max Workers: {max_workers}")
     
     def _setup_components(self):
         """各コンポーネントを初期化"""
