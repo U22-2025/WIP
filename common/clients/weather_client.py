@@ -14,11 +14,12 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from .base import BaseClient
 import traceback
 PIDG = PacketIDGenerator12Bit()
 
 
-class WeatherClient:
+class WeatherClient(BaseClient):
     """Weather Serverと通信するクライアント（専用パケットクラス使用）"""
 
     def __init__(self, host=None, port=None, debug=False):
@@ -34,22 +35,9 @@ class WeatherClient:
             port: Weather Serverのポート
             debug: デバッグモード
         """
-        self.host = host
-        self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.settimeout(10.0)
-        self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
-        self.VERSION = 1
+        super().__init__(host, port, debug=debug, timeout=10.0)
         self.PIDG = PacketIDGenerator12Bit()
         
-    def _hex_dump(self, data):
-        """バイナリデータのhexダンプを作成"""
-        hex_str = ' '.join(f'{b:02x}' for b in data)
-        ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
-        return f"Hex: {hex_str}\nASCII: {ascii_str}"
         
     def _debug_print_request(self, request, request_type):
         """リクエストのデバッグ情報を出力（改良版）"""
@@ -402,7 +390,7 @@ class WeatherClient:
         
     def close(self):
         """ソケットを閉じる"""
-        self.sock.close()
+        super().close()
 
 
 def main():

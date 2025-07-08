@@ -14,18 +14,13 @@ from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from ..utils.cache import Cache
+from .base import BaseClient
 import traceback
 PIDG = PacketIDGenerator12Bit()
 
 
-class QueryClient:
+class QueryClient(BaseClient):
     """Query Serverと通信するクライアント（専用パケットクラス使用）"""
-    
-    def close(self):
-        """クライアントのリソースを解放する"""
-        # 現在の実装ではメソッドごとにsocketを作成・クローズしているため、
-        # このメソッドは空実装とする
-        pass
     
     def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10):
         if host is None:
@@ -41,40 +36,14 @@ class QueryClient:
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
         """
-        self.host = host
-        self.port = port
-        self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
-        self.VERSION = 1
-        
-        # 認証設定を初期化
-        self._init_auth_config()
-        
-        # キャッシュの初期化
+        super().__init__(host, port, debug=debug,
+                         auth_enabled_env='QUERY_GENERATOR_REQUEST_AUTH_ENABLED',
+                         auth_passphrase_env='QUERY_SERVER_PASSPHRASE')
+
         self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
         self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes")
     
-    def _init_auth_config(self):
-        """認証設定を環境変数から読み込み"""
-        # QueryServer向けのリクエスト認証設定
-        auth_enabled = os.getenv('QUERY_GENERATOR_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
-        auth_passphrase = os.getenv('QUERY_SERVER_PASSPHRASE', '')
         
-        self.auth_enabled = auth_enabled
-        self.auth_passphrase = auth_passphrase
-        
-        if self.debug:
-            self.logger.debug(f"Query client 認証設定:")
-            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
-            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
-        
-    def _hex_dump(self, data):
-        """バイナリデータのhexダンプを作成"""
-        hex_str = ' '.join(f'{b:02x}' for b in data)
-        ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
-        return f"Hex: {hex_str}\nASCII: {ascii_str}"
         
     def _debug_print_request(self, request, area_code):
         """リクエストのデバッグ情報を出力（改良版）"""
@@ -160,6 +129,49 @@ class QueryClient:
         flags = f"w{int(weather)}t{int(temperature)}p{int(precipitation_prob)}a{int(alert)}d{int(disaster)}"
         return f"query:{area_code}:{flags}:d{day}"
 
+    def _get_cached_response(self, area_code, weather, temperature, precipitation_prob, alert, disaster, day):
+        cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
+        cached_data = self.cache.get(cache_key)
+        if cached_data:
+            self.logger.debug(f"Cache hit for query: {cache_key}")
+            resp = self._create_cached_response(cached_data, area_code)
+            resp['timing'] = {
+                'request_creation': 0,
+                'network_roundtrip': 0,
+                'response_parsing': 0,
+                'total_time': 0
+            }
+            resp['cache_hit'] = True
+            return resp
+        self.logger.debug(f"Cache miss for query: {cache_key}")
+        return None
+
+    def _create_request(self, area_code, weather, temperature, precipitation_prob, alert, disaster, source, day):
+        request = QueryRequest.create_query_request(
+            area_code=area_code,
+            packet_id=PIDG.next_id(),
+            weather=weather,
+            temperature=temperature,
+            precipitation_prob=precipitation_prob,
+            alert=alert,
+            disaster=disaster,
+            source=source,
+            day=day,
+            version=self.VERSION
+        )
+        if self.auth_enabled and self.auth_passphrase:
+            request.enable_auth(self.auth_passphrase)
+            request.set_auth_flags()
+        return request
+
+    def _send_and_receive(self, request, timeout):
+        self.sock.settimeout(timeout)
+        self.sock.sendto(request.to_bytes(), (self.server_host, self.server_port))
+        return self.sock.recvfrom(1024)
+
+    def _parse_response(self, data):
+        return QueryResponse.from_bytes(data)
+
     def _create_cached_response(self, cached_data, area_code):
         """
         キャッシュされたデータから簡易的なQueryResponseを作成
@@ -204,101 +216,41 @@ class QueryClient:
         Returns:
             dict: 取得した気象データ
         """
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(timeout)
-        
         try:
             start_time = datetime.now()
-            
-            # キャッシュチェック
+
             if use_cache and not force_refresh:
-                cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
-                cached_data = self.cache.get(cache_key)
-                
-                if cached_data:
-                    self.logger.debug(f"Cache hit for query: {cache_key}")
-                    cached_response = self._create_cached_response(cached_data, area_code)
+                cached = self._get_cached_response(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
+                if cached:
                     cache_time = datetime.now() - start_time
-                    cached_response['timing'] = {
-                        'request_creation': 0,
-                        'network_roundtrip': 0,
-                        'response_parsing': 0,
-                        'total_time': cache_time.total_seconds() * 1000
-                    }
-                    cached_response['cache_hit'] = True
-                    return cached_response
-                else:
-                    self.logger.debug(f"Cache miss for query: {cache_key}")
-            
-            # 専用クラスでリクエスト作成（大幅に簡潔になった）
+                    cached['timing']['total_time'] = cache_time.total_seconds() * 1000
+                    return cached
+
             request_start = datetime.now()
-            request = QueryRequest.create_query_request(
-                area_code=area_code,
-                packet_id=PIDG.next_id(),
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alert=alert,
-                disaster=disaster,
-                source=source,
-                day=day,
-                version=self.VERSION
-            )
-            
-            # 認証設定を適用（認証が有効な場合）
-            print(f"[DEBUG] 認証チェック: enabled={self.auth_enabled}, passphrase={'設定済み' if self.auth_passphrase else '未設定'}")
-            if self.auth_enabled and self.auth_passphrase:
-                print(f"[DEBUG] 認証設定を適用します")
-                request.enable_auth(self.auth_passphrase)
-                request.set_auth_flags()
-                print(f"[DEBUG] 認証設定後のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
-                if self.debug:
-                    self.logger.debug("認証ハッシュをリクエストに設定しました")
-            else:
-                print(f"[DEBUG] 認証設定をスキップしました")
-            
+            request = self._create_request(area_code, weather, temperature, precipitation_prob, alert, disaster, source, day)
             request_time = datetime.now() - request_start
-            
+
             self._debug_print_request(request, area_code)
-            
-            # パケット送信直前の最終確認
-            print(f"[DEBUG] 送信直前のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
-            packet_bytes = request.to_bytes()
-            print(f"[DEBUG] 送信パケットサイズ: {len(packet_bytes)} bytes")
-            
-            # リクエスト送信
+
             network_start = datetime.now()
-            sock.sendto(packet_bytes, (self.host, self.port))
-            
-            # レスポンス受信（専用クラス使用）
-            response_data, server_addr = sock.recvfrom(1024)
+            response_data, server_addr = self._send_and_receive(request, timeout)
             network_time = datetime.now() - network_start
-            
-            # レスポンス解析（専用クラス使用）
+
             parse_start = datetime.now()
-            response = QueryResponse.from_bytes(response_data)
+            response = self._parse_response(response_data)
             parse_time = datetime.now() - parse_start
-            
+
             self._debug_print_response(response)
-            
-            # 専用クラスのメソッドで結果を簡単に取得
+
             if response.is_success():
                 result = response.get_weather_data()
-                
-                # レスポンスが有効で、キャッシュ使用が有効な場合はキャッシュに保存
                 if use_cache and result:
                     cache_key = self._get_cache_key(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
-                    # タイミング情報を除いてキャッシュに保存
                     cache_data = {k: v for k, v in result.items() if k != 'timing'}
-                    
-                    # 気温はパケット形式（+100）でキャッシュに保存（設計の一貫性のため）
                     if 'temperature' in cache_data and cache_data['temperature'] is not None:
                         cache_data['temperature'] = cache_data['temperature'] + 100
-                        
                     self.cache.set(cache_key, cache_data)
-                    self.logger.debug(f"Cached query result for: {cache_key} (temperature stored in packet format)")
-                
-                # タイミング情報を追加
+
                 total_time = datetime.now() - start_time
                 result['timing'] = {
                     'request_creation': request_time.total_seconds() * 1000,
@@ -307,7 +259,7 @@ class QueryClient:
                     'total_time': total_time.total_seconds() * 1000
                 }
                 result['cache_hit'] = False
-                
+
                 if self.debug:
                     self.logger.debug("\n=== TIMING INFORMATION ===")
                     self.logger.debug(f"Request creation time: {request_time.total_seconds()*1000:.2f}ms")
@@ -315,12 +267,12 @@ class QueryClient:
                     self.logger.debug(f"Response parsing time: {parse_time.total_seconds()*1000:.2f}ms")
                     self.logger.debug(f"Total operation time: {total_time.total_seconds()*1000:.2f}ms")
                     self.logger.debug("========================\n")
-                
+
                 return result
             else:
                 self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
                 return {'error': 'Query request failed', 'response_type': response.type}
-            
+
         except socket.timeout:
             self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
             return {'error': 'Request timeout', 'timeout': timeout}
@@ -329,8 +281,6 @@ class QueryClient:
                 self.logger.exception("Traceback:")
             self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない: {e}")
             return {'420': str(e)}
-        finally:
-            sock.close()
 
     def get_cache_stats(self):
         """

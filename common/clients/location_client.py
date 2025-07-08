@@ -4,28 +4,28 @@ Location Serverとの通信を行うクライアント（サーバー間通信�
 """
 
 import json
-import socket
 import struct
 import time
-from datetime import datetime, timedelta
-from dotenv import load_dotenv
 import os
 import logging
+import socket
+from dotenv import load_dotenv
+
 from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from ..utils.cache import Cache
+from ..utils.file_cache import PersistentCache
+from .base import BaseClient
+
 import traceback
 import sys
-import os
 
 # PersistentCacheを使用するためのパス追加
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
-from ..utils.file_cache import PersistentCache
 
 PIDG = PacketIDGenerator12Bit()
 load_dotenv()
 
-class LocationClient:
+class LocationClient(BaseClient):
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
 
     def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30):
@@ -33,52 +33,16 @@ class LocationClient:
             host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
         if port is None:
             port = int(os.getenv('LOCATION_RESOLVER_PORT', '4111'))
-        """
-        初期化
-        
-        Args:
-            host: Location Serverのホスト
-            port: Location Serverのポート
-            debug: デバッグモード
-            cache_ttl_minutes: キャッシュの有効期限（分）
-        """
-        self.server_host = host
-        self.server_port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
-        self.VERSION = 1
-        
-        # 認証設定を初期化
-        self._init_auth_config()
-        
-        # 永続キャッシュの初期化
+
+        super().__init__(host, port, debug=debug,
+                         auth_enabled_env='LOCATION_RESOLVER_REQUEST_AUTH_ENABLED',
+                         auth_passphrase_env='LOCATION_SERVER_PASSPHRASE')
+
         cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'coordinate_cache.json')
         self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60)
         self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes")
         self.logger.debug(f"Cache file location: {cache_file}")
     
-    def _init_auth_config(self):
-        """認証設定を環境変数から読み込み"""
-        # LocationServer向けのリクエスト認証設定
-        auth_enabled = os.getenv('LOCATION_RESOLVER_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
-        auth_passphrase = os.getenv('LOCATION_SERVER_PASSPHRASE', '')
-        
-        self.auth_enabled = auth_enabled
-        self.auth_passphrase = auth_passphrase
-        
-        if self.debug:
-            self.logger.debug(f"Location client 認証設定:")
-            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
-            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
-
-    def _hex_dump(self, data):
-        """バイナリデータのhexダンプを作成"""
-        hex_str = ' '.join(f'{b:02x}' for b in data)
-        ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
-        return f"Hex: {hex_str}\nASCII: {ascii_str}"
 
     def _debug_print_request(self, request):
         """リクエストのデバッグ情報を出力（改良版）"""
@@ -141,6 +105,46 @@ class LocationClient:
         rounded_lon = round(longitude, 4)
         return f"coord:{rounded_lat},{rounded_lon}"
 
+    def _get_cached_response(self, latitude, longitude):
+        cache_key = self._get_cache_key(latitude, longitude)
+        cached_area_code = self.cache.get(cache_key)
+        if cached_area_code:
+            self.logger.debug(
+                f"Cache hit for coordinates ({latitude}, {longitude}): {cached_area_code}")
+            resp = self._create_cached_response(cached_area_code, latitude, longitude)
+            resp.cache_hit = True
+            return resp
+        self.logger.debug(f"Cache miss for coordinates ({latitude}, {longitude})")
+        return None
+
+    def _create_request(self, latitude, longitude, source, weather, temperature,
+                        precipitation_prob, alert, disaster, day):
+        request = LocationRequest.create_coordinate_lookup(
+            latitude=latitude,
+            longitude=longitude,
+            packet_id=PIDG.next_id(),
+            weather=weather,
+            temperature=temperature,
+            precipitation_prob=precipitation_prob,
+            alert=alert,
+            disaster=disaster,
+            source=source,
+            day=day,
+            version=self.VERSION
+        )
+        if self.auth_enabled and self.auth_passphrase:
+            request.enable_auth(self.auth_passphrase)
+            request.set_auth_flags()
+        return request
+
+    def _send_and_receive(self, request):
+        self.sock.sendto(request.to_bytes(), (self.server_host, self.server_port))
+        data, addr = self.sock.recvfrom(1024)
+        return data, addr
+
+    def _parse_response(self, data):
+        return LocationResponse.from_bytes(data)
+
     def get_location_data(self, latitude, longitude, source=None, use_cache=True,
                          enable_debug=None, weather=True, temperature=True,
                          precipitation_prob=True, alert=False, disaster=False,
@@ -168,102 +172,51 @@ class LocationClient:
         """
         try:
             start_time = time.time()
-            
-            # デバッグフラグの決定
             debug_enabled = enable_debug if enable_debug is not None else self.debug
-            
-            # キャッシュチェック（タイプ0の座標解決リクエストのみ）
-            if use_cache and not force_refresh:
-                cache_key = self._get_cache_key(latitude, longitude)
-                cached_area_code = self.cache.get(cache_key)
-                
-                if cached_area_code:
-                    self.logger.debug(f"Cache hit for coordinates ({latitude}, {longitude}): {cached_area_code}")
-                    # キャッシュから取得したエリアコードでLocationResponseを作成
-                    # 実際のLocationResponseと同じ形式で返すため、簡易的なレスポンスオブジェクトを作成
-                    cached_response = self._create_cached_response(cached_area_code, latitude, longitude)
-                    cached_response.cache_hit = True
-                    cache_time = time.time() - start_time
-                    return cached_response, cache_time
-                else:
-                    self.logger.debug(f"Cache miss for coordinates ({latitude}, {longitude})")
 
-            # 専用クラスでリクエスト作成（大幅に簡潔になった）
+            if use_cache and not force_refresh:
+                cached = self._get_cached_response(latitude, longitude)
+                if cached:
+                    return cached, time.time() - start_time
+
             request_start = time.time()
-            request = LocationRequest.create_coordinate_lookup(
-                latitude=latitude,
-                longitude=longitude,
-                packet_id=PIDG.next_id(),
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alert=alert,
-                disaster=disaster,
-                source=source,
-                day=day,
-                version=self.VERSION
-            )
-            
-            # 認証設定を適用（認証が有効な場合）
-            print(f"[DEBUG] Location client 認証チェック: enabled={self.auth_enabled}, passphrase={'設定済み' if self.auth_passphrase else '未設定'}")
-            if self.auth_enabled and self.auth_passphrase:
-                print(f"[DEBUG] Location client 認証設定を適用します")
-                request.enable_auth(self.auth_passphrase)
-                request.set_auth_flags()
-                print(f"[DEBUG] Location client 認証設定後のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
-                if debug_enabled:
-                    self.logger.debug("認証ハッシュをLocationリクエストに設定しました")
-            else:
-                print(f"[DEBUG] Location client 認証設定をスキップしました")
-            
+            request = self._create_request(latitude, longitude, source, weather,
+                                           temperature, precipitation_prob, alert,
+                                           disaster, day)
             request_time = time.time() - request_start
-            
+
             if debug_enabled:
                 self._debug_print_request(request)
 
-            # リクエスト送信とレスポンス受信
             network_start = time.time()
-            self.sock.sendto(request.to_bytes(), (self.server_host, self.server_port))
-            self.logger.debug(f"Sent request to {self.server_host}:{self.server_port}")
-
-            data, addr = self.sock.recvfrom(1024)
+            data, addr = self._send_and_receive(request)
             network_time = time.time() - network_start
             self.logger.debug(f"Received response from {addr}")
 
-            # 専用クラスでレスポンス解析
             parse_start = time.time()
-            response = LocationResponse.from_bytes(data)
+            response = self._parse_response(data)
             parse_time = time.time() - parse_start
-            
+
             if debug_enabled:
                 self._debug_print_response(response)
 
-            # レスポンス検証
             if validate_response and response and not response.is_valid():
                 self.logger.warning("Response validation failed")
-                if debug_enabled:
-                    self.logger.debug(f"Invalid response details: {response.get_response_summary()}")
-            
-            # レスポンスが有効で、キャッシュ使用が有効な場合はキャッシュに保存
+
             if use_cache and response and response.is_valid():
                 area_code = response.get_area_code()
                 if area_code:
-                    cache_key = self._get_cache_key(latitude, longitude)
-                    self.cache.set(cache_key, area_code)
-                    self.logger.debug(f"Cached area code for coordinates ({latitude}, {longitude}): {area_code}")
+                    self.cache.set(self._get_cache_key(latitude, longitude), area_code)
 
             total_time = time.time() - start_time
-
             if debug_enabled:
                 self.logger.debug("\n=== TIMING INFORMATION ===")
                 self.logger.debug(f"Request creation time: {request_time*1000:.2f}ms")
-                self.logger.debug(f"Request send time: {(network_start - request_start)*1000:.2f}ms")
                 self.logger.debug(f"Network round-trip time: {network_time*1000:.2f}ms")
                 self.logger.debug(f"Response parsing time: {parse_time*1000:.2f}ms")
                 self.logger.debug(f"Total processing time: {total_time*1000:.2f}ms")
                 self.logger.debug("========================\n")
 
-            # サーバーからのレスポンスの場合はcache_hitをFalseに設定
             if response:
                 response.cache_hit = False
             return response, total_time
@@ -419,9 +372,6 @@ class LocationClient:
         self.cache.clear()
         self.logger.debug("Location client cache cleared")
 
-    def close(self):
-        """ソケットを閉じる"""
-        self.sock.close()
 
 
 def main():

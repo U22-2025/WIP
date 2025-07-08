@@ -15,9 +15,10 @@ from typing import Optional, Dict, Any, Union, List
 from ..packet.types.report_packet import ReportRequest, ReportResponse
 from ..packet.types.error_response import ErrorResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
+from .base import BaseClient
 
 
-class ReportClient:
+class ReportClient(BaseClient):
     """IoT機器からのセンサーデータレポート送信用クライアント"""
 
     def __init__(self, host='localhost', port=4110, debug=False):
@@ -29,19 +30,12 @@ class ReportClient:
             port: 天気サーバーのポート
             debug: デバッグモード
         """
-        self.host = host
-        self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.settimeout(10.0)
-        self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
-        self.VERSION = 1
+        super().__init__(host, port, debug=debug, timeout=10.0,
+                         auth_enabled_env='REPORT_SERVER_REQUEST_AUTH_ENABLED',
+                         auth_passphrase_env='REPORT_SERVER_PASSPHRASE')
         self.PIDG = PacketIDGenerator12Bit()
 
         # 認証設定を初期化
-        self._init_auth_config()
 
         # 収集データをメンバ変数として保持
         self.area_code: Optional[Union[str, int]] = None
@@ -51,19 +45,6 @@ class ReportClient:
         self.alert: Optional[List[str]] = None
         self.disaster: Optional[List[str]] = None
 
-    def _init_auth_config(self):
-        """認証設定を環境変数から読み込み"""
-        # ReportServer向けのリクエスト認証設定
-        auth_enabled = os.getenv('REPORT_SERVER_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
-        auth_passphrase = os.getenv('REPORT_SERVER_PASSPHRASE', '')
-        
-        self.auth_enabled = auth_enabled
-        self.auth_passphrase = auth_passphrase
-        
-        if self.debug:
-            self.logger.debug(f"Report client 認証設定:")
-            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
-            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
 
     def set_sensor_data(self, area_code: Union[str, int],
                        weather_code: Optional[int] = None,
@@ -210,7 +191,7 @@ class ReportClient:
                 print(f"[DEBUG] Report client 認証設定をスキップしました")
 
             self._debug_print_request(request)
-            self.sock.sendto(request.to_bytes(), (self.host, self.port))
+            self.sock.sendto(request.to_bytes(), (self.server_host, self.server_port))
             response_data, _ = self.sock.recvfrom(1024)
 
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
@@ -294,7 +275,7 @@ class ReportClient:
 
     def close(self):
         """ソケットを閉じる"""
-        self.sock.close()
+        super().close()
 
     # 後方互換性のためのエイリアスメソッド
     def send_report(self) -> Optional[Dict[str, Any]]:
