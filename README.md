@@ -289,6 +289,13 @@ python debug_tools/individual/debug_extended_field.py
 python debug_tools/individual/debug_encoding_step_by_step.py
 ```
 
+#### 実行方法
+`common/utils/debug.py` を利用する場合は、プロジェクトルートを `PYTHONPATH` に追加して実行します。
+
+```bash
+PYTHONPATH=. python common/utils/debug.py full
+```
+
 ### テスト実行
 ```bash
 # API性能テスト

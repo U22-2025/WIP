@@ -1,11 +1,12 @@
 import threading
 from datetime import datetime, timedelta
 
+
 class Cache:
     def __init__(self, default_ttl: timedelta = timedelta(minutes=30)):
         """
         汎用キャッシュクラス
-        
+
         :param default_ttl: デフォルトの有効期限（デフォルト30分）
         """
         self._cache = {}
@@ -15,7 +16,7 @@ class Cache:
     def set(self, key: str, value: any, ttl: timedelta = None) -> None:
         """
         キャッシュにデータを設定
-        
+
         :param key: キャッシュキー
         :param value: キャッシュ値
         :param ttl: 有効期限（Noneの場合はデフォルト値を使用）
@@ -27,7 +28,7 @@ class Cache:
     def get(self, key: str) -> any:
         """
         キャッシュからデータを取得
-        
+
         :param key: キャッシュキー
         :return: キャッシュ値（有効期限切れまたは存在しない場合はNone）
         """
@@ -35,7 +36,7 @@ class Cache:
             item = self._cache.get(key)
             if not item:
                 return None
-                
+
             value, expire = item
             if datetime.now() > expire:
                 del self._cache[key]
@@ -45,7 +46,7 @@ class Cache:
     def delete(self, key: str) -> None:
         """
         キャッシュからデータを削除
-        
+
         :param key: キャッシュキー
         """
         with self._lock:
