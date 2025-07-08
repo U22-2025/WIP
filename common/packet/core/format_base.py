@@ -492,54 +492,29 @@ class FormatBase:
         """
         # 認証が有効でない場合は常にTrue
         if not getattr(self, '_auth_enabled', False):
-            print(f"[DEBUG] 認証が無効なため認証をスキップ")
             return True
         
         # パスフレーズが設定されていない場合は失敗
         passphrase = getattr(self, '_auth_passphrase', None)
         if not passphrase:
-            print(f"[DEBUG] パスフレーズが未設定のため認証失敗")
             return False
         
         # 拡張フィールドが存在しない場合は失敗
         if not hasattr(self, 'ex_field') or not self.ex_field:
-            print(f"[DEBUG] 拡張フィールドが存在しないため認証失敗")
             return False
         
         # 認証ハッシュを取得（直接_dataからアクセス）
         auth_hash_str = self.ex_field._data.get('auth_hash')
         if not auth_hash_str:
-            print(f"[DEBUG] auth_hashフィールドが存在しないため認証失敗")
-            print(f"[DEBUG] 拡張フィールド内容: {self.ex_field._data}")
             return False
-        
-        print(f"[DEBUG] 認証検証開始:")
-        print(f"[DEBUG]   - パケットID: {self.packet_id}")
-        print(f"[DEBUG]   - タイムスタンプ: {self.timestamp}")
-        print(f"[DEBUG]   - パスフレーズ: {'設定済み' if passphrase else '未設定'}")
-        print(f"[DEBUG]   - auth_hash型: {type(auth_hash_str)}")
-        print(f"[DEBUG]   - auth_hash値: {auth_hash_str}")
         
         # auth_hashは文字列型として定義されているため、文字列として処理
         if not isinstance(auth_hash_str, str):
-            print(f"[DEBUG] auth_hashが文字列ではありません（型: {type(auth_hash_str)}）")
-            print(f"[DEBUG] extended_fields.jsonの定義に従い、文字列として処理する必要があります")
             return False
-        
-        print(f"[DEBUG]   - 受信ハッシュ(hex): {auth_hash_str[:20]}...")
         
         try:
             # hex文字列をバイト列に変換
             auth_hash_bytes = bytes.fromhex(auth_hash_str)
-            print(f"[DEBUG]   - 受信ハッシュ(バイト): {auth_hash_bytes.hex()[:20]}...")
-            
-            # 期待される認証ハッシュを計算
-            expected_hash = WIPAuth.calculate_auth_hash(
-                packet_id=self.packet_id,
-                timestamp=self.timestamp,
-                passphrase=passphrase
-            )
-            print(f"[DEBUG]   - 期待ハッシュ(バイト): {expected_hash.hex()[:20]}...")
             
             # WIPAuthを使用して認証ハッシュを検証
             result = WIPAuth.verify_auth_hash(
@@ -548,12 +523,8 @@ class FormatBase:
                 passphrase=passphrase,
                 received_hash=auth_hash_bytes
             )
-            print(f"[DEBUG] 認証結果: {'成功' if result else '失敗'}")
             return result
-        except Exception as e:
-            print(f"[DEBUG] 認証検証エラー: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
             return False
     
     def set_auth_flags(self) -> None:
@@ -594,15 +565,9 @@ class FormatBase:
             # 拡張フィールドフラグを有効に設定
             self.ex_flag = 1
             
-            # デバッグ出力
-            print(f"[DEBUG] 認証ハッシュを設定しました: {auth_hash_str[:20]}...")
-            print(f"[DEBUG] 拡張フィールド内容: {self.ex_field._data}")
-            
-        except Exception as e:
-            # エラーの場合はデバッグ出力
-            import traceback
-            print(f"認証ハッシュ設定エラー: {e}")
-            traceback.print_exc()
+        except Exception:
+            # エラーの場合は静かに失敗
+            pass
         
     def as_dict(self) -> Dict[str, Any]:
         """

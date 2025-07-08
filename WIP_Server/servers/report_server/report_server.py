@@ -82,11 +82,6 @@ class ReportServer(BaseServer):
         self.auth_passphrase = auth_passphrase
         self.request_auth_enabled = request_auth_enabled
         
-        if self.debug:
-            print(f"[{self.server_name}] 認証設定:")
-            print(f"  - 認証有効: {self.auth_enabled}")
-            print(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
-            print(f"  - リクエスト認証有効: {self.request_auth_enabled}")
     
     def _get_response_auth_config(self):
         """レスポンス認証設定を取得"""
@@ -510,8 +505,6 @@ class ReportServer(BaseServer):
         sensor_data = self._extract_sensor_data(parsed)
         print(f"\nSensor Data: {sensor_data}")
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(data))
         print("========================\n")
     
     def get_statistics(self):

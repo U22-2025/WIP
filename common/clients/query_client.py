@@ -9,6 +9,7 @@ import os
 import logging
 from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
+from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from ..utils.cache import Cache
 PIDG = PacketIDGenerator12Bit()
@@ -43,6 +44,7 @@ class QueryClient:
         logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
+        self.debug_logger = create_debug_logger(__name__, debug)
         self.VERSION = 1
         
         # 認証設定を初期化
@@ -61,80 +63,6 @@ class QueryClient:
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
         
-        if self.debug:
-            self.logger.debug(f"Query client 認証設定:")
-            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
-            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
-        
-    def _hex_dump(self, data):
-        """バイナリデータのhexダンプを作成"""
-        hex_str = ' '.join(f'{b:02x}' for b in data)
-        ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
-        return f"Hex: {hex_str}\nASCII: {ascii_str}"
-        
-    def _debug_print_request(self, request, area_code):
-        """リクエストのデバッグ情報を出力（改良版）"""
-
-        self.logger.debug("\n=== SENDING QUERY REQUEST PACKET ===")
-        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
-        self.logger.debug(f"Area Code: {area_code}")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(request, 'get_requested_data_types'):
-            requested_data = request.get_requested_data_types()
-            self.logger.debug(f"Requested Data: {requested_data}")
-            
-        if hasattr(request, 'get_source_info'):
-            source = request.get_source_info()
-            self.logger.debug(f"Source: {source}")
-        
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(request.to_bytes()))
-        self.logger.debug("============================\n")
-        
-    def _debug_print_response(self, response):
-        """レスポンスのデバッグ情報を出力（改良版）"""
-            
-        self.logger.debug("\n=== RECEIVED QUERY RESPONSE PACKET ===")
-        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(response, 'get_response_summary'):
-            summary = response.get_response_summary()
-            self.logger.debug(f"\nResponse Summary: {summary}")
-            
-        if hasattr(response, 'is_success'):
-            self.logger.debug(f"Success: {response.is_success()}")
-            
-        # 気象データの詳細
-        if hasattr(response, 'get_weather_code'):
-            weather_code = response.get_weather_code()
-            if weather_code is not None:
-                self.logger.debug(f"Weather Code: {weather_code}")
-                
-        if hasattr(response, 'get_temperature'):
-            temp = response.get_temperature()
-            if temp is not None:
-                self.logger.debug(f"Temperature: {temp}℃")
-                
-        if hasattr(response, 'get_precipitation_prob'):
-            pop = response.get_precipitation_prob()
-            if pop is not None:
-                self.logger.debug(f"Precipitation: {pop}%")
-                
-        if hasattr(response, 'get_alert'):
-            alert = response.get_alert()
-            if alert:
-                self.logger.debug(f"Alert: {alert}")
-                
-        if hasattr(response, 'get_disaster_info'):
-            disaster = response.get_disaster_info()
-            if disaster:
-                self.logger.debug(f"Disaster Info: {disaster}")
-        
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(response.to_bytes()))
-        self.logger.debug("==============================\n")
 
     def _get_cache_key(self, area_code, weather, temperature, precipitation_prob, alert, disaster, day=0):
         """
@@ -212,7 +140,7 @@ class QueryClient:
                 cached_data = self.cache.get(cache_key)
                 
                 if cached_data:
-                    self.logger.debug(f"Cache hit for query: {cache_key}")
+                    self.debug_logger.log_cache_operation("hit", cache_key, True)
                     cached_response = self._create_cached_response(cached_data, area_code)
                     cache_time = datetime.now() - start_time
                     cached_response['timing'] = {
@@ -222,9 +150,13 @@ class QueryClient:
                         'total_time': cache_time.total_seconds() * 1000
                     }
                     cached_response['cache_hit'] = True
+                    self.debug_logger.log_timing("QUERY OPERATION (CACHE)", {
+                        'total_time': cache_time.total_seconds() * 1000,
+                        'cache_hit': True
+                    })
                     return cached_response
                 else:
-                    self.logger.debug(f"Cache miss for query: {cache_key}")
+                    self.debug_logger.log_cache_operation("miss", cache_key, False)
             
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request_start = datetime.now()
@@ -242,27 +174,16 @@ class QueryClient:
             )
             
             # 認証設定を適用（認証が有効な場合）
-            print(f"[DEBUG] 認証チェック: enabled={self.auth_enabled}, passphrase={'設定済み' if self.auth_passphrase else '未設定'}")
             if self.auth_enabled and self.auth_passphrase:
-                print(f"[DEBUG] 認証設定を適用します")
                 request.enable_auth(self.auth_passphrase)
                 request.set_auth_flags()
-                print(f"[DEBUG] 認証設定後のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
-                if self.debug:
-                    self.logger.debug("認証ハッシュをリクエストに設定しました")
-            else:
-                print(f"[DEBUG] 認証設定をスキップしました")
             
             request_time = datetime.now() - request_start
             
-            self._debug_print_request(request, area_code)
-            
-            # パケット送信直前の最終確認
-            print(f"[DEBUG] 送信直前のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
-            packet_bytes = request.to_bytes()
-            print(f"[DEBUG] 送信パケットサイズ: {len(packet_bytes)} bytes")
+            self.debug_logger.log_request(request, "QUERY REQUEST")
             
             # リクエスト送信
+            packet_bytes = request.to_bytes()
             network_start = datetime.now()
             sock.sendto(packet_bytes, (self.host, self.port))
             
@@ -275,7 +196,7 @@ class QueryClient:
             response = QueryResponse.from_bytes(response_data)
             parse_time = datetime.now() - parse_start
             
-            self._debug_print_response(response)
+            self.debug_logger.log_response(response, "QUERY RESPONSE")
             
             # 専用クラスのメソッドで結果を簡単に取得
             if response.is_success():
@@ -292,7 +213,7 @@ class QueryClient:
                         cache_data['temperature'] = cache_data['temperature'] + 100
                         
                     self.cache.set(cache_key, cache_data)
-                    self.logger.debug(f"Cached query result for: {cache_key} (temperature stored in packet format)")
+                    self.debug_logger.log_cache_operation("set", cache_key)
                 
                 # タイミング情報を追加
                 total_time = datetime.now() - start_time
@@ -304,13 +225,13 @@ class QueryClient:
                 }
                 result['cache_hit'] = False
                 
-                if self.debug:
-                    self.logger.debug("\n=== TIMING INFORMATION ===")
-                    self.logger.debug(f"Request creation time: {request_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Network round-trip time: {network_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Response parsing time: {parse_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug(f"Total operation time: {total_time.total_seconds()*1000:.2f}ms")
-                    self.logger.debug("========================\n")
+                self.debug_logger.log_timing("QUERY OPERATION", {
+                    'request_creation': request_time.total_seconds() * 1000,
+                    'network_roundtrip': network_time.total_seconds() * 1000,
+                    'response_parsing': parse_time.total_seconds() * 1000,
+                    'total_time': total_time.total_seconds() * 1000,
+                    'cache_hit': False
+                })
                 
                 return result
             else:
@@ -495,15 +416,7 @@ def main():
     )
     
     if 'error' not in result:
-        logger.info("✓ Request successful!")
-        logger.info(f"Area Code: {result.get('area_code')}")
-        logger.info(f"Weather Code: {result.get('weather_code')}")
-        logger.info(f"Temperature: {result.get('temperature')}°C")
-        logger.info(f"precipitation_prob: {result.get('precipitation_prob')}%")
-        if result.get('alert'):
-            logger.info(f"Alert: {result.get('alert')}")
-        if result.get('disaster'):
-            logger.info(f"Disaster Info: {result.get('disaster')}")
+        client.debug_logger.log_success_result(result, "SINGLE REQUEST")
     else:
         logger.error(f"✗ Request failed: {result['error']}")
     
@@ -517,11 +430,7 @@ def main():
     )
     
     if 'error' not in simple_result:
-        logger.info("✓ Simple request successful!")
-        logger.info(f"Area Code: {simple_result.get('area_code')}")
-        logger.info(f"Weather Code: {simple_result.get('weather_code')}")
-        logger.info(f"Temperature: {simple_result.get('temperature')}°C")
-        logger.info(f"precipitation_prob: {simple_result.get('precipitation_prob')}%")
+        client.debug_logger.log_success_result(simple_result, "SIMPLE REQUEST")
     else:
         logger.error(f"✗ Simple request failed: {simple_result['error']}")
     

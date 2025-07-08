@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # コマンドライン引数解析
 use_coordinates = "--coord" in sys.argv
 use_proxy = "--proxy" in sys.argv
+debug_enabled = "--debug" in sys.argv
 
 import time
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
@@ -12,13 +13,13 @@ from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 if use_proxy:
     # Weather Server経由（プロキシモード）
     from common.clients.weather_client import WeatherClient
-    from common.packet import LocationRequest, QueryRequest
+    from common.packet import LocationRequest
     PIDG = PacketIDGenerator12Bit()
 else:
     # 直接通信
     from common.clients.location_client import LocationClient
     from common.clients.query_client import QueryClient
-    from common.packet import LocationRequest, QueryRequest
+    from common.packet import LocationRequest
     PIDG = PacketIDGenerator12Bit()
 
 """メイン関数 - 直接通信 vs プロキシ経由の比較テスト"""
@@ -34,7 +35,8 @@ if use_coordinates:
         print("\n1. Coordinate-based request via Weather Server (Proxy)")
         print("-" * 50)
         
-        client = WeatherClient(debug=True)
+        start_time = time.time()
+        client = WeatherClient(debug=debug_enabled)
         
         # LocationRequestを作成して実行
         request = LocationRequest.create_coordinate_lookup(
@@ -52,7 +54,8 @@ if use_coordinates:
         result = client._execute_location_request(request)
         
         if result:
-            print("\n✓ Request successful via Weather Server!")
+            elapsed_time = time.time() - start_time
+            print(f"\n✓ Request successful via Weather Server! (Execution time: {elapsed_time:.3f}s)")
             print("=== Received packet content ===")
             for key, value in result.items():
                 print(f"  {key}: {value}")
@@ -65,8 +68,9 @@ if use_coordinates:
         print("\n1. Direct coordinate-based request (LocationClient + QueryClient)")
         print("-" * 65)
         
+        start_time = time.time()
         # Step 1: LocationClientで座標からエリアコードを取得
-        location_client = LocationClient(debug=True, cache_ttl_minutes=60)  # キャッシュ有効期限を60分に設定
+        location_client = LocationClient(debug=debug_enabled, cache_ttl_minutes=60)  # キャッシュ有効期限を60分に設定
         
         location_request = LocationRequest.create_coordinate_lookup(
             latitude=35.6895,
@@ -78,7 +82,6 @@ if use_coordinates:
         print("Step 1: Getting area code from coordinates...")
         cache_stats = location_client.get_cache_stats()
         print(f"Cache stats before request: {cache_stats}")
-        print(f"Using persistent cache file: {cache_stats.get('cache_file', 'N/A')}")
         
         # キャッシュ情報も取得
         area_code_with_cache_info = location_client.get_area_code_simple(
@@ -127,7 +130,7 @@ if use_coordinates:
             
             # Step 2: QueryClientで天気データを取得
             print("\nStep 2: Getting weather data...")
-            query_client = QueryClient(debug=True)
+            query_client = QueryClient(debug=debug_enabled)
             
             weather_result = query_client.get_weather_data(
                 area_code=area_code,
@@ -139,7 +142,8 @@ if use_coordinates:
             )
             
             if weather_result:
-                print("\n✓ Direct request successful!")
+                elapsed_time = time.time() - start_time
+                print(f"\n✓ Direct request successful! (Execution time: {elapsed_time:.3f}s)")
                 print("=== Received weather data ===")
                 # 座標情報を追加
                 weather_result['latitude'] = 35.6895
@@ -159,7 +163,8 @@ else:
         print("\n1. Area code request via Weather Server (Proxy)")
         print("-" * 45)
         
-        client = WeatherClient(debug=True)
+        start_time = time.time()
+        client = WeatherClient(debug=debug_enabled)
         result = client.get_weather_data(
             area_code=460010,
             weather=True,
@@ -170,7 +175,8 @@ else:
         )
         
         if result:
-            print("\n✓ Success via Weather Server!")
+            elapsed_time = (time.time() - start_time)*1000
+            print(f"\n✓ Success via Weather Server! (Execution time: {elapsed_time:.3f}ms)")
             if 'area_code' in result:
                 print(f"Area Code: {result['area_code']}")
             elif 'error_code' in result:
@@ -195,7 +201,8 @@ else:
         print("\n1. Direct area code request (QueryClient)")
         print("-" * 40)
         
-        query_client = QueryClient(debug=True)
+        start_time = time.time()
+        query_client = QueryClient(debug=debug_enabled)
         result = query_client.get_weather_data(
             area_code=460010,
             weather=True,
@@ -206,7 +213,8 @@ else:
         )
 
         if result:
-            print("\n✓ Direct request successful!")
+            elapsed_time = time.time() - start_time
+            print(f"\n✓ Direct request successful! (Execution time: {elapsed_time:.3f}s)")
             print("=== Received weather data ===")
             if 'area_code' in result:
                 print(f"Area Code: {result['area_code']}")
@@ -227,12 +235,3 @@ else:
             print("==============================")
         else:
             print("\n✗ Failed to get weather data")
-
-# === 使用方法の表示 ===
-# print("\n" + "=" * 60)
-# print("Usage:")
-# print("  python client.py                     # エリアコード指定（直接QueryServer）")
-# print("  python client.py --coord             # 座標指定（直接LocationServer+QueryServer）")
-# print("  python client.py --proxy             # エリアコード指定（WeatherServer経由）")
-# print("  python client.py --coord --proxy     # 座標指定（WeatherServer経由）")
-# print("=" * 60)

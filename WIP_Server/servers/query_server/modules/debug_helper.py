@@ -49,8 +49,6 @@ class DebugHelper:
         print(f"Total Length: {len(data)} bytes")
         print("\nCoordinates:")
         print(f"{parsed_request.ex_field}")
-        print("\nRaw Packet:")
-        print(self._hex_dump(data))
         print("===========================\n")
     
     def print_response_debug(self, response_data):
@@ -66,8 +64,6 @@ class DebugHelper:
         print(f"\n{DebugConstants.RESPONSE_SEPARATOR}")
         print(f"Total Length: {len(response_data)} bytes")
         print(f"Response : {response_data}")
-        print("\nRaw Packet:")
-        print(self._hex_dump(response_data))
         print("============================\n")
     
     def print_timing_info(self, thread_id, addr, timing_data):

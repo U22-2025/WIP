@@ -82,10 +82,6 @@ class QueryServer(BaseServer):
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
         
-        if self.debug:
-            print(f"[{self.server_name}] 認証設定:")
-            print(f"  - 認証有効: {self.auth_enabled}")
-            print(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
         
         # スキップエリアリストを初期化
         self.skip_area = []
@@ -198,13 +194,6 @@ class QueryServer(BaseServer):
 
         try:
             # デバッグ：リクエストの状態を確認
-            if self.debug:
-                print(f"\n[{self.server_name}] リクエストに対するレスポンスを作成中:")
-                print(f"  Area code: {request.area_code}")
-                print(f"  ex_flag: {request.ex_flag}")
-                print(f"  Source info: {request.get_source_info()}")
-                coords = request.get_coordinates() if hasattr(request, 'get_coordinates') else None
-                print(f"  Coordinates: {coords}")
             
             # 気象データを取得
             weather_data = self.weather_manager.get_weather_data(
@@ -248,12 +237,6 @@ class QueryServer(BaseServer):
             return error_response.to_bytes()
         
         # 最終確認
-        if self.debug:
-            print(f"[{self.server_name}] 最終レスポンス状態:")
-            print(f"  ex_flag: {response.ex_flag}")
-            print(f"  Source info: {response.get_source_info()}")
-            if hasattr(response, 'ex_field') and response.ex_field:
-                print(f"  ex_field: {response.ex_field.to_dict() if hasattr(response.ex_field, 'to_dict') else response.ex_field}")
         
         return response.to_bytes()
     
@@ -285,8 +268,6 @@ class QueryServer(BaseServer):
         else:
             print("\nパースされたリクエストに ex_field 属性がありません！")
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(data))
         print("===========================\n")
     
     def _debug_print_response(self, response, request=None):
@@ -315,8 +296,6 @@ class QueryServer(BaseServer):
         except:
             pass
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(response))
         print("============================\n")
     
     def _cleanup(self):

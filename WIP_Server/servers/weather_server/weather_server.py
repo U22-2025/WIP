@@ -24,6 +24,7 @@ from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
+from common.packet.debug.debug_logger import create_debug_logger
 
 
 class WeatherServer(WeatherRequestHandlers, BaseServer):
@@ -64,7 +65,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
         super().__init__(host, port, debug, max_workers)
         
         # サーバー名を設定
-        self.server_name = "WeatherServer (Enhanced)"
+        self.server_name = "WeatherServer"
         
         # プロトコルバージョンを設定から取得（4ビット値に制限）
         version = self.config.getint('system', 'protocol_version', 1)
@@ -129,10 +130,9 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             'report_server': os.getenv('REPORT_SERVER_PASSPHRASE', 'secure')
         }
         
-        if self.debug:
-            print(f"[{self.server_name}] 認証設定: {'有効' if self.auth_enabled else '無効'}")
-            if self.auth_enabled:
-                print(f"[{self.server_name}] パスフレーズを読み込みました（セキュリティのため非表示）")
+        # デバッグロガーの初期化
+        self.logger = create_debug_logger(f"{self.server_name}", self.debug)
+        
     
     def _get_passphrase_for_packet_type(self, packet_type, addr):
         """
@@ -190,9 +190,6 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             # パケットタイプに応じたパスフレーズを取得
             passphrase = self._get_passphrase_for_packet_type(packet_type, addr)
             
-            if self.debug:
-                server_type = self._get_server_type_for_packet(packet_type, addr)
-                print(f"[{self.server_name}] パケット認証: タイプ{packet_type} ({server_type})")
             
             # パケット内の認証ハッシュを取得（拡張フィールドから）
             # 注意: 実際の実装では、パケットから認証ハッシュを取得する必要があります
@@ -201,8 +198,6 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             return True  # 暫定的に常に認証成功とする
             
         except Exception as e:
-            if self.debug:
-                print(f"[{self.server_name}] 認証エラー: {e}")
             return False
     
     def _get_server_type_for_packet(self, packet_type, addr):
@@ -238,9 +233,6 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
         timing_info = {}
         start_time = time.time()
         
-        if self.debug:
-                print(f"\n[{self.server_name}] {addr} から {len(data)} バイトを受信しました")
-                print(f"生データ（最初の20バイト）: {' '.join(f'{b:02x}' for b in data[:min(20, len(data))])}")
         try:
             # リクエストカウントを増加（スレッドセーフ）
             try:
@@ -282,8 +274,6 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                     data, request.packet_id, request.timestamp, request.type, addr
                 )
                 if not auth_result:
-                    if self.debug:
-                        print(f"[{self.server_name}] 認証失敗: パケットタイプ{request.type}, 送信元{addr}")
                     
                     # 認証失敗のエラーレスポンスを作成
                     error_response = ErrorResponse(
@@ -309,19 +299,10 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                     if dest:
                         error_response.ex_field.source = dest
                         self.sock.sendto(error_response.to_bytes(), dest)
-                        if self.debug:
-                            print(f"[{threading.current_thread().name}] 認証失敗エラーを送信: {dest}")
-                    else:
-                        if self.debug:
-                            print(f"[{threading.current_thread().name}] 送信先不明のため認証失敗エラーを送信できません")
                     
                     with self.lock:
                         self.error_count += 1
                     return
-                else:
-                    if self.debug:
-                        server_type = self._get_server_type_for_packet(request.type, addr)
-                        print(f"[{self.server_name}] 認証成功: {server_type}")
             
             # リクエストの妥当性をチェック
             is_valid, error_code, error_msg = self.validate_request(request)

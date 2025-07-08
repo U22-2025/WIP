@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, Union, List
 
 from ..packet.types.report_packet import ReportRequest, ReportResponse
 from ..packet.types.error_response import ErrorResponse
+from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 
 
@@ -36,6 +37,7 @@ class ReportClient:
         logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
+        self.debug_logger = create_debug_logger(__name__, debug)
         self.VERSION = 1
         self.PIDG = PacketIDGenerator12Bit()
 
@@ -58,11 +60,6 @@ class ReportClient:
         
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
-        
-        if self.debug:
-            self.logger.debug(f"Report client 認証設定:")
-            self.logger.debug(f"  - 認証有効: {self.auth_enabled}")
-            self.logger.debug(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
 
     def set_sensor_data(self, area_code: Union[str, int],
                        weather_code: Optional[int] = None,
@@ -108,74 +105,6 @@ class ReportClient:
         """災害情報を設定"""
         self.disaster = disaster
 
-    def _hex_dump(self, data):
-        """バイナリデータのhexダンプを作成"""
-        hex_str = ' '.join(f'{b:02x}' for b in data)
-        ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
-        return f"Hex: {hex_str}\nASCII: {ascii_str}"
-
-    def _debug_print_request(self, request):
-        """リクエストのデバッグ情報を出力"""
-        if not self.debug:
-            return
-
-        self.logger.debug("\n=== SENDING REPORT REQUEST PACKET ===")
-        self.logger.debug("Request Type: Report Data (Type 4)")
-        self.logger.debug(f"Total Length: {len(request.to_bytes())} bytes")
-
-        self.logger.debug("\nHeader:")
-        self.logger.debug(f"Version: {request.version}")
-        self.logger.debug(f"Type: {request.type}")
-        self.logger.debug(f"Packet ID: {request.packet_id}")
-        self.logger.debug(f"Timestamp: {time.ctime(request.timestamp)}")
-        self.logger.debug(f"Area Code: {request.area_code}")
-
-        self.logger.debug("\nFlags:")
-        self.logger.debug(f"Weather: {request.weather_flag}")
-        self.logger.debug(f"Temperature: {request.temperature_flag}")
-        self.logger.debug(f"POP: {request.pop_flag}")
-        self.logger.debug(f"Alert: {request.alert_flag}")
-        self.logger.debug(f"Disaster: {request.disaster_flag}")
-
-        self.logger.debug("\nSensor Data:")
-        if request.weather_flag and hasattr(request, 'weather_code'):
-            self.logger.debug(f"Weather Code: {request.weather_code}")
-        if request.temperature_flag and hasattr(request, 'temperature'):
-            temp_celsius = getattr(request, 'temperature', 0) - 100
-            self.logger.debug(f"Temperature: {temp_celsius}℃")
-        if request.pop_flag and hasattr(request, 'pop'):
-            self.logger.debug(f"Precipitation Prob: {request.pop}%")
-
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(request.to_bytes()))
-        self.logger.debug("====================================\n")
-
-    def _debug_print_response(self, response):
-        """レスポンスのデバッグ情報を出力"""
-        if not self.debug:
-            return
-
-        self.logger.debug("\n=== RECEIVED REPORT RESPONSE PACKET ===")
-        self.logger.debug(f"Response Type: {response.type}")
-        self.logger.debug(f"Total Length: {len(response.to_bytes())} bytes")
-
-        self.logger.debug("\nHeader:")
-        self.logger.debug(f"Version: {response.version}")
-        self.logger.debug(f"Type: {response.type}")
-        self.logger.debug(f"Area Code: {response.area_code}")
-        self.logger.debug(f"Packet ID: {response.packet_id}")
-        self.logger.debug(f"Timestamp: {time.ctime(response.timestamp)}")
-
-        if hasattr(response, 'is_success'):
-            self.logger.debug(f"Success: {response.is_success()}")
-
-        if hasattr(response, 'get_response_summary'):
-            summary = response.get_response_summary()
-            self.logger.debug(f"Summary: {summary}")
-
-        self.logger.debug("\nRaw Packet:")
-        self.logger.debug(self._hex_dump(response.to_bytes()))
-        self.logger.debug("=====================================\n")
 
     def send_report_data(self) -> Optional[Dict[str, Any]]:
         """設定されたセンサーデータでレポートを送信（統一命名規則版）"""
@@ -197,18 +126,11 @@ class ReportClient:
             )
 
             # 認証設定を適用（認証が有効な場合）
-            print(f"[DEBUG] Report client 認証チェック: enabled={self.auth_enabled}, passphrase={'設定済み' if self.auth_passphrase else '未設定'}")
             if self.auth_enabled and self.auth_passphrase:
-                print(f"[DEBUG] Report client 認証設定を適用します")
                 request.enable_auth(self.auth_passphrase)
                 request.set_auth_flags()
-                print(f"[DEBUG] Report client 認証設定後のex_field: {request.ex_field._data if hasattr(request, 'ex_field') and request.ex_field else 'None'}")
-                if self.debug:
-                    self.logger.debug("認証ハッシュをReportリクエストに設定しました")
-            else:
-                print(f"[DEBUG] Report client 認証設定をスキップしました")
 
-            self._debug_print_request(request)
+            self.debug_logger.log_request(request, "SENSOR REPORT REQUEST")
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             response_data, _ = self.sock.recvfrom(1024)
 
@@ -216,7 +138,7 @@ class ReportClient:
 
             if response_type == 5:  # レポートレスポンス（ACK）
                 response = ReportResponse.from_bytes(response_data)
-                self._debug_print_response(response)
+                self.debug_logger.log_response(response, "SENSOR REPORT RESPONSE")
 
                 if response.is_success():
                     result = {
@@ -231,8 +153,9 @@ class ReportClient:
                     if hasattr(response, 'get_response_summary'):
                         result.update(response.get_response_summary())
 
-                    if self.debug:
-                        self.logger.debug(f"\n✓ レポート送信成功: {result}")
+                    self.debug_logger.log_timing("REPORT OPERATION", {
+                        'total_time': result['response_time_ms']
+                    })
 
                     return result
                 else:
@@ -241,10 +164,7 @@ class ReportClient:
 
             elif response_type == 7:  # エラーレスポンス
                 response = ErrorResponse.from_bytes(response_data)
-                if self.debug:
-                    self.logger.error("\n=== ERROR RESPONSE ===")
-                    self.logger.error(f"Error Code: {response.error_code}")
-                    self.logger.error("=====================\n")
+                self.debug_logger.log_error(f"Report failed", f"Error Code: {response.error_code}")
 
                 return {
                     'type': 'error',

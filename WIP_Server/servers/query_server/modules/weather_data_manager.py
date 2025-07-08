@@ -93,9 +93,6 @@ class WeatherDataManager:
             if not weather_data:
                 None
 
-            if self.debug:
-                print(f"Weather data found for area {area_code}")
-                print(f"Raw data: {weather_data}")
             # 必要なデータを抽出
             result = {}
             
@@ -132,10 +129,6 @@ class WeatherDataManager:
                 disaster_data = weather_data.get('disaster') or weather_data.get('disaster_info')
                 if disaster_data:
                     result['disaster'] = disaster_data
-            
-            if self.debug:
-                print(f"Extracted data: {result}")
-            
             return result
                 
         except Exception as e:

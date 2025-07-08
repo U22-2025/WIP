@@ -4,6 +4,7 @@
 """
 
 import psycopg2
+from psycopg2 import pool
 import sys
 import os
 from pathlib import Path
@@ -90,16 +91,12 @@ class LocationServer(BaseServer):
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
         
-        if self.debug:
-            print(f"[{self.server_name}] 認証設定:")
-            print(f"  - 認証有効: {self.auth_enabled}")
-            print(f"  - パスフレーズ設定: {'✓' if self.auth_passphrase else '✗'}")
     
     def _setup_database(self):
         """データベース接続プールを初期化"""
         try:
             # Initialize connection pool
-            self.connection_pool = psycopg2.pool.SimpleConnectionPool(
+            self.connection_pool = pool.SimpleConnectionPool(
                 1,  # minimum number of connections
                 10,  # maximum number of connections
                 dbname=self.DB_NAME,
@@ -401,8 +398,6 @@ class LocationServer(BaseServer):
             print(f"Longitude: {parsed.ex_field.get('longitude')}")
         else:
             print("リクエストに座標がありません")
-        print("\nRaw Packet:")
-        print(self._hex_dump(data))
         print("===========================\n")
     
     def _debug_print_response(self, response, request=None):
@@ -420,8 +415,6 @@ class LocationServer(BaseServer):
         except:
             pass
         
-        print("\nRaw Packet:")
-        print(self._hex_dump(response))
         print("============================\n")
     
     def _print_timing_info(self, addr, timing_info):

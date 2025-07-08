@@ -102,9 +102,6 @@ class BaseServer(ABC):
         thread_name = threading.current_thread().name
         print(f"\n[{thread_name}] === {title} ===")
         print(message)
-        if data:
-            print("\nRaw Data:")
-            print(self._hex_dump(data))
         print("=" * (len(title) + 8))
         print()
     
