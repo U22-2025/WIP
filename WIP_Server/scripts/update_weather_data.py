@@ -6,8 +6,11 @@ import threading
 import sys
 import os
 import traceback
+import logging
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+logger = logging.getLogger(__name__)
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
 
 def get_data(area_codes: list, debug=False, save_to_redis=False):
@@ -15,8 +18,10 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
     output_lock = threading.Lock()
     skip_area = []  # ローカル変数として定義
 
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+
     if debug:
-        print(f"処理開始: {len(area_codes)}個のエリアコードを処理します")
+        logger.debug(f"処理開始: {len(area_codes)}個のエリアコードを処理します")
         start_time = time.time()
 
     # セッション共有の設定
@@ -44,7 +49,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
         if debug:
             area_start_time = time.time()
-            print(f"エリアコード {area_code} の処理を開始します")
+            logger.debug(f"エリアコード {area_code} の処理を開始します")
 
         try:
             URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
@@ -54,7 +59,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             data = response.json()
 
             if debug:
-                print(f"エリアコード {area_code} のデータ取得完了: {len(data)}件")
+                logger.debug(
+                    f"エリアコード {area_code} のデータ取得完了: {len(data)}件"
+                )
 
             weather_areas = data[0]["timeSeries"][0]["areas"]
             pop_areas = data[0]["timeSeries"][1]["areas"]
@@ -64,7 +71,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             ### redisが保持しているデータと同じreportdatetimeならスキップ
             if existing_report_datetimes is not None and area_code in existing_report_datetimes and existing_report_datetimes[area_code] == reporttime:
                 if debug:
-                    print(f"エリアコード {area_code} のデータは更新されていません。スキップします。")
+                    logger.debug(
+                        f"エリアコード {area_code} のデータは更新されていません。スキップします。"
+                    )
                     skip_area.append(area_code)
                 return # このエリアコードの処理をスキップ
 
@@ -78,7 +87,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 date_to_indices[date].append(idx)
 
             if debug:
-                print(f"エリアコード {area_code} の日付マッピング: {date_to_indices}")
+                logger.debug(
+                    f"エリアコード {area_code} の日付マッピング: {date_to_indices}"
+                )
 
             selected_indices = []
             removed_indices = []
@@ -100,8 +111,12 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                             removed_indices.append(idx)
 
             if debug:
-                print(f"エリアコード {area_code} の選択インデックス: {selected_indices}")
-                print(f"エリアコード {area_code} の除外インデックス: {removed_indices}")
+                logger.debug(
+                    f"エリアコード {area_code} の選択インデックス: {selected_indices}"
+                )
+                logger.debug(
+                    f"エリアコード {area_code} の除外インデックス: {removed_indices}"
+                )
 
             parent_code = area_code
             for area in weather_areas:
@@ -111,7 +126,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 weather_codes = [code_ for i, code_ in enumerate(weather_codes) if i not in removed_indices]
 
                 if debug:
-                    print(f"エリア {area_name}({code}) の天気コード: {weather_codes}")
+                    logger.debug(
+                        f"エリア {area_name}({code}) の天気コード: {weather_codes}"
+                    )
 
                 pop = []
                 for p in pop_areas:
@@ -137,7 +154,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                                 temp_avg = ""
                         except Exception as e:
                             if debug:
-                                print(f"気温平均値の計算エラー: {e}")
+                                logger.debug(f"気温平均値の計算エラー: {e}")
                             temp_avg = ""
                         break
 
@@ -156,7 +173,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 temps = temps[:7]
 
                 if debug:
-                    print(f"エリア {area_name}({code}) の気温データ: {temps}")
+                    logger.debug(
+                        f"エリア {area_name}({code}) の気温データ: {temps}"
+                    )
 
                 if len(weather_codes) < week_days or len(pop) < week_days:
                     if len(data) > 1 and "timeSeries" in data[1]:
@@ -185,28 +204,34 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 output.update(area_output)
                 output["weather_reportdatetime"][area_code] = reporttime # weather_reportdatetimeをトップレベルに追加
                 if debug:
-                    print(f"エリアコード {area_code} のデータをマージしました")
+                    logger.debug(
+                        f"エリアコード {area_code} のデータをマージしました"
+                    )
 
             if debug:
                 area_end_time = time.time()
-                print(f"エリアコード {area_code} の処理完了: 所要時間 {area_end_time - area_start_time:.2f}秒")
+                logger.debug(
+                    f"エリアコード {area_code} の処理完了: 所要時間 {area_end_time - area_start_time:.2f}秒"
+                )
 
         except Exception as e:
-            print(f"エラー ({area_code}): {e}")
+            logger.error(f"エラー ({area_code}): {e}")
             if debug:
-                print(traceback.format_exc())
+                logger.debug(traceback.format_exc())
 
     # 並列処理の実行 - ワーカー数を明示的に設定
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         if debug:
-            print(f"ThreadPoolExecutor を使用して並列処理を開始します (max_workers=20)")
+            logger.debug(
+                "ThreadPoolExecutor を使用して並列処理を開始します (max_workers=20)"
+            )
         executor.map(fetch_and_process_area, area_codes)
 
     # 全データの処理が完了した後、一括でRedisに保存
     if save_to_redis:
         try:
             if debug:
-                print("全データをRedisに一括保存します")
+                logger.debug("全データをRedisに一括保存します")
                 redis_start_time = time.time()
 
             # Redis管理クラスを使用して一括保存
@@ -226,17 +251,23 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
             if debug:
                 redis_end_time = time.time()
-                print(f"Redisへの一括保存完了: 所要時間 {redis_end_time - redis_start_time:.2f}秒")
-                print(f"更新件数: {result['updated']}, エラー件数: {result['errors']}")
+                logger.debug(
+                    f"Redisへの一括保存完了: 所要時間 {redis_end_time - redis_start_time:.2f}秒"
+                )
+                logger.debug(
+                    f"更新件数: {result['updated']}, エラー件数: {result['errors']}"
+                )
         except Exception as e:
-            print(f"Redisへの一括保存エラー: {e}")
+            logger.error(f"Redisへの一括保存エラー: {e}")
             if debug:
-                print(traceback.format_exc())
+                logger.debug(traceback.format_exc())
 
     if debug:
         end_time = time.time()
-        print(f"全処理完了: 合計所要時間 {end_time - start_time:.2f}秒")
-        print(f"取得したエリア数: {len(output)}")
+        logger.debug(
+            f"全処理完了: 合計所要時間 {end_time - start_time:.2f}秒"
+        )
+        logger.debug(f"取得したエリア数: {len(output)}")
 
     return skip_area
 
@@ -248,8 +279,10 @@ def update_redis_weather_data(debug=False, area_codes=None):
         debug (bool): デバッグモードを有効にするかどうか
         area_codes (list, optional): 処理対象のエリアコードリスト。Noneの場合は全エリアを処理
     """
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+
     if debug:
-        print("気象情報の取得を開始します")
+        logger.debug("気象情報の取得を開始します")
         start_time = time.time()
 
     # エリアコードが指定されていない場合は、JSONファイルから読み込む
@@ -262,22 +295,24 @@ def update_redis_weather_data(debug=False, area_codes=None):
 
     if debug:
         end_time = time.time()
-        print(f"気象データの取得と保存完了: {len(area_codes)}エリア処理、{len(skip_area)}エリアスキップ")
-        print(f"合計所要時間: {end_time - start_time:.2f}秒")
+        logger.debug(
+            f"気象データの取得と保存完了: {len(area_codes)}エリア処理、{len(skip_area)}エリアスキップ"
+        )
+        logger.debug(f"合計所要時間: {end_time - start_time:.2f}秒")
 
     return skip_area
 
 if __name__ == "__main__":
     # 気象データの更新を実行し、スキップされたエリアを取得
     skip_area = update_redis_weather_data(debug=True)
-    
+
     # スキップされたエリアを表示
     if skip_area:
-        print(f"\n=== スキップされたエリア ===")
-        print(f"スキップされたエリア数: {len(skip_area)}")
-        print(f"スキップされたエリアコード: {skip_area}")
-        print("="*30)
+        logger.info("\n=== スキップされたエリア ===")
+        logger.info(f"スキップされたエリア数: {len(skip_area)}")
+        logger.info(f"スキップされたエリアコード: {skip_area}")
+        logger.info("=" * 30)
     else:
-        print(f"\n=== 全エリア更新完了 ===")
-        print("スキップされたエリアはありません")
-        print("="*30)
+        logger.info("\n=== 全エリア更新完了 ===")
+        logger.info("スキップされたエリアはありません")
+        logger.info("=" * 30)
