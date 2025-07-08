@@ -28,7 +28,7 @@ load_dotenv()
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
 
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30):
+    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30, cache_file=None):
         if host is None:
             host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
         if port is None:
@@ -41,6 +41,7 @@ class LocationClient:
             port: Location Serverのポート
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
+            cache_file: 永続キャッシュファイルのパス
         """
         self.server_host = host
         self.server_port = port
@@ -55,7 +56,9 @@ class LocationClient:
         self._init_auth_config()
         
         # 永続キャッシュの初期化
-        cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'coordinate_cache.json')
+        if cache_file is None:
+            cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'coordinate_cache.json')
+
         self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60)
         self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes")
         self.logger.debug(f"Cache file location: {cache_file}")

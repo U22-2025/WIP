@@ -159,7 +159,7 @@ python -m wip.servers.query_server.query_server
 
 #### 基本的な使用例
 ```python
-from wip.clients.weather_client import WeatherClient
+from common.clients.weather_client import WeatherClient
 
 # クライアント初期化
 client = WeatherClient(host='localhost', port=4110, debug=True)
@@ -296,6 +296,9 @@ python test/api_test.py
 
 # プロトコルテスト
 python -m wip.packet.format  # パケット形式テスト
+
+# ユニットテスト
+pytest -q
 ```
 
 ### ログ出力
@@ -400,7 +403,7 @@ netstat -an | grep 4110
 #### 2. パケット解析エラー
 ```bash
 # デバッグモードでパケット内容確認
-python -m wip.clients.weather_client
+python -m common.clients.weather_client
 ```
 
 #### 3. パフォーマンス問題

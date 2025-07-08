@@ -10,7 +10,7 @@ from common.clients.location_client import LocationClient
 import time
 import logging
 
-def test_location_cache():
+def test_location_cache(tmp_path):
     """LocationClientのキャッシュ機能をテスト"""
     
     # ログ設定
@@ -32,7 +32,8 @@ def test_location_cache():
     osaka_lon = 135.5023
     
     # LocationClientを初期化（キャッシュTTL=1分でテスト）
-    client = LocationClient(debug=True, cache_ttl_minutes=1)
+    cache_path = tmp_path / "coordinate_cache.json"
+    client = LocationClient(debug=True, cache_ttl_minutes=1, cache_file=str(cache_path))
     
     try:
         logger.info("初期キャッシュ統計:")
