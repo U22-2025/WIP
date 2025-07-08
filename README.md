@@ -523,6 +523,8 @@ SOFTWARE.
 - [environment.yml](environment.yml) - Conda環境設定
 - [weather_code.json](weather_code.json) - 天気コード定義
 - [start_servers.bat](start_servers.bat) - サーバ起動スクリプト
+- [common/packet/format_spec/*.json](common/packet/format_spec) - パケット仕様定義ファイル
+  - `generate_spec_docs.py` を実行すると Markdown 版 (FORMAT_SPEC.md) を生成
 
 ## 更新履歴
 

@@ -3,11 +3,11 @@
 """
 from typing import Optional, Dict, Any, Union
 from pathlib import Path
-from ..core.exceptions import BitFieldError
-from ..core.format_base import FormatBase
-from ..core.extended_field import ExtendedField
-from ..core.bit_utils import extract_bits, extract_rest_bits
-from ..dynamic_format import load_response_fields
+from ...core.exceptions import BitFieldError
+from ...core.format_base import FormatBase
+from ...core.extended_field import ExtendedField
+from ...core.bit_utils import extract_bits, extract_rest_bits
+from ...dynamic_format import load_response_fields
 
 
 _RESPONSE_SPEC: Dict[str, Dict[str, Any]] = load_response_fields()
