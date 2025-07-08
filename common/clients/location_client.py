@@ -20,7 +20,7 @@ import os
 
 # PersistentCacheを使用するためのパス追加
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
-from persistent_cache import PersistentCache
+from ..utils.file_cache import PersistentCache
 
 PIDG = PacketIDGenerator12Bit()
 load_dotenv()
