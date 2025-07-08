@@ -555,6 +555,15 @@ SOFTWARE.
 - v1.3.0: 多言語対応
 - v2.0.0: IPv6サポート
 
+### Rust クライアント例
+Rust ディレクトリには Rust 製ライブラリ `wip_rust` が含まれています。
+`examples/client.rs` を使用することで実装例を確認できます。
+
+```bash
+cd Rust
+cargo run --example client --quiet
+```
+
 ---
 
 **WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
