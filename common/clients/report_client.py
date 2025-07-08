@@ -38,7 +38,7 @@ class ReportClient:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
-        self.PIDG = PacketIDGenerator12Bit()
+        self.pid_generator = PacketIDGenerator12Bit()
 
         # 認証設定を初期化
         self._init_auth_config()

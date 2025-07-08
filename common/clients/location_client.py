@@ -22,7 +22,6 @@ import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
 from ..utils.file_cache import PersistentCache
 
-PIDG = PacketIDGenerator12Bit()
 load_dotenv()
 
 class LocationClient:
@@ -50,6 +49,7 @@ class LocationClient:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
+        self.pid_generator = PacketIDGenerator12Bit()
         
         # 認証設定を初期化
         self._init_auth_config()
@@ -193,7 +193,7 @@ class LocationClient:
             request = LocationRequest.create_coordinate_lookup(
                 latitude=latitude,
                 longitude=longitude,
-                packet_id=PIDG.next_id(),
+                packet_id=self.pid_generator.next_id(),
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,

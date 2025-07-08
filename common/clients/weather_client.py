@@ -15,7 +15,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
-PIDG = PacketIDGenerator12Bit()
 
 
 class WeatherClient:
@@ -43,7 +42,7 @@ class WeatherClient:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
-        self.PIDG = PacketIDGenerator12Bit()
+        self.pid_generator = PacketIDGenerator12Bit()
         
     def _hex_dump(self, data):
         """バイナリデータのhexダンプを作成"""
@@ -161,7 +160,7 @@ class WeatherClient:
         # QueryRequestインスタンスを作成
         request = QueryRequest.create_query_request(
             area_code=area_code,
-            packet_id=self.PIDG.next_id(),
+            packet_id=self.pid_generator.next_id(),
             weather=weather,
             temperature=temperature,
             precipitation_prob=precipitation_prob,
@@ -422,7 +421,7 @@ def main():
         request = LocationRequest.create_coordinate_lookup(
             latitude=35.6895,
             longitude=139.6917,
-            packet_id=client.PIDG.next_id(),
+            packet_id=client.pid_generator.next_id(),
             weather=True,
             temperature=True,
             precipitation_prob=True,
@@ -451,7 +450,7 @@ def main():
         location_request = LocationRequest.create_coordinate_lookup(
             latitude=35.6895,
             longitude=139.6917,
-            packet_id=client.PIDG.next_id(),
+            packet_id=client.pid_generator.next_id(),
             weather=True,
             temperature=True,
             precipitation_prob=True,
@@ -484,7 +483,7 @@ def main():
         # QueryRequestインスタンスを事前作成
         query_request = QueryRequest.create_query_request(
             area_code="011000",
-            packet_id=client.PIDG.next_id(),
+            packet_id=client.pid_generator.next_id(),
             weather=True,
             temperature=True,
             precipitation_prob=True,

@@ -15,7 +15,6 @@ from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from ..utils.cache import Cache
 import traceback
-PIDG = PacketIDGenerator12Bit()
 
 
 class QueryClient:
@@ -48,6 +47,7 @@ class QueryClient:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
+        self.pid_generator = PacketIDGenerator12Bit()
         
         # 認証設定を初期化
         self._init_auth_config()
@@ -234,7 +234,7 @@ class QueryClient:
             request_start = datetime.now()
             request = QueryRequest.create_query_request(
                 area_code=area_code,
-                packet_id=PIDG.next_id(),
+                packet_id=self.pid_generator.next_id(),
                 weather=weather,
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
