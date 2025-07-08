@@ -6,15 +6,11 @@ Weather Serverプロキシと通信するクライアント
 import socket
 import time
 import logging
-from datetime import datetime
-from dataclasses import dataclass
-from typing import Optional, Union
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
-import traceback
 PIDG = PacketIDGenerator12Bit()
 
 

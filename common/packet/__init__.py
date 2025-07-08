@@ -21,11 +21,8 @@ from .models.response import Response
 # 専用パケットクラス
 from .types.location_packet import LocationRequest, LocationResponse
 from .types.query_packet import QueryRequest, QueryResponse
-from .types.report_packet import ReportRequest, ReportResponse  # レポートパケット追加
-from .types.error_response import ErrorResponse  # エラーパケット追加
-
-# Note: ReportClientは循環インポートを避けるため、直接インポートしてください
-# from common.clients.report_client import ReportClient
+from .types.report_packet import ReportRequest, ReportResponse
+from .types.error_response import ErrorResponse
 
 __version__ = "1.1.0"
 __all__ = [
@@ -41,9 +38,7 @@ __all__ = [
     "LocationResponse",
     "QueryRequest",
     "QueryResponse",
-    "ReportRequest",  # レポートパケット追加
-    "ReportResponse",  # レポートパケット追加
-    "ErrorResponse",  # エラーパケット追加
-    # Note: ReportClientは循環インポートを避けるため、__all__に含めません
-    # 直接インポート: from common.clients.report_client import ReportClient
+    "ReportRequest",
+    "ReportResponse",
+    "ErrorResponse",
 ]

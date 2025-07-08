@@ -61,8 +61,6 @@ class FormatExtended(FormatBase):
             self._ex_field = ExtendedField(value)
         elif isinstance(value, ExtendedField):
             self._ex_field = value
-        else:
-            self._ex_field = ExtendedField()
         
         # 新しいオブザーバーを追加
         self._ex_field.add_observer(self._on_ex_field_changed)

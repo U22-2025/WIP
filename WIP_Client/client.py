@@ -12,14 +12,9 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.clients.weather_client import WeatherClient
-from common.packet import (
-    LocationRequest, LocationResponse,
-    QueryRequest, QueryResponse
-)
-
+from common.packet import LocationRequest, QueryRequest
 
 load_dotenv()
-
 
 @dataclass
 class ServerConfig:
@@ -209,20 +204,3 @@ class Client:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
-
-
-# ---------------------------------------------------------------------------
-# 使用例
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    print("WIP Client Example (State Management)")
-    print("=" * 50)
-
-    with Client(debug=True) as client:
-        client.set_coordinates(latitude=35.6895, longitude=139.6917)
-        result = client.get_weather()
-        if result:
-            print("✓ Success!")
-            print(result)
-        else:
-            print("✗ Failed to get weather data")

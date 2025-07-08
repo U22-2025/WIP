@@ -3,13 +3,13 @@
 import time
 import threading
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from common.packet import (
     LocationRequest, LocationResponse,
     QueryRequest, QueryResponse,
     ReportRequest, ReportResponse,
-    ErrorResponse, ExtendedField, BitFieldError,
+    ErrorResponse, ExtendedField,
 )
 
 

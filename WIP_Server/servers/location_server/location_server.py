@@ -4,8 +4,6 @@
 """
 
 import psycopg2
-from psycopg2 import pool
-import time
 import sys
 import os
 from pathlib import Path
@@ -21,7 +19,7 @@ if __name__ == "__main__":
 
 # モジュールとして使用される場合
 from ..base_server import BaseServer
-from common.packet import Request, Response, BitFieldError
+from common.packet import Request, Response
 from common.utils.config_loader import ConfigLoader
 
 

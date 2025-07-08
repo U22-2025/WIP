@@ -9,7 +9,6 @@ import logging
 import socket
 import time
 import os
-from datetime import datetime
 from typing import Optional, Dict, Any, Union, List
 
 from ..packet.types.report_packet import ReportRequest, ReportResponse

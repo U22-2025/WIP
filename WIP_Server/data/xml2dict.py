@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import requests
-from urllib.parse import urljoin
+import pprint
 
 # Element → 辞書 に変換する関数
 def etree_to_dict(elem):
@@ -41,6 +41,4 @@ if __name__ == "__main__":
     # 辞書に変換
     result = etree_to_dict(root)
 
-    # 出力
-    import pprint
     pprint.pprint(result)

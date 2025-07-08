@@ -4,9 +4,6 @@ Query Serverとの通信を行うクライアント（サーバー間通信用�
 """
 
 import socket
-import struct
-import time
-import threading
 import concurrent.futures
 import os
 import logging
@@ -14,7 +11,6 @@ from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from ..utils.cache import Cache
-import traceback
 PIDG = PacketIDGenerator12Bit()
 
 

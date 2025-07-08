@@ -10,8 +10,6 @@ import threading
 from datetime import datetime
 from pathlib import Path
 import traceback
-from common.packet import ExtendedField
-from common.utils.auth import WIPAuth
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -19,22 +17,13 @@ if __name__ == "__main__":
     # 共通ライブラリのパスも追加
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-
 # モジュールとして使用される場合
 from ..base_server import BaseServer
 from .handlers import WeatherRequestHandlers
-from common.packet import (
-    LocationRequest, LocationResponse,
-    QueryRequest, QueryResponse,
-    ReportRequest, ReportResponse,
-    BitFieldError
-)
 from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
-from common.packet import ExtendedField
-from datetime import timedelta
 
 
 class WeatherServer(WeatherRequestHandlers, BaseServer):

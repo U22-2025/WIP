@@ -7,14 +7,11 @@ import json
 import socket
 import struct
 import time
-from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
 import logging
 from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from ..utils.cache import Cache
-import traceback
 import sys
 import os
 

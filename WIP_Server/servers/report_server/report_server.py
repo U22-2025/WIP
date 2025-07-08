@@ -6,11 +6,9 @@ IoT機器からのType 4（レポートリクエスト）を受信してType 5�
 import time
 import sys
 import os
-import threading
 from datetime import datetime
 from pathlib import Path
 import traceback
-import logging
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -20,14 +18,8 @@ if __name__ == "__main__":
 
 # モジュールとして使用される場合
 from ..base_server import BaseServer
-from common.packet import (
-    ReportRequest, ReportResponse,
-    ErrorResponse,
-    BitFieldError
-)
+from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
-from datetime import timedelta
-
 
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
@@ -99,33 +91,6 @@ class ReportServer(BaseServer):
     def _get_response_auth_config(self):
         """レスポンス認証設定を取得"""
         return os.getenv('REPORT_SERVER_RESPONSE_AUTH_ENABLED', 'false').lower() == 'true'
-        
-        # ストレージ設定
-        self.enable_file_logging = True  # ログファイル出力を有効化
-        self.log_directory = self.config.get('storage', 'log_directory', 'logs/reports')
-        self.log_file_path = Path(self.log_directory) / 'report_server.log'
-        self.enable_database = self.config.getboolean('storage', 'enable_database', False)
-        
-        # 処理設定
-        self.enable_data_validation = self.config.getboolean('processing', 'enable_data_validation', True)
-        self.enable_alert_processing = self.config.getboolean('processing', 'enable_alert_processing', True)
-        self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
-        self.max_report_size = self.config.getint('processing', 'max_report_size', 1024)
-        
-        # ログファイル機能を設定
-        if self.enable_file_logging:
-            self._setup_log_file()
-        
-        # 統計情報
-        self.report_count = 0
-        self.success_count = 0
-        
-        if self.debug:
-            print(f"\n[{self.server_name}] 初期化完了")
-            print(f"  ホスト: {host}:{port}")
-            print(f"  データ検証: {self.enable_data_validation}")
-            print(f"  ログファイル: {self.log_file_path if self.enable_file_logging else '無効'}")
-            print(f"  データベース: {self.enable_database}")
     
     def validate_request(self, request):
         """

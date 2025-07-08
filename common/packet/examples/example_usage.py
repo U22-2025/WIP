@@ -7,7 +7,7 @@ from ..models.request import Request
 from ..models.response import Response
 from ...clients.utils.packet_id_generator import PacketIDGenerator12Bit
 from ..core.extended_field import reload_extended_spec
-from ..types.location_packet import LocationRequest, LocationResponse
+from ..types.location_packet import LocationRequest
 from ..types.query_packet import QueryRequest, QueryResponse
 
 # パケットIDジェネレーター
