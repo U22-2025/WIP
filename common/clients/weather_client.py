@@ -7,11 +7,10 @@ import socket
 import time
 import logging
 from datetime import datetime
-from dataclasses import dataclass
 from typing import Optional, Union
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+from common.environment import get as get_env
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
@@ -23,9 +22,9 @@ class WeatherClient:
 
     def __init__(self, host=None, port=None, debug=False):
         if host is None:
-            host = os.getenv('WEATHER_SERVER_HOST', 'localhost')
+            host = get_env('WEATHER_SERVER_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('WEATHER_SERVER_PORT', '4110'))
+            port = get_env('WEATHER_SERVER_PORT', 4110, int)
         """
         初期化
         
@@ -551,5 +550,3 @@ def main():
     logger.info("✓ Using specialized packet classes for improved usability")
 
 
-if __name__ == "__main__":
-    main()

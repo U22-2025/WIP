@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import logging
-import os
-import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import Optional, Dict
 
-from dotenv import load_dotenv
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common.environment import get as get_env
+from common.clients.weather_client import WeatherClient
+from common.packet import (
+    LocationRequest, LocationResponse,
+    QueryRequest, QueryResponse
+)
 from common.clients.weather_client import WeatherClient
 from common.packet import (
     LocationRequest, LocationResponse,
@@ -18,15 +19,12 @@ from common.packet import (
 )
 
 
-load_dotenv()
-
-
 @dataclass
 class ServerConfig:
     """Weather Server の接続設定"""
 
-    host: str = os.getenv("WEATHER_SERVER_HOST", "localhost")
-    port: int = int(os.getenv("WEATHER_SERVER_PORT", 4110))
+    host: str = field(default_factory=lambda: get_env("WEATHER_SERVER_HOST", "localhost"))
+    port: int = field(default_factory=lambda: get_env("WEATHER_SERVER_PORT", 4110, int))
 
     def update(self, host: str, port: Optional[int] = None) -> None:
         self.host = host
@@ -211,18 +209,3 @@ class Client:
         self.close()
 
 
-# ---------------------------------------------------------------------------
-# 使用例
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    print("WIP Client Example (State Management)")
-    print("=" * 50)
-
-    with Client(debug=True) as client:
-        client.set_coordinates(latitude=35.6895, longitude=139.6917)
-        result = client.get_weather()
-        if result:
-            print("✓ Success!")
-            print(result)
-        else:
-            print("✗ Failed to get weather data")

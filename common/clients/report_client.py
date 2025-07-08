@@ -9,6 +9,7 @@ import logging
 import socket
 import time
 import os
+from common.environment import get as get_env
 from datetime import datetime
 from typing import Optional, Dict, Any, Union, List
 
@@ -54,8 +55,8 @@ class ReportClient:
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
         # ReportServer向けのリクエスト認証設定
-        auth_enabled = os.getenv('REPORT_SERVER_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
-        auth_passphrase = os.getenv('REPORT_SERVER_PASSPHRASE', '')
+        auth_enabled = get_env('REPORT_SERVER_REQUEST_AUTH_ENABLED', False, bool)
+        auth_passphrase = get_env('REPORT_SERVER_PASSPHRASE', '')
         
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
@@ -315,8 +316,8 @@ def main():
     logger.info("Report Client Example - IoT Sensor Data Reporting")
     logger.info("=" * 60)
 
-    host = os.getenv('WEATHER_SERVER_HOST', 'localhost')
-    port = int(os.getenv('WEATHER_SERVER_PORT', '4110'))
+    host = get_env('WEATHER_SERVER_HOST', 'localhost')
+    port = get_env('WEATHER_SERVER_PORT', 4110, int)
 
     client = ReportClient(host=host, port=port, debug=True)
 
@@ -412,5 +413,3 @@ def send_sensor_report(area_code, weather_code=None, temperature=None,
         client.close()
 
 
-if __name__ == "__main__":
-    main()

@@ -10,6 +10,7 @@ import threading
 import concurrent.futures
 import os
 import logging
+from common.environment import get as get_env
 from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
@@ -29,9 +30,9 @@ class QueryClient:
     
     def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10):
         if host is None:
-            host = os.getenv('QUERY_GENERATOR_HOST', 'localhost')
+            host = get_env('QUERY_GENERATOR_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('QUERY_GENERATOR_PORT', '4112'))
+            port = get_env('QUERY_GENERATOR_PORT', 4112, int)
         """
         初期化
         
@@ -59,8 +60,8 @@ class QueryClient:
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
         # QueryServer向けのリクエスト認証設定
-        auth_enabled = os.getenv('QUERY_GENERATOR_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
-        auth_passphrase = os.getenv('QUERY_SERVER_PASSPHRASE', '')
+        auth_enabled = get_env('QUERY_GENERATOR_REQUEST_AUTH_ENABLED', False, bool)
+        auth_passphrase = get_env('QUERY_SERVER_PASSPHRASE', '')
         
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
@@ -562,5 +563,3 @@ def main():
     logger.info("✓ Automatic data conversion and validation")
 
 
-if __name__ == "__main__":
-    main()

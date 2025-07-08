@@ -8,31 +8,26 @@ import socket
 import struct
 import time
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 import os
 import logging
 from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from ..utils.cache import Cache
 import traceback
-import sys
-import os
 
-# PersistentCacheを使用するためのパス追加
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
+from common.environment import get as get_env
 from ..utils.file_cache import PersistentCache
 
 PIDG = PacketIDGenerator12Bit()
-load_dotenv()
 
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
 
     def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30):
         if host is None:
-            host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
+            host = get_env('LOCATION_RESOLVER_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('LOCATION_RESOLVER_PORT', '4111'))
+            port = get_env('LOCATION_RESOLVER_PORT', 4111, int)
         """
         初期化
         
@@ -63,8 +58,8 @@ class LocationClient:
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
         # LocationServer向けのリクエスト認証設定
-        auth_enabled = os.getenv('LOCATION_RESOLVER_REQUEST_AUTH_ENABLED', 'false').lower() == 'true'
-        auth_passphrase = os.getenv('LOCATION_SERVER_PASSPHRASE', '')
+        auth_enabled = get_env('LOCATION_RESOLVER_REQUEST_AUTH_ENABLED', False, bool)
+        auth_passphrase = get_env('LOCATION_SERVER_PASSPHRASE', '')
         
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
@@ -471,5 +466,3 @@ def main():
     logger.info("Using specialized packet classes for improved usability")
 
 
-if __name__ == "__main__":
-    main()
