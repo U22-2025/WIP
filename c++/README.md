@@ -17,5 +17,9 @@ cmake .. && make
 OpenSSL の開発パッケージがインストールされていない場合、`cmake ..` でエラーになります。
 
 単一ファイルを直接 `g++` でビルドする場合は、必ず `-std=c++17` オプションを指定してください。
+例として `example.cpp` をビルドする場合は以下のようになります。
+```bash
+g++ -std=c++17 -I. WIP_Client/example.cpp -o wip_example
+```
 
 ビルド後、`wip_example` 実行ファイルを使用すると Python 版 `client.py` と同様の挙動を簡易的に試せます。
