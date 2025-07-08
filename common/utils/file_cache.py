@@ -9,7 +9,7 @@ from typing import Optional
 class PersistentCache:
     """ファイルベースの永続キャッシュ"""
     
-    def __init__(self, cache_file: str = "coordinate_cache.json", ttl_hours: int = 24):
+    def __init__(self, cache_file: str = "WIP_Client/coordinate_cache.json", ttl_hours: int = 24):
         self.cache_file = Path(cache_file)
         self.ttl_seconds = ttl_hours * 3600
         self._cache = {}

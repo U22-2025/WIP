@@ -55,7 +55,7 @@ class LocationClient:
         self._init_auth_config()
         
         # 永続キャッシュの初期化
-        cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'coordinate_cache.json')
+        cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client', 'coordinate_cache.json')
         self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60)
         self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes")
         self.logger.debug(f"Cache file location: {cache_file}")
