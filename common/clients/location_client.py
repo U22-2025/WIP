@@ -15,6 +15,12 @@ from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from ..utils.cache import Cache
 import traceback
+import sys
+import os
+
+# PersistentCacheを使用するためのパス追加
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
+from persistent_cache import PersistentCache
 
 PIDG = PacketIDGenerator12Bit()
 load_dotenv()
@@ -48,9 +54,11 @@ class LocationClient:
         # 認証設定を初期化
         self._init_auth_config()
         
-        # キャッシュの初期化
-        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
-        self.logger.debug(f"Location client cache initialized with TTL: {cache_ttl_minutes} minutes")
+        # 永続キャッシュの初期化
+        cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'coordinate_cache.json')
+        self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60)
+        self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes")
+        self.logger.debug(f"Cache file location: {cache_file}")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
@@ -400,7 +408,8 @@ class LocationClient:
         """
         return {
             "cache_size": self.cache.size(),
-            "cache_ttl_minutes": self.cache.default_ttl.total_seconds() / 60
+            "cache_ttl_hours": self.cache.ttl_seconds / 3600,
+            "cache_file": str(self.cache.cache_file)
         }
     
     def clear_cache(self):

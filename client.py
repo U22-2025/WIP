@@ -66,7 +66,7 @@ if use_coordinates:
         print("-" * 65)
         
         # Step 1: LocationClientで座標からエリアコードを取得
-        location_client = LocationClient(debug=True)
+        location_client = LocationClient(debug=True, cache_ttl_minutes=60)  # キャッシュ有効期限を60分に設定
         
         location_request = LocationRequest.create_coordinate_lookup(
             latitude=35.6895,
@@ -76,14 +76,54 @@ if use_coordinates:
         )
         
         print("Step 1: Getting area code from coordinates...")
-        location_response, raw_data = location_client.get_location_data(
-            latitude=35.6895, 
-            longitude=139.6917
+        cache_stats = location_client.get_cache_stats()
+        print(f"Cache stats before request: {cache_stats}")
+        print(f"Using persistent cache file: {cache_stats.get('cache_file', 'N/A')}")
+        
+        # キャッシュ情報も取得
+        area_code_with_cache_info = location_client.get_area_code_simple(
+            latitude=35.6895,
+            longitude=139.6917,
+            use_cache=True,
+            return_cache_info=True
         )
+        
+        if area_code_with_cache_info:
+            if isinstance(area_code_with_cache_info, tuple):
+                area_code, cache_hit = area_code_with_cache_info
+                print(f"Area code: {area_code} (Cache {'HIT' if cache_hit else 'MISS'})")
+            else:
+                area_code = area_code_with_cache_info
+                print(f"Area code: {area_code}")
+        
+        # 従来のメソッドも実行してレスポンスを取得
+        location_response, raw_data = location_client.get_location_data(
+            latitude=35.6895,
+            longitude=139.6917,
+            use_cache=True
+        )
+        
+        print(f"Cache stats after request: {location_client.get_cache_stats()}")
         
         if location_response and location_response.is_valid():
             area_code = location_response.get_area_code()
-            print(f"✓ Area code obtained: {area_code}")
+            cache_hit = getattr(location_response, 'cache_hit', False)
+            print(f"✓ Area code obtained: {area_code} (Cache {'HIT' if cache_hit else 'MISS'})")
+            
+            # キャッシュテスト：同じ座標を再度取得
+            print("\n--- Cache Test: Getting same coordinates again ---")
+            location_response2, raw_data2 = location_client.get_location_data(
+                latitude=35.6895,
+                longitude=139.6917,
+                use_cache=True
+            )
+            
+            if location_response2 and location_response2.is_valid():
+                area_code2 = location_response2.get_area_code()
+                cache_hit2 = getattr(location_response2, 'cache_hit', False)
+                print(f"✓ Second request - Area code: {area_code2} (Cache {'HIT' if cache_hit2 else 'MISS'})")
+            else:
+                print("\n✗ Second request failed")
             
             # Step 2: QueryClientで天気データを取得
             print("\nStep 2: Getting weather data...")
