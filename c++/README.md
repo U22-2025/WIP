@@ -15,3 +15,5 @@ mkdir build && cd build
 cmake .. && make
 ```
 OpenSSL の開発パッケージがインストールされていない場合、`cmake ..` でエラーになります。
+
+ビルド後、`wip_example` 実行ファイルを使用すると Python 版 `client.py` と同様の挙動を簡易的に試せます。

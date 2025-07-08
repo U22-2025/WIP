@@ -10,11 +10,14 @@ add_library(wip_cpp
     common/packet/core/format_base.cpp
     common/packet/core/format.cpp
     common/packet/core/extended_field.cpp
+    WIP_Client/client.cpp
     common/clients/query_client.cpp
     common/clients/location_client.cpp
     common/clients/report_client.cpp
-    WIP_Client/client.cpp
 )
+
+add_executable(wip_example WIP_Client/example.cpp)
+target_link_libraries(wip_example wip_cpp)
 
 target_include_directories(wip_cpp PUBLIC .)
 
