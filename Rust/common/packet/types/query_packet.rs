@@ -131,3 +131,34 @@ impl QueryResponse {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_to_bytes_length() {
+        let req = QueryRequest::new(11000, 1, true, true, true, false, false, 0);
+        assert_eq!(req.to_bytes().len(), 20);
+    }
+
+    #[test]
+    fn response_from_bytes() {
+        let mut bits = bitvec![u8, Lsb0; 0; 160];
+        bits[0..4].store(1u8);
+        bits[4..16].store(1u16);
+        bits[16..19].store(3u8);
+        bits[104..124].store(123u32);
+        bits[124..140].store(10u16);
+        bits[140..148].store(120u8);
+        bits[148..156].store(80u8);
+        let mut data = [0u8; 20];
+        data.copy_from_slice(bits.as_raw_slice());
+        let resp = QueryResponse::from_bytes(&data).unwrap();
+        assert_eq!(resp.packet_id, 1);
+        assert_eq!(resp.area_code, 123);
+        assert_eq!(resp.weather_code, Some(10));
+        assert_eq!(resp.temperature, Some(120i8));
+        assert_eq!(resp.precipitation, Some(80u8));
+    }
+}
