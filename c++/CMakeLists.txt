@@ -19,3 +19,8 @@ add_library(wip_cpp
 target_include_directories(wip_cpp PUBLIC .)
 
 target_link_libraries(wip_cpp OpenSSL::Crypto)
+
+enable_testing()
+add_executable(test_format_base tests/test_format_base.cpp)
+target_link_libraries(test_format_base wip_cpp)
+add_test(NAME format_base COMMAND test_format_base)

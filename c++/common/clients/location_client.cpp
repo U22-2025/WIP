@@ -8,7 +8,7 @@ namespace clients {
 
 LocationClient::LocationClient(const std::string &host, int port) : host_(host), port_(port) {}
 
-models::Response LocationClient::send(const models::Request &req) {
+packet::models::Response LocationClient::send(const packet::models::Request &req) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -19,7 +19,7 @@ models::Response LocationClient::send(const models::Request &req) {
     char buf[1024];
     ssize_t len = recvfrom(sock, buf, sizeof(buf), 0, nullptr, nullptr);
     close(sock);
-    models::Response res;
+    packet::models::Response res;
     if(len>0) res.fromBytes(std::vector<uint8_t>(buf, buf+len));
     return res;
 }

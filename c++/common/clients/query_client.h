@@ -11,7 +11,7 @@ namespace clients {
 class QueryClient {
 public:
     QueryClient(const std::string &host="localhost", int port=4112);
-    models::Response send(const models::Request &req);
+    packet::models::Response send(const packet::models::Request &req);
 private:
     std::string host_;
     int port_;

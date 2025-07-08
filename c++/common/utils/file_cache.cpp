@@ -1,11 +1,9 @@
 #include "file_cache.h"
 #include <fstream>
-#include <nlohmann/json.hpp>
+#include <sstream>
 
 namespace common {
 namespace utils {
-
-using json = nlohmann::json;
 
 PersistentCache::PersistentCache(const std::string &path, std::chrono::hours ttl)
     : path_(path), ttl_(std::chrono::duration_cast<std::chrono::seconds>(ttl)) {
@@ -15,23 +13,27 @@ PersistentCache::PersistentCache(const std::string &path, std::chrono::hours ttl
 void PersistentCache::load() {
     std::ifstream f(path_);
     if (!f.good()) return;
-    json j; f >> j;
+    std::string line;
     auto now = std::chrono::system_clock::now();
-    for (auto &el : j.items()) {
-        auto ts = std::chrono::system_clock::time_point(std::chrono::seconds(el.value()["timestamp"].get<long>()));
-        if (now - ts < ttl_) {
-            cache_[el.key()] = {el.value()["area_code"].get<std::string>(), ts};
+    while (std::getline(f, line)) {
+        std::istringstream iss(line);
+        std::string key, ts_str, value;
+        if (std::getline(iss, key, ',') && std::getline(iss, ts_str, ',') && std::getline(iss, value)) {
+            long ts_val = std::stol(ts_str);
+            auto ts = std::chrono::system_clock::time_point(std::chrono::seconds(ts_val));
+            if (now - ts < ttl_) {
+                cache_[key] = {value, ts};
+            }
         }
     }
 }
 
 void PersistentCache::save() {
-    json j;
-    for (auto &kv : cache_) {
-        j[kv.first] = { {"area_code", kv.second.first}, {"timestamp", std::chrono::duration_cast<std::chrono::seconds>(kv.second.second.time_since_epoch()).count()} };
-    }
     std::ofstream f(path_);
-    f << j.dump(2);
+    for (auto &kv : cache_) {
+        long ts = std::chrono::duration_cast<std::chrono::seconds>(kv.second.second.time_since_epoch()).count();
+        f << kv.first << "," << ts << "," << kv.second.first << "\n";
+    }
 }
 
 std::optional<std::string> PersistentCache::get(const std::string &key) {
