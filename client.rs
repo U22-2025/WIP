@@ -2,6 +2,8 @@ use std::env;
 use std::time;
 
 // Rustディレクトリ以下の構造に合わせてモジュールを参照
+extern crate wip_rust as rust_common;
+
 use rust_common::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
 use rust_common::packet::models::request::{LocationRequest, QueryRequest};
 
@@ -170,7 +172,7 @@ fn main() {
                         println!("Error Code: {}", error_code);
                     }
                     if let Some(timestamp) = result.get("timestamp") {
-                        println!("Timestamp: {}", time::UNIX_EPOCH + time::Duration::from_secs(timestamp.parse().unwrap()));
+                        println!("Timestamp: {:?}", time::UNIX_EPOCH + time::Duration::from_secs(timestamp.parse().unwrap()));
                     }
                     if let Some(weather_code) = result.get("weather_code") {
                         println!("Weather Code: {}", weather_code);
@@ -213,7 +215,7 @@ fn main() {
                         println!("Error Code: {}", error_code);
                     }
                     if let Some(timestamp) = result.get("timestamp") {
-                        println!("Timestamp: {}", time::UNIX_EPOCH + time::Duration::from_secs(timestamp.parse().unwrap()));
+                        println!("Timestamp: {:?}", time::UNIX_EPOCH + time::Duration::from_secs(timestamp.parse().unwrap()));
                     }
                     if let Some(weather_code) = result.get("weather_code") {
                         println!("Weather Code: {}", weather_code);
