@@ -13,7 +13,9 @@ pub struct WeatherClient {
 
 impl WeatherClient {
     pub fn new(host: &str, port: u16, debug: bool) -> std::io::Result<Self> {
-        let socket = UdpSocket::bind("0.0.0.0:0")?;
+        // IPv4 と IPv6 の両方に対応するため [::]:0 でバインドする
+        // これにより "localhost" が ::1 に解決される環境でも利用可能となる
+        let socket = UdpSocket::bind("[::]:0")?;
         socket.set_read_timeout(Some(Duration::from_secs(10)))?;
         Ok(Self {
             host: host.to_string(),
