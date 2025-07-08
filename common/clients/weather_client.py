@@ -9,11 +9,9 @@ import logging
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Optional, Union
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
-from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from ..packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
+from .utils.packet_id_generator import PacketIDGenerator12Bit
 import traceback
 PIDG = PacketIDGenerator12Bit()
 
@@ -39,7 +37,6 @@ class WeatherClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(10.0)
         self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
@@ -407,7 +404,6 @@ class WeatherClient:
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     logger.info("Weather Client Example (Enhanced with Specialized Packet Classes)")
     logger.info("=" * 70)

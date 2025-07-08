@@ -44,7 +44,6 @@ class QueryClient:
         self.host = host
         self.port = port
         self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
@@ -477,7 +476,6 @@ class QueryClient:
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     logger.info("Query Client Example (Enhanced with Specialized Packet Classes)")
     logger.info("=" * 70)

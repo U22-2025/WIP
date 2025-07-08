@@ -4,17 +4,15 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict
 
 from dotenv import load_dotenv
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from common.clients.weather_client import WeatherClient
-from common.packet import (
+from ..common.clients.weather_client import WeatherClient
+from ..common.packet import (
     LocationRequest, LocationResponse,
-    QueryRequest, QueryResponse
+    QueryRequest, QueryResponse,
 )
 
 
@@ -67,7 +65,6 @@ class Client:
 
         self.logger = logging.getLogger(__name__)
         if self.debug:
-            logging.basicConfig(level=logging.DEBUG)
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.INFO)

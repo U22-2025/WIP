@@ -34,7 +34,6 @@ class ReportClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(10.0)
         self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
@@ -310,7 +309,6 @@ class ReportClient:
 
 def main():
     """メイン関数 - 使用例"""
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     logger.info("Report Client Example - IoT Sensor Data Reporting")
     logger.info("=" * 60)

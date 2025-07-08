@@ -2,11 +2,7 @@
 LocationClientのキャッシュ機能テスト
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from common.clients.location_client import LocationClient
+from WIP.common.clients.location_client import LocationClient
 import time
 import logging
 

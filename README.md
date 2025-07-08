@@ -306,6 +306,16 @@ server = WeatherServer(debug=True)
 client = WeatherClient(debug=True)
 ```
 
+基本的なログ設定例：
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+```
+
 ## パフォーマンス
 
 ### ベンチマーク結果

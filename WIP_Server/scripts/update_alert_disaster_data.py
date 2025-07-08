@@ -1,9 +1,5 @@
 # WIP_Server/scripts/update_alert_disaster_data.py の先頭に追加
-import sys
-import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from WIP_Server.data import get_alert,get_disaster
+from ..data import get_alert, get_disaster
 
 def main():
     print("alert処理開始")

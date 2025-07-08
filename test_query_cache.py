@@ -2,11 +2,7 @@
 QueryClientのキャッシュ機能テスト
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from common.clients.query_client import QueryClient
+from WIP.common.clients.query_client import QueryClient
 import time
 import logging
 

@@ -15,11 +15,7 @@ from ..packet import LocationRequest, LocationResponse
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from ..utils.cache import Cache
 import traceback
-import sys
 import os
-
-# PersistentCacheを使用するためのパス追加
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
 from ..utils.file_cache import PersistentCache
 
 PIDG = PacketIDGenerator12Bit()
@@ -46,7 +42,6 @@ class LocationClient:
         self.server_port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.debug = debug
-        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
         self.VERSION = 1
@@ -426,7 +421,6 @@ class LocationClient:
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     logger.info("Location Client Example (Enhanced with Specialized Packet Classes)")
     logger.info("=" * 70)

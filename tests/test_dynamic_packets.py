@@ -1,17 +1,17 @@
 import json
 from pathlib import Path
 
-from common.packet.core.extended_field import (
+from WIP.common.packet.core.extended_field import (
     ExtendedField,
     ExtendedFieldType,
     reload_extended_spec,
 )
-from common.packet.core.format_base import FormatBase
-from common.packet.models.request import Request
-from common.packet.models.response import Response, reload_response_spec
-from common.packet.types.location_packet import LocationRequest
+from WIP.common.packet.core.format_base import FormatBase
+from WIP.common.packet.models.request import Request
+from WIP.common.packet.models.response import Response, reload_response_spec
+from WIP.common.packet.types.location_packet import LocationRequest
 
-from common.packet.examples import example_usage
+from WIP.common.packet.examples import example_usage
 
 
 def test_specialized_packet_after_reload():

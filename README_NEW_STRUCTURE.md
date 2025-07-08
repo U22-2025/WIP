@@ -67,23 +67,14 @@ python -m WIP_Server.servers.query_server.query_server
 
 ### クライアント側（client.py）
 ```python
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from common.clients.weather_client import WeatherClient
-from common.packet import Request, Response
+from ..common.clients.weather_client import WeatherClient
+from ..common.packet import Request, Response
 ```
 
 ### サーバー側（WIP_Server内）
 ```python
-import sys
-import os
-# WIP_Serverの親ディレクトリをパスに追加
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from common.packet import Request, Response, BitFieldError
-from common.clients.location_client import LocationClient
+from ..common.packet import Request, Response, BitFieldError
+from ..common.clients.location_client import LocationClient
 ```
 
 ## 移行の利点

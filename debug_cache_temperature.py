@@ -2,10 +2,6 @@
 キャッシュでの気温処理のデバッグ用テスト
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from common.clients.query_client import QueryClient
 import logging
 
