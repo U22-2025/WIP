@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(wip_tests)
 
-find_package(Catch2 3 REQUIRED)
+find_package(Catch2::Catch2WithMain REQUIRED)
 find_package(OpenSSL REQUIRED)
 
 include(CTest)

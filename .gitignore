@@ -6,3 +6,5 @@ __pycache__
 /Testing/.vscode/
 build/
 /.vscode/
+/cpp/.vs/
+/cpp/WIP/.vs/
