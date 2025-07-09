@@ -74,7 +74,7 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
             cache_.set(cache_key, result["data"]);
     }
 
-    close(sock);
+    ::close(sock);
     return result;
 }
 

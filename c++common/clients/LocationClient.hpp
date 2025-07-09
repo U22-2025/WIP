@@ -3,8 +3,9 @@
 
 #include <string>
 #include <unordered_map>
-#include "../utils/PacketIDGenerator.hpp"
-#include "../../utils/FileCache.hpp"
+#include "utils/PacketIDGenerator.hpp"
+#include "../packet/types/ReportPacket.hpp"
+#include "../utils/FileCache.hpp"
 
 namespace wip {
 namespace clients {
@@ -31,7 +32,7 @@ private:
     std::string host_;
     int port_;
     bool debug_;
-    utils::PacketIDGenerator12Bit pidg_;
+    packet::PacketIDGenerator12Bit pidg_;
     wip::utils::FileCache cache_;
     bool auth_enabled_ = false;
     std::string auth_passphrase_;

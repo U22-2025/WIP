@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 project(wipcommon)
 
-# Create the static library target
+cmake_policy(SET CMP0076 NEW)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 静的ライブラリを作成
 add_library(wipcommon STATIC placeholder.cpp)
 
 target_include_directories(wipcommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Add subdirectories
+# サブディレクトリの登録
 add_subdirectory(packet)
 add_subdirectory(clients)
 add_subdirectory(utils)
