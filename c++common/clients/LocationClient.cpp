@@ -14,7 +14,7 @@ LocationClient::LocationClient(const std::string& host, int port, bool debug,
       port_(port == 0 ? (std::getenv("LOCATION_RESOLVER_PORT") ? std::atoi(std::getenv("LOCATION_RESOLVER_PORT")) : 4111) : port),
       debug_(debug),
       cache_("coordinate_cache.txt",
-             std::chrono::hours(cache_ttl_minutes / 60)) {
+             std::chrono::minutes(cache_ttl_minutes)) {
     sock_ = socket(AF_INET, SOCK_DGRAM, 0);
     init_auth();
 }
