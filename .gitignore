@@ -4,3 +4,4 @@ __pycache__
 /.vscode//Rust/target/
 /build/
 /Testing/
+.vscode/
