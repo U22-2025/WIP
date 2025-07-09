@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(wipcommon)
 enable_testing()
+include(CTest)
 
 # 必要に応じて CMake policy を設定
 cmake_policy(SET CMP0076 NEW)  # target_sources用

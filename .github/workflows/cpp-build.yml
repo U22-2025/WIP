@@ -16,10 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential catch2 libssl-dev
       - name: Configure
         run: |
           cmake -S cpp -B build
       - name: Build
         run: |
           cmake --build build
+      - name: Test
+        run: |
+          cd build
+          ctest --output-on-failure
