@@ -3,7 +3,7 @@
 
 #include <string>
 #include <unordered_map>
-#include "../utils/PacketIDGenerator.hpp"
+#include "utils/PacketIDGenerator.hpp"
 #include "../../utils/FileCache.hpp"
 
 namespace wip {
