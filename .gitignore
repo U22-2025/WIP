@@ -1,5 +1,6 @@
 .env
 __pycache__
 *.pem
-/.vscode/
-/Rust/target/
+/.vscode//Rust/target/
+/build/
+/Testing/
