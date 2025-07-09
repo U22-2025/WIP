@@ -957,47 +957,18 @@ class WeatherRequestHandlers:
         if not self.debug:
             return
             
-        self.logger.debug(f"\n[{self.server_name}] === 受信パケット (拡張版) ===")
-        self.logger.debug(f"Total Length: {len(data)} bytes")
-        self.logger.debug(f"Packet Class: {type(parsed).__name__}")
+        self.logger.debug(f"[{self.server_name}] Received packet: {type(parsed).__name__}, {len(data)} bytes")
         
         # 専用クラスのサマリー情報を使用
         if hasattr(parsed, 'get_request_summary'):
             summary = parsed.get_request_summary()
-            self.logger.debug(f"Request Summary: {summary}")
+            self.logger.debug(f"Request: {summary}")
         elif hasattr(parsed, 'get_response_summary'):
             summary = parsed.get_response_summary()
-            self.logger.debug(f"Response Summary: {summary}")
+            self.logger.debug(f"Response: {summary}")
         
-        self.logger.debug("\nHeader:")
-        self.logger.debug(f"Version: {parsed.version}")
-        self.logger.debug(f"Type: {parsed.type}")
-        self.logger.debug(f"Area Code: {parsed.area_code}")
-        self.logger.debug(f"Packet ID: {parsed.packet_id}")
-        self.logger.debug(f"Timestamp: {time.ctime(parsed.timestamp)}")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(parsed, 'get_coordinates'):
-            coords = parsed.get_coordinates()
-            if coords:
-                self.logger.debug(f"Coordinates: {coords}")
-                
-        if hasattr(parsed, 'get_source_info'):
-            source = parsed.get_source_info()
-            if source:
-                self.logger.debug(f"Source: {source}")
-                
-        if hasattr(parsed, 'get_requested_data_types'):
-            data_types = parsed.get_requested_data_types()
-            if data_types:
-                self.logger.debug(f"Requested Data: {data_types}")
-                
-        if hasattr(parsed, 'get_weather_data'):
-            weather_data = parsed.get_weather_data()
-            if weather_data:
-                self.logger.debug(f"Weather Data: {weather_data}")
-            
-        self.logger.debug("===========================\n")
+        # 基本情報のみ表示
+        self.logger.debug(f"Packet ID: {parsed.packet_id}, Type: {parsed.type}, Area: {parsed.area_code}")
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理（オーバーライド）"""

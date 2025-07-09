@@ -109,11 +109,6 @@ class WeatherClient:
                 if response.is_success():
                     result = response.get_weather_data()
                     
-                    total_time = time.time() - start_time
-                    self.debug_logger.log_timing("WEATHER DATA OPERATION", {
-                        'total_time': total_time * 1000
-                    })
-                    
                     return result
                 else:
                     if self.debug:
@@ -192,11 +187,6 @@ class WeatherClient:
                         if weather_response.is_success():
                             result = weather_response.get_weather_data()
                             
-                            total_time = time.time() - start_time
-                            self.debug_logger.log_timing("LOCATION->WEATHER OPERATION", {
-                                'total_time': total_time * 1000
-                            })
-                            
                             return result
                         else:
                             if self.debug:
@@ -233,11 +223,6 @@ class WeatherClient:
                 
                 if response.is_success():
                     result = response.get_weather_data()
-                    
-                    total_time = time.time() - start_time
-                    self.debug_logger.log_timing("DIRECT WEATHER OPERATION", {
-                        'total_time': total_time * 1000
-                    })
                     
                     return result
                 else:
