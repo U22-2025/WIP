@@ -94,36 +94,25 @@ class PacketDebugLogger:
         if hasattr(packet, 'get_response_summary'):
             summary = packet.get_response_summary()
             if summary:
-                self.logger.debug(f"  Summary: {summary}")
+                self._log_summary(summary)
         elif hasattr(packet, 'get_weather_data'):
             weather_data = packet.get_weather_data()
             if weather_data:
                 self.logger.debug(f"  Weather Data:")
                 if 'area_code' in weather_data:
-                    self.logger.debug(f"    Area Code: {weather_data['area_code']}")
+                    self.logger.debug(f"    Area Code: {weather_data['area_code']}\n")
                 if 'weather_code' in weather_data:
-                    self.logger.debug(f"    Weather Code: {weather_data['weather_code']}")
+                    self.logger.debug(f"    Weather Code: {weather_data['weather_code']}\n")
                 if 'temperature' in weather_data:
-                    self.logger.debug(f"    Temperature: {weather_data['temperature']}°C")
+                    self.logger.debug(f"    Temperature: {weather_data['temperature']}°C\n")
                 if 'precipitation_prob' in weather_data:
-                    self.logger.debug(f"    Precipitation: {weather_data['precipitation_prob']}%")
+                    self.logger.debug(f"    Precipitation: {weather_data['precipitation_prob']}%\n")
                 if 'alert' in weather_data and weather_data['alert']:
-                    self.logger.debug(f"    Alert: {weather_data['alert']}")
+                    self.logger.debug(f"    Alert: {weather_data['alert']}\n")
                 if 'disaster' in weather_data and weather_data['disaster']:
-                    self.logger.debug(f"    Disaster: {weather_data['disaster']}")
+                    self.logger.debug(f"    Disaster: {weather_data['disaster']}\n")
         elif summary:
-            self.logger.debug(f"  Summary: {summary}")
-    
-    def log_timing(self, operation_name: str, timing_info: dict) -> None:
-        """
-        タイミング情報をログ出力（重要な情報のみ）
-        
-        Args:
-            operation_name: 操作名
-            timing_info: タイミング情報の辞書
-        """
-        # タイミング情報ログは無効化（デバッグログの量を削減）
-        pass
+            self._log_summary(summary)
     
     def log_error(self, error_msg: str, error_code: Optional[str] = None) -> None:
         """
@@ -137,18 +126,6 @@ class PacketDebugLogger:
             self.logger.error(f"[{error_code}] {error_msg}")
         else:
             self.logger.error(error_msg)
-    
-    def log_cache_operation(self, operation: str, key: str, hit: bool = False) -> None:
-        """
-        キャッシュ操作をログ出力
-        
-        Args:
-            operation: 操作名（"get", "set", "miss", "hit"）
-            key: キャッシュキー
-            hit: キャッシュヒットかどうか
-        """
-        # キャッシュ操作ログは無効化（デバッグログの量を削減）
-        pass
     
     def debug(self, message: str) -> None:
         """
@@ -285,6 +262,22 @@ class PacketDebugLogger:
             parts.append("Disaster: Yes")
         
         return ", ".join(parts) if parts else "No data"
+    
+    def _log_summary(self, summary: Any) -> None:
+        """
+        サマリー情報を適切にフォーマットして表示
+        
+        Args:
+            summary: サマリー情報（辞書、文字列、その他）
+        """
+        if isinstance(summary, dict):
+            # 辞書の場合：各キーとバリューのペアを改行して表示
+            self.logger.debug("  Summary:")
+            for key, value in summary.items():
+                self.logger.debug(f"    {key}: {value}")
+        else:
+            # その他の場合：そのまま表示
+            self.logger.debug(f"  Summary: {summary}")
 
 
 def create_debug_logger(logger_name: str, debug_enabled: bool = False) -> PacketDebugLogger:
