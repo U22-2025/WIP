@@ -1,5 +1,5 @@
-#include "common/packet/types/QueryPacket.hpp"
-#include "common/packet/models/Request.hpp"
+#include "packet/types/QueryPacket.hpp"
+#include "packet/models/Request.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 using namespace wip::packet;
