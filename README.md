@@ -552,6 +552,22 @@ SOFTWARE.
 - v1.3.0: 多言語対応
 - v2.0.0: IPv6サポート
 
+
+## C++ コンポーネントのビルド
+このリポジトリには C++ 実装用の `c++common` ディレクトリがあります。ビルドには CMake と make を使用します。
+
+### 依存ライブラリ
+- CMake 3.10 以上
+- g++ (C++17 対応)
+- make
+
+### ビルド手順
+```bash
+mkdir build && cd build
+cmake ../c++common
+make
+```
+
 ---
 
 **WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
