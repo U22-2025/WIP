@@ -4,29 +4,22 @@ namespace wip {
 namespace packet {
 
 std::vector<uint8_t> Response::to_bytes() {
-    auto base = Request::to_bytes();
-    unsigned __int128 bitstr = 0;
-    for (int i = 0; i < 16; ++i) bitstr |= static_cast<unsigned __int128>(base[i]) << (i*8);
-    bitstr |= static_cast<unsigned __int128>(weather_code & 0xFFFF) << 128;
-    bitstr |= static_cast<unsigned __int128>(temperature & 0xFF) << 144;
-    bitstr |= static_cast<unsigned __int128>(pop & 0xFF) << 152;
-    std::vector<uint8_t> bytes(20);
-    for (int i = 0; i < 20; ++i) {
-        bytes[i] = static_cast<uint8_t>(bitstr >> (i*8));
-    }
+    auto bytes = Request::to_bytes();
+    bytes.push_back(static_cast<uint8_t>(weather_code & 0xFF));
+    bytes.push_back(static_cast<uint8_t>((weather_code >> 8) & 0xFF));
+    bytes.push_back(static_cast<uint8_t>(temperature));
+    bytes.push_back(static_cast<uint8_t>(pop));
     return bytes;
 }
 
 Response Response::from_bytes(const std::vector<uint8_t>& bytes) {
     Response res;
     if (bytes.size() < 20) return res;
-    Request base = Request::from_bytes({bytes.begin(), bytes.begin()+16});
-    res = static_cast<Response&>(base);
-    unsigned __int128 bitstr = 0;
-    for (int i = 0; i < 20; ++i) bitstr |= static_cast<unsigned __int128>(bytes[i]) << (i*8);
-    res.weather_code = (bitstr >> 128) & 0xFFFF;
-    res.temperature = (bitstr >> 144) & 0xFF;
-    res.pop = (bitstr >> 152) & 0xFF;
+    Request base = Request::from_bytes({bytes.begin(), bytes.begin() + 16});
+    static_cast<Request&>(res) = base;
+    res.weather_code = static_cast<uint16_t>(bytes[16]) | (static_cast<uint16_t>(bytes[17]) << 8);
+    res.temperature = bytes[18];
+    res.pop = bytes[19];
     return res;
 }
 
