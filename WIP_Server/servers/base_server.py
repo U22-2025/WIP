@@ -49,6 +49,11 @@ class BaseServer(ABC):
         self.server_name = self.__class__.__name__
         self.version = int(os.getenv('PROTOCOL_VERSION', 1))
         
+        # 認証設定の初期化（派生クラスでオーバーライド可能）
+        self.auth_enabled = False
+        self.auth_passphrase = ""
+        self.request_auth_enabled = False
+        
         # 並列処理設定
         self.max_workers = max_workers
         self.thread_pool = None
@@ -153,6 +158,53 @@ class BaseServer(ABC):
             レスポンスのバイナリデータ
         """
         pass
+    
+    def validate_auth(self, request):
+        """
+        認証の妥当性をチェック（共通処理）
+        
+        Args:
+            request: リクエストオブジェクト
+            
+        Returns:
+            tuple: (is_valid, error_code, error_message)
+        """
+        # 認証が有効でない場合は常にTrue
+        if not self.auth_enabled:
+            if self.debug:
+                print(f"[{self.server_name}] Auth: disabled")
+            return True, None, None
+        
+        # リクエストに認証機能を設定
+        request.enable_auth(self.auth_passphrase)
+        
+        # リクエスト認証フラグ処理（ReportServerのみ）
+        if self.request_auth_enabled:
+            if hasattr(request, 'process_request_auth_flags'):
+                if not request.process_request_auth_flags():
+                    if self.debug:
+                        print(f"[{self.server_name}] Auth Flags: ✗")
+                    return False, "403", "認証フラグの検証に失敗しました"
+                if self.debug:
+                    print(f"[{self.server_name}] Auth Flags: ✓")
+            else:
+                if self.debug:
+                    print(f"[{self.server_name}] Warning: process_request_auth_flags not available")
+        
+        # 拡張フィールドベースの認証ハッシュを検証
+        if hasattr(request, 'verify_auth_from_extended_field'):
+            if not request.verify_auth_from_extended_field():
+                if self.debug:
+                    print(f"[{self.server_name}] Auth: ✗")
+                return False, "403", "認証に失敗しました"
+            if self.debug:
+                print(f"[{self.server_name}] Auth: ✓")
+        else:
+            if self.debug:
+                print(f"[{self.server_name}] Warning: verify_auth_from_extended_field not available")
+            return False, "403", "認証メソッドが利用できません"
+        
+        return True, None, None
     
     def validate_request(self, request):
         """

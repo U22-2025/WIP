@@ -191,19 +191,10 @@ class LocationServer(BaseServer):
         Returns:
             tuple: (is_valid, error_code, error_message)
         """
-        # 認証チェック（認証が有効な場合）
-        if self.auth_enabled:
-            # リクエストに認証機能を設定
-            request.enable_auth(self.auth_passphrase)
-            
-            # 認証ハッシュを検証
-            if not request.verify_auth_from_extended_field():
-                print(f"[{self.server_name}] Auth: ✗")
-                return False, "403", "認証に失敗しました"
-            
-            print(f"[{self.server_name}] Auth: ✓")
-        else:
-            print(f"[{self.server_name}] Auth: disabled")
+        # 認証チェック（基底クラスの共通メソッドを使用）
+        auth_valid, auth_error_code, auth_error_msg = self.validate_auth(request)
+        if not auth_valid:
+            return False, auth_error_code, auth_error_msg
         
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:

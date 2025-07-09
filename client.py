@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 use_coordinates = "--coord" in sys.argv
 use_proxy = "--proxy" in sys.argv
 debug_enabled = "--debug" in sys.argv
+use_report = "--report" in sys.argv
 
 import time
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
@@ -22,12 +23,85 @@ else:
     from common.packet import LocationRequest
     PIDG = PacketIDGenerator12Bit()
 
+# レポート機能のインポート
+if use_report:
+    from common.clients.report_client import ReportClient
+
 """メイン関数 - 直接通信 vs プロキシ経由の比較テスト"""
 if use_proxy:
     print("Weather Client Example - Via Weather Server (Proxy Mode)")
 else:
     print("Weather Client Example - Direct Communication")
+    
+if use_report:
+    print("Report mode enabled - Data will be sent to Report Server")
 print("=" * 60)
+
+# --report指定時は、ダミーデータでレポートサーバーに送信
+if use_report:
+    print("\n=== Report Mode: Sending dummy data to Report Server ===")
+    print("-" * 55)
+    
+    # ダミーデータを作成
+    dummy_data = {
+        'area_code': 460010,  # 名古屋
+        'weather_code': 100,  # 晴れ
+        'temperature': 25.0,  # 25℃
+        'precipitation_prob': 30,  # 30%
+        'alert': ["大雨注意報"],
+        'disaster': ["河川氾濫情報"]
+    }
+    
+    print("Using dummy sensor data:")
+    for key, value in dummy_data.items():
+        print(f"  {key}: {value}")
+    
+    print("\nSending report to Report Server...")
+    # --proxyがない場合は直接reportサーバへ送信
+    if use_proxy:
+        # プロキシ経由（weatherサーバ経由）
+        report_client = ReportClient(host='localhost', port=4110, debug=debug_enabled)
+        print("Using proxy mode - sending via Weather Server")
+    else:
+        # 直接reportサーバへ送信
+        report_client = ReportClient(host='localhost', port=4112, debug=debug_enabled)
+        print("Using direct mode - sending directly to Report Server")
+    
+    try:
+        report_client.set_sensor_data(
+            area_code=dummy_data['area_code'],
+            weather_code=dummy_data['weather_code'],
+            temperature=dummy_data['temperature'],
+            precipitation_prob=dummy_data['precipitation_prob'],
+            alert=dummy_data['alert'],
+            disaster=dummy_data['disaster']
+        )
+        
+        start_time = time.time()
+        report_result = report_client.send_report_data()
+        elapsed_time = time.time() - start_time
+        
+        if report_result:
+            print(f"\n✓ Report sent successfully! (Execution time: {elapsed_time:.3f}s)")
+            print("=== Report Response ===")
+            for key, value in report_result.items():
+                print(f"  {key}: {value}")
+            print("=======================")
+        else:
+            print("\n✗ Failed to send report to Report Server")
+            
+    except Exception as e:
+        print(f"\n✗ Error sending report: {e}")
+        if debug_enabled:
+            import traceback
+            traceback.print_exc()
+    finally:
+        report_client.close()
+        
+    print("\n" + "=" * 60)
+    print("Report mode completed")
+    # レポートモードの場合は、他の処理を実行せずに終了
+    exit(0)
 
 if use_coordinates:
     if use_proxy:
@@ -60,6 +134,27 @@ if use_coordinates:
             for key, value in result.items():
                 print(f"  {key}: {value}")
             print("==============================")
+            
+            # レポート送信処理
+            if use_report:
+                print("\n--- Sending data to Report Server ---")
+                report_client = ReportClient(debug=debug_enabled)
+                try:
+                    report_client.set_sensor_data(
+                        area_code=result.get('area_code'),
+                        weather_code=result.get('weather_code'),
+                        temperature=result.get('temperature'),
+                        precipitation_prob=result.get('precipitation_prob'),
+                        alert=result.get('alert'),
+                        disaster=result.get('disaster')
+                    )
+                    report_result = report_client.send_report_data()
+                    if report_result:
+                        print(f"✓ Report sent successfully! Response: {report_result}")
+                    else:
+                        print("✗ Failed to send report to Report Server")
+                finally:
+                    report_client.close()
         else:
             print("\n✗ Request failed")
             
@@ -151,6 +246,27 @@ if use_coordinates:
                 for key, value in weather_result.items():
                     print(f"  {key}: {value}")
                 print("==============================")
+                
+                # レポート送信処理
+                if use_report:
+                    print("\n--- Sending data to Report Server ---")
+                    report_client = ReportClient(debug=debug_enabled)
+                    try:
+                        report_client.set_sensor_data(
+                            area_code=weather_result.get('area_code'),
+                            weather_code=weather_result.get('weather_code'),
+                            temperature=weather_result.get('temperature'),
+                            precipitation_prob=weather_result.get('precipitation_prob'),
+                            alert=weather_result.get('alert'),
+                            disaster=weather_result.get('disaster')
+                        )
+                        report_result = report_client.send_report_data()
+                        if report_result:
+                            print(f"✓ Report sent successfully! Response: {report_result}")
+                        else:
+                            print("✗ Failed to send report to Report Server")
+                    finally:
+                        report_client.close()
             else:
                 print("\n✗ Weather data request failed")
         else:
@@ -193,6 +309,27 @@ else:
                 print(f"alert: {result['alert']}")
             if 'disaster' in result:
                 print(f"disaster: {result['disaster']}")
+                
+            # レポート送信処理
+            if use_report:
+                print("\n--- Sending data to Report Server ---")
+                report_client = ReportClient(debug=debug_enabled)
+                try:
+                    report_client.set_sensor_data(
+                        area_code=result.get('area_code'),
+                        weather_code=result.get('weather_code'),
+                        temperature=result.get('temperature'),
+                        precipitation_prob=result.get('precipitation_prob'),
+                        alert=result.get('alert'),
+                        disaster=result.get('disaster')
+                    )
+                    report_result = report_client.send_report_data()
+                    if report_result:
+                        print(f"✓ Report sent successfully! Response: {report_result}")
+                    else:
+                        print("✗ Failed to send report to Report Server")
+                finally:
+                    report_client.close()
         else:
             print("\n✗ Failed to get weather data via Weather Server")
             
@@ -233,5 +370,26 @@ else:
             if 'disaster' in result:
                 print(f"disaster: {result['disaster']}")
             print("==============================")
+            
+            # レポート送信処理
+            if use_report:
+                print("\n--- Sending data to Report Server ---")
+                report_client = ReportClient(debug=debug_enabled)
+                try:
+                    report_client.set_sensor_data(
+                        area_code=result.get('area_code'),
+                        weather_code=result.get('weather_code'),
+                        temperature=result.get('temperature'),
+                        precipitation_prob=result.get('precipitation_prob'),
+                        alert=result.get('alert'),
+                        disaster=result.get('disaster')
+                    )
+                    report_result = report_client.send_report_data()
+                    if report_result:
+                        print(f"✓ Report sent successfully! Response: {report_result}")
+                    else:
+                        print("✗ Failed to send report to Report Server")
+                finally:
+                    report_client.close()
         else:
             print("\n✗ Failed to get weather data")

@@ -568,6 +568,26 @@ class FormatBase:
         except Exception:
             # エラーの場合は静かに失敗
             pass
+    
+    def process_request_auth_flags(self) -> bool:
+        """
+        リクエストの認証フラグを処理
+        
+        Returns:
+            認証処理が成功した場合True、失敗した場合False
+        """
+        # 認証が有効でない場合は常にTrue
+        if not getattr(self, '_auth_enabled', False):
+            return True
+        
+        # パスフレーズが設定されていない場合は失敗
+        passphrase = getattr(self, '_auth_passphrase', None)
+        if not passphrase:
+            return False
+        
+        # 基本的な認証フラグ処理はここで行う
+        # 実際の認証ハッシュ検証は verify_auth_from_extended_field で行う
+        return True
         
     def as_dict(self) -> Dict[str, Any]:
         """
