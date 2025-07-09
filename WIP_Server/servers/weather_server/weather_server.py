@@ -341,7 +341,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 self._handle_location_response(data, addr)
             elif request.type == 2:
                 # Type 2: 気象データリクエスト
-                self._handle_weather_request(request, addr)
+                self._handle_query_request(request, addr)
             elif request.type == 3:
                 # Type 3: 気象データレスポンス
                 self._handle_query_response(data, addr)

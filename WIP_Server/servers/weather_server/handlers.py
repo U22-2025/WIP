@@ -30,7 +30,7 @@ class WeatherRequestHandlers:
                 if cached_area_code:
                     
                     try:
-                        weather_request = QueryRequest.create_query_request(
+                        query_request = QueryRequest.create_query_request(
                             area_code=cached_area_code,
                             packet_id=request.packet_id,
                             day=request.day,
@@ -44,14 +44,14 @@ class WeatherRequestHandlers:
                         )
                         
                         # 座標情報を拡張フィールドに追加
-                        if not hasattr(weather_request, 'ex_field') or weather_request.ex_field is None:
-                            weather_request.ex_field = ExtendedField()
-                        weather_request.ex_field.latitude = lat
-                        weather_request.ex_field.longitude = long
-                        weather_request.ex_flag = 1
+                        if not hasattr(query_request, 'ex_field') or query_request.ex_field is None:
+                            query_request.ex_field = ExtendedField()
+                        query_request.ex_field.latitude = lat
+                        query_request.ex_field.longitude = long
+                        query_request.ex_flag = 1
                         
-                        # _handle_weather_requestに処理を移譲
-                        return self._handle_weather_request(weather_request, addr)
+                        # _handle_query_requestに処理を移譲
+                        return self._handle_query_request(query_request, addr)
                         
                     except Exception as e:
                         print(f"キャッシュデータの処理中にエラーが発生しました: {e}")
@@ -325,7 +325,7 @@ class WeatherRequestHandlers:
             self.sock.sendto(error_response.to_bytes(), (source_ip, source_port))
             return
     
-    def _handle_weather_request(self, request, addr):
+    def _handle_query_request(self, request, addr):
         """気象データリクエストの処理（Type 2・改良版）"""
         try:
             source_info = (addr[0], addr[1])  # タプル形式で保持

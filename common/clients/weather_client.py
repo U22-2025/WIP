@@ -183,11 +183,11 @@ class WeatherClient:
                     response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
                     
                     if response_type == 3:  # 天気レスポンス
-                        weather_response = QueryResponse.from_bytes(response_data)
-                        self.debug_logger.log_response(weather_response, "WEATHER RESPONSE")
+                        query_response = QueryResponse.from_bytes(response_data)
+                        self.debug_logger.log_response(query_response, "WEATHER RESPONSE")
                         
-                        if weather_response.is_success():
-                            result = weather_response.get_weather_data()
+                        if query_response.is_success():
+                            result = query_response.get_weather_data()
                             
                             return result
                         else:
