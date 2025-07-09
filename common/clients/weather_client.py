@@ -6,9 +6,7 @@ Weather Serverプロキシと通信するクライアント
 import socket
 import time
 import logging
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.packet.debug import create_debug_logger
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit

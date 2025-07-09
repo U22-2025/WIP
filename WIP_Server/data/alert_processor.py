@@ -9,19 +9,6 @@
 - 報告時刻の取得
 - JSON形式での出力
 """
-import sys
-from pathlib import Path
-import sys
-import os
-
-# プロジェクトルートをパスに追加 (モジュールとして実行時も有効)
-current_file = Path(__file__).absolute()
-project_root = str(current_file.parent.parent.parent)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# xml_baseモジュールのインポート用に追加パス設定
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import xml.etree.ElementTree as ET
 from collections import defaultdict

@@ -1,6 +1,4 @@
 import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # コマンドライン引数解析
 use_coordinates = "--coord" in sys.argv

@@ -3,11 +3,8 @@ import requests
 import json
 import concurrent.futures
 import threading
-import sys
-import os
 import traceback
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
 
 def get_data(area_codes: list, debug=False, save_to_redis=False):

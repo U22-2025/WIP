@@ -3,13 +3,7 @@
 リクエストに基づいてレスポンスパケットを構築
 """
 
-import time
-import sys
-import os
 import datetime
-# プロジェクトルートをパスに追加
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))))
-
 from common.packet import Response
 
 

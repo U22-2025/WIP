@@ -14,10 +14,7 @@ from ..packet import LocationRequest, LocationResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 import sys
-import os
 
-# PersistentCacheを使用するためのパス追加
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
 from ..utils.file_cache import PersistentCache
 
 PIDG = PacketIDGenerator12Bit()

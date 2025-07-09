@@ -7,12 +7,6 @@
 使用方法:
     python get_alert.py
 """
-import sys
-import os
-
-# パスを追加して直接実行にも対応
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from WIP_Server.data.alert_processor import AlertDataProcessor, AlertProcessor
 from WIP_Server.data.redis_manager import create_redis_manager
 

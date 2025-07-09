@@ -10,7 +10,6 @@ from typing import Optional, Dict
 
 from dotenv import load_dotenv
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.clients.weather_client import WeatherClient
 from common.packet import LocationRequest, QueryRequest
 
