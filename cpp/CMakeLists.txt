@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(wipcommon)
 
-# •K—v‚É‰‚¶‚Ä CMake policy ‚ğİ’è
-cmake_policy(SET CMP0076 NEW)  # target_sources—p
-cmake_policy(SET CMP0079 NEW)  # eƒ^[ƒQƒbƒg‚ÉƒŠƒ“ƒN‚³‚¹‚éê‡‚É”õ‚¦‚Ä
+# å¿…è¦ã«å¿œã˜ã¦ CMake policy ã‚’è¨­å®š
+cmake_policy(SET CMP0076 NEW)  # target_sourcesç”¨
+cmake_policy(SET CMP0079 NEW)  # è¦ªã‚¿ãƒ¼ã‚²ãƒƒãƒˆã«ãƒªãƒ³ã‚¯ã•ã›ã‚‹å ´åˆã«å‚™ãˆã¦
 
 # C++17
 set(CMAKE_CXX_STANDARD 17)
@@ -12,16 +12,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # OpenSSL
 find_package(OpenSSL REQUIRED)
 
-# ƒ‰ƒCƒuƒ‰ƒŠ‚ğì¬
-add_library(wipcommon STATIC placeholder.cpp)
+# ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã‚’ä½œæˆ
+add_library(wipcommon STATIC common/placeholder.cpp)
 
-# ƒCƒ“ƒNƒ‹[ƒhƒpƒX
-target_include_directories(wipcommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# ã‚¤ãƒ³ã‚¯ãƒ«ãƒ¼ãƒ‰ãƒ‘ã‚¹
+target_include_directories(wipcommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common)
 
-# •K—vƒ‰ƒCƒuƒ‰ƒŠ‚ğƒŠƒ“ƒN
+# å¿…è¦ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã‚’ãƒªãƒ³ã‚¯
 target_link_libraries(wipcommon PUBLIC OpenSSL::Crypto)
 
-# ƒTƒuƒfƒBƒŒƒNƒgƒŠ“o˜^i‚±‚±‚Åƒ\[ƒX‚ğ‘«‚·j
-add_subdirectory(packet)
-add_subdirectory(clients)
-add_subdirectory(utils)
+# ã‚µãƒ–ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªç™»éŒ²ï¼ˆã“ã“ã§ã‚½ãƒ¼ã‚¹ã‚’è¶³ã™ï¼‰
+add_subdirectory(common)
