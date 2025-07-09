@@ -5,12 +5,16 @@
 
 namespace packet {
 
-static std::string spec_dir = "common/packet/format_spec";
+// 仕様ファイルディレクトリを取得するヘルパー関数
+static const std::string& get_spec_dir() {
+    static const std::string dir = "/workspace/WIP/python/common/packet/format_spec";
+    return dir;
+}
 
 static nlohmann::json load_json(const std::string& fileName) {
     std::string path = fileName;
     if (path.find('/') == std::string::npos) {
-        path = spec_dir + "/" + fileName;
+        path = get_spec_dir() + "/" + fileName;
     }
     std::ifstream ifs(path);
     if (!ifs) {
