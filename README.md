@@ -375,7 +375,7 @@ python test/api_test.py
 ### 自動データ更新
 ```bash
 # 気象データの定期更新スクリプト
-python wip/scripts/update_weather_data.py
+python python/WIP_Server/scripts/update_weather_data.py
 ```
 
 ### キャッシュ管理
