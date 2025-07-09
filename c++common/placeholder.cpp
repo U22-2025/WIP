@@ -1,0 +1,1 @@
+void wipcommon_placeholder() {}
