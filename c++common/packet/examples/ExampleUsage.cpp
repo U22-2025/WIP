@@ -1,8 +1,8 @@
 #include <iostream>
-#include "../clients/query_client.hpp"
-#include "../clients/utils/packet_id_generator.hpp"
-#include "../packet/types/location_packet.hpp"
-#include "../packet/types/query_packet.hpp"
+#include "../clients/QueryClient.hpp"
+#include "../clients/utils/PacketIDGenerator.hpp"
+#include "../packet/types/LocationPacket.hpp"
+#include "../packet/types/QueryPacket.hpp"
 
 using namespace std;
 
