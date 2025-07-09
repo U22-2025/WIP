@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include "utils/PacketIDGenerator.hpp"
+#include "../packet/types/ReportPacket.hpp"
 
 namespace wip {
 namespace clients {
@@ -32,7 +33,7 @@ private:
     int port_;
     bool debug_;
     int sock_ = -1;
-    utils::PacketIDGenerator12Bit pidg_;
+    packet::PacketIDGenerator12Bit pidg_;
     bool auth_enabled_ = false;
     std::string auth_passphrase_;
 

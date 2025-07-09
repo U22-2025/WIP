@@ -1,5 +1,11 @@
-# Sources for packet module will be added here
-# Use target_sources to register files to the main library
+# ライブラリへのソース登録
+target_sources(wipcommon
+    PRIVATE
+        DynamicFormat.cpp
+    PUBLIC
+        DynamicFormat.hpp
+        Packet.hpp
+)
 
 add_subdirectory(core)
 add_subdirectory(debug)

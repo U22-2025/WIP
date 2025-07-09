@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <map>
-#include <nlohmann/json.hpp>
+#include "../utils/third_party/json.hpp"
 
 namespace packet {
 

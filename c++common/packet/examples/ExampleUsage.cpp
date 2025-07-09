@@ -1,10 +1,12 @@
 #include <iostream>
-#include "../clients/QueryClient.hpp"
-#include "../clients/utils/PacketIDGenerator.hpp"
-#include "../packet/types/LocationPacket.hpp"
-#include "../packet/types/QueryPacket.hpp"
+#include "../../clients/QueryClient.hpp"
+#include "../../clients/utils/PacketIDGenerator.hpp"
+#include "../types/ReportPacket.hpp"
+#include "../types/LocationPacket.hpp"
+#include "../types/QueryPacket.hpp"
 
 using namespace std;
+using wip::packet::PacketIDGenerator12Bit;
 
 // 従来方式でのパケット生成例
 void traditional_usage_example(PacketIDGenerator12Bit &pidg) {

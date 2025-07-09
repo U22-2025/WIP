@@ -1,1 +1,12 @@
-# Placeholder for $dir sources
+target_sources(wipcommon
+    PRIVATE
+        ErrorResponse.cpp
+        LocationPacket.cpp
+        QueryPacket.cpp
+        ReportPacket.cpp
+    PUBLIC
+        ErrorResponse.hpp
+        LocationPacket.hpp
+        QueryPacket.hpp
+        ReportPacket.hpp
+)

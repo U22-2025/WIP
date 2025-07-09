@@ -4,7 +4,8 @@
 #include <string>
 #include <unordered_map>
 #include "utils/PacketIDGenerator.hpp"
-#include "../../utils/Cache.hpp"
+#include "../packet/types/ReportPacket.hpp"
+#include "../utils/Cache.hpp"
 
 namespace wip {
 namespace clients {
@@ -40,7 +41,7 @@ private:
     std::string host_;
     int port_;
     bool debug_;
-    PacketIDGenerator12Bit pidg_;
+    packet::PacketIDGenerator12Bit pidg_;
     wip::utils::Cache cache_;
     bool auth_enabled_ = false;
     std::string auth_passphrase_;

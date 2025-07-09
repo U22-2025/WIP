@@ -1,1 +1,13 @@
-# Placeholder for $dir sources
+target_sources(wipcommon
+    PRIVATE
+        ExtendedField.cpp
+        FormatBase.cpp
+        FormatExtended.cpp
+    PUBLIC
+        BitUtils.hpp
+        ExtendedField.hpp
+        FormatBase.hpp
+        Format.hpp
+        FormatExtended.hpp
+        Exceptions.hpp
+)
