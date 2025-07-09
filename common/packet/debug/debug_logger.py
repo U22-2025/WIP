@@ -4,7 +4,6 @@
 """
 
 import logging
-import time
 from typing import Any, Optional
 
 
@@ -22,10 +21,18 @@ class PacketDebugLogger:
         self.logger = logging.getLogger(logger_name)
         self.debug_enabled = debug_enabled
         self.logger.setLevel(logging.DEBUG if debug_enabled else logging.INFO)
+        
+        # DEBUG: 接頭辞を削除するため、シンプルなフォーマッターを設定
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(message)s')  # メッセージのみ表示
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            self.logger.propagate = False  # 親ロガーへの伝播を防止
     
     def log_request(self, packet: Any, operation_type: str = "REQUEST") -> None:
         """
-        リクエストパケットの重要な情報のみをログ出力
+        リクエストパケットの重要な情報のみをログ出力（簡潔版）
         
         Args:
             packet: パケットオブジェクト
@@ -33,41 +40,21 @@ class PacketDebugLogger:
         """
         if not self.debug_enabled:
             return
-            
-        self.logger.debug(f"\n=== {operation_type} ===")
         
-        # パケットタイプに応じた情報表示
-        if hasattr(packet, 'type'):
-            packet_type_name = self._get_packet_type_name(packet.type)
-            self.logger.debug(f"Type: {packet_type_name} ({packet.type})")
-        
-        if hasattr(packet, 'packet_id'):
-            self.logger.debug(f"Packet ID: {packet.packet_id}")
-        
-        # 要求の内容を表示
-        if hasattr(packet, 'get_request_summary'):
-            summary = packet.get_request_summary()
-            self.logger.debug(f"Request: {summary}")
-        elif hasattr(packet, 'area_code'):
-            self.logger.debug(f"Area Code: {packet.area_code}")
-        
-        # 座標情報
-        if hasattr(packet, 'get_coordinates'):
-            coords = packet.get_coordinates()
-            if coords:
-                self.logger.debug(f"Coordinates: {coords}")
+        # 基本情報のみ1行で表示
+        packet_type_name = self._get_packet_type_name(packet.type) if hasattr(packet, 'type') else "Unknown"
+        packet_id = packet.packet_id if hasattr(packet, 'packet_id') else "N/A"
+        area_code = packet.area_code if hasattr(packet, 'area_code') else "N/A"
         
         # フラグ情報（簡潔に）
         flags = self._extract_request_flags(packet)
-        if flags:
-            self.logger.debug(f"Data Requested: {', '.join(flags)}")
+        flags_str = ', '.join(flags) if flags else "None"
         
-        self.logger.debug(f"Packet Size: {len(packet.to_bytes())} bytes")
-        self.logger.debug("=" * 30)
+        self.logger.debug(f"{operation_type}: {packet_type_name} | ID:{packet_id} | Area:{area_code} | Data:{flags_str}")
     
     def log_response(self, packet: Any, operation_type: str = "RESPONSE") -> None:
         """
-        レスポンスパケットの重要な情報のみをログ出力
+        レスポンスパケットの重要な情報のみをログ出力（簡潔版）
         
         Args:
             packet: パケットオブジェクト
@@ -75,43 +62,57 @@ class PacketDebugLogger:
         """
         if not self.debug_enabled:
             return
-            
-        self.logger.debug(f"\n=== {operation_type} ===")
         
-        # パケットタイプに応じた情報表示
-        if hasattr(packet, 'type'):
-            packet_type_name = self._get_packet_type_name(packet.type)
-            self.logger.debug(f"Type: {packet_type_name} ({packet.type})")
+        # 基本情報のみ1行で表示
+        packet_type_name = self._get_packet_type_name(packet.type) if hasattr(packet, 'type') else "Unknown"
         
         # 成功/失敗状態
+        status = "Unknown"
         if hasattr(packet, 'is_success'):
-            success = packet.is_success()
-            self.logger.debug(f"Status: {'Success' if success else 'Failed'}")
+            status = "Success" if packet.is_success() else "Failed"
         elif hasattr(packet, 'is_valid'):
-            valid = packet.is_valid()
-            self.logger.debug(f"Status: {'Valid' if valid else 'Invalid'}")
+            status = "Valid" if packet.is_valid() else "Invalid"
+        elif hasattr(packet, 'error_code'):
+            status = f"Error:{packet.error_code}"
         
         # 応答内容の要約
+        summary = ""
         if hasattr(packet, 'get_response_summary'):
             summary = packet.get_response_summary()
-            self.logger.debug(f"Response: {summary}")
         elif hasattr(packet, 'get_weather_data'):
             weather_data = packet.get_weather_data()
             if weather_data:
-                self.logger.debug(f"Weather Data: {self._format_weather_data(weather_data)}")
+                summary = self._format_weather_data(weather_data)
         
-        # エリアコード
-        if hasattr(packet, 'get_area_code'):
-            area_code = packet.get_area_code()
-            if area_code:
-                self.logger.debug(f"Area Code: {area_code}")
+        # 複数行で表示
+        self.logger.debug(f"{operation_type}: {packet_type_name}")
+        packet_id = packet.packet_id if hasattr(packet, 'packet_id') else "N/A"
+        self.logger.debug(f"  Packet ID: {packet_id}")
+        self.logger.debug(f"  Status: {status}")
         
-        # エラー情報
-        if hasattr(packet, 'error_code'):
-            self.logger.debug(f"Error Code: {packet.error_code}")
-        
-        self.logger.debug(f"Packet Size: {len(packet.to_bytes())} bytes")
-        self.logger.debug("=" * 30)
+        # 応答内容の詳細
+        if hasattr(packet, 'get_response_summary'):
+            summary = packet.get_response_summary()
+            if summary:
+                self.logger.debug(f"  Summary: {summary}")
+        elif hasattr(packet, 'get_weather_data'):
+            weather_data = packet.get_weather_data()
+            if weather_data:
+                self.logger.debug(f"  Weather Data:")
+                if 'area_code' in weather_data:
+                    self.logger.debug(f"    Area Code: {weather_data['area_code']}")
+                if 'weather_code' in weather_data:
+                    self.logger.debug(f"    Weather Code: {weather_data['weather_code']}")
+                if 'temperature' in weather_data:
+                    self.logger.debug(f"    Temperature: {weather_data['temperature']}°C")
+                if 'precipitation_prob' in weather_data:
+                    self.logger.debug(f"    Precipitation: {weather_data['precipitation_prob']}%")
+                if 'alert' in weather_data and weather_data['alert']:
+                    self.logger.debug(f"    Alert: {weather_data['alert']}")
+                if 'disaster' in weather_data and weather_data['disaster']:
+                    self.logger.debug(f"    Disaster: {weather_data['disaster']}")
+        elif summary:
+            self.logger.debug(f"  Summary: {summary}")
     
     def log_timing(self, operation_name: str, timing_info: dict) -> None:
         """
@@ -121,7 +122,7 @@ class PacketDebugLogger:
             operation_name: 操作名
             timing_info: タイミング情報の辞書
         """
-        # タイミング情報ログは無効化
+        # タイミング情報ログは無効化（デバッグログの量を削減）
         pass
     
     def log_error(self, error_msg: str, error_code: Optional[str] = None) -> None:
@@ -146,7 +147,7 @@ class PacketDebugLogger:
             key: キャッシュキー
             hit: キャッシュヒットかどうか
         """
-        # キャッシュ操作ログは無効化
+        # キャッシュ操作ログは無効化（デバッグログの量を削減）
         pass
     
     def debug(self, message: str) -> None:
