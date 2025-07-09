@@ -153,10 +153,6 @@ class ReportClient:
                     if hasattr(response, 'get_response_summary'):
                         result.update(response.get_response_summary())
 
-                    self.debug_logger.log_timing("REPORT OPERATION", {
-                        'total_time': result['response_time_ms']
-                    })
-
                     return result
                 else:
                     self.logger.error("レポート送信失敗: サーバーからエラーレスポンス")

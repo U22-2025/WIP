@@ -46,8 +46,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             self.config = ConfigLoader(config_path)
         except Exception as e:
             error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
-            if self.debug:
-                traceback.print_exc()
+            self.logger.debug(traceback.format_exc())
             raise RuntimeError(f"設定ファイル読み込みエラー: {str(e)}")
         
         # サーバー設定を取得（引数優先、なければ設定ファイル、なければデフォルト）
@@ -100,8 +99,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             )
         except Exception as e:
             print(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
-            if self.debug:
-                traceback.print_exc()
+            self.logger.debug(traceback.format_exc())
             raise RuntimeError(f"ロケーションクライアント初期化エラー: {str(e)}")
 
         try:
@@ -115,8 +113,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             )
         except Exception as e:
             print( f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
-            if self.debug:
-                traceback.print_exc()
+            self.logger.debug(traceback.format_exc())
             raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
         
         # 認証設定を環境変数から読み込む
@@ -240,8 +237,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                     self.request_count += 1
             except Exception as e:
                 error_msg = f"リクエストカウントの更新に失敗しました - {str(e)}"
-                if self.debug:
-                    traceback.print_exc()
+                self.logger.debug(traceback.format_exc())
                 raise RuntimeError(f"755: レート制限超過: {str(e)}")
             
             # リクエストをパース（専用パケットクラス使用）
@@ -251,8 +247,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 # リクエストパース成功のデバッグ出力を削除
             except Exception as e:
                 print(f"530: [{self.server_name}] リクエストのパース中にエラーが発生しました: {e}")
-                if self.debug:
-                    traceback.print_exc()
+                self.logger.debug(traceback.format_exc())
                 # ErrorResponseを作成して返す（パースエラー時はpacket_id=0とする）
                 error_response = ErrorResponse(
                     version=self.version,
@@ -261,8 +256,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                     timestamp=int(datetime.now().timestamp())
                 )
                 # パースエラー時は送信先が不明なため転送できない
-                if self.debug:
-                    print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
+                self.logger.debug(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
                 return
             
             # デバッグ出力（改良版）
@@ -327,12 +321,11 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 if dest:
                     error_response.ex_field.source = dest
                     self.sock.sendto(error_response.to_bytes(), dest)
-                if self.debug:
-                    if dest:
-                        print(f"[{threading.current_thread().name}] Error response sent to {dest}")
-                    else:
-                        print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
-                    print(f"{error_code}: [{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
+                if dest:
+                    self.logger.debug(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                else:
+                    self.logger.debug(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
+                self.logger.debug(f"{error_code}: [{threading.current_thread().name}] {addr} からの不正なリクエスト: {error_msg}")
                 with self.lock:
                     self.error_count += 1
                 return
@@ -361,34 +354,31 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             elif request.type == 7:  # エラーパケット処理を追加
                 self._handle_error_packet(request, addr)
             else:
-                if self.debug:
-                    print(f"405: 不正なパケットタイプ: {request.type}")
-                    # ErrorResponseを作成して返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=request.packet_id,
-                        error_code= 405,
-                        timestamp=int(datetime.now().timestamp())
-                    )
-                    dest = None
-                    if (
-                        hasattr(request, "ex_field")
-                        and request.ex_field
-                        and request.ex_field.contains('source')
-                    ):
-                        candidate = request.ex_field.source
-                        if isinstance(candidate, tuple) and len(candidate) == 2:
-                            dest = candidate
+                self.logger.debug(f"405: 不正なパケットタイプ: {request.type}")
+                # ErrorResponseを作成して返す
+                error_response = ErrorResponse(
+                    version=self.version,
+                    packet_id=request.packet_id,
+                    error_code= 405,
+                    timestamp=int(datetime.now().timestamp())
+                )
+                dest = None
+                if (
+                    hasattr(request, "ex_field")
+                    and request.ex_field
+                    and request.ex_field.contains('source')
+                ):
+                    candidate = request.ex_field.source
+                    if isinstance(candidate, tuple) and len(candidate) == 2:
+                        dest = candidate
 
-                    if dest:
-                        error_response.ex_field.source = dest
-                        self.sock.sendto(error_response.to_bytes(), dest)
-                        if self.debug:
-                            print(f"[{threading.current_thread().name}] Error response sent to {dest}")
-                    else:
-                        if self.debug:
-                            print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
-                    return
+                if dest:
+                    error_response.ex_field.source = dest
+                    self.sock.sendto(error_response.to_bytes(), dest)
+                    self.logger.debug(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                else:
+                    self.logger.debug(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
+                return
                     
             # タイミング情報を出力
             timing_info['total'] = time.time() - start_time
@@ -398,8 +388,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             with self.lock:
                 self.error_count += 1
             print(f"530: [{self.server_name}:{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
-            if self.debug:
-                traceback.print_exc()
+            self.logger.debug(traceback.format_exc())
             # ErrorResponseを作成して返す（requestが未定義の場合の処理を追加）
             packet_id = getattr(request, 'packet_id', 0)  # requestが未定義の場合は0
             error_response = ErrorResponse(
@@ -423,11 +412,9 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             if dest:
                 error_response.ex_field.source = dest
                 self.sock.sendto(error_response.to_bytes(), dest)
-                if self.debug:
-                    print(f"[{threading.current_thread().name}] Error response sent to {dest}")
+                self.logger.debug(f"[{threading.current_thread().name}] Error response sent to {dest}")
             else:
-                if self.debug:
-                    print(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
+                self.logger.debug(f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません")
             return
     
 
