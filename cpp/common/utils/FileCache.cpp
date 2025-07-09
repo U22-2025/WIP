@@ -5,7 +5,7 @@
 namespace wip {
 namespace utils {
 
-FileCache::FileCache(const std::string& path, std::chrono::hours ttl)
+FileCache::FileCache(const std::string& path, std::chrono::minutes ttl)
     : path_(path), ttl_(std::chrono::duration_cast<std::chrono::seconds>(ttl)) {
     load();
 }

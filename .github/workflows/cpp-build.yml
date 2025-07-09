@@ -3,11 +3,11 @@ name: Build C++ Components
 on:
   push:
     paths:
-      - 'c++common/**'
+      - 'cpp/**'
       - '.github/workflows/cpp-build.yml'
   pull_request:
     paths:
-      - 'c++common/**'
+      - 'cpp/**'
       - '.github/workflows/cpp-build.yml'
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y cmake build-essential
       - name: Configure
         run: |
-          cmake -S c++common -B build
+          cmake -S cpp -B build
       - name: Build
         run: |
           cmake --build build

@@ -11,8 +11,11 @@ namespace utils {
 
 class FileCache {
 public:
-    explicit FileCache(const std::string& path,
-                       std::chrono::hours ttl = std::chrono::hours(24));
+    explicit FileCache(
+        const std::string& path,
+        std::chrono::minutes ttl =
+            std::chrono::duration_cast<std::chrono::minutes>(
+                std::chrono::hours(24)));
 
     bool get(const std::string& key, std::string& value);
     void set(const std::string& key, const std::string& value);
