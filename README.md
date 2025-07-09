@@ -554,7 +554,7 @@ SOFTWARE.
 
 
 ## C++ コンポーネントのビルド
-このリポジトリには C++ 実装用の `c++common` ディレクトリがあります。ビルドには CMake と make を使用します。
+ディレクトリ構成変更に伴い、C++ 実装は `cpp` ディレクトリ以下に配置されています。ビルドには CMake と make を使用します。
 
 ### 依存ライブラリ
 - CMake 3.10 以上
@@ -564,7 +564,7 @@ SOFTWARE.
 ### ビルド手順
 ```bash
 mkdir build && cd build
-cmake ../c++common
+cmake ../cpp
 make
 ```
 
