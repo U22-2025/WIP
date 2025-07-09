@@ -12,3 +12,5 @@ target_sources(wipcommon
         Utils.hpp
         third_party/json.hpp
 )
+
+target_link_libraries(wipcommon PUBLIC OpenSSL::Crypto)
