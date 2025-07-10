@@ -69,10 +69,16 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
 
     wip::platform::socket_t sock = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == wip::platform::invalid_socket) return result;
+#ifdef _WIN32
+    DWORD timeout_ms = static_cast<DWORD>(timeout * 1000);
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+               reinterpret_cast<const char*>(&timeout_ms), sizeof(timeout_ms));
+#else
     struct timeval tv{0};
     tv.tv_sec = static_cast<int>(timeout);
     tv.tv_usec = 0;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
