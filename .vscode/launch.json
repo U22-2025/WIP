@@ -6,7 +6,7 @@
             "name": "Launch WIP Client",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/cpp/WIP/WIP/WIP.exe",
+            "program": "${workspaceFolder}/cpp/wip/wip.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
