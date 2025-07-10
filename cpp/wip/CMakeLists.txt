@@ -11,13 +11,16 @@ list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 
-find_package(Boost CONFIG REQUIRED)
+# Boost を利用するためにヘッダ専用ライブラリを検索
+find_package(Boost REQUIRED)
 
 find_package(OpenSSL REQUIRED)
 target_link_libraries(wip PRIVATE OpenSSL::SSL OpenSSL::Crypto Boost::boost)
 
+# Boost のインクルードディレクトリも指定
 target_include_directories(wip PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
+    ${Boost_INCLUDE_DIRS}
 )
 target_compile_definitions(wip PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
 
@@ -39,6 +42,7 @@ add_executable(wip_tests
 
 target_include_directories(wip_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
+    ${Boost_INCLUDE_DIRS}
 )
 target_compile_definitions(wip_tests PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
 
