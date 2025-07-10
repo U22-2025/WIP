@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(wipcommon)
 enable_testing()
+include(CTest)
 
 # 必要に応じて CMake policy を設定
 cmake_policy(SET CMP0076 NEW)  # target_sources用
@@ -17,8 +18,8 @@ find_package(OpenSSL REQUIRED)
 add_library(wipcommon STATIC common/placeholder.cpp)
 
 # Python 側の定義ファイルを参照するためのパスをコンパイル時定義に含める
-
-
+set(FORMAT_SPEC_DIR "${CMAKE_SOURCE_DIR}/../python/common/packet/format_spec")
+target_compile_definitions(wipcommon PUBLIC FORMAT_SPEC_DIR="${FORMAT_SPEC_DIR}")
 # インクルードパス
 target_include_directories(wipcommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common)
 
