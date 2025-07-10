@@ -8,7 +8,7 @@ build/
 /.vscode/*
 !/.vscode/launch.json
 /cpp/.vs/
-/cpp/WIP/.vs/
-/cpp/vcpkg_installed/
+/cpp/wip/.vs/
+/cpp/wip/vcpkg_installed/
 /.vs/
 vcpkg.json
