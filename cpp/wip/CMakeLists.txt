@@ -40,6 +40,8 @@ add_executable(wip_tests
     ${COMMON_SOURCES}
 )
 
+set_property(TARGET wip_tests PROPERTY CXX_STANDARD 20)
+
 target_include_directories(wip_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${Boost_INCLUDE_DIRS}
