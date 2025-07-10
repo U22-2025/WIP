@@ -27,8 +27,9 @@ from .modules.weather_constants import ThreadConstants
 from common.packet import QueryRequest, QueryResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
-from common.packet.debug.debug_logger import create_debug_logger
+from common.packet.debug.debug_logger import create_debug_logger, PacketDebugLogger
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
+from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_disaster_main
 
 
 class QueryServer(BaseServer):
@@ -77,6 +78,9 @@ class QueryServer(BaseServer):
         # デバッグロガーの初期化
         self.logger = create_debug_logger(f"{self.server_name}", self.debug)
         
+        # 統一デバッグロガーの初期化
+        self.packet_debug_logger = PacketDebugLogger("QueryServer")
+        
         # スケジューラーを開始（loggerが初期化された後）
         self._setup_scheduler()
     
@@ -103,7 +107,6 @@ class QueryServer(BaseServer):
             'redis_host': self.config.get('redis', 'host', 'localhost'),
             'redis_port': self.config.getint('redis', 'port', 6379),
             'redis_db': self.config.getint('redis', 'db', 0),
-            'weather_output_file': self.config.get('database', 'weather_output_file', 'wip/resources/test.json'),
             'debug': self.debug,
             'max_workers': self.max_workers,
             'version': self.version
@@ -173,6 +176,8 @@ class QueryServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
+        start_time = time.time()
+        
         # リクエストのバリデーション
         is_valid, error_code, error_msg = self.validate_request(request)
         if not is_valid:
@@ -228,7 +233,22 @@ class QueryServer(BaseServer):
             self.logger.debug(f"520: [{self.server_name}] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
         
-        # 最終確認
+        # 統一されたデバッグ出力を追加
+        execution_time = time.time() - start_time
+        debug_data = {
+            'area_code': request.area_code,
+            'timestamp': response.timestamp,
+            'weather_code': response.weather_code if response.weather_flag else 'N/A',
+            'temperature': response.temperature - 100 if response.temperature_flag else 'N/A',
+            'precipitation_prob': response.pop if response.pop_flag else 'N/A',
+            'alert': response.ex_field.get('alert', []) if hasattr(response, 'ex_field') and response.ex_field else [],
+            'disaster': response.ex_field.get('disaster', []) if hasattr(response, 'ex_field') and response.ex_field else []
+        }
+        self.packet_debug_logger.log_unified_packet_received(
+            "Direct request",
+            execution_time,
+            debug_data
+        )
         
         return response.to_bytes()
     
@@ -312,6 +332,11 @@ class QueryServer(BaseServer):
         skip_area_interval = self.config.getint('schedule', 'skip_area_check_interval_minutes', 10)
         self.logger.debug(f"[{self.server_name}] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。")
         schedule.every(skip_area_interval).minutes.do(self._check_and_update_skip_area_scheduled)
+        
+        # configから災害情報更新間隔を取得
+        disaster_alert_interval = self.config.getint('schedule', 'disaster_alert_update_time', 10)
+        self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新を {disaster_alert_interval} 分ごとにスケジュールします。")
+        schedule.every(disaster_alert_interval).minutes.do(self._update_disaster_alert_scheduled)
 
         # スケジュールを実行するスレッドを開始
         def run_scheduler():
@@ -354,6 +379,19 @@ class QueryServer(BaseServer):
                 self.logger.debug(traceback.format_exc())
         else:
             self.logger.debug(f"[{self.server_name}] skip_areaは空です。更新はスキップされます。")
+
+    def _update_disaster_alert_scheduled(self):
+        """
+        スケジュールされた災害情報と気象注意報の更新処理
+        """
+        self.logger.debug(f"[{self.server_name}] スケジュールされた災害情報と気象注意報の更新を実行中...")
+        try:
+            # WIP_Server/scripts/update_alert_disaster_data.py の main() 関数を呼び出す
+            update_alert_disaster_main()
+            self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新完了。")
+        except Exception as e:
+            print(f"[{self.server_name}] 災害情報と気象注意報の更新エラー: {e}")
+            self.logger.debug(traceback.format_exc())
 
 
 if __name__ == "__main__":

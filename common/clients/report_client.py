@@ -153,6 +153,25 @@ class ReportClient:
                     if hasattr(response, 'get_response_summary'):
                         result.update(response.get_response_summary())
 
+                    # 統一フォーマットでの成功ログ出力
+                    execution_time = time.time() - start_time
+                    report_data = {
+                        'area_code': self.area_code,
+                        'timestamp': result['timestamp']
+                    }
+                    if self.weather_code is not None:
+                        report_data['weather_code'] = self.weather_code
+                    if self.temperature is not None:
+                        report_data['temperature'] = self.temperature
+                    if self.precipitation_prob is not None:
+                        report_data['precipitation_prob'] = self.precipitation_prob
+                    if self.alert:
+                        report_data['alert'] = self.alert
+                    if self.disaster:
+                        report_data['disaster'] = self.disaster
+                    
+                    self.debug_logger.log_unified_packet_received("Direct request", execution_time, report_data)
+
                     return result
                 else:
                     self.logger.error("レポート送信失敗: サーバーからエラーレスポンス")

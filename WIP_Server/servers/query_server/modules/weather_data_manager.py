@@ -6,8 +6,7 @@ Redisキャッシュを管理
 import json
 import redis
 from .weather_constants import RedisConstants, CacheConstants
-from datetime import datetime, timedelta
-from WIP_Server.data import redis_manager,get_disaster, get_alert
+from WIP_Server.data import redis_manager
 import dateutil.parser
 
 class WeatherDataManager:
@@ -79,16 +78,6 @@ class WeatherDataManager:
             return None
 
         try:
-            # JSON形式でデータを取得
-            disasterpulldatetime = rm.get_weather_data("disaster_pulldatetime")
-            alertpulldatetime = rm.get_weather_data("alert_pulldatetime")
-            
-            ### 災害情報や気象注意報が古いものか確認
-            if self.check_update_time(disasterpulldatetime):
-                get_disaster.main()
-            if self.check_update_time(alertpulldatetime):
-                get_alert.main()
-
             weather_data = rm.get_weather_data(area_code)
             if not weather_data:
                 None
@@ -137,28 +126,6 @@ class WeatherDataManager:
                 import traceback
                 traceback.print_exc()
             return None
-
-    # 気象注意報・災害情報の更新時間が古いか確認
-    def check_update_time(self, iso_time_str):
-        # None チェックを追加
-        if iso_time_str is None:
-            return True
-        # ISO 8601文字列をパース（タイムゾーン対応）
-        target_time = dateutil.parser.isoparse(iso_time_str)
-
-        # 現在時刻（対象のタイムゾーンと同じタイムゾーンで取得）
-        now = datetime.now(target_time.tzinfo)
-
-        # 差を計算
-        time_diff = now - target_time
-
-        # 30分以上前ならTrueで
-        # 更新させる
-        import os
-        # 環境変数からキャッシュ時間を取得し、intに変換
-        cache_minutes = int(os.getenv('DISASTER_ALERT_CACHE_MIN', '1440')) # デフォルトは30分
-        return time_diff >= timedelta(minutes=cache_minutes)
-
     
     def save_weather_data(self, area_code, data, weather_flag=False, temperature_flag=False,
                          pop_flag=False, alert_flag=False, disaster_flag=False, day=0):

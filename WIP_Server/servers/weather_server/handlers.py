@@ -11,10 +11,17 @@ from common.packet import (
     ReportRequest, ReportResponse,
     ErrorResponse, ExtendedField,
 )
+from common.packet.debug.debug_logger import PacketDebugLogger
 
 
 class WeatherRequestHandlers:
     """Mixin providing handler implementations for WeatherServer."""
+    
+    def __init__(self, *args, **kwargs):
+        """Initialize debug logger for weather server handlers."""
+        super().__init__(*args, **kwargs)
+        self.packet_debug_logger = PacketDebugLogger("WeatherServer")
+    
     def _handle_location_request(self, request, addr):
         """座標解決リクエストの処理（Type 0・改良版）"""
         source_info = (addr[0], addr[1])  # タプル形式で保持
@@ -184,6 +191,7 @@ class WeatherRequestHandlers:
     
     def _handle_location_response(self, data, addr):
         """座標解決レスポンスの処理（Type 1・改良版）"""
+        start_time = time.time()
         try:
             # 専用クラスでレスポンスをパース
             response = LocationResponse.from_bytes(data)
@@ -262,7 +270,24 @@ class WeatherRequestHandlers:
                         bytes_sent = self.sock.sendto(response_data, source_addr)
                         if bytes_sent != len(response_data):
                             raise RuntimeError(f"送信バイト数不一致: {bytes_sent}/{len(response_data)}")
-    
+        
+                        # 統一されたデバッグ出力を追加
+                        execution_time = time.time() - start_time
+                        debug_data = {
+                            'area_code': response.area_code,
+                            'timestamp': response.timestamp,
+                            'weather_code': weather_data.get('weather_code', '0000'),
+                            'temperature': weather_data.get('temperature', 0),
+                            'precipitation_prob': weather_data.get('precipitation_prob', 0),
+                            'alert': weather_data.get('alert', []),
+                            'disaster': weather_data.get('disaster', [])
+                        }
+                        self.packet_debug_logger.log_unified_packet_received(
+                            "Location response to query conversion",
+                            execution_time,
+                            debug_data
+                        )
+        
                         return  # query_clientキャッシュヒット/成功時はここで終了
                     raise RuntimeError("source情報が見つかりません")
             except Exception as e:
@@ -327,6 +352,7 @@ class WeatherRequestHandlers:
     
     def _handle_query_request(self, request, addr):
         """気象データリクエストの処理（Type 2・改良版）"""
+        start_time = time.time()
         try:
             source_info = (addr[0], addr[1])  # タプル形式で保持
             
@@ -385,7 +411,24 @@ class WeatherRequestHandlers:
     
                     response_data = query_response.to_bytes()
                     self.sock.sendto(response_data, addr)
-    
+        
+                    # 統一されたデバッグ出力を追加
+                    execution_time = time.time() - start_time
+                    debug_data = {
+                        'area_code': request.area_code,
+                        'timestamp': int(datetime.now().timestamp()),
+                        'weather_code': weather_data.get('weather_code', '0000'),
+                        'temperature': weather_data.get('temperature', 0),
+                        'precipitation_prob': weather_data.get('precipitation_prob', 0),
+                        'alert': weather_data.get('alert', []),
+                        'disaster': weather_data.get('disaster', [])
+                    }
+                    self.packet_debug_logger.log_unified_packet_received(
+                        "Direct query request",
+                        execution_time,
+                        debug_data
+                    )
+        
                     return  # query_clientキャッシュヒット/成功時はここで終了
             except Exception as e:
                 pass  # 通常のクエリサーバ転送にフォールバック
@@ -494,6 +537,7 @@ class WeatherRequestHandlers:
     
     def _handle_query_response(self, data, addr):
         """気象データレスポンスの処理（Type 3・改良版）"""
+        start_time = time.time()
         try:
             # 専用クラスでレスポンスをパース
             response = QueryResponse.from_bytes(data)
@@ -540,6 +584,24 @@ class WeatherRequestHandlers:
                     bytes_sent = self.sock.sendto(final_data, dest_addr)
                     if bytes_sent != len(final_data):
                         raise RuntimeError(f"パケット長エラー: (expected: {len(final_data)}, sent: {bytes_sent})")
+                    
+                    # 統一されたデバッグ出力を追加
+                    execution_time = time.time() - start_time
+                    debug_data = {
+                        'area_code': response.area_code,
+                        'timestamp': response.timestamp,
+                        'weather_code': response.weather_code,
+                        'temperature': response.temperature - 100,  # パケット形式から実際の温度に変換
+                        'precipitation_prob': response.pop,
+                        'alert': response.ex_field.get('alert', []) if response.ex_field else [],
+                        'disaster': response.ex_field.get('disaster', []) if response.ex_field else []
+                    }
+                    self.packet_debug_logger.log_unified_packet_received(
+                        "Query response forwarding",
+                        execution_time,
+                        debug_data
+                    )
+                    
                 except Exception as e:
                     self.logger.debug(traceback.format_exc())
                     # ErrorResponseを作成して返す
@@ -782,6 +844,7 @@ class WeatherRequestHandlers:
     
     def _handle_report_response(self, data, addr):
         """データレポートレスポンスの処理（Type 5）"""
+        start_time = time.time()
         try:
             # 専用クラスでレスポンスをパース
             response = ReportResponse.from_bytes(data)
@@ -828,6 +891,22 @@ class WeatherRequestHandlers:
                     bytes_sent = self.sock.sendto(final_data, dest_addr)
                     if bytes_sent != len(final_data):
                         raise RuntimeError(f"パケット長エラー: (expected: {len(final_data)}, sent: {bytes_sent})")
+                    
+                    # 統一されたデバッグ出力を追加
+                    execution_time = time.time() - start_time
+                    debug_data = {
+                        'area_code': response.area_code if hasattr(response, 'area_code') else 'N/A',
+                        'timestamp': response.timestamp,
+                        'status': 'success',
+                        'response_type': 'report_response',
+                        'packet_id': response.packet_id,
+                        'data_sent': len(final_data)
+                    }
+                    self.packet_debug_logger.log_unified_packet_received(
+                        "Report response forwarding",
+                        execution_time,
+                        debug_data
+                    )
                         
                 except Exception as e:
                     self.logger.debug(traceback.format_exc())
