@@ -1,11 +1,12 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Launch WIP Client",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/wip_client",
+            "program": "${workspaceFolder}/cpp/WIP/WIP/WIP.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -21,6 +22,14 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "Python: Launch WIP Servers",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/launch_server.py",
+            "args": ["--weather", "--query", "--location", "--report", "--debug"],
+            "console": "integratedTerminal"
         }
     ]
 }
