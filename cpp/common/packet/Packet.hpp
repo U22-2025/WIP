@@ -1,11 +1,16 @@
 #pragma once
 
-#include "core/Exceptions.hpp"
-#include "core/ExtendedField.hpp"
-#include "core/FormatBase.hpp"
-#include "core/FormatExtended.hpp"
-#include "core/Format.hpp"
+#include "core/core.hpp"
+#include "models/Request.hpp"
+#include "models/Response.hpp"
+#include "types/LocationPacket.hpp"
+#include "types/QueryPacket.hpp"
+#include "types/ReportPacket.hpp"
+#include "types/ErrorResponse.hpp"
+#include "debug/DebugLogger.hpp"
 
+namespace wip {
 namespace packet {
-const char* VERSION = "1.0.0";
-}
+inline constexpr const char* VERSION = "1.1.0";
+} // namespace packet
+} // namespace wip

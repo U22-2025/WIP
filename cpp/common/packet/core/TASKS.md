@@ -8,4 +8,4 @@
 - [x] `format.py` を `Format.hpp` / `Format.cpp` に移植
 - [x] `format_extended.py` を `FormatExtended.hpp` / `FormatExtended.cpp` に移植
 - [x] `extended_field.py` を `ExtendedField.hpp` / `ExtendedField.cpp` に移植
-- [ ] `__init__.py` 相当の処理を C++ で実装
+- [x] `__init__.py` 相当の処理を C++ で実装
