@@ -140,6 +140,9 @@ class WeatherDataManager:
 
     # 気象注意報・災害情報の更新時間が古いか確認
     def check_update_time(self, iso_time_str):
+        # None チェックを追加
+        if iso_time_str is None:
+            return True
         # ISO 8601文字列をパース（タイムゾーン対応）
         target_time = dateutil.parser.isoparse(iso_time_str)
 
