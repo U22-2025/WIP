@@ -2,6 +2,13 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# 環境変数を.envファイルから読み込み
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("Warning: python-dotenv not installed. Using system environment variables only.")
+
 # コマンドライン引数解析
 use_coordinates = "--coord" in sys.argv
 use_proxy = "--proxy" in sys.argv
@@ -60,12 +67,16 @@ if use_report:
     # --proxyがない場合は直接reportサーバへ送信
     if use_proxy:
         # プロキシ経由（weatherサーバ経由）
-        report_client = ReportClient(host='localhost', port=4110, debug=debug_enabled)
-        print("Using proxy mode - sending via Weather Server")
+        weather_host = os.getenv('WEATHER_SERVER_HOST', 'localhost')
+        weather_port = int(os.getenv('WEATHER_SERVER_PORT', '4110'))
+        report_client = ReportClient(host=weather_host, port=weather_port, debug=debug_enabled)
+        print(f"Using proxy mode - sending via Weather Server ({weather_host}:{weather_port})")
     else:
         # 直接reportサーバへ送信
-        report_client = ReportClient(host='localhost', port=4112, debug=debug_enabled)
-        print("Using direct mode - sending directly to Report Server")
+        report_host = os.getenv('REPORT_SERVER_HOST', 'localhost')
+        report_port = int(os.getenv('REPORT_SERVER_PORT', '4112'))
+        report_client = ReportClient(host=report_host, port=report_port, debug=debug_enabled)
+        print(f"Using direct mode - sending directly to Report Server ({report_host}:{report_port})")
     
     try:
         report_client.set_sensor_data(
@@ -82,7 +93,7 @@ if use_report:
         elapsed_time = time.time() - start_time
         
         if report_result:
-            print(f"\n✓ Report sent successfully! (Execution time: {elapsed_time:.3f}s)")
+            print(f"\nOK Report sent successfully! (Execution time: {elapsed_time:.3f}s)")
             print("=== Report Response ===")
             for key, value in report_result.items():
                 print(f"  {key}: {value}")
@@ -129,7 +140,7 @@ if use_coordinates:
         
         if result:
             elapsed_time = time.time() - start_time
-            print(f"\n✓ Request successful via Weather Server! (Execution time: {elapsed_time:.3f}s)")
+            print(f"\nOK Request successful via Weather Server! (Execution time: {elapsed_time:.3f}s)")
             print("=== Received packet content ===")
             for key, value in result.items():
                 print(f"  {key}: {value}")
@@ -138,7 +149,10 @@ if use_coordinates:
             # レポート送信処理
             if use_report:
                 print("\n--- Sending data to Report Server ---")
-                report_client = ReportClient(debug=debug_enabled)
+                # プロキシ経由でのレポート送信
+                weather_host = os.getenv('WEATHER_SERVER_HOST', 'localhost')
+                weather_port = int(os.getenv('WEATHER_SERVER_PORT', '4110'))
+                report_client = ReportClient(host=weather_host, port=weather_port, debug=debug_enabled)
                 try:
                     report_client.set_sensor_data(
                         area_code=result.get('area_code'),
@@ -150,7 +164,7 @@ if use_coordinates:
                     )
                     report_result = report_client.send_report_data()
                     if report_result:
-                        print(f"✓ Report sent successfully! Response: {report_result}")
+                        print(f"OK Report sent successfully! Response: {report_result}")
                     else:
                         print("✗ Failed to send report to Report Server")
                 finally:
@@ -206,7 +220,7 @@ if use_coordinates:
         if location_response and location_response.is_valid():
             area_code = location_response.get_area_code()
             cache_hit = getattr(location_response, 'cache_hit', False)
-            print(f"✓ Area code obtained: {area_code} (Cache {'HIT' if cache_hit else 'MISS'})")
+            print(f"OK Area code obtained: {area_code} (Cache {'HIT' if cache_hit else 'MISS'})")
             
             # キャッシュテスト：同じ座標を再度取得
             print("\n--- Cache Test: Getting same coordinates again ---")
@@ -219,7 +233,7 @@ if use_coordinates:
             if location_response2 and location_response2.is_valid():
                 area_code2 = location_response2.get_area_code()
                 cache_hit2 = getattr(location_response2, 'cache_hit', False)
-                print(f"✓ Second request - Area code: {area_code2} (Cache {'HIT' if cache_hit2 else 'MISS'})")
+                print(f"OK Second request - Area code: {area_code2} (Cache {'HIT' if cache_hit2 else 'MISS'})")
             else:
                 print("\n✗ Second request failed")
             
@@ -238,7 +252,7 @@ if use_coordinates:
             
             if weather_result:
                 elapsed_time = time.time() - start_time
-                print(f"\n✓ Direct request successful! (Execution time: {elapsed_time:.3f}s)")
+                print(f"\nOK Direct request successful! (Execution time: {elapsed_time:.3f}s)")
                 print("=== Received weather data ===")
                 # 座標情報を追加
                 weather_result['latitude'] = 35.6895
@@ -250,7 +264,10 @@ if use_coordinates:
                 # レポート送信処理
                 if use_report:
                     print("\n--- Sending data to Report Server ---")
-                    report_client = ReportClient(debug=debug_enabled)
+                    # 直接通信でのレポート送信
+                    report_host = os.getenv('REPORT_SERVER_HOST', 'localhost')
+                    report_port = int(os.getenv('REPORT_SERVER_PORT', '4112'))
+                    report_client = ReportClient(host=report_host, port=report_port, debug=debug_enabled)
                     try:
                         report_client.set_sensor_data(
                             area_code=weather_result.get('area_code'),
@@ -262,7 +279,7 @@ if use_coordinates:
                         )
                         report_result = report_client.send_report_data()
                         if report_result:
-                            print(f"✓ Report sent successfully! Response: {report_result}")
+                            print(f"OK Report sent successfully! Response: {report_result}")
                         else:
                             print("✗ Failed to send report to Report Server")
                     finally:
@@ -292,7 +309,7 @@ else:
         
         if result:
             elapsed_time = (time.time() - start_time)*1000
-            print(f"\n✓ Success via Weather Server! (Execution time: {elapsed_time:.3f}ms)")
+            print(f"\nOK Success via Weather Server! (Execution time: {elapsed_time:.3f}ms)")
             if 'area_code' in result:
                 print(f"Area Code: {result['area_code']}")
             elif 'error_code' in result:
@@ -313,7 +330,10 @@ else:
             # レポート送信処理
             if use_report:
                 print("\n--- Sending data to Report Server ---")
-                report_client = ReportClient(debug=debug_enabled)
+                # プロキシ経由でのレポート送信
+                weather_host = os.getenv('WEATHER_SERVER_HOST', 'localhost')
+                weather_port = int(os.getenv('WEATHER_SERVER_PORT', '4110'))
+                report_client = ReportClient(host=weather_host, port=weather_port, debug=debug_enabled)
                 try:
                     report_client.set_sensor_data(
                         area_code=result.get('area_code'),
@@ -325,7 +345,7 @@ else:
                     )
                     report_result = report_client.send_report_data()
                     if report_result:
-                        print(f"✓ Report sent successfully! Response: {report_result}")
+                        print(f"OK Report sent successfully! Response: {report_result}")
                     else:
                         print("✗ Failed to send report to Report Server")
                 finally:
@@ -351,7 +371,7 @@ else:
 
         if result:
             elapsed_time = time.time() - start_time
-            print(f"\n✓ Direct request successful! (Execution time: {elapsed_time:.3f}s)")
+            print(f"\nOK Direct request successful! (Execution time: {elapsed_time:.3f}s)")
             print("=== Received weather data ===")
             if 'area_code' in result:
                 print(f"Area Code: {result['area_code']}")
@@ -374,7 +394,10 @@ else:
             # レポート送信処理
             if use_report:
                 print("\n--- Sending data to Report Server ---")
-                report_client = ReportClient(debug=debug_enabled)
+                # 直接通信でのレポート送信
+                report_host = os.getenv('REPORT_SERVER_HOST', 'localhost')
+                report_port = int(os.getenv('REPORT_SERVER_PORT', '4112'))
+                report_client = ReportClient(host=report_host, port=report_port, debug=debug_enabled)
                 try:
                     report_client.set_sensor_data(
                         area_code=result.get('area_code'),
@@ -386,7 +409,7 @@ else:
                     )
                     report_result = report_client.send_report_data()
                     if report_result:
-                        print(f"✓ Report sent successfully! Response: {report_result}")
+                        print(f"OK Report sent successfully! Response: {report_result}")
                     else:
                         print("✗ Failed to send report to Report Server")
                 finally:
