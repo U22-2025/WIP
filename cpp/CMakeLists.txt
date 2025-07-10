@@ -18,8 +18,8 @@ find_package(OpenSSL REQUIRED)
 add_library(wipcommon STATIC common/placeholder.cpp)
 
 # Python 側の定義ファイルを参照するためのパスをコンパイル時定義に含める
-
-
+set(FORMAT_SPEC_DIR "${CMAKE_SOURCE_DIR}/../python/common/packet/format_spec")
+target_compile_definitions(wipcommon PUBLIC FORMAT_SPEC_DIR="${FORMAT_SPEC_DIR}")
 # インクルードパス
 target_include_directories(wipcommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common)
 

@@ -7,7 +7,11 @@ namespace packet {
 
 // 仕様ファイルディレクトリを取得するヘルパー関数
 static const std::string& get_spec_dir() {
-    static const std::string dir = "/workspace/WIP/python/common/packet/format_spec";
+#ifdef FORMAT_SPEC_DIR
+    static const std::string dir = FORMAT_SPEC_DIR;
+#else
+    static const std::string dir = "../python/common/packet/format_spec";
+#endif
     return dir;
 }
 
