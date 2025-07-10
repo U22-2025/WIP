@@ -11,12 +11,15 @@ list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 
-find_package(OpenSSL CONFIG REQUIRED)
-target_link_libraries(wip PRIVATE OpenSSL::Crypto)
+find_package(Boost REQUIRED)
+
+find_package(OpenSSL REQUIRED)
+target_link_libraries(wip PRIVATE OpenSSL::SSL OpenSSL::Crypto Boost::boost)
 
 target_include_directories(wip PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
 )
+target_compile_definitions(wip PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET wip PROPERTY CXX_STANDARD 20)
@@ -31,9 +34,15 @@ add_executable(wip_tests
     tests/test_packet.cpp
     tests/test_auth.cpp
     tests/test_dynamic.cpp
+    ${COMMON_SOURCES}
 )
 
-target_link_libraries(wip_tests PRIVATE Catch2::Catch2WithMain)
+target_include_directories(wip_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/common
+)
+target_compile_definitions(wip_tests PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
+
+target_link_libraries(wip_tests PRIVATE Catch2::Catch2WithMain Boost::boost OpenSSL::SSL OpenSSL::Crypto)
 
 enable_testing()
 add_test(NAME all_tests COMMAND wip_tests)
