@@ -29,6 +29,7 @@ from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
 from common.packet.debug.debug_logger import create_debug_logger
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
+from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_disaster_main
 
 
 class QueryServer(BaseServer):
@@ -103,7 +104,6 @@ class QueryServer(BaseServer):
             'redis_host': self.config.get('redis', 'host', 'localhost'),
             'redis_port': self.config.getint('redis', 'port', 6379),
             'redis_db': self.config.getint('redis', 'db', 0),
-            'weather_output_file': self.config.get('database', 'weather_output_file', 'wip/resources/test.json'),
             'debug': self.debug,
             'max_workers': self.max_workers,
             'version': self.version
@@ -312,6 +312,11 @@ class QueryServer(BaseServer):
         skip_area_interval = self.config.getint('schedule', 'skip_area_check_interval_minutes', 10)
         self.logger.debug(f"[{self.server_name}] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。")
         schedule.every(skip_area_interval).minutes.do(self._check_and_update_skip_area_scheduled)
+        
+        # configから災害情報更新間隔を取得
+        disaster_alert_interval = self.config.getint('schedule', 'disaster_alert_update_time', 10)
+        self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新を {disaster_alert_interval} 分ごとにスケジュールします。")
+        schedule.every(disaster_alert_interval).minutes.do(self._update_disaster_alert_scheduled)
 
         # スケジュールを実行するスレッドを開始
         def run_scheduler():
@@ -354,6 +359,19 @@ class QueryServer(BaseServer):
                 self.logger.debug(traceback.format_exc())
         else:
             self.logger.debug(f"[{self.server_name}] skip_areaは空です。更新はスキップされます。")
+
+    def _update_disaster_alert_scheduled(self):
+        """
+        スケジュールされた災害情報と気象注意報の更新処理
+        """
+        self.logger.debug(f"[{self.server_name}] スケジュールされた災害情報と気象注意報の更新を実行中...")
+        try:
+            # WIP_Server/scripts/update_alert_disaster_data.py の main() 関数を呼び出す
+            update_alert_disaster_main()
+            self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新完了。")
+        except Exception as e:
+            print(f"[{self.server_name}] 災害情報と気象注意報の更新エラー: {e}")
+            self.logger.debug(traceback.format_exc())
 
 
 if __name__ == "__main__":
