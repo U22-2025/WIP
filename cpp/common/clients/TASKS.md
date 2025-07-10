@@ -5,3 +5,7 @@
 - [x] `location_client.py` を `LocationClient.hpp` / `LocationClient.cpp` に移植
 - [x] `report_client.py` を `ReportClient.hpp` / `ReportClient.cpp` に移植
 - [x] `__init__.py` 相当の処理を C++ で実装
+
+## 残タスク
+- [ ] 各クライアントでパケット生成・解析処理を実装
+- [ ] キャッシュおよび認証機能を Python 版と同等にする
