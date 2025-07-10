@@ -4,6 +4,20 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <sstream>
+#include <iomanip>
+#include <vector>
+#include "../packet/types/LocationPacket.hpp"
+#include "utils/Auth.hpp"
+
+static std::string bytes_to_hex(const std::vector<unsigned char>& data) {
+    std::ostringstream oss;
+    for (unsigned char b : data) {
+        oss << std::hex << std::setw(2) << std::setfill('0')
+            << static_cast<int>(b);
+    }
+    return oss.str();
+}
 
 namespace wip {
 namespace clients {
@@ -39,20 +53,32 @@ std::pair<std::string, double> LocationClient::get_location_data(
     if (use_cache && !force_refresh && cache_.get(key, area)) {
         return {area, 0.0};
     }
-    // TODO: send request packet
-    (void)weather; (void)temperature; (void)precipitation_prob; (void)alert; (void)disaster; (void)day;
 
-    // Placeholder network interaction
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port_);
     addr.sin_addr.s_addr = inet_addr(host_.c_str());
-    sendto(sock_, "", 0, 0, (sockaddr*)&addr, sizeof(addr));
+
+    auto req = wip::packet::LocationRequest::create_coordinate_lookup(
+        latitude, longitude, pidg_.next_id(), weather, temperature,
+        precipitation_prob, alert, disaster, std::nullopt,
+        static_cast<uint8_t>(day));
+    if (auth_enabled_ && !auth_passphrase_.empty()) {
+        req.request_auth = true;
+        auto hash = WIPAuth::calculate_auth_hash(
+            req.packet_id, req.timestamp, auth_passphrase_);
+        req.ex_field.data["auth_hash"] = bytes_to_hex(hash);
+    }
+    auto bytes = req.to_bytes();
+    sendto(sock_, reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0,
+           (sockaddr*)&addr, sizeof(addr));
     char buf[128]{};
     socklen_t len = sizeof(addr);
     ssize_t r = recvfrom(sock_, buf, sizeof(buf), 0, (sockaddr*)&addr, &len);
     if (r > 0) {
-        area.assign(buf, r);
+        std::vector<uint8_t> data(buf, buf + r);
+        auto res = wip::packet::Response::from_bytes(data);
+        area = res.area_code;
         if (use_cache) cache_.set(key, area);
     }
     return {area, 0.0};

@@ -7,6 +7,20 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <vector>
+#include "../packet/types/QueryPacket.hpp"
+#include "utils/Auth.hpp"
+
+static std::string bytes_to_hex(const std::vector<unsigned char>& data) {
+    std::ostringstream oss;
+    for (unsigned char b : data) {
+        oss << std::hex << std::setw(2) << std::setfill('0')
+            << static_cast<int>(b);
+    }
+    return oss.str();
+}
 
 namespace wip {
 namespace clients {
@@ -42,8 +56,16 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
                             ":" + std::to_string(day);
     std::string cached;
     if (use_cache && !force_refresh && cache_.get(cache_key, cached)) {
+        std::vector<uint8_t> bytes(cached.begin(), cached.end());
+        auto res = wip::packet::Response::from_bytes(bytes);
         result["source"] = "cache";
-        result["data"] = cached;
+        result["area_code"] = res.area_code;
+        if (res.weather_flag)
+            result["weather_code"] = std::to_string(res.weather_code);
+        if (res.temperature_flag)
+            result["temperature"] = std::to_string((int)res.temperature - 100);
+        if (res.pop_flag)
+            result["precipitation_prob"] = std::to_string(res.pop);
         return result;
     }
 
@@ -59,19 +81,37 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
     addr.sin_port = htons(port_);
     addr.sin_addr.s_addr = inet_addr(host_.c_str());
 
-    // TODO: construct request packet
-    // Placeholder: send empty packet
-    sendto(sock, "", 0, 0, (sockaddr*)&addr, sizeof(addr));
+    auto req = wip::packet::QueryRequest::create_query_request(
+        area_code, pidg_.next_id(), weather, temperature,
+        precipitation_prob, alert, disaster, static_cast<uint8_t>(day));
+    if (auth_enabled_ && !auth_passphrase_.empty()) {
+        req.request_auth = true;
+        auto hash = WIPAuth::calculate_auth_hash(
+            req.packet_id, req.timestamp, auth_passphrase_);
+        req.ex_field.data["auth_hash"] = bytes_to_hex(hash);
+    }
+    auto bytes = req.to_bytes();
+    sendto(sock, reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0,
+           (sockaddr*)&addr, sizeof(addr));
 
     char buf[1024]{};
     socklen_t len = sizeof(addr);
     ssize_t r = recvfrom(sock, buf, sizeof(buf), 0, (sockaddr*)&addr, &len);
     if (r > 0) {
-        // TODO: parse response
+        std::vector<uint8_t> data(buf, buf + r);
+        auto res = wip::packet::Response::from_bytes(data);
         result["source"] = "network";
-        result["data"] = std::string(buf, r);
-        if (use_cache)
-            cache_.set(cache_key, result["data"]);
+        result["area_code"] = res.area_code;
+        if (res.weather_flag)
+            result["weather_code"] = std::to_string(res.weather_code);
+        if (res.temperature_flag)
+            result["temperature"] = std::to_string((int)res.temperature - 100);
+        if (res.pop_flag)
+            result["precipitation_prob"] = std::to_string(res.pop);
+        if (use_cache) {
+            std::string store(reinterpret_cast<char*>(data.data()), data.size());
+            cache_.set(cache_key, store);
+        }
     }
 
     ::close(sock);
