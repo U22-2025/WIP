@@ -29,6 +29,10 @@ target_link_libraries(wipcommon PUBLIC OpenSSL::Crypto)
 # サブディレクトリ登録（ここでソースを足す）
 add_subdirectory(common)
 
+# クライアントサンプル
+add_executable(wip_client client.cpp)
+target_link_libraries(wip_client PRIVATE wipcommon OpenSSL::Crypto)
+
 # テストを有効にした場合のみ tests サブディレクトリを追加
 if(BUILD_TESTING)
   add_subdirectory(tests)
