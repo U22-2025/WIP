@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include "../platform.hpp"
 #include "utils/PacketIDGenerator.hpp"
 #include "../packet/types/ReportPacket.hpp"
 #include "../utils/FileCache.hpp"
@@ -36,7 +37,7 @@ private:
     wip::utils::FileCache cache_;
     bool auth_enabled_ = false;
     std::string auth_passphrase_;
-    int sock_ = -1;
+    wip::platform::socket_t sock_ = wip::platform::invalid_socket;
 };
 
 } // namespace clients

@@ -1,15 +1,13 @@
 #include "ReportClient.hpp"
 #include <cstdlib>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../platform.hpp"
 #include <sstream>
 #include <iomanip>
 #include <vector>
 #include "../packet/types/ReportPacket.hpp"
 #include "utils/Auth.hpp"
 
+static wip::platform::SocketInitializer socket_init;
 static std::string bytes_to_hex(const std::vector<unsigned char>& data) {
     std::ostringstream oss;
     for (unsigned char b : data) {
@@ -26,12 +24,13 @@ ReportClient::ReportClient(const std::string& host, int port, bool debug)
     : host_(host.empty() ? (std::getenv("WEATHER_SERVER_HOST") ? std::getenv("WEATHER_SERVER_HOST") : "localhost") : host),
       port_(port == 0 ? (std::getenv("WEATHER_SERVER_PORT") ? std::atoi(std::getenv("WEATHER_SERVER_PORT")) : 4110) : port),
       debug_(debug) {
-    sock_ = socket(AF_INET, SOCK_DGRAM, 0);
+    sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
     init_auth();
 }
 
 ReportClient::~ReportClient() {
-    if (sock_ >= 0) ::close(sock_);
+    if (sock_ != wip::platform::invalid_socket)
+        wip::platform::close_socket(sock_);
 }
 
 void ReportClient::init_auth() {

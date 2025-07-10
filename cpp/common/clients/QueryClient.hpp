@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include "../platform.hpp"
 #include "utils/PacketIDGenerator.hpp"
 #include "../packet/types/ReportPacket.hpp"
 #include "../utils/Cache.hpp"

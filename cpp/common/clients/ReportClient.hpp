@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "../platform.hpp"
 #include "utils/PacketIDGenerator.hpp"
 #include "../packet/types/ReportPacket.hpp"
 
@@ -32,7 +33,7 @@ private:
     std::string host_;
     int port_;
     bool debug_;
-    int sock_ = -1;
+    wip::platform::socket_t sock_ = wip::platform::invalid_socket;
     packet::PacketIDGenerator12Bit pidg_;
     bool auth_enabled_ = false;
     std::string auth_passphrase_;
