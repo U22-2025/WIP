@@ -11,7 +11,7 @@ list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 
-find_package(OpenSSL CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
 target_link_libraries(wip PRIVATE OpenSSL::Crypto)
 
 target_include_directories(wip PRIVATE

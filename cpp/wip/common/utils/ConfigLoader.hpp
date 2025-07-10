@@ -20,6 +20,7 @@ private:
     void load_env();
     void load_config();
     void expand_env_vars();
+    static void set_env_var(const std::string &key, const std::string &value);
     static std::string trim(const std::string &s);
 
     std::filesystem::path config_path_;

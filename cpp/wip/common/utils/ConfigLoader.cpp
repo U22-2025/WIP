@@ -2,6 +2,7 @@
 #include <fstream>
 #include <regex>
 #include <cstdlib>
+#include <iostream>
 
 ConfigLoader::ConfigLoader(const std::string &config_path) {
     load_env();
@@ -23,7 +24,7 @@ void ConfigLoader::load_env() {
         std::string key = trim(line.substr(0,pos));
         std::string value = trim(line.substr(pos+1));
         if(!key.empty()) {
-            setenv(key.c_str(), value.c_str(), 1);
+            set_env_var(key, value);
         }
     }
 }
@@ -106,6 +107,18 @@ std::vector<std::string> ConfigLoader::sections() const {
     std::vector<std::string> result;
     for (const auto &p : config_) result.push_back(p.first);
     return result;
+}
+
+void ConfigLoader::set_env_var(const std::string &key, const std::string &value) {
+#ifdef _WIN32
+    if (_putenv_s(key.c_str(), value.c_str()) != 0) {
+        std::cerr << "環境変数の設定に失敗しました: " << key << std::endl;
+    }
+#else
+    if (setenv(key.c_str(), value.c_str(), 1) != 0) {
+        std::cerr << "環境変数の設定に失敗しました: " << key << std::endl;
+    }
+#endif
 }
 
 std::string ConfigLoader::trim(const std::string &s) {
