@@ -59,7 +59,7 @@ uint64_t FormatBase::toBits() const {
 
 std::vector<uint8_t> FormatBase::toBytes() {
     uint64_t bits = toBits();
-    int bytes = (bits ? (64 - __builtin_clzll(bits) + 7)/8 : 1);
+    int bytes = bits_to_bytes(bits);
     std::vector<uint8_t> buf(bytes,0);
     for (int i=0;i<bytes;i++) buf[i]= (bits>>(i*8)) & 0xFF;
     return buf;
