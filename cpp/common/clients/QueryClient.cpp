@@ -2,10 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <chrono>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../platform.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -13,6 +10,7 @@
 #include "../packet/types/QueryPacket.hpp"
 #include "utils/Auth.hpp"
 
+static wip::platform::SocketInitializer socket_init;
 static std::string bytes_to_hex(const std::vector<unsigned char>& data) {
     std::ostringstream oss;
     for (unsigned char b : data) {
@@ -69,8 +67,8 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
         return result;
     }
 
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) return result;
+    wip::platform::socket_t sock = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == wip::platform::invalid_socket) return result;
     struct timeval tv{0};
     tv.tv_sec = static_cast<int>(timeout);
     tv.tv_usec = 0;
@@ -114,7 +112,7 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
         }
     }
 
-    ::close(sock);
+    wip::platform::close_socket(sock);
     return result;
 }
 

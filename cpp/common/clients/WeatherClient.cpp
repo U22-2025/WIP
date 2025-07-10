@@ -1,11 +1,10 @@
 #include "WeatherClient.hpp"
 #include <cstdlib>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../platform.hpp"
 #include <vector>
 #include "../packet/types/QueryPacket.hpp"
+
+static wip::platform::SocketInitializer socket_init;
 
 namespace wip {
 namespace clients {
@@ -14,11 +13,12 @@ WeatherClient::WeatherClient(const std::string& host, int port, bool debug)
     : host_(host.empty() ? (std::getenv("WEATHER_SERVER_HOST") ? std::getenv("WEATHER_SERVER_HOST") : "localhost") : host),
       port_(port == 0 ? (std::getenv("WEATHER_SERVER_PORT") ? std::atoi(std::getenv("WEATHER_SERVER_PORT")) : 4110) : port),
       debug_(debug) {
-    sock_ = socket(AF_INET, SOCK_DGRAM, 0);
+    sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
 }
 
 WeatherClient::~WeatherClient() {
-    if (sock_ >= 0) ::close(sock_);
+    if (sock_ != wip::platform::invalid_socket)
+        wip::platform::close_socket(sock_);
 }
 
 std::unordered_map<std::string, std::string> WeatherClient::get_weather_data(

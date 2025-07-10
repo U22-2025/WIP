@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include "../platform.hpp"
 #include "utils/PacketIDGenerator.hpp"
 #include "../packet/types/ReportPacket.hpp"
 
@@ -29,7 +30,7 @@ private:
     bool debug_;
     int version_ = 1;
     packet::PacketIDGenerator12Bit pidg_;
-    int sock_ = -1;
+    wip::platform::socket_t sock_ = wip::platform::invalid_socket;
 };
 
 } // namespace clients

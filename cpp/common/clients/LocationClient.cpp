@@ -1,15 +1,13 @@
 #include "LocationClient.hpp"
 #include <cstdlib>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../platform.hpp"
 #include <sstream>
 #include <iomanip>
 #include <vector>
 #include "../packet/types/LocationPacket.hpp"
 #include "utils/Auth.hpp"
 
+static wip::platform::SocketInitializer socket_init;
 static std::string bytes_to_hex(const std::vector<unsigned char>& data) {
     std::ostringstream oss;
     for (unsigned char b : data) {
@@ -29,12 +27,13 @@ LocationClient::LocationClient(const std::string& host, int port, bool debug,
       debug_(debug),
       cache_("coordinate_cache.txt",
              std::chrono::minutes(cache_ttl_minutes)) {
-    sock_ = socket(AF_INET, SOCK_DGRAM, 0);
+    sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
     init_auth();
 }
 
 LocationClient::~LocationClient() {
-    if (sock_ >= 0) ::close(sock_);
+    if (sock_ != wip::platform::invalid_socket)
+        wip::platform::close_socket(sock_);
 }
 
 void LocationClient::init_auth() {
