@@ -20,6 +20,7 @@ if __name__ == "__main__":
 from ..base_server import BaseServer
 from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
+from common.packet.debug.debug_logger import PacketDebugLogger
 
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
@@ -91,6 +92,9 @@ class ReportServer(BaseServer):
         # ログファイル初期化
         if self.enable_file_logging:
             self._setup_log_file()
+        
+        # 統一デバッグロガーの初期化
+        self.packet_debug_logger = PacketDebugLogger("ReportServer")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（ReportServer固有）"""
@@ -450,6 +454,22 @@ class ReportServer(BaseServer):
                     print(f"     - データ抽出が遅い: {timing_info['extract']*1000:.1f}ms")
             
             print(f"  ===== RESPONSE SENT =====\n")
+            
+            # 統一されたデバッグ出力を追加
+            debug_data = {
+                'area_code': request.area_code,
+                'timestamp': request.timestamp,
+                'weather_code': sensor_data.get('weather_code', 'N/A'),
+                'temperature': sensor_data.get('temperature', 'N/A'),
+                'precipitation_prob': sensor_data.get('precipitation_prob', 'N/A'),
+                'alert': sensor_data.get('alert', []),
+                'disaster': sensor_data.get('disaster', [])
+            }
+            self.packet_debug_logger.log_unified_packet_received(
+                "IoT report processing",
+                timing_info['total'],
+                debug_data
+            )
             
             return response.to_bytes()
             

@@ -216,6 +216,10 @@ class QueryClient:
                 }
                 result['cache_hit'] = False
                 
+                # 統一フォーマットでの成功ログ出力
+                execution_time = total_time.total_seconds()
+                self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
+                
                 return result
             else:
                 self.logger.error("420: クライアントエラー: クエリサーバが見つからない")

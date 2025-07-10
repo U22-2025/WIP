@@ -6,8 +6,7 @@ Redisキャッシュを管理
 import json
 import redis
 from .weather_constants import RedisConstants, CacheConstants
-from datetime import datetime, timedelta
-from WIP_Server.data import redis_manager,get_disaster, get_alert
+from WIP_Server.data import redis_manager
 import dateutil.parser
 
 class WeatherDataManager:

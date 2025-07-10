@@ -27,7 +27,7 @@ from .modules.weather_constants import ThreadConstants
 from common.packet import QueryRequest, QueryResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
-from common.packet.debug.debug_logger import create_debug_logger
+from common.packet.debug.debug_logger import create_debug_logger, PacketDebugLogger
 from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_disaster_main
 
@@ -77,6 +77,9 @@ class QueryServer(BaseServer):
         
         # デバッグロガーの初期化
         self.logger = create_debug_logger(f"{self.server_name}", self.debug)
+        
+        # 統一デバッグロガーの初期化
+        self.packet_debug_logger = PacketDebugLogger("QueryServer")
         
         # スケジューラーを開始（loggerが初期化された後）
         self._setup_scheduler()
@@ -173,6 +176,8 @@ class QueryServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
+        start_time = time.time()
+        
         # リクエストのバリデーション
         is_valid, error_code, error_msg = self.validate_request(request)
         if not is_valid:
@@ -228,7 +233,22 @@ class QueryServer(BaseServer):
             self.logger.debug(f"520: [{self.server_name}] エラーレスポンスを生成: {error_code}")
             return error_response.to_bytes()
         
-        # 最終確認
+        # 統一されたデバッグ出力を追加
+        execution_time = time.time() - start_time
+        debug_data = {
+            'area_code': request.area_code,
+            'timestamp': response.timestamp,
+            'weather_code': response.weather_code if response.weather_flag else 'N/A',
+            'temperature': response.temperature - 100 if response.temperature_flag else 'N/A',
+            'precipitation_prob': response.pop if response.pop_flag else 'N/A',
+            'alert': response.ex_field.get('alert', []) if hasattr(response, 'ex_field') and response.ex_field else [],
+            'disaster': response.ex_field.get('disaster', []) if hasattr(response, 'ex_field') and response.ex_field else []
+        }
+        self.packet_debug_logger.log_unified_packet_received(
+            "Direct request",
+            execution_time,
+            debug_data
+        )
         
         return response.to_bytes()
     

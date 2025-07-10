@@ -111,6 +111,11 @@ class WeatherClient:
                 if response.is_success():
                     result = response.get_weather_data()
                     
+                    # 統一フォーマットでの成功ログ出力
+                    if result:
+                        execution_time = time.time() - start_time
+                        self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
+                    
                     return result
                 else:
                     if self.debug:
@@ -189,6 +194,11 @@ class WeatherClient:
                         if query_response.is_success():
                             result = query_response.get_weather_data()
                             
+                            # 統一フォーマットでの成功ログ出力
+                            if result:
+                                execution_time = time.time() - start_time
+                                self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
+                            
                             return result
                         else:
                             if self.debug:
@@ -225,6 +235,11 @@ class WeatherClient:
                 
                 if response.is_success():
                     result = response.get_weather_data()
+                    
+                    # 統一フォーマットでの成功ログ出力
+                    if result:
+                        execution_time = time.time() - start_time
+                        self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
                     
                     return result
                 else:

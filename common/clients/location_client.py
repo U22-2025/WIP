@@ -187,6 +187,15 @@ class LocationClient:
             # サーバーからのレスポンスの場合はcache_hitをFalseに設定
             if response:
                 response.cache_hit = False
+                
+                # 統一フォーマットでの成功ログ出力
+                if response.is_valid():
+                    location_data = {
+                        'area_code': response.get_area_code(),
+                        'timestamp': time.time()
+                    }
+                    self.debug_logger.log_unified_packet_received("Direct request", total_time, location_data)
+                
             return response, total_time
 
         except socket.timeout:

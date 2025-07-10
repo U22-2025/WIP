@@ -1,10 +1,11 @@
 """
 共通パケットデバッグログユーティリティ
-各クライアントで重複していたデバッグログ機能を集約し、重要な情報のみを簡潔に出力
+統一されたデバッグ出力フォーマットを提供
 """
 
 import logging
-from typing import Any, Optional
+import time
+from typing import Any, Optional, Dict
 
 
 class PacketDebugLogger:
@@ -164,16 +165,25 @@ class PacketDebugLogger:
         """
         self.logger.error(message)
     
-    def log_success_result(self, result: dict, operation_type: str = "OPERATION") -> None:
+    def log_success_result(self, result: dict, operation_type: str = "OPERATION", execution_time: float = None) -> None:
         """
-        成功時の結果内容をログ出力（非デバッグモードでも表示）
+        成功時の結果内容を統一フォーマットでログ出力（非デバッグモードでも表示）
         
         Args:
             result: 結果データの辞書
             operation_type: 操作タイプ（表示用）
+            execution_time: 実行時間（秒）
         """
         # 成功時の結果は常に表示（デバッグモードに関係なく）
-        self.logger.info(f"\n✓ {operation_type} Success!")
+        self.logger.info("----------------------------------------")
+        
+        # 実行時間の表示
+        if execution_time is not None:
+            self.logger.info(f"✓ {operation_type} successful! (Execution time: {execution_time:.3f}s)")
+        else:
+            self.logger.info(f"✓ {operation_type} successful!")
+        
+        self.logger.info("=== Received weather data ===")
         
         # エリアコード
         if 'area_code' in result and result['area_code']:
@@ -181,7 +191,6 @@ class PacketDebugLogger:
         
         # タイムスタンプ
         if 'timestamp' in result and result['timestamp']:
-            import time
             self.logger.info(f"Timestamp: {time.ctime(result['timestamp'])}")
         
         # 気象データ
@@ -192,14 +201,14 @@ class PacketDebugLogger:
             self.logger.info(f"Temperature: {result['temperature']}°C")
         
         if 'precipitation_prob' in result and result['precipitation_prob'] is not None:
-            self.logger.info(f"Precipitation Probability: {result['precipitation_prob']}%")
+            self.logger.info(f"precipitation_prob: {result['precipitation_prob']}%")
         
         # 警報・災害情報
         if 'alert' in result and result['alert']:
-            self.logger.info(f"Alert: {result['alert']}")
+            self.logger.info(f"alert: {result['alert']}")
         
         if 'disaster' in result and result['disaster']:
-            self.logger.info(f"Disaster Info: {result['disaster']}")
+            self.logger.info(f"disaster: {result['disaster']}")
         
         # キャッシュ情報
         if 'cache_hit' in result and result['cache_hit']:
@@ -209,7 +218,50 @@ class PacketDebugLogger:
         if 'timing' in result:
             timing = result['timing']
             if 'total_time' in timing:
-                self.logger.info(f"Response Time: {timing['total_time']:.2f}ms")
+                self.logger.info(f"Response Time: {timing['total_time']:.3f}s")
+        
+        self.logger.info("==============================")
+    
+    def log_unified_packet_received(self, operation_type: str, execution_time: float, data: Dict[str, Any]) -> None:
+        """
+        統一フォーマットでパケット受信成功時のログを出力
+        
+        Args:
+            operation_type: 操作タイプ（例：Direct request）
+            execution_time: 実行時間（秒）
+            data: 受信データの辞書
+        """
+        self.logger.info("----------------------------------------")
+        self.logger.info("")
+        self.logger.info(f"✓ {operation_type} successful! (Execution time: {execution_time:.3f}s)")
+        self.logger.info("=== Received weather data ===")
+        
+        # エリアコード
+        if 'area_code' in data and data['area_code']:
+            self.logger.info(f"Area Code: {data['area_code']}")
+        
+        # タイムスタンプ
+        if 'timestamp' in data and data['timestamp']:
+            self.logger.info(f"Timestamp: {time.ctime(data['timestamp'])}")
+        
+        # 気象データ
+        if 'weather_code' in data and data['weather_code'] is not None:
+            self.logger.info(f"Weather Code: {data['weather_code']}")
+        
+        if 'temperature' in data and data['temperature'] is not None:
+            self.logger.info(f"Temperature: {data['temperature']}°C")
+        
+        if 'precipitation_prob' in data and data['precipitation_prob'] is not None:
+            self.logger.info(f"precipitation_prob: {data['precipitation_prob']}%")
+        
+        # 警報・災害情報
+        if 'alert' in data and data['alert']:
+            self.logger.info(f"alert: {data['alert']}")
+        
+        if 'disaster' in data and data['disaster']:
+            self.logger.info(f"disaster: {data['disaster']}")
+        
+        self.logger.info("==============================")
     
     def _get_packet_type_name(self, packet_type: int) -> str:
         """パケットタイプ番号から名前を取得"""
