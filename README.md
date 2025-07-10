@@ -568,6 +568,15 @@ cmake ../cpp
 make
 ```
 
+### VS Code でのデバッグ例
+`launch.json` を利用すると、VS Code から `wip_client` を簡単にデバッグできます。
+
+1. ビルド後に VS Code を開き、左側の「実行とデバッグ」ビューを選択します。
+2. ドロップダウンから `Launch WIP Client` を選択します。
+3. `F5` キーでデバッグを開始します。
+
+`program` のパスはビルドした実行ファイルの場所に合わせて調整してください。
+
 ---
 
 **WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
