@@ -3,11 +3,13 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <BaseTsd.h>
 #pragma comment(lib, "ws2_32.lib")
 
 namespace wip {
 namespace platform {
 using socket_t = SOCKET;
+using ssize_t = SSIZE_T;
 inline int close_socket(SOCKET s) { return closesocket(s); }
 constexpr SOCKET invalid_socket = INVALID_SOCKET;
 struct SocketInitializer {
@@ -26,6 +28,7 @@ struct SocketInitializer {
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 namespace wip {
 namespace platform {
