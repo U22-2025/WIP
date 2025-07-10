@@ -3,6 +3,8 @@
 #include "packet/DynamicFormat.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
+#include <string>
+#include <filesystem>
 #include "utils/third_party/json.hpp"
 
 using namespace packet;
@@ -17,20 +19,22 @@ TEST_CASE("ExtendedField encode decode", "[dynamic]") {
 TEST_CASE("Reload request field spec", "[dynamic]") {
     // 元ファイルを読み込み
     nlohmann::json j;
-    std::ifstream ifs("/workspace/WIP/python/common/packet/format_spec/request_fields.json");
+    std::string spec_file = std::string(FORMAT_SPEC_DIR) + "/request_fields.json";
+    std::ifstream ifs(spec_file);
     REQUIRE(ifs.is_open());
     ifs >> j;
     j["new_flag"] = {{"length", 1}, {"type", "int"}};
-    std::ofstream ofs("/workspace/WIP/build/tests/tmp_request.json");
+    std::string tmp_file = (std::filesystem::current_path() / "tmp_request.json").string();
+    std::ofstream ofs(tmp_file);
     ofs << j;
     ofs.close();
 
-    FormatBase::reloadFieldSpec("/workspace/WIP/build/tests/tmp_request.json");
+    FormatBase::reloadFieldSpec(tmp_file);
     REQUIRE(FormatBase::FIELD_LENGTH.count("new_flag") == 1);
     FormatBase base;
     base.set("new_flag", 1);
     REQUIRE(base.get("new_flag") == 1);
 
     // 元に戻す
-    FormatBase::reloadFieldSpec("/workspace/WIP/python/common/packet/format_spec/request_fields.json");
+    FormatBase::reloadFieldSpec(spec_file);
 }
