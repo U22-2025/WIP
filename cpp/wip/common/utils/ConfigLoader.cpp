@@ -2,6 +2,19 @@
 #include <fstream>
 #include <regex>
 #include <cstdlib>
+#include <stdexcept>
+
+namespace {
+inline void set_env_var(const char* key, const char* value) {
+#ifdef _WIN32
+    if (_putenv_s(key, value) != 0) {
+#else
+    if (setenv(key, value, 1) != 0) {
+#endif
+        throw std::runtime_error(std::string("Failed to set environment variable: ") + key);
+    }
+}
+} // namespace
 
 ConfigLoader::ConfigLoader(const std::string &config_path) {
     load_env();
@@ -23,7 +36,7 @@ void ConfigLoader::load_env() {
         std::string key = trim(line.substr(0,pos));
         std::string value = trim(line.substr(pos+1));
         if(!key.empty()) {
-            setenv(key.c_str(), value.c_str(), 1);
+            set_env_var(key.c_str(), value.c_str());
         }
     }
 }
