@@ -12,7 +12,8 @@ list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 
 find_package(OpenSSL REQUIRED)
-target_link_libraries(wip PRIVATE OpenSSL::Crypto)
+find_package(Boost REQUIRED)
+target_link_libraries(wip PRIVATE OpenSSL::Crypto Boost::headers)
 
 target_include_directories(wip PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
