@@ -58,7 +58,7 @@ std::string PacketDebugLogger::formatWeatherData(const std::unordered_map<std::s
         parts.push_back("Weather: " + it->second);
     it = data.find("temperature");
     if (it != data.end())
-        parts.push_back("Temp: " + it->second + "\xC2\xB0C");
+        parts.push_back("Temp: " + it->second + u8"°C");
     it = data.find("precipitation_prob");
     if (it != data.end())
         parts.push_back("Precip: " + it->second + "%");
@@ -104,7 +104,7 @@ void PacketDebugLogger::logSuccessResult(const std::unordered_map<std::string, s
 
     it = result.find("temperature");
     if (it != result.end())
-        std::cout << "Temperature: " << it->second << "\xC2\xB0C" << std::endl;
+        std::cout << "Temperature: " << it->second << u8"°C" << std::endl;
 
     it = result.find("precipitation_prob");
     if (it != result.end())
