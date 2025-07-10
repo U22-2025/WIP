@@ -6,9 +6,10 @@ __pycache__
 /Testing/.vscode/
 build/
 /.vscode/*
-!/.vscode/launch.json
 /cpp/.vs/
 /cpp/wip/.vs/
 /cpp/wip/vcpkg_installed/
 /.vs/
 vcpkg.json
+/cpp/wip/.vscode/
+launch.json
