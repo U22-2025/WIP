@@ -43,7 +43,7 @@ def main():
         print(f"Found {len(url_list)} disaster XML files to process.")
         
         # Step 2: 災害情報の取得・統合
-        json_result = processor.get_disaster_info(url_list, 'wip/json/disaster_data.json')
+        json_result = processor.get_disaster_info(url_list, 'logs/json/disaster_data.json')
         print("\n=== Disaster Info Processing Complete ===")
         print(f"Debug: json_result type: {type(json_result)}")
         # print(f"Debug: json_result content (first 100 chars): {json_result[:100]}") # エンコーディングエラー回避のためコメントアウト
@@ -60,7 +60,7 @@ def main():
         print(f"\nVolcano Location Resolution Results: {len(volcano_locations)} locations resolved.") # 簡潔な表示に変更
         
         # Step 4: エリアコードデータの読み込み
-        with open('wip/json/area_codes.json', 'r', encoding='utf-8') as f:
+        with open('logs/json/area_codes.json', 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         print(f"Debug: area_codes_data type: {type(area_codes_data)}")
         print(f"Debug: area_codes_data is None: {area_codes_data is None}")
@@ -77,7 +77,7 @@ def main():
         # Step 6: 最終結果を新しいフォーマットで保存（ReportDateTime付き）
         final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
         
-        with open('wip/json/disaster_data.json', 'w', encoding='utf-8') as f:
+        with open('logs/json/disaster_data.json', 'w', encoding='utf-8') as f:
             json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
         
         print("=== 災害情報取得完了 ===")
