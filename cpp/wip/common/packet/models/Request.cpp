@@ -33,7 +33,6 @@ std::vector<uint8_t> Request::to_bytes() {
     bits |= static_cast<uint128_t>(timestamp) << 32;
     uint32_t area = static_cast<uint32_t>(std::stoul(area_code));
     bits |= static_cast<uint128_t>(area & 0xFFFFF) << 96;
-    // チェックサム計算用に一旦0
     uint128_t bits_no_checksum = bits;
     std::vector<uint8_t> bytes(16);
     for (int i = 0; i < 16; ++i) {
