@@ -2,6 +2,9 @@
 #include <fstream>
 #include <regex>
 #include <cstdlib>
+#ifdef _WIN32
+#  include <Windows.h>
+#endif
 
 ConfigLoader::ConfigLoader(const std::string &config_path) {
     load_env();
@@ -23,7 +26,11 @@ void ConfigLoader::load_env() {
         std::string key = trim(line.substr(0,pos));
         std::string value = trim(line.substr(pos+1));
         if(!key.empty()) {
+#ifdef _WIN32
+            _putenv_s(key.c_str(), value.c_str());
+#else
             setenv(key.c_str(), value.c_str(), 1);
+#endif
         }
     }
 }
