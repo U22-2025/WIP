@@ -46,6 +46,7 @@
                 "value": "x86",
                 "strategy": "external"
             },
+            "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }

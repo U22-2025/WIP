@@ -11,7 +11,7 @@ list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL CONFIG REQUIRED)
 target_link_libraries(wip PRIVATE OpenSSL::Crypto)
 
 target_include_directories(wip PRIVATE
@@ -23,3 +23,17 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 # TODO: テストを追加し、必要な場合は、ターゲットをインストールします。
+# Catch2 を使ったテスト用バイナリの追加
+find_package(Catch2 CONFIG REQUIRED)
+
+add_executable(wip_tests
+    tests/test_main.cpp
+    tests/test_packet.cpp
+    tests/test_auth.cpp
+    tests/test_dynamic.cpp
+)
+
+target_link_libraries(wip_tests PRIVATE Catch2::Catch2WithMain)
+
+enable_testing()
+add_test(NAME all_tests COMMAND wip_tests)
