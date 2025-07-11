@@ -254,7 +254,7 @@ def update_redis_weather_data(debug=False, area_codes=None):
 
     # エリアコードが指定されていない場合は、JSONファイルから読み込む
     if area_codes is None:
-        with open("wip/json/area_codes.json", "r", encoding="utf-8") as f:
+        with open("logs/json/area_codes.json", "r", encoding="utf-8") as f:
             area_codes = list(json.load(f).keys())
 
     # 気象データを取得し、直接Redisに保存

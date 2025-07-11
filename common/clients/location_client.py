@@ -122,20 +122,12 @@ class LocationClient:
                 cached_area_code = self.cache.get(cache_key)
                 
                 if cached_area_code:
-                    self.debug_logger.log_cache_operation("hit", cache_key, True)
                     # キャッシュから取得したエリアコードでLocationResponseを作成
                     # 実際のLocationResponseと同じ形式で返すため、簡易的なレスポンスオブジェクトを作成
                     cached_response = self._create_cached_response(cached_area_code, latitude, longitude)
                     cached_response.cache_hit = True
                     cache_time = time.time() - start_time
-                    self.debug_logger.log_timing("LOCATION OPERATION (CACHE)", {
-                        'total_time': cache_time * 1000,
-                        'cache_hit': True
-                    })
                     return cached_response, cache_time
-                else:
-                    self.debug_logger.log_cache_operation("miss", cache_key, False)
-
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request_start = time.time()
             request = LocationRequest.create_coordinate_lookup(
@@ -189,20 +181,21 @@ class LocationClient:
                 if area_code:
                     cache_key = self._get_cache_key(latitude, longitude)
                     self.cache.set(cache_key, area_code)
-                    self.debug_logger.log_cache_operation("set", cache_key)
 
             total_time = time.time() - start_time
-
-            self.debug_logger.log_timing("LOCATION OPERATION", {
-                'request_creation': request_time * 1000,
-                'network_roundtrip': network_time * 1000,
-                'response_parsing': parse_time * 1000,
-                'total_time': total_time * 1000
-            })
 
             # サーバーからのレスポンスの場合はcache_hitをFalseに設定
             if response:
                 response.cache_hit = False
+                
+                # 統一フォーマットでの成功ログ出力
+                if response.is_valid():
+                    location_data = {
+                        'area_code': response.get_area_code(),
+                        'timestamp': time.time()
+                    }
+                    self.debug_logger.log_unified_packet_received("Direct request", total_time, location_data)
+                
             return response, total_time
 
         except socket.timeout:
@@ -307,11 +300,6 @@ class LocationClient:
         cache_key = self._get_cache_key(latitude, longitude)
         cached_area_code = self.cache.get(cache_key)
         
-        if cached_area_code:
-            self.debug_logger.log_cache_operation("hit", cache_key, True)
-        else:
-            self.debug_logger.log_cache_operation("miss", cache_key, False)
-            
         return cached_area_code
 
     def set_cached_area_code(self, latitude, longitude, area_code):
@@ -325,7 +313,6 @@ class LocationClient:
         """
         cache_key = self._get_cache_key(latitude, longitude)
         self.cache.set(cache_key, area_code)
-        self.debug_logger.log_cache_operation("set", cache_key)
 
     # 後方互換性のためのエイリアスメソッド
     def get_location_info(self, latitude, longitude, source=None):

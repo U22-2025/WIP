@@ -20,6 +20,7 @@ if __name__ == "__main__":
 from ..base_server import BaseServer
 from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
+from common.packet.debug.debug_logger import PacketDebugLogger
 
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
@@ -70,6 +71,30 @@ class ReportServer(BaseServer):
         
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint('network', 'udp_buffer_size', 4096)
+        
+        # データ検証設定
+        self.enable_data_validation = self.config.getboolean('validation', 'enable_data_validation', True)
+        self.enable_alert_processing = self.config.getboolean('processing', 'enable_alert_processing', True)
+        self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
+        self.enable_file_logging = self.config.getboolean('logging', 'enable_file_logging', True)
+        self.enable_database = self.config.getboolean('database', 'enable_database', False)
+        
+        # レポートサイズ制限
+        self.max_report_size = self.config.getint('validation', 'max_report_size', 4096)
+        
+        # ログファイル設定
+        self.log_file_path = Path(self.config.get('logging', 'log_file_path', 'logs/reports/report_server.log'))
+        
+        # 統計情報
+        self.report_count = 0
+        self.success_count = 0
+        
+        # ログファイル初期化
+        if self.enable_file_logging:
+            self._setup_log_file()
+        
+        # 統一デバッグロガーの初期化
+        self.packet_debug_logger = PacketDebugLogger("ReportServer")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（ReportServer固有）"""
@@ -107,28 +132,10 @@ class ReportServer(BaseServer):
         if request.version != self.version:
             return False, 406, f"バージョンが不正です (expected: {self.version}, got: {request.version})"
         
-        # 認証チェック（認証が有効な場合）
-        if self.auth_enabled:
-            # リクエストに認証機能を設定
-            request.enable_auth(self.auth_passphrase)
-            
-            # 認証フラグ処理（リクエスト認証が有効な場合）
-            if self.request_auth_enabled:
-                # 認証フラグの検証
-                if not request.process_request_auth_flags():
-                    print(f"[{self.server_name}] Auth Flags: ✗")
-                    return False, "403", "認証フラグの検証に失敗しました"
-                
-                print(f"[{self.server_name}] Auth Flags: ✓")
-            
-            # 拡張フィールドベースの認証ハッシュを検証
-            if not request.verify_auth_from_extended_field():
-                print(f"[{self.server_name}] Auth: ✗")
-                return False, "403", "認証に失敗しました"
-            
-            print(f"[{self.server_name}] Auth: ✓")
-        else:
-            print(f"[{self.server_name}] Auth: disabled")
+        # 認証チェック（基底クラスの共通メソッドを使用）
+        auth_valid, auth_error_code, auth_error_msg = self.validate_auth(request)
+        if not auth_valid:
+            return False, auth_error_code, auth_error_msg
         
         # タイプチェック（Type 4のみ有効）
         if request.type != 4:
@@ -447,6 +454,22 @@ class ReportServer(BaseServer):
                     print(f"     - データ抽出が遅い: {timing_info['extract']*1000:.1f}ms")
             
             print(f"  ===== RESPONSE SENT =====\n")
+            
+            # 統一されたデバッグ出力を追加
+            debug_data = {
+                'area_code': request.area_code,
+                'timestamp': request.timestamp,
+                'weather_code': sensor_data.get('weather_code', 'N/A'),
+                'temperature': sensor_data.get('temperature', 'N/A'),
+                'precipitation_prob': sensor_data.get('precipitation_prob', 'N/A'),
+                'alert': sensor_data.get('alert', []),
+                'disaster': sensor_data.get('disaster', [])
+            }
+            self.packet_debug_logger.log_unified_packet_received(
+                "IoT report processing",
+                timing_info['total'],
+                debug_data
+            )
             
             return response.to_bytes()
             

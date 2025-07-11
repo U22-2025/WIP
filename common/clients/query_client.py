@@ -140,7 +140,6 @@ class QueryClient:
                 cached_data = self.cache.get(cache_key)
                 
                 if cached_data:
-                    self.debug_logger.log_cache_operation("hit", cache_key, True)
                     cached_response = self._create_cached_response(cached_data, area_code)
                     cache_time = datetime.now() - start_time
                     cached_response['timing'] = {
@@ -150,14 +149,7 @@ class QueryClient:
                         'total_time': cache_time.total_seconds() * 1000
                     }
                     cached_response['cache_hit'] = True
-                    self.debug_logger.log_timing("QUERY OPERATION (CACHE)", {
-                        'total_time': cache_time.total_seconds() * 1000,
-                        'cache_hit': True
-                    })
                     return cached_response
-                else:
-                    self.debug_logger.log_cache_operation("miss", cache_key, False)
-            
             # 専用クラスでリクエスト作成（大幅に簡潔になった）
             request_start = datetime.now()
             request = QueryRequest.create_query_request(
@@ -213,7 +205,6 @@ class QueryClient:
                         cache_data['temperature'] = cache_data['temperature'] + 100
                         
                     self.cache.set(cache_key, cache_data)
-                    self.debug_logger.log_cache_operation("set", cache_key)
                 
                 # タイミング情報を追加
                 total_time = datetime.now() - start_time
@@ -225,13 +216,9 @@ class QueryClient:
                 }
                 result['cache_hit'] = False
                 
-                self.debug_logger.log_timing("QUERY OPERATION", {
-                    'request_creation': request_time.total_seconds() * 1000,
-                    'network_roundtrip': network_time.total_seconds() * 1000,
-                    'response_parsing': parse_time.total_seconds() * 1000,
-                    'total_time': total_time.total_seconds() * 1000,
-                    'cache_hit': False
-                })
+                # 統一フォーマットでの成功ログ出力
+                execution_time = total_time.total_seconds()
+                self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
                 
                 return result
             else:

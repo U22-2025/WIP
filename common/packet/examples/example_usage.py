@@ -154,7 +154,7 @@ def client_integration_example():
     print("\n=== クライアント統合例 ===")
     
     # 新しいパケットクラスを使った簡潔なクライアント
-    def create_weather_request_easily(lat, lon, options=None):
+    def create_query_request_easily(lat, lon, options=None):
         """簡単な天気リクエスト作成"""
         options = options or {}
         return LocationRequest.create_coordinate_lookup(
@@ -169,8 +169,8 @@ def client_integration_example():
         )
     
     # 使用例
-    tokyo_request = create_weather_request_easily(35.6895, 139.6917)
-    sapporo_request = create_weather_request_easily(
+    tokyo_request = create_query_request_easily(35.6895, 139.6917)
+    sapporo_request = create_query_request_easily(
         43.0642, 141.3469, 
         {'weather': True, 'temperature': True, 'alerts': True}
     )

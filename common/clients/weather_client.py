@@ -111,10 +111,10 @@ class WeatherClient:
                 if response.is_success():
                     result = response.get_weather_data()
                     
-                    total_time = time.time() - start_time
-                    self.debug_logger.log_timing("WEATHER DATA OPERATION", {
-                        'total_time': total_time * 1000
-                    })
+                    # 統一フォーマットでの成功ログ出力
+                    if result:
+                        execution_time = time.time() - start_time
+                        self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
                     
                     return result
                 else:
@@ -188,16 +188,16 @@ class WeatherClient:
                     response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
                     
                     if response_type == 3:  # 天気レスポンス
-                        weather_response = QueryResponse.from_bytes(response_data)
-                        self.debug_logger.log_response(weather_response, "WEATHER RESPONSE")
+                        query_response = QueryResponse.from_bytes(response_data)
+                        self.debug_logger.log_response(query_response, "WEATHER RESPONSE")
                         
-                        if weather_response.is_success():
-                            result = weather_response.get_weather_data()
+                        if query_response.is_success():
+                            result = query_response.get_weather_data()
                             
-                            total_time = time.time() - start_time
-                            self.debug_logger.log_timing("LOCATION->WEATHER OPERATION", {
-                                'total_time': total_time * 1000
-                            })
+                            # 統一フォーマットでの成功ログ出力
+                            if result:
+                                execution_time = time.time() - start_time
+                                self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
                             
                             return result
                         else:
@@ -236,10 +236,10 @@ class WeatherClient:
                 if response.is_success():
                     result = response.get_weather_data()
                     
-                    total_time = time.time() - start_time
-                    self.debug_logger.log_timing("DIRECT WEATHER OPERATION", {
-                        'total_time': total_time * 1000
-                    })
+                    # 統一フォーマットでの成功ログ出力
+                    if result:
+                        execution_time = time.time() - start_time
+                        self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
                     
                     return result
                 else:

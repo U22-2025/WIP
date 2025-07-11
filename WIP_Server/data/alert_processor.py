@@ -221,7 +221,7 @@ def main():
         
         # Step 2: 警報・注意報情報の取得・統合
         print("Step 2: Processing alert info...")
-        json_result = processor.get_alert_info(url_list, 'wip/json/alert_data.json')
+        json_result = processor.get_alert_info(url_list, 'logs/json/alert_data.json')
         print("\n=== Alert Info Processing Complete ===")
         print(json_result)
 

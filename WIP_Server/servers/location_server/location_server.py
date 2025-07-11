@@ -12,6 +12,7 @@ from datetime import datetime
 from common.utils.cache import Cache
 from common.packet import ErrorResponse
 from common.packet import ExtendedField
+from common.packet.debug.debug_logger import PacketDebugLogger
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -81,6 +82,9 @@ class LocationServer(BaseServer):
         # データベース接続とキャッシュの初期化
         self._setup_database()
         self._setup_cache(max_cache_size)
+        
+        # 統一デバッグロガーの初期化
+        self.packet_debug_logger = PacketDebugLogger("LocationServer")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（LocationServer固有）"""
@@ -191,19 +195,10 @@ class LocationServer(BaseServer):
         Returns:
             tuple: (is_valid, error_code, error_message)
         """
-        # 認証チェック（認証が有効な場合）
-        if self.auth_enabled:
-            # リクエストに認証機能を設定
-            request.enable_auth(self.auth_passphrase)
-            
-            # 認証ハッシュを検証
-            if not request.verify_auth_from_extended_field():
-                print(f"[{self.server_name}] Auth: ✗")
-                return False, "403", "認証に失敗しました"
-            
-            print(f"[{self.server_name}] Auth: ✓")
-        else:
-            print(f"[{self.server_name}] Auth: disabled")
+        # 認証チェック（基底クラスの共通メソッドを使用）
+        auth_valid, auth_error_code, auth_error_msg = self.validate_auth(request)
+        if not auth_valid:
+            return False, auth_error_code, auth_error_msg
         
         # 拡張フィールドが必要
         if not hasattr(request, 'ex_flag') or request.ex_flag != 1:
@@ -231,6 +226,9 @@ class LocationServer(BaseServer):
         Returns:
             レスポンスのバイナリデータ
         """
+        import time
+        start_time = time.time()
+        
         # リクエストの詳細バリデーション
         is_valid, error_code, error_msg = self._validate_request_detailed(request)
         if not is_valid:
@@ -296,6 +294,20 @@ class LocationServer(BaseServer):
                     response.ex_field.longitude = longitude
                     if self.debug:
                         print ("座標解決レスポンスに座標を追加しました")
+            
+            # 統一されたデバッグ出力を追加
+            execution_time = time.time() - start_time
+            debug_data = {
+                'area_code': area_code,
+                'timestamp': response.timestamp,
+                'latitude': request.ex_field.get('latitude'),
+                'longitude': request.ex_field.get('longitude')
+            }
+            self.packet_debug_logger.log_unified_packet_received(
+                "Location resolution",
+                execution_time,
+                debug_data
+            )
             
             return response.to_bytes()
             
