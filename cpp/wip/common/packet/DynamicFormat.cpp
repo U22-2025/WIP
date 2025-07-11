@@ -5,7 +5,6 @@
 
 namespace packet {
 
-// 仕様ファイルディレクトリを取得するヘルパー関数
 static const std::string& get_spec_dir() {
 #ifdef FORMAT_SPEC_DIR
     static const std::string dir = FORMAT_SPEC_DIR;

@@ -30,7 +30,7 @@ namespace clients {
 QueryClient::QueryClient(const std::string& host, int port, bool debug,
                          int cache_ttl_minutes)
     : host_(host.empty() ? (std::getenv("QUERY_GENERATOR_HOST") ? std::getenv("QUERY_GENERATOR_HOST") : "localhost") : host),
-      port_(port == 0 ? (std::getenv("QUERY_GENERATOR_PORT") ? std::atoi(std::getenv("QUERY_GENERATOR_PORT")) : 4112) : port),
+      port_(port == 0 ? (std::getenv("QUERY_GENERATOR_PORT") ? std::atoi(std::getenv("QUERY_GENERATOR_PORT")) : 4111) : port),
       debug_(debug),
       cache_(std::chrono::minutes(cache_ttl_minutes)) {
     init_auth();
