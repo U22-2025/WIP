@@ -19,6 +19,8 @@ find_package(OpenSSL REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(wip wip.cpp ${COMMON_SOURCES})
+add_executable(wip_client client.cpp ${COMMON_SOURCES})
+
 
 target_link_libraries(wip PRIVATE
     Boost::boost
