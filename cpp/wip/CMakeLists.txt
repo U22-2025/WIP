@@ -56,8 +56,10 @@ target_compile_definitions(wip PRIVATE
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET wip PROPERTY CXX_STANDARD 20)
-  set_property(TARGET wip_client PROPERTY CXX_STANDARD 20)
 endif()
+
+# 古いCMakeでも wip_client を C++20 でビルドできるように明示設定
+set_property(TARGET wip_client PROPERTY CXX_STANDARD 20)
 
 add_executable(wip_tests
     tests/test_main.cpp
