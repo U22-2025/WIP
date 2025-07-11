@@ -21,6 +21,22 @@ find_package(Catch2 CONFIG REQUIRED)
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 add_executable(wip_client client.cpp ${COMMON_SOURCES})
 
+target_link_libraries(wip_client PRIVATE
+    Boost::boost
+    Boost::filesystem
+    Boost::system
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+target_include_directories(wip_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/common
+)
+
+target_compile_definitions(wip_client PRIVATE
+    FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec"
+)
+
 
 target_link_libraries(wip PRIVATE
     Boost::boost
@@ -40,6 +56,7 @@ target_compile_definitions(wip PRIVATE
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET wip PROPERTY CXX_STANDARD 20)
+  set_property(TARGET wip_client PROPERTY CXX_STANDARD 20)
 endif()
 
 add_executable(wip_tests
