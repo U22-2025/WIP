@@ -56,6 +56,18 @@
     --particle-color: #fff;
 }
 
+/* ダークモード（OS設定に追従） */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-primary: #1e1e1e;
+        --background-secondary: #2e2e2e;
+        --text-primary: #e5e5e5;
+        --text-secondary: #b2b2b2;
+        --surface-primary: rgba(40, 40, 40, 0.95);
+        --surface-secondary: rgba(40, 40, 40, 0.8);
+    }
+}
+
 
 /* 天気別テーマ */
 

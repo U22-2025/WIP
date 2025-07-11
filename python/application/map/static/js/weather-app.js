@@ -18,6 +18,10 @@ class WeatherApp {
         this.currentChartType = 'temperature';
         this.weeklyDataForChart = null;
 
+        // ビューポート高さを更新
+        this.updateViewportHeight();
+        window.addEventListener('resize', () => this.updateViewportHeight());
+
         // 天気アイコンマッピング
         this.weatherIconMap = {
             // 晴れ系（100番台）
@@ -591,6 +595,11 @@ class WeatherApp {
 
         // 新しい時間帯テーマを適用
         body.classList.add(`time-${timeTheme}`);
+    }
+
+    // モバイルブラウザのアドレスバーを考慮した高さ設定
+    updateViewportHeight() {
+        document.documentElement.style.setProperty('--viewport-height', `${window.innerHeight}px`);
     }
 
     // 天気エフェクト開始
