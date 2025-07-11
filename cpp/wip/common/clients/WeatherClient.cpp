@@ -3,6 +3,7 @@
 #include "../platform.hpp"
 #include <vector>
 #include "../packet/types/QueryPacket.hpp"
+#include "../utils/NetUtils.hpp"
 
 static wip::platform::SocketInitializer socket_init;
 
@@ -28,7 +29,7 @@ std::unordered_map<std::string, std::string> WeatherClient::get_weather_data(
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port_);
-    addr.sin_addr.s_addr = inet_addr(host_.c_str());
+    addr.sin_addr = wip::utils::resolve_hostname(host_);
 
     auto req = wip::packet::QueryRequest::create_query_request(
         area_code, pidg_.next_id(), weather, temperature,

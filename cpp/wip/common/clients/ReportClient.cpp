@@ -6,6 +6,7 @@
 #include <vector>
 #include "../packet/types/ReportPacket.hpp"
 #include "utils/Auth.hpp"
+#include "../utils/NetUtils.hpp"
 
 static wip::platform::SocketInitializer socket_init;
 static std::string bytes_to_hex(const std::vector<unsigned char>& data) {
@@ -56,7 +57,7 @@ std::unordered_map<std::string, std::string> ReportClient::send_report_data() {
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port_);
-    addr.sin_addr.s_addr = inet_addr(host_.c_str());
+    addr.sin_addr = wip::utils::resolve_hostname(host_);
 
     auto req = wip::packet::ReportRequest::create_sensor_data_report(
         area_code_, weather_code_ >= 0 ? std::optional<int>(weather_code_) : std::nullopt,

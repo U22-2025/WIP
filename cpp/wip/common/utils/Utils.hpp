@@ -5,4 +5,5 @@
 #include "Cache.hpp"
 #include "ConfigLoader.hpp"
 #include "FileCache.hpp"
+#include "NetUtils.hpp"
 
