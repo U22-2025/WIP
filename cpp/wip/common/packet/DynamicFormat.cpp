@@ -17,7 +17,7 @@ static const std::string& get_spec_dir() {
 
 static nlohmann::json load_json(const std::string& fileName) {
     std::string path = fileName;
-    if (path.find('/') == std::string::npos) {
+    if (path.find('/') == std::string::npos && path.find('\\') == std::string::npos) {
         path = get_spec_dir() + "/" + fileName;
     }
     std::ifstream ifs(path);
