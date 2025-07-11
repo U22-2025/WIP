@@ -560,6 +560,7 @@ SOFTWARE.
 - CMake 3.16 以上
 - g++ / MSVC (C++20 対応)
 - make または Ninja
+- Boost, OpenSSL, Catch2 (vcpkg や apt で取得)
 
 ### ビルド手順
 ```bash
@@ -570,6 +571,14 @@ cmake --build --preset linux-debug
 # Windows 例
 cmake --preset x64-debug
 cmake --build --preset x64-debug
+
+依存ライブラリは `vcpkg` で取得するか、Linux では `apt` などで
+`libboost-filesystem-dev libboost-system-dev libssl-dev catch2`
+をインストールしてください。`vcpkg` を使う場合は
+```bash
+./vcpkg/vcpkg install boost-filesystem boost-system openssl catch2
+```
+を実行してから CMake を実行します。
 
 ### VS Code でのデバッグ例
 `launch.json` を利用すると、VS Code から `wip_client` を簡単にデバッグできます。

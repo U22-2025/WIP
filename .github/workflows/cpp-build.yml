@@ -25,6 +25,11 @@ jobs:
           ./vcpkg/bootstrap-vcpkg${{ contains(matrix.os, 'windows') && '.bat' || '.sh' }}
         shell: bash
 
+      - name: Install dependencies via vcpkg
+        run: ./vcpkg/vcpkg install boost-filesystem boost-system openssl catch2
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
       # 3) OS ごとのビルドツールを確保
       - name: Install build tools (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
