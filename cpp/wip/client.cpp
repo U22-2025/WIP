@@ -4,6 +4,7 @@
 #include "common/clients/LocationClient.hpp"
 #include "common/clients/QueryClient.hpp"
 #include "common/packet/types/LocationPacket.hpp"
+#include "common/utils/ConfigLoader.hpp"
 
 using namespace wip::clients;
 using namespace wip::packet;
@@ -12,6 +13,8 @@ int main(int argc, char* argv[]) {
     bool use_coord = false;
     bool use_proxy = false;
     bool debug = false;
+    // .env や設定ファイルを読み込む
+    ConfigLoader loader;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--coord") use_coord = true;
