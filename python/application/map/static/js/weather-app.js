@@ -646,9 +646,9 @@ class WeatherApp {
     // イベントリスナー設定
     setupEventListeners() {
         // サイドバートグルボタン
-        const toggleBtn = document.querySelector('.mobile-toggle');
+        const toggleBtn = document.getElementById('sidebar-toggle');
         if (toggleBtn) {
-            toggleBtn.addEventListener('click', this.toggleSidebar);
+            toggleBtn.addEventListener('click', () => this.toggleSidebar());
         }
 
         // 週間予報ボタン
@@ -1373,13 +1373,6 @@ class ParticleSystemManager {
     }
 }
 
-// グローバル関数（HTML側で使用する場合）
-window.toggleSidebar = function() {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) {
-        sidebar.classList.toggle('active');
-    }
-};
 
 // アプリケーション初期化
 let weatherApp;
