@@ -69,7 +69,7 @@ def index():
     return render_template('map.html')  # 上のHTMLを templates/map.html に保存
 
 # JSONファイル配置ディレクトリ
-JSON_DIR = Path(__file__).resolve().parents[2] / 'wip' / 'json'
+JSON_DIR = Path(__file__).resolve().parents[2] / 'logs' / 'json'
 
 # 天気コードJSONを提供するルート
 @app.route('/weather_code.json')
@@ -319,4 +319,4 @@ def weekly_forecast():
         return jsonify({'status': 'error', 'message': '週間予報の取得に失敗しました'}), 500
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0",debug=True)
+    app.run(host="0.0.0.0", port=80, debug=True)

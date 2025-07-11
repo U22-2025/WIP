@@ -14,6 +14,6 @@ wt ^
   ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python launch_server.py --report --debug" ^
   ; split-pane -V cmd /k "cd /d %CURRENT_DIR%\application\map && conda activate U22-2025 && python app.py"
 
-start http://localhost:5000
+start http://localhost
 
 echo すべてのサーバーが起動しました。
