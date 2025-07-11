@@ -91,5 +91,31 @@
                 "CMAKE_BUILD_TYPE": "Release"
             }
         }
+    ],
+    "buildPresets": [
+        {
+            "name": "x64-debug",
+            "configurePreset": "x64-debug"
+        },
+        {
+            "name": "x64-release",
+            "configurePreset": "x64-release"
+        },
+        {
+            "name": "x86-debug",
+            "configurePreset": "x86-debug"
+        },
+        {
+            "name": "x86-release",
+            "configurePreset": "x86-release"
+        },
+        {
+            "name": "linux-debug",
+            "configurePreset": "linux-debug"
+        },
+        {
+            "name": "linux-release",
+            "configurePreset": "linux-release"
+        }
     ]
 }
