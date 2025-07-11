@@ -13,3 +13,5 @@ build/
 vcpkg.json
 /cpp/wip/.vscode/
 launch.json
+*.xls
+*.xlsx
