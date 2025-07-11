@@ -37,6 +37,9 @@ public:
     std::unordered_map<std::string, std::string> get_cache_stats() const;
     void clear_cache();
 
+    const std::string& host() const { return host_; }
+    int port() const { return port_; }
+
 private:
     void init_auth();
     std::string host_;

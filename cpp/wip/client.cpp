@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
             auto [area, _] = locClient.get_location_data(35.6895, 139.6917);
             auto result = client.get_weather_data(area, true, true, true, true, true);
 
-            if (!result.empty()) {
+            if (!result.empty() && result.find("error") == result.end()) {
                 auto elapsed = std::chrono::steady_clock::now() - start;
                 std::cout << "\n\xE2\x9C\x93 Request successful via Weather Server! (Execution time: "
                           << std::chrono::duration<double>(elapsed).count() << "s)\n";
@@ -64,6 +64,8 @@ int main(int argc, char* argv[]) {
             auto start = std::chrono::steady_clock::now();
             LocationClient locClient{"", 0, debug, 60};
             QueryClient queryClient{"", 0, debug};
+            if (debug)
+                std::cout << "QueryClient connecting to " << queryClient.host() << ":" << queryClient.port() << std::endl;
 
             std::cout << "Step 1: Getting area code from coordinates..." << std::endl;
             auto stats_before = locClient.get_cache_stats();
@@ -113,7 +115,7 @@ int main(int argc, char* argv[]) {
             WeatherClient client{"", 0, debug};
             auto result = client.get_weather_data("460010", true, true, true, true, true);
 
-            if (!result.empty()) {
+            if (!result.empty() && result.find("error") == result.end()) {
                 auto elapsed = std::chrono::steady_clock::now() - start;
                 std::cout << "\n\xE2\x9C\x93 Success via Weather Server! (Execution time: "
                           << std::chrono::duration<double,std::milli>(elapsed).count() << "ms)\n";
@@ -122,6 +124,8 @@ int main(int argc, char* argv[]) {
                 }
             } else {
                 std::cout << "\n\xE2\x9C\x97 Failed to get weather data via Weather Server" << std::endl;
+                if (debug && result.find("error") != result.end())
+                    std::cout << "  Error: " << result["error"] << std::endl;
             }
         } else {
             std::cout << "\n1. Direct area code request (QueryClient)\n";
@@ -129,9 +133,11 @@ int main(int argc, char* argv[]) {
 
             auto start = std::chrono::steady_clock::now();
             QueryClient queryClient{"", 0, debug};
+            if (debug)
+                std::cout << "QueryClient connecting to " << queryClient.host() << ":" << queryClient.port() << std::endl;
             auto result = queryClient.get_weather_data("460010", true, true, true, true, true);
 
-            if (!result.empty()) {
+            if (!result.empty() && result.find("error") == result.end()) {
                 auto elapsed = std::chrono::steady_clock::now() - start;
                 std::cout << "\n\xE2\x9C\x93 Direct request successful! (Execution time: "
                           << std::chrono::duration<double>(elapsed).count() << "s)\n";
@@ -142,6 +148,8 @@ int main(int argc, char* argv[]) {
                 std::cout << "==============================" << std::endl;
             } else {
                 std::cout << "\n\xE2\x9C\x97 Failed to get weather data" << std::endl;
+                if (debug && result.find("error") != result.end())
+                    std::cout << "  Error: " << result["error"] << std::endl;
             }
         }
     }

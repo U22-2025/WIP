@@ -7,6 +7,10 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <cerrno>
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
 #include "../packet/types/QueryPacket.hpp"
 #include "utils/Auth.hpp"
 
@@ -68,7 +72,11 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
     }
 
     wip::platform::socket_t sock = ::socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock == wip::platform::invalid_socket) return result;
+    if (sock == wip::platform::invalid_socket) {
+        if (debug_) std::cerr << "[QueryClient] socket creation failed" << std::endl;
+        result["error"] = "socket";
+        return result;
+    }
 #ifdef _WIN32
     DWORD timeout_ms = static_cast<DWORD>(timeout * 1000);
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
@@ -95,8 +103,20 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
         req.ex_field.data["auth_hash"] = bytes_to_hex(hash);
     }
     auto bytes = req.to_bytes();
-    sendto(sock, reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0,
+    ssize_t s = sendto(sock, reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0,
            (sockaddr*)&addr, sizeof(addr));
+    if (s < 0) {
+        if (debug_) {
+#ifdef _WIN32
+            std::cerr << "[QueryClient] sendto failed: " << WSAGetLastError() << std::endl;
+#else
+            std::cerr << "[QueryClient] sendto failed: " << strerror(errno) << std::endl;
+#endif
+        }
+        result["error"] = "send";
+        wip::platform::close_socket(sock);
+        return result;
+    }
 
     char buf[1024]{};
     socklen_t len = sizeof(addr);
@@ -116,6 +136,15 @@ std::unordered_map<std::string, std::string> QueryClient::get_weather_data(
             std::string store(reinterpret_cast<char*>(data.data()), data.size());
             cache_.set(cache_key, store);
         }
+    } else {
+        if (debug_) {
+#ifdef _WIN32
+            std::cerr << "[QueryClient] recvfrom failed: " << WSAGetLastError() << std::endl;
+#else
+            std::cerr << "[QueryClient] recvfrom failed: " << strerror(errno) << std::endl;
+#endif
+        }
+        result["error"] = "recv";
     }
 
     wip::platform::close_socket(sock);
