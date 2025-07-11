@@ -9,29 +9,36 @@ file(GLOB_RECURSE COMMON_SOURCES CONFIGURE_DEPENDS
 list(FILTER COMMON_SOURCES EXCLUDE REGEX "/tests/")
 list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 
+# Boost と OpenSSL を取得（CONFIG モード）
+find_package(boost CONFIG REQUIRED COMPONENTS asio filesystem system multiprecision)
+find_package(OpenSSL REQUIRED)
+find_package(Catch2 CONFIG REQUIRED)
+
+# メインバイナリ
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 
-# Boost を利用するためにヘッダ専用ライブラリを検索
-find_package(Boost REQUIRED)
+target_link_libraries(wip PRIVATE
+    boost::asio
+    boost::filesystem
+    boost::system
+    boost::multiprecision
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
 
-find_package(OpenSSL REQUIRED)
-target_link_libraries(wip PRIVATE OpenSSL::SSL OpenSSL::Crypto Boost::boost)
-
-# Boost のインクルードディレクトリも指定
 target_include_directories(wip PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
-    ${Boost_INCLUDE_DIRS}
 )
-target_compile_definitions(wip PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
+
+target_compile_definitions(wip PRIVATE
+    FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec"
+)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET wip PROPERTY CXX_STANDARD 20)
 endif()
 
-# TODO: テストを追加し、必要な場合は、ターゲットをインストールします。
-# Catch2 を使ったテスト用バイナリの追加
-find_package(Catch2 CONFIG REQUIRED)
-
+# テストバイナリ
 add_executable(wip_tests
     tests/test_main.cpp
     tests/test_packet.cpp
@@ -44,11 +51,21 @@ set_property(TARGET wip_tests PROPERTY CXX_STANDARD 20)
 
 target_include_directories(wip_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
-    ${Boost_INCLUDE_DIRS}
 )
-target_compile_definitions(wip_tests PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
 
-target_link_libraries(wip_tests PRIVATE Catch2::Catch2WithMain Boost::boost OpenSSL::SSL OpenSSL::Crypto)
+target_compile_definitions(wip_tests PRIVATE
+    FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec"
+)
+
+target_link_libraries(wip_tests PRIVATE
+    Catch2::Catch2WithMain
+    boost::asio
+    boost::filesystem
+    boost::system
+    boost::multiprecision
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
 
 enable_testing()
 add_test(NAME all_tests COMMAND wip_tests)
