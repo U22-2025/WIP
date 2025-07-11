@@ -566,6 +566,7 @@ SOFTWARE.
 mkdir build && cd build
 cmake ../cpp
 make
+./wip_client
 ```
 
 ### VS Code でのデバッグ例

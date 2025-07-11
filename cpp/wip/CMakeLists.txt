@@ -10,12 +10,14 @@ list(FILTER COMMON_SOURCES EXCLUDE REGEX "/tests/")
 list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 
 add_executable(wip wip.cpp ${COMMON_SOURCES})
+add_executable(wip_client client.cpp ${COMMON_SOURCES})
 
 # Boost を利用するためにヘッダ専用ライブラリを検索
 find_package(Boost REQUIRED)
 
 find_package(OpenSSL REQUIRED)
 target_link_libraries(wip PRIVATE OpenSSL::SSL OpenSSL::Crypto Boost::boost)
+target_link_libraries(wip_client PRIVATE OpenSSL::SSL OpenSSL::Crypto Boost::boost)
 
 # Boost のインクルードディレクトリも指定
 target_include_directories(wip PRIVATE
@@ -23,9 +25,15 @@ target_include_directories(wip PRIVATE
     ${Boost_INCLUDE_DIRS}
 )
 target_compile_definitions(wip PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
+target_include_directories(wip_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/common
+    ${Boost_INCLUDE_DIRS}
+)
+target_compile_definitions(wip_client PRIVATE FORMAT_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/common/packet/format_spec")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET wip PROPERTY CXX_STANDARD 20)
+  set_property(TARGET wip_client PROPERTY CXX_STANDARD 20)
 endif()
 
 # TODO: テストを追加し、必要な場合は、ターゲットをインストールします。
