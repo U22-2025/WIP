@@ -13,21 +13,37 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies (Linux)
+      # 1) ソース取得
+      - uses: actions/checkout@v4
+
+      # 2) vcpkg を取得（両 OS 共通）
+      - name: Clone vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg${{ contains(matrix.os, 'windows') && '.bat' || '.sh' }}
+        shell: bash
+
+      # 3) OS ごとのビルドツールを確保
+      - name: Install build tools (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential catch2 libssl-dev
-      - name: Install dependencies (Windows)
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++ cmake
+
+      - name: Install build tools (Windows)
         if: matrix.os == 'windows-latest'
-        run: choco install -y cmake
-      - name: Configure
-        run: |
-          cmake -S cpp/wip -B build
+        run: choco install ninja cmake
+
+      # 4) CMake Preset で configure
+      - name: Configure with preset
+        run: cmake --preset ${{ contains(matrix.os, 'windows') && 'x64-debug' || 'linux-debug' }}
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+      # 5) Build
       - name: Build
-        run: |
-          cmake --build build
+        run: cmake --build --preset ${{ contains(matrix.os, 'windows') && 'x64-debug' || 'linux-debug' }}
+
+      # 6) Test
       - name: Test
-        run: |
-          cd build
-          ctest --output-on-failure
+        run: ctest --preset ${{ contains(matrix.os, 'windows') && 'x64-debug' || 'linux-debug' }} --output-on-failure
