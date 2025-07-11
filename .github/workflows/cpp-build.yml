@@ -1,11 +1,3 @@
-name: Build C++ Components
-
-on:
-  push:
-    paths:
-      - 'cpp/**'
-      - '.github/workflows/cpp-build.yml'
-
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -18,35 +10,32 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-      # 1) ソース取得
       - uses: actions/checkout@v4
 
-      # 2) vcpkg を取得（両 OS 共通）
       - name: Clone vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git
           ./vcpkg/bootstrap-vcpkg${{ contains(matrix.os, 'windows') && '.bat' || '.sh' }}
         shell: bash
 
-      # 3) OS ごとのビルドツールを確保
       - name: Install build tools (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y ninja-build g++ cmake
+
+      # ✅ Visual Studio 環境をセットアップ
+      - name: Setup MSVC
+        if: matrix.os == 'windows-latest'
+        uses: microsoft/setup-msbuild@v2
 
       - name: Install build tools (Windows)
         if: matrix.os == 'windows-latest'
         run: choco install ninja cmake
 
-      # 4) CMake Preset で configure
-      - name: Configure with preset
+      - name: Configure
         run: cmake --preset ${{ contains(matrix.os, 'windows') && 'x64-debug' || 'linux-debug' }}
-        env:
-          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
-      # 5) Build
       - name: Build
         run: cmake --build --preset ${{ contains(matrix.os, 'windows') && 'x64-debug' || 'linux-debug' }}
 
-      # 6) Test
       - name: Test
         run: ctest --preset ${{ contains(matrix.os, 'windows') && 'x64-debug' || 'linux-debug' }} --output-on-failure
