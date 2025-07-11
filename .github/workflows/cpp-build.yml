@@ -5,15 +5,12 @@ on:
     paths:
       - 'cpp/**'
       - '.github/workflows/cpp-build.yml'
-  pull_request:
-    paths:
-      - 'cpp/**'
-      - '.github/workflows/cpp-build.yml'
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
