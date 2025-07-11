@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 3.31)
-cmake_policy(SET CMP0167 OLD)  # FindBoost.cmake を許可
+cmake_minimum_required(VERSION 3.16)
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 OLD)  # FindBoost.cmake を許可
+endif()
 
 project(wip)
 
@@ -10,23 +12,22 @@ list(FILTER COMMON_SOURCES EXCLUDE REGEX "/tests/")
 list(FILTER COMMON_SOURCES EXCLUDE REGEX "/examples/")
 
 # FindBoost を使う（CMP0167 を OLD にしたので有効）
-find_package(Boost REQUIRED COMPONENTS asio filesystem system multiprecision)
+find_package(Boost REQUIRED COMPONENTS filesystem system)
 find_package(OpenSSL REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)
 
 add_executable(wip wip.cpp ${COMMON_SOURCES})
 
 target_link_libraries(wip PRIVATE
-    Boost::asio
     Boost::filesystem
     Boost::system
-    Boost::multiprecision
     OpenSSL::SSL
     OpenSSL::Crypto
 )
 
 target_include_directories(wip PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
+    ${Boost_INCLUDE_DIRS}
 )
 
 target_compile_definitions(wip PRIVATE
@@ -49,6 +50,7 @@ set_property(TARGET wip_tests PROPERTY CXX_STANDARD 20)
 
 target_include_directories(wip_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
+    ${Boost_INCLUDE_DIRS}
 )
 
 target_compile_definitions(wip_tests PRIVATE
@@ -57,10 +59,8 @@ target_compile_definitions(wip_tests PRIVATE
 
 target_link_libraries(wip_tests PRIVATE
     Catch2::Catch2WithMain
-    Boost::asio
     Boost::filesystem
     Boost::system
-    Boost::multiprecision
     OpenSSL::SSL
     OpenSSL::Crypto
 )

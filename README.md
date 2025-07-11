@@ -554,19 +554,22 @@ SOFTWARE.
 
 
 ## C++ コンポーネントのビルド
-ディレクトリ構成変更に伴い、C++ 実装は `cpp` ディレクトリ以下に配置されています。ビルドには CMake と make を使用します。
-
+ディレクトリ構成変更に伴い、C++ 実装は `cpp` ディレクトリ以下に配置されています。
+ビルドには CMake と make を使用します。Windows でも同じ手順で Visual Studio 用のビルドファイルが生成されます。
 ### 依存ライブラリ
-- CMake 3.10 以上
-- g++ (C++17 対応)
-- make
+- CMake 3.16 以上
+- g++ / MSVC (C++20 対応)
+- make または Ninja
 
 ### ビルド手順
 ```bash
-mkdir build && cd build
-cmake ../cpp
-make
-```
+# Linux 例
+cmake --preset linux-debug
+cmake --build --preset linux-debug
+
+# Windows 例
+cmake --preset x64-debug
+cmake --build --preset x64-debug
 
 ### VS Code でのデバッグ例
 `launch.json` を利用すると、VS Code から `wip_client` を簡単にデバッグできます。
