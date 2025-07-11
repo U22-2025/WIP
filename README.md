@@ -578,7 +578,8 @@ cmake --build --preset x64-debug
 ```bash
 ./vcpkg/vcpkg install boost-filesystem boost-system openssl catch2
 ```
-を実行してから CMake を実行します。
+を実行してから CMake を実行します。`VCPKG_ROOT` を vcpkg のパスに
+設定すれば、CMakePresets が自動的にツールチェーンを読み込みます。
 
 ### VS Code でのデバッグ例
 `launch.json` を利用すると、VS Code から `wip_client` を簡単にデバッグできます。
