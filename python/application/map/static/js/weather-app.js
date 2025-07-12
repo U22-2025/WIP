@@ -17,6 +17,7 @@ class WeatherApp {
         this.currentChart = null;
         this.currentChartType = 'temperature';
         this.weeklyDataForChart = null;
+        this.ws = null;
 
         // 天気アイコンマッピング
         this.weatherIconMap = {
@@ -203,10 +204,13 @@ class WeatherApp {
             await this.initializeMap();
 
             // イベントリスナーを設定
-            this.setupEventListeners();
+        this.setupEventListeners();
 
-            // 時間帯別テーマを適用
-            this.applyTimeTheme();
+        // 時間帯別テーマを適用
+        this.applyTimeTheme();
+
+        // WebSocket 接続
+        this.initializeWebSocket();
 
             console.log('WeatherApp初期化完了');
         } catch (error) {
@@ -1270,6 +1274,35 @@ class WeatherApp {
         weeklyDataContainer.innerHTML = errorHTML;
         weeklyDataContainer.style.display = 'block';
         this.weeklyDataForChart = null;
+    }
+
+    // ログ表示
+    appendLog(message) {
+        const panel = document.getElementById('log-panel');
+        if (!panel) return;
+        const div = document.createElement('div');
+        const time = new Date().toLocaleTimeString();
+        div.textContent = `[${time}] ${message}`;
+        panel.appendChild(div);
+        panel.scrollTop = panel.scrollHeight;
+    }
+
+    // WebSocket 接続処理
+    initializeWebSocket() {
+        const connect = () => {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            this.ws = new WebSocket(`${protocol}//${location.host}/ws`);
+            this.ws.onopen = () => this.appendLog('WebSocket 接続完了');
+            this.ws.onmessage = (e) => this.appendLog(e.data);
+            this.ws.onclose = () => {
+                this.appendLog('WebSocket 切断 - 再接続します');
+                setTimeout(connect, 3000);
+            };
+            this.ws.onerror = (e) => {
+                console.error('WebSocket エラー:', e);
+            };
+        };
+        connect();
     }
 }
 
