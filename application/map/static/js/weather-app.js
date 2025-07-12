@@ -6,6 +6,8 @@ class WeatherApp {
         this.currentMarker = null;
         this.weatherCodeMap = {};
         this.isWeatherCodeLoaded = false;
+        this.errorCodeMap = {};
+        this.isErrorCodeLoaded = false;
         this.currentTheme = 'default';
         this.particleManager = null;
         this.isLightningActive = false;
@@ -177,6 +179,13 @@ class WeatherApp {
         this.init();
     }
 
+    getErrorMessage(code) {
+        if (this.isErrorCodeLoaded && code && this.errorCodeMap[String(code)]) {
+            return this.errorCodeMap[String(code)];
+        }
+        return '不明なエラーが発生しました';
+    }
+
     // 初期化
     async init() {
         console.log('WeatherApp初期化開始');
@@ -184,6 +193,8 @@ class WeatherApp {
         try {
             // 天気コードを読み込み
             await this.loadWeatherCodes();
+            // エラーコードを読み込み
+            await this.loadErrorCodes();
 
             // パーティクルシステムを初期化
             this.particleManager = new ParticleSystemManager();
@@ -236,6 +247,22 @@ class WeatherApp {
                 '400': '雪'
             };
             this.isWeatherCodeLoaded = true;
+        }
+    }
+
+    // エラーコードを読み込む
+    async loadErrorCodes() {
+        try {
+            const response = await fetch('./error_code.json');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            this.errorCodeMap = await response.json();
+            this.isErrorCodeLoaded = true;
+        } catch (error) {
+            console.error('エラーコード読み込みエラー:', error);
+            this.errorCodeMap = {};
+            this.isErrorCodeLoaded = false;
         }
     }
 
@@ -337,9 +364,10 @@ class WeatherApp {
             const weeklyData = await weeklyResponse.json();
             console.log('週間予報データ:', weeklyData);
 
-            if (weeklyData.status === 'ok' && weeklyData.weekly_forecast && weeklyData.weekly_forecast.length > 0) {
+            if (weeklyData.status === 'ok' && weeklyData.weekly_forecast && Object.keys(weeklyData.weekly_forecast).length > 0) {
+                const forecastArray = Object.values(weeklyData.weekly_forecast).sort((a, b) => a.day_number - b.day_number);
                 // 今日の天気情報（day=0）を現在の天気として表示
-                const todayWeather = weeklyData.weekly_forecast[0];
+                const todayWeather = forecastArray[0];
                 const currentWeatherData = {
                     status: 'ok',
                     weather: {
@@ -362,8 +390,10 @@ class WeatherApp {
                 }
 
                 // 週間予報を自動的に表示
-                this.displayWeeklyForecastData(weeklyData.weekly_forecast);
+                this.displayWeeklyForecastData(forecastArray);
 
+            } else if (weeklyData.status === 'error') {
+                this.handleAPIError(lat, lng, weeklyData.error_code);
             } else {
                 throw new Error('無効な週間予報レスポンス');
             }
@@ -376,7 +406,29 @@ class WeatherApp {
     }
 
     // APIエラー処理
-    handleAPIError(lat, lng) {
+    handleAPIError(lat, lng, errorCode = null) {
+        const message = this.getErrorMessage(errorCode);
+        const noData = document.getElementById('no-data');
+        if (noData) {
+            noData.innerHTML = `<i class="fas fa-exclamation-triangle"></i><p>${message}</p>`;
+            noData.style.display = 'block';
+        }
+
+        // データ表示領域を非表示
+        const weatherContent = document.getElementById('weather-content');
+        if (weatherContent) {
+            weatherContent.style.display = 'none';
+        }
+
+        // 週間予報をクリア
+        this.hideWeeklyForecast();
+        const weeklyDataContainer = document.getElementById('weekly-data');
+        if (weeklyDataContainer) {
+            weeklyDataContainer.innerHTML = '';
+        }
+        this.weeklyDataForChart = null;
+
+        // マーカーのポップアップのみ更新（ダミーデータ表示）
         const sampleData = {
             status: 'ok',
             weather: {
@@ -386,7 +438,6 @@ class WeatherApp {
             }
         };
 
-        this.displayWeatherInfo(sampleData, lat, lng);
         if (this.currentMarker) {
             this.currentMarker.bindPopup(this.createPopupContent(sampleData, lat, lng)).openPopup();
         }
@@ -709,8 +760,11 @@ class WeatherApp {
             const data = await response.json();
             console.log('週間予報データ:', data);
 
-            if (data.status === 'ok' && data.weekly_forecast) {
-                this.displayWeeklyForecast(data.weekly_forecast);
+            if (data.status === 'ok' && data.weekly_forecast && Object.keys(data.weekly_forecast).length > 0) {
+                const forecastArray = Object.values(data.weekly_forecast).sort((a, b) => a.day_number - b.day_number);
+                this.displayWeeklyForecast(forecastArray);
+            } else if (data.status === 'error') {
+                this.handleWeeklyForecastError(data.error_code);
             } else {
                 throw new Error('無効な週間予報レスポンス');
             }
@@ -1197,16 +1251,17 @@ class WeatherApp {
     }
 
     // 週間予報エラー処理
-    handleWeeklyForecastError() {
+    handleWeeklyForecastError(errorCode = null) {
         const weeklyDataContainer = document.getElementById('weekly-data');
         if (!weeklyDataContainer) return;
 
         // エラー時のダミーデータを表示
+        const message = this.getErrorMessage(errorCode);
         const errorHTML = `
             <div class="weekly-error">
                 <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
                     <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 10px;"></i>
-                    <div>週間予報の取得に失敗しました</div>
+                    <div>${message}</div>
                     <div style="font-size: 12px; margin-top: 5px;">しばらく時間をおいて再度お試しください</div>
                 </div>
             </div>
@@ -1214,6 +1269,7 @@ class WeatherApp {
 
         weeklyDataContainer.innerHTML = errorHTML;
         weeklyDataContainer.style.display = 'block';
+        this.weeklyDataForChart = null;
     }
 }
 

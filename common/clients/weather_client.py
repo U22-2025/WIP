@@ -5,20 +5,24 @@ Weather Serverプロキシと通信するクライアント
 
 import socket
 import time
-from datetime import datetime
+import logging
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from common.packet import WeatherRequest, WeatherResponse
+from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
+from common.packet.debug import create_debug_logger
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
-
 PIDG = PacketIDGenerator12Bit()
 
 
 class WeatherClient:
     """Weather Serverと通信するクライアント（専用パケットクラス使用）"""
-    
-    def __init__(self, host=os.getenv('WEATHER_SERVER_HOST'), port=int(os.getenv('WEATHER_SERVER_PORT')), debug=False):
+
+    def __init__(self, host=None, port=None, debug=False):
+        if host is None:
+            host = os.getenv('WEATHER_SERVER_HOST', 'localhost')
+        if port is None:
+            port = int(os.getenv('WEATHER_SERVER_PORT', '4110'))
         """
         初期化
         
@@ -32,196 +36,55 @@ class WeatherClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(10.0)
         self.debug = debug
+        logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
+        self.debug_logger = create_debug_logger(__name__, debug)
         self.VERSION = 1
         self.PIDG = PacketIDGenerator12Bit()
         
-    def _hex_dump(self, data):
-        """バイナリデータのhexダンプを作成"""
-        hex_str = ' '.join(f'{b:02x}' for b in data)
-        ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
-        return f"Hex: {hex_str}\nASCII: {ascii_str}"
         
-    def _debug_print_request(self, request, request_type):
-        """リクエストのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
-            
-        print("\n=== SENDING REQUEST PACKET ===")
-        print(f"Request Type: {request_type}")
-        print(f"Total Length: {len(request.to_bytes())} bytes")
-        
-        # 専用クラスのサマリー情報を使用
-        if hasattr(request, 'get_request_summary'):
-            summary = request.get_request_summary()
-            print(f"\nRequest Summary: {summary}")
-        
-        print("\nHeader:")
-        print(f"Version: {request.version}")
-        print(f"Type: {request.type}")
-        print(f"Packet ID: {request.packet_id}")
-        print(f"Timestamp: {time.ctime(request.timestamp)}")
-        
-        if request.type == 0:
-            # 座標解決リクエスト
-            if hasattr(request, 'ex_field') and request.ex_field:
-                print(f"Latitude: {request.ex_field.get('latitude')}")
-                print(f"Longitude: {request.ex_field.get('longitude')}")
-        elif request.type == 2:
-            # 気象データリクエスト
-            print(f"Area Code: {request.area_code}")
-            print("\nFlags:")
-            print(f"Weather: {request.weather_flag}")
-            print(f"Temperature: {request.temperature_flag}")
-            print(f"pop: {request.pop_flag}")
-            print(f"Alert: {request.alert_flag}")
-            print(f"Disaster: {request.disaster_flag}")
-            
-        print("\nRaw Packet:")
-        print(self._hex_dump(request.to_bytes()))
-        print("============================\n")
-        
-    def _debug_print_response(self, response):
-        """レスポンスのデバッグ情報を出力（改良版）"""
-        if not self.debug:
-            return
-            
-        print("\n=== RECEIVED RESPONSE PACKET ===")
-        print(f"Response Type: {response.type}")
-        print(f"Total Length: {len(response.to_bytes())} bytes")
-        
-        # 専用クラスのメソッドを使用
-        if hasattr(response, 'get_weather_data'):
-            weather_data = response.get_weather_data()
-            print(f"\nWeather Data: {weather_data}")
-            print(f"Success: {response.is_success()}")
-        
-        print("\nHeader:")
-        print(f"Version: {response.version}")
-        print(f"Type: {response.type}")
-        print(f"Area Code: {response.area_code}")
-        print(f"Packet ID: {response.packet_id}")
-        print(f"Timestamp: {time.ctime(response.timestamp)}")
-        
-        if response.type == 3:
-            # 気象データレスポンス（専用メソッド使用）
-            if hasattr(response, 'get_weather_code'):
-                weather_code = response.get_weather_code()
-                if weather_code is not None:
-                    print(f"\nWeather Code: {weather_code}")
-            
-            if hasattr(response, 'get_temperature_celsius'):
-                temp = response.get_temperature_celsius()
-                if temp is not None:
-                    print(f"Temperature: {temp}℃")
-            
-            if hasattr(response, 'get_precipitation_prob'):
-                pop = response.get_precipitation_prob()
-                if pop is not None:
-                    print(f"precipitation_prob: {pop}%")
-                    
-            if hasattr(response, 'get_alerts'):
-                alerts = response.get_alerts()
-                if alerts:
-                    print(f"Alerts: {alerts}")
-                    
-            if hasattr(response, 'get_disaster_info'):
-                disaster = response.get_disaster_info()
-                if disaster:
-                    print(f"Disaster Info: {disaster}")
-            
-        print("\nRaw Packet:")
-        print(self._hex_dump(response.to_bytes()))
-        print("==============================\n")
-        
-    def get_weather_by_coordinates(self, latitude, longitude, 
-                                  weather=True, temperature=True, 
-                                  precipitation_prob=True, alerts=False, disaster=False,
-                                  day=0):
+    def get_weather_data(self, area_code,
+                        weather=True, temperature=True,
+                        precipitation_prob=True, alert=False, disaster=False,
+                        day=0):
         """
-        座標から天気情報を取得（Type 0 → Type 3）
-        
-        Args:
-            latitude: 緯度
-            longitude: 経度
-            weather: 天気データを取得するか
-            temperature: 気温データを取得するか
-            precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
-            disaster: 災害情報データを取得するか
-            day: 予報日（0: 今日, 1: 明日, ...）
-            
-        Returns:
-            dict: 気象データ
-        """
-        try:
-            start_time = time.time()
-            
-            # 専用クラスでリクエスト作成（大幅に簡潔になった）
-            request = WeatherRequest.create_by_coordinates(
-                latitude=latitude,
-                longitude=longitude,
-                packet_id=self.PIDG.next_id(),
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alerts=alerts,
-                disaster=disaster,
-                day=day,
-                version=self.VERSION
-            )
-            
-            self._debug_print_request(request, "Location Resolution (Type 0)")
-            
-            # リクエスト送信
-            self.sock.sendto(request.to_bytes(), (self.host, self.port))
-            
-            # Type 3: 気象データレスポンスを受信（専用クラス使用）
-            response_data, addr = self.sock.recvfrom(1024)
-            response = WeatherResponse.from_bytes(response_data)
-            
-            self._debug_print_response(response)
-            
-            # 専用クラスのメソッドで結果を簡単に取得
-            if response.is_success():
-                result = response.get_weather_data()
-                
-                total_time = time.time() - start_time
-                if self.debug:
-                    print("\n=== TIMING INFORMATION ===")
-                    print(f"Total operation time: {total_time*1000:.2f}ms")
-                    print("========================\n")
-                
-                return result
-            else:
-                if self.debug:
-                    print("Response indicates failure")
-                return None
-            
-        except socket.timeout:
-            print("Timeout waiting for response")
-            return None
-        except Exception as e:
-            print(f"Error: {e}")
-            if self.debug:
-                import traceback
-                traceback.print_exc()
-            return None
-        
-    def get_weather_by_area_code(self, area_code, 
-                                weather=True, temperature=True, 
-                                precipitation_prob=True, alerts=False, disaster=False,
-                                day=0):
-        """
-        エリアコードから天気情報を取得（Type 2 → Type 3）
+        エリアコードから天気情報を取得（統一命名規則版）
         
         Args:
             area_code: エリアコード（文字列または数値、例: "011000" または 11000）
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
-            alerts: 警報データを取得するか
+            alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
+            
+        Returns:
+            dict: 気象データ
+        """
+        # QueryRequestインスタンスを作成
+        request = QueryRequest.create_query_request(
+            area_code=area_code,
+            packet_id=self.PIDG.next_id(),
+            weather=weather,
+            temperature=temperature,
+            precipitation_prob=precipitation_prob,
+            alert=alert,
+            disaster=disaster,
+            day=day,
+            version=self.VERSION
+        )
+        
+        # QueryRequestインスタンスを使用して実行
+        return self._execute_query_request(request)
+    
+    def _execute_query_request(self, request: QueryRequest):
+        """
+        QueryRequestを実行する共通処理
+        
+        Args:
+            request: 実行するQueryRequestインスタンス
             
         Returns:
             dict: 気象データ
@@ -229,55 +92,215 @@ class WeatherClient:
         try:
             start_time = time.time()
             
-            # 専用クラスでリクエスト作成（大幅に簡潔になった）
-            request = WeatherRequest.create_by_area_code(
-                area_code=area_code,
-                packet_id=self.PIDG.next_id(),
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alerts=alerts,
-                disaster=disaster,
-                day=day,
-                version=self.VERSION
-            )
-            
-            self._debug_print_request(request, "Weather Data (Type 2)")
+            self.debug_logger.log_request(request, "WEATHER DATA REQUEST")
             
             # リクエスト送信
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             
-            # Type 3: 気象データレスポンスを受信（専用クラス使用）
+            # レスポンスを受信
             response_data, addr = self.sock.recvfrom(1024)
-            response = WeatherResponse.from_bytes(response_data)
+            self.logger.debug(response_data)
             
-            self._debug_print_response(response)
+            # パケットタイプに基づいて適切なレスポンスクラスを選択
+            response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
             
-            # 専用クラスのメソッドで結果を簡単に取得
-            if response.is_success():
-                result = response.get_weather_data()
+            if response_type == 3:  # 天気レスポンス
+                response = QueryResponse.from_bytes(response_data)
+                self.debug_logger.log_response(response, "WEATHER DATA RESPONSE")
                 
-                total_time = time.time() - start_time
+                if response.is_success():
+                    result = response.get_weather_data()
+                    
+                    # 統一フォーマットでの成功ログ出力
+                    if result:
+                        execution_time = time.time() - start_time
+                        self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
+                    
+                    return result
+                else:
+                    if self.debug:
+                        self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
+                    return None
+                    
+            elif response_type == 7:  # エラーレスポンス
+                response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
-                    print("\n=== TIMING INFORMATION ===")
-                    print(f"Total operation time: {total_time*1000:.2f}ms")
-                    print("========================\n")
+                    self.logger.error("\n=== ERROR RESPONSE ===")
+                    self.logger.error(f"Error Code: {response.error_code}")
+                    self.logger.error("=====================\n")
                 
-                return result
+                return {
+                    'type': 'error',
+                    'error_code': response.error_code,
+                }
             else:
                 if self.debug:
-                    print("Response indicates failure")
+                    self.logger.error(f"不明なパケットタイプ: {response_type}")
                 return None
             
         except socket.timeout:
-            print("Timeout waiting for response")
+            self.logger.error("421: クライアントエラー:  クエリサーバ接続タイムアウト")
             return None
         except Exception as e:
-            print(f"Error: {e}")
+            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
             if self.debug:
-                import traceback
-                traceback.print_exc()
+                self.logger.exception("Traceback:")
             return None
+    
+    def _execute_location_request(self, request: LocationRequest):
+        """
+        LocationRequestを実行する共通処理
+        
+        Args:
+            request: 実行するLocationRequestインスタンス
+            
+        Returns:
+            dict: 気象データ
+        """
+        try:
+            start_time = time.time()
+            
+            self.debug_logger.log_request(request, "LOCATION REQUEST")
+            
+            # リクエスト送信
+            self.sock.sendto(request.to_bytes(), (self.host, self.port))
+            
+            # レスポンスを受信
+            response_data, addr = self.sock.recvfrom(1024)
+            
+            # パケットタイプに基づいて適切なレスポンスクラスを選択
+            response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
+            self.logger.debug(response_data)
+            
+            if response_type == 1:  # Location レスポンス
+                response = LocationResponse.from_bytes(response_data)
+                self.debug_logger.log_response(response, "LOCATION RESPONSE")
+                
+                if self.debug:
+                    self.logger.debug("LocationResponseを受信しました。weather_serverからの追加処理を待機します。")
+                
+                # weather_serverが座標解決後、直接query_serverにリクエストを送信し、
+                # その結果をクライアントに返すため、ここでは追加のリクエストは送信しません。
+                # 次のレスポンス（Type 3）を待機します。
+                try:
+                    # 次のレスポンス（天気データ）を受信
+                    response_data, addr = self.sock.recvfrom(1024)
+                    response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
+                    
+                    if response_type == 3:  # 天気レスポンス
+                        query_response = QueryResponse.from_bytes(response_data)
+                        self.debug_logger.log_response(query_response, "WEATHER RESPONSE")
+                        
+                        if query_response.is_success():
+                            result = query_response.get_weather_data()
+                            
+                            # 統一フォーマットでの成功ログ出力
+                            if result:
+                                execution_time = time.time() - start_time
+                                self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
+                            
+                            return result
+                        else:
+                            if self.debug:
+                                self.logger.error("420: クライアントエラー: 天気データ取得に失敗しました")
+                            return None
+                    elif response_type == 7:  # エラーレスポンス
+                        error_response = ErrorResponse.from_bytes(response_data)
+                        if self.debug:
+                            self.logger.error("\n=== ERROR RESPONSE ===")
+                            self.logger.error(f"Error Code: {error_response.error_code}")
+                            self.logger.error("=====================\n")
+                        
+                        return {
+                            'type': 'error',
+                            'error_code': error_response.error_code,
+                        }
+                    else:
+                        if self.debug:
+                            self.logger.error(f"不明なパケットタイプ: {response_type}")
+                        return None
+                        
+                except socket.timeout:
+                    self.logger.error("421: クライアントエラー: 天気データ受信タイムアウト")
+                    return None
+                except Exception as e:
+                    self.logger.error(f"420: クライアントエラー: 天気データ受信エラー - {e}")
+                    if self.debug:
+                        self.logger.exception("Traceback:")
+                    return None
+                    
+            elif response_type == 3:  # 天気レスポンス（直接応答）
+                response = QueryResponse.from_bytes(response_data)
+                self.debug_logger.log_response(response, "DIRECT WEATHER RESPONSE")
+                
+                if response.is_success():
+                    result = response.get_weather_data()
+                    
+                    # 統一フォーマットでの成功ログ出力
+                    if result:
+                        execution_time = time.time() - start_time
+                        self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
+                    
+                    return result
+                else:
+                    if self.debug:
+                        self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
+                    return None
+                    
+            elif response_type == 7:  # エラーレスポンス
+                response = ErrorResponse.from_bytes(response_data)
+                if self.debug:
+                    self.logger.error("\n=== ERROR RESPONSE ===")
+                    self.logger.error(f"Error Code: {response.error_code}")
+                    self.logger.error("=====================\n")
+                
+                return {
+                    'type': 'error',
+                    'error_code': response.error_code,
+                }
+            else:
+                if self.debug:
+                    self.logger.error(f"不明なパケットタイプ: {response_type}")
+                return None
+            
+        except socket.timeout:
+            self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
+            return None
+        except Exception as e:
+            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
+            if self.debug:
+                self.logger.exception("Traceback:")
+            return None
+
+    def get_weather_simple(self, area_code, include_all=False, day=0):
+        """
+        基本的な気象データを一括取得する簡便メソッド（統一命名規則版）
+        
+        Args:
+            area_code: エリアコード
+            include_all: すべてのデータを取得するか（警報・災害情報も含む）
+            day: 予報日（0: 今日, 1: 明日, ...）
+            
+        Returns:
+            dict: 気象データ
+        """
+        return self.get_weather_data(
+            area_code=area_code,
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            alert=include_all,
+            disaster=include_all,
+            day=day
+        )
+
+    # 後方互換性のためのエイリアスメソッド
+    def get_weather_by_area_code(self, area_code,
+                                weather=True, temperature=True,
+                                precipitation_prob=True, alert=False, disaster=False,
+                                day=0):
+        """後方互換性のため - get_weather_data()を使用してください"""
+        return self.get_weather_data(area_code, weather, temperature, precipitation_prob, alert, disaster, day)
         
     def close(self):
         """ソケットを閉じる"""
@@ -286,73 +309,108 @@ class WeatherClient:
 
 def main():
     """メイン関数 - 使用例（専用パケットクラス版）"""
-    print("Weather Client Example (Enhanced with Specialized Packet Classes)")
-    print("=" * 70)
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("Weather Client Example (Enhanced with Specialized Packet Classes)")
+    logger.info("=" * 70)
     
     client = WeatherClient(debug=True)
     
     try:
-        # 例1: 座標から天気情報を取得
-        print("\n1. Getting weather by coordinates (Tokyo)")
-        print("-" * 30)
+        # 例1: 座標から天気情報を取得（従来の方法）
+        logger.info("\n1. Getting weather by coordinates (Tokyo) - Traditional method")
+        logger.info("-" * 55)
         
-        result = client.get_weather_by_coordinates(
+        request = LocationRequest.create_coordinate_lookup(
             latitude=35.6895,
             longitude=139.6917,
+            packet_id=client.PIDG.next_id(),
             weather=True,
             temperature=True,
-            precipitation_prob=True
+            precipitation_prob=True,
+            version=client.VERSION
         )
+        result = client._execute_location_request(request=request)
         
         if result:
-            print("\n✓ Success!")
-            print(f"Area Code: {result.get('area_code')}")
-            print(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
-            if 'weather_code' in result:
-                print(f"Weather Code: {result['weather_code']}")
-            if 'temperature' in result:
-                print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation_prob' in result:
-                print(f"precipitation_prob: {result['precipitation_prob']}%")
+            client.debug_logger.log_success_result(result, "COORDINATE WEATHER REQUEST")
         else:
-            print("\n✗ Failed to get weather data")
+            logger.error("\n✗ Failed to get weather data")
         
-        # 例2: エリアコードから天気情報を取得
-        print("\n\n2. Getting weather by area code (Sapporo: 011000)")
-        print("-" * 30)
+        # 例2: LocationRequestインスタンスを使用する方法
+        logger.info("\n2. Getting weather with LocationRequest instance")
+        logger.info("-" * 45)
         
-        result = client.get_weather_by_area_code(
+        # LocationRequestインスタンスを事前作成
+        location_request = LocationRequest.create_coordinate_lookup(
+            latitude=35.6895,
+            longitude=139.6917,
+            packet_id=client.PIDG.next_id(),
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            alert=True,
+            disaster=True,
+            version=client.VERSION
+        )
+        
+        
+        # インスタンスを使用して実行
+        result = client._execute_location_request(location_request)
+        
+        if result:
+            client.debug_logger.log_success_result(result, "LOCATION REQUEST INSTANCE")
+        else:
+            logger.error("\n✗ Failed to get weather data")
+        
+        # 例3: QueryRequestインスタンスを使用する方法
+        logger.info("\n3. Getting weather with QueryRequest instance")
+        logger.info("-" * 45)
+        
+        # QueryRequestインスタンスを事前作成
+        query_request = QueryRequest.create_query_request(
+            area_code="011000",
+            packet_id=client.PIDG.next_id(),
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            alert=True,
+            disaster=True,
+            version=client.VERSION
+        )
+        
+        # インスタンスを使用して実行
+        result = client._execute_query_request(query_request)
+        
+        if result:
+            client.debug_logger.log_success_result(result, "QUERY REQUEST INSTANCE")
+        else:
+            logger.error("\n✗ Failed to get weather data")
+        
+        # 例4: 従来の方法でエリアコードから天気情報を取得
+        logger.info("\n4. Getting weather by area code - Traditional method")
+        logger.info("-" * 55)
+        
+        result = client.get_weather_data(
             area_code="011000",
             weather=True,
             temperature=True,
             precipitation_prob=True,
-            alerts=True,
+            alert=True,
             disaster=True
         )
         
         if result:
-            print("\n✓ Success!")
-            print(f"Area Code: {result.get('area_code')}")
-            print(f"Timestamp: {time.ctime(result.get('timestamp', 0))}")
-            if 'weather_code' in result:
-                print(f"Weather Code: {result['weather_code']}")
-            if 'temperature' in result:
-                print(f"Temperature: {result['temperature']}°C")
-            if 'precipitation_prob' in result:
-                print(f"precipitation_prob: {result['precipitation_prob']}%")
-            if 'alerts' in result:
-                print(f"Alerts: {result['alerts']}")
-            if 'disaster' in result:
-                print(f"Disaster Info: {result['disaster']}")
+            client.debug_logger.log_success_result(result, "AREA CODE WEATHER REQUEST")
         else:
-            print("\n✗ Failed to get weather data")
+            logger.error("\n✗ Failed to get weather data")
             
     finally:
         client.close()
         
-    print("\n" + "="*70)
-    print("Enhanced Weather Client Example completed")
-    print("✓ Using specialized packet classes for improved usability")
+    logger.info("\n" + "="*70)
+    logger.info("Enhanced Weather Client Example completed")
+    logger.info("✓ Using specialized packet classes for improved usability")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-name: u22-wtp
+name: u22-wip
 channels:
   - conda-forge
   - defaults
