@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 import uvicorn
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -58,6 +59,13 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+class Coordinates(BaseModel):
+    """リクエストボディ用の座標モデル"""
+
+    lat: float
+    lng: float
+
+
 async def log_event(message: str) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     msg = f"[{timestamp}] {message}"
@@ -98,10 +106,9 @@ async def index(request: Request):
 
 
 @app.post("/weekly_forecast")
-async def weekly_forecast(request: Request):
-    data = await request.json()
-    lat = data.get("lat")
-    lng = data.get("lng")
+async def weekly_forecast(coords: Coordinates):
+    lat = coords.lat
+    lng = coords.lng
     await log_event(f"POST /weekly_forecast lat={lat} lng={lng}")
 
     if lat is None or lng is None:
