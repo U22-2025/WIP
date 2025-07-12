@@ -63,7 +63,7 @@ application/map/
 ├── cert.pem / key.pem     # SSL証明書（生成後）
 ├── templates/             # HTMLテンプレート
 │   ├── map.html          # メインHTML
-│   └── weather_code.json # 天気コード定義
+│   └── weather_code.json # 天気コード定義 (logs/json に配置)
 └── static/               # 静的ファイル
     ├── css/
     │   └── styles.css    # メインスタイルシート

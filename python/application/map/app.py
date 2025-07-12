@@ -69,7 +69,7 @@ def index():
     return render_template('map.html')  # 上のHTMLを templates/map.html に保存
 
 # JSONファイル配置ディレクトリ
-JSON_DIR = Path(__file__).resolve().parents[2] / 'wip' / 'json'
+JSON_DIR = Path(__file__).resolve().parents[2] / 'logs' / 'json'
 
 # 天気コードJSONを提供するルート
 @app.route('/weather_code.json')
