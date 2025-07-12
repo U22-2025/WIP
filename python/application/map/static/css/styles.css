@@ -1433,3 +1433,22 @@ button:focus,
         margin-top: var(--space-xs);
     }
 }
+
+/* ログパネル */
+#log-panel {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 300px;
+    max-height: 40vh;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    padding: var(--space-xs);
+    box-shadow: var(--shadow-md);
+    z-index: 10000;
+}
+#log-panel div {
+    margin-bottom: 2px;
+}
