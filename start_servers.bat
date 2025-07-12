@@ -12,7 +12,7 @@ wt ^
   ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python python/launch_server.py --location --debug" ^
   ; focus-pane -t 1 ^
   ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && conda activate U22-2025 && python python/launch_server.py --report --debug" ^
-  ; split-pane -V cmd /k "cd /d %CURRENT_DIR%/python/application/map && conda activate U22-2025 && python app.py"
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR%/python/application/map && conda activate U22-2025 && python fastapi_app.py"
 
 start http://localhost:5000
 

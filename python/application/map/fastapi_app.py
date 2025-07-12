@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
-
+import uvicorn
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -250,5 +250,4 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("fastapi_app:app", host="0.0.0.0", port=5000)
