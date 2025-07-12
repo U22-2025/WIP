@@ -23,43 +23,44 @@
 
 ## 🚀 クイックスタート
 
-### 簡単起動（推奨）
+### 簡単起動（FastAPI 版）
 
 ```bash
 cd application/map
-python start_http3_server.py
+uvicorn app_fastapi:app --reload
 ```
 
 ### 手動起動
 
 ```bash
 # 1. 依存関係をインストール
-pip install -r requirements_http3.txt
+pip install fastapi uvicorn geopy
 
-# 2. SSL証明書を生成（HTTP/3用）
-python generate_cert.py
-
-# 3. サーバーを起動
-python app_http3.py
+# 2. サーバーを起動
+uvicorn app_fastapi:app --reload
 ```
+
+## 🔄 FastAPI への移行手順
+
+1. `app_fastapi.py` を追加し、Flask で実装していた API を FastAPI 形式に書き換えます。
+2. 既存のテンプレートや静的ファイルはそのまま利用できます。
+3. `uvicorn` を使ってサーバーを起動し、動作確認を行います。
+4. 動作が安定したら不要になった Flask 版を段階的に廃止します。
 
 ### アクセス方法
 
-- **HTTP/3対応**: https://localhost:5000
-- **標準版**: http://localhost:5000 (app.pyを使用)
+- **FastAPI版**: http://localhost:5000
+- **Flask版**: http://localhost:5000 (app.py)
 
 ## 📁 プロジェクト構成
 
 ```
 application/map/
-├── app.py                    # Flask版メインアプリケーション
-├── app_http3.py             # HTTP/3対応版（Quart）
-├── start_http3_server.py    # 自動セットアップ・起動スクリプト
-├── generate_cert.py         # SSL証明書生成スクリプト
-├── requirements_http3.txt   # HTTP/3用依存関係
-├── README.md               # このファイル
-├── README_HTTP3.md         # HTTP/3詳細ドキュメント
-├── MIGRATION_COMPLETE.md   # HTTP/3移行報告書
+├── app.py              # Flask版メインアプリケーション
+├── app_fastapi.py      # FastAPI版アプリケーション
+├── generate_cert.py    # SSL証明書生成スクリプト（任意）
+├── README.md           # このファイル
+├── MIGRATION_COMPLETE.md   # FastAPI移行報告書
 ├── cert.pem / key.pem     # SSL証明書（生成後）
 ├── templates/             # HTMLテンプレート
 │   ├── map.html          # メインHTML
@@ -74,8 +75,8 @@ application/map/
 ## 🔧 技術スタック
 
 ### バックエンド
-- **Flask** (標準版) / **Quart** (HTTP/3版)
-- **Hypercorn**: HTTP/3対応ASGIサーバー
+- **Flask** (従来版) / **FastAPI** (新バージョン)
+- **Uvicorn**: ASGIサーバー
 - **geopy**: 地理情報処理・逆ジオコーディング
 - **WIP_Client**: 独自天気情報取得システム
 
@@ -169,12 +170,11 @@ geopy>=2.3.0
 requests>=2.31.0
 ```
 
-#### HTTP/3版 (Quart)
+#### FastAPI版
 ```txt
-quart>=0.19.0
-hypercorn[h3]>=0.16.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
 geopy>=2.3.0
-aioquic>=0.9.20
 ```
 
 ### 開発環境構築
@@ -189,10 +189,10 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 依存関係インストール
-pip install -r requirements_http3.txt
+pip install fastapi uvicorn geopy
 
 # 開発サーバー起動
-python start_http3_server.py
+uvicorn app_fastapi:app --reload
 ```
 
 ### カスタマイズ
@@ -214,7 +214,7 @@ const initialZoom = 10;      // ズームレベル
 
 ### SSL証明書
 
-HTTP/3には SSL/TLS が必須です：
+開発用でも本番用でも SSL/TLS を利用できます：
 
 - **開発用**: `generate_cert.py`で自己署名証明書を生成
 - **本番用**: 正式なSSL証明書を使用してください
@@ -247,7 +247,7 @@ HTTP/3には SSL/TLS が必須です：
 #### 依存関係エラー
 ```bash
 pip install --upgrade pip
-pip install -r requirements_http3.txt
+pip install fastapi uvicorn geopy
 ```
 
 #### SSL証明書エラー
@@ -257,8 +257,8 @@ python generate_cert.py
 
 #### ポート使用中エラー
 ```python
-# app_http3.py の設定を変更
-config.bind = ["localhost:5001"]  # ポート番号変更
+# uvicorn 起動コマンドのポートを変更
+uvicorn app_fastapi:app --port 5001 --reload
 ```
 
 #### OpenSSL が見つからない（Windows）
@@ -269,9 +269,10 @@ config.bind = ["localhost:5001"]  # ポート番号変更
 ### デバッグモード
 
 ```python
-# app.py または app_http3.py
-app.run(debug=True)  # Flask版
-# または Quart版でデバッグログ有効化
+# app.py でデバッグ実行
+app.run(debug=True)
+# FastAPI 版
+uvicorn app_fastapi:app --reload
 ```
 
 ## 🤝 コントリビューション
@@ -304,4 +305,4 @@ app.run(debug=True)  # Flask版
 
 **開発者**: WIPチーム  
 **最終更新**: 2025年6月4日  
-**バージョン**: HTTP/3対応版 1.0
+**バージョン**: FastAPI版 1.0
