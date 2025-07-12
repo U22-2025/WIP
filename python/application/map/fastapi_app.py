@@ -13,14 +13,16 @@ from fastapi.templating import Jinja2Templates
 from geopy.geocoders import Nominatim
 
 # 直接実行時のパス調整
+BASE_DIR = Path(__file__).resolve().parent
+
 if __name__ == "__main__":
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(BASE_DIR.parents[2]))
 
 from WIP_Client import Client
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 client = Client(host="localhost", port=4110, debug=True)
 geolocator = Nominatim(user_agent="wip_map_app")
