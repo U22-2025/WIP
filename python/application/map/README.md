@@ -28,6 +28,7 @@
 ```bash
 cd application/map
 python start_http3_server.py
+python start_fastapi_server.py
 ```
 
 ### 手動起動
@@ -54,7 +55,9 @@ python app_http3.py
 application/map/
 ├── app.py                    # Flask版メインアプリケーション
 ├── app_http3.py             # HTTP/3対応版（Quart）
+├── fastapi_app.py           # FastAPI版アプリケーション
 ├── start_http3_server.py    # 自動セットアップ・起動スクリプト
+├── start_fastapi_server.py  # FastAPI開発サーバー
 ├── generate_cert.py         # SSL証明書生成スクリプト
 ├── requirements_http3.txt   # HTTP/3用依存関係
 ├── README.md               # このファイル
@@ -100,6 +103,7 @@ application/map/
 | `/click` | POST | 座標クリック時の天気・住所取得 |
 | `/get_address` | POST | 住所情報のみ取得 |
 | `/weekly_forecast` | POST | 週間天気予報取得 |
+| `/ws` | WebSocket | ログメッセージ購読 |
 
 ### リクエスト例
 
