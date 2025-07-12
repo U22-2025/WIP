@@ -19,7 +19,8 @@ if __name__ == "__main__":
     )
 from WIP_Client import Client
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+# ドキュメントエンドポイントを有効化
+app = FastAPI()
 script_dir = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(script_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(script_dir / "templates"))
