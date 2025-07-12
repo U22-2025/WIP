@@ -41,20 +41,16 @@
 ✅ **API エンドポイント**
 - `GET /` - メインマップページ
 - `GET /weather_code.json` - 天気コード定義
-- `POST /click` - 座標クリック時の天気・住所取得
-- `POST /get_address` - 住所情報のみ取得
 - `POST /weekly_forecast` - 週間天気予報取得
 
 ✅ **既存機能**
 - 地図クリックによる座標取得
 - 天気情報の取得
-- 住所の逆ジオコーディング
 - 週間天気予報の並列取得
 - JSONレスポンス形式
 
 ✅ **外部依存関係**
 - WIP_Client との連携
-- geopy による地理情報処理
 - テンプレートファイル (map.html, weather_code.json)
 - 静的ファイル (CSS, JavaScript)
 
