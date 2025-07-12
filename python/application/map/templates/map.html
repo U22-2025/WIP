@@ -18,7 +18,7 @@
     <meta name="apple-mobile-web-app-title" content="次世代Weather Map">
 
     <!-- カスタムスタイル -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/styles.css') }}">
 </head>
 
 <body>
@@ -114,7 +114,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- カスタムスクリプト -->
-    <script src="{{ url_for('static', filename='js/weather-app.js') }}"></script>
+    <script src="{{ url_for('static', path='js/weather-app.js') }}"></script>
 </body>
 
 </html>
