@@ -79,7 +79,6 @@ application/map/
 ### バックエンド
 - **Flask** (標準版) / **Quart** (HTTP/3版)
 - **Hypercorn**: HTTP/3対応ASGIサーバー
-- **geopy**: 地理情報処理・逆ジオコーディング
 - **WIP_Client**: 独自天気情報取得システム
 
 ### フロントエンド
@@ -100,16 +99,14 @@ application/map/
 |---------------|----------|------|
 | `/` | GET | メインマップページ |
 | `/weather_code.json` | GET | 天気コード定義 |
-| `/click` | POST | 座標クリック時の天気・住所取得 |
-| `/get_address` | POST | 住所情報のみ取得 |
 | `/weekly_forecast` | POST | 週間天気予報取得 |
 | `/ws` | WebSocket | ログメッセージ購読 |
 
 ### リクエスト例
 
 ```javascript
-// 座標クリック時の天気情報取得
-fetch('/click', {
+// 週間天気予報の取得
+fetch('/weekly_forecast', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',
@@ -132,18 +129,27 @@ fetch('/click', {
     "lat": 35.6762,
     "lng": 139.6503
   },
-  "weather": {
-    "weather_code": "100",
-    "temperature": "22",
-    "precipitation_prob": "10",
-    "area_code": "130010"
-  },
-  "address": {
-    "full_address": "日本, 東京都千代田区",
-    "prefecture": "東京都",
-    "city": "千代田区",
-    "country": "日本"
-  }
+  "area_code": "130010",
+  "weekly_forecast": [
+    {
+      "date": "2024-04-01",
+      "day_of_week": "Monday",
+      "weather_code": "100",
+      "temperature": "22",
+      "precipitation_prob": "10",
+      "area_code": "130010",
+      "day": 0
+    },
+    {
+      "date": "2024-04-02",
+      "day_of_week": "Tuesday",
+      "weather_code": "101",
+      "temperature": "21",
+      "precipitation_prob": "20",
+      "area_code": "130010",
+      "day": 1
+    }
+  ]
 }
 ```
 
@@ -169,7 +175,6 @@ fetch('/click', {
 #### 標準版 (Flask)
 ```txt
 flask>=2.3.0
-geopy>=2.3.0
 requests>=2.31.0
 ```
 
@@ -177,7 +182,6 @@ requests>=2.31.0
 ```txt
 quart>=0.19.0
 hypercorn[h3]>=0.16.0
-geopy>=2.3.0
 aioquic>=0.9.20
 ```
 
