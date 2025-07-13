@@ -204,19 +204,4 @@
   window.toggleAutoScroll = () => logPanel.toggleAutoScroll();
   window.togglePanel = () => logPanel.togglePanel();
 
-  // 初期化メッセージ
-  setTimeout(() => {
-    logPanel.appendLog({
-      type: 'log',
-      timestamp: new Date().toISOString(),
-      level: 'info',
-      message: 'Weather monitoring system initialized',
-      details: {
-        endpoint: '/system/init',
-        response_time: 45,
-        status_code: 200,
-        ip: '127.0.0.1'
-      }
-    });
-  }, 500);
 })();
