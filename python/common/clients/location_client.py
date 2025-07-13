@@ -13,6 +13,7 @@ import logging
 from ..packet import LocationRequest, LocationResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
+from .utils import receive_with_id
 import sys
 import os
 
@@ -158,7 +159,7 @@ class LocationClient:
             self.sock.sendto(request.to_bytes(), (self.server_host, self.server_port))
             self.logger.debug(f"Sent request to {self.server_host}:{self.server_port}")
 
-            data, addr = self.sock.recvfrom(1024)
+            data, addr = receive_with_id(self.sock, request.packet_id, 10.0)
             network_time = time.time() - network_start
             self.logger.debug(f"Received response from {addr}")
 

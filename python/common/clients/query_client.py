@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
+from .utils import receive_with_id
 from ..utils.cache import Cache
 PIDG = PacketIDGenerator12Bit()
 
@@ -180,7 +181,7 @@ class QueryClient:
             sock.sendto(packet_bytes, (self.host, self.port))
             
             # レスポンス受信（専用クラス使用）
-            response_data, server_addr = sock.recvfrom(1024)
+            response_data, server_addr = receive_with_id(sock, request.packet_id, timeout)
             network_time = datetime.now() - network_start
             
             # レスポンス解析（専用クラス使用）
