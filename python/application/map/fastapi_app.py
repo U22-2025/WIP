@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from common.utils.config_loader import ConfigLoader
+
 
 # 直接実行時のパス調整
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
         0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     )
 from WIP_Client import ClientAsync
-
+from common.utils.config_loader import ConfigLoader
 # ドキュメントエンドポイントを有効化
 app = FastAPI()
 script_dir = Path(__file__).resolve().parent
