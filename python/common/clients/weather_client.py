@@ -8,11 +8,12 @@ import time
 import logging
 import sys
 import os
+import asyncio
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.packet.debug import create_debug_logger
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
-from common.clients.utils import receive_with_id
+from common.clients.utils import receive_with_id, receive_with_id_async
 PIDG = PacketIDGenerator12Bit()
 
 
@@ -147,6 +148,63 @@ class WeatherClient:
             if self.debug:
                 self.logger.exception("Traceback:")
             return None
+
+    async def _execute_query_request_async(self, request: QueryRequest):
+        """非同期版 _execute_query_request"""
+        try:
+            start_time = time.time()
+
+            self.debug_logger.log_request(request, "WEATHER DATA REQUEST")
+
+            loop = asyncio.get_running_loop()
+            self.sock.setblocking(False)
+            await loop.sock_sendto(self.sock, request.to_bytes(), (self.host, self.port))
+
+            response_data, addr = await receive_with_id_async(self.sock, request.packet_id, 10.0)
+            self.logger.debug(response_data)
+
+            response_type = int.from_bytes(response_data[2:3], byteorder="little") & 0x07
+
+            if response_type == 3:
+                response = QueryResponse.from_bytes(response_data)
+                self.debug_logger.log_response(response, "WEATHER DATA RESPONSE")
+
+                if response.is_success():
+                    result = response.get_weather_data()
+
+                    if result:
+                        execution_time = time.time() - start_time
+                        self.debug_logger.log_unified_packet_received(
+                            "Direct request", execution_time, result
+                        )
+
+                    return result
+                else:
+                    if self.debug:
+                        self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
+                    return None
+
+            elif response_type == 7:
+                response = ErrorResponse.from_bytes(response_data)
+                if self.debug:
+                    self.logger.error("\n=== ERROR RESPONSE ===")
+                    self.logger.error(f"Error Code: {response.error_code}")
+                    self.logger.error("=====================\n")
+
+                return {"type": "error", "error_code": response.error_code}
+            else:
+                if self.debug:
+                    self.logger.error(f"不明なパケットタイプ: {response_type}")
+                return None
+
+        except asyncio.TimeoutError:
+            self.logger.error("421: クライアントエラー:  クエリサーバ接続タイムアウト")
+            return None
+        except Exception as e:
+            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない - {e}")
+            if self.debug:
+                self.logger.exception("Traceback:")
+            return None
     
     def _execute_location_request(self, request: LocationRequest):
         """
@@ -224,47 +282,113 @@ class WeatherClient:
                 except socket.timeout:
                     self.logger.error("421: クライアントエラー: 天気データ受信タイムアウト")
                     return None
+        except Exception as e:
+            self.logger.error(f"420: クライアントエラー: 天気データ受信エラー - {e}")
+            if self.debug:
+                self.logger.exception("Traceback:")
+            return None
+
+    async def _execute_location_request_async(self, request: LocationRequest):
+        """非同期版 _execute_location_request"""
+        try:
+            start_time = time.time()
+
+            self.debug_logger.log_request(request, "LOCATION REQUEST")
+
+            loop = asyncio.get_running_loop()
+            self.sock.setblocking(False)
+            await loop.sock_sendto(self.sock, request.to_bytes(), (self.host, self.port))
+
+            response_data, addr = await receive_with_id_async(self.sock, request.packet_id, 10.0)
+            response_type = int.from_bytes(response_data[2:3], byteorder="little") & 0x07
+            self.logger.debug(response_data)
+
+            if response_type == 1:
+                response = LocationResponse.from_bytes(response_data)
+                self.debug_logger.log_response(response, "LOCATION RESPONSE")
+
+                if self.debug:
+                    self.logger.debug(
+                        "LocationResponseを受信しました。weather_serverからの追加処理を待機します。"
+                    )
+
+                try:
+                    response_data, addr = await receive_with_id_async(self.sock, response.packet_id, 10.0)
+                    response_type = int.from_bytes(response_data[2:3], byteorder="little") & 0x07
+
+                    if response_type == 3:
+                        query_response = QueryResponse.from_bytes(response_data)
+                        self.debug_logger.log_response(query_response, "WEATHER RESPONSE")
+
+                        if query_response.is_success():
+                            result = query_response.get_weather_data()
+
+                            if result:
+                                execution_time = time.time() - start_time
+                                self.debug_logger.log_unified_packet_received(
+                                    "Direct request", execution_time, result
+                                )
+
+                            return result
+                        else:
+                            if self.debug:
+                                self.logger.error("420: クライアントエラー: 天気データ取得に失敗しました")
+                            return None
+                    elif response_type == 7:
+                        error_response = ErrorResponse.from_bytes(response_data)
+                        if self.debug:
+                            self.logger.error("\n=== ERROR RESPONSE ===")
+                            self.logger.error(f"Error Code: {error_response.error_code}")
+                            self.logger.error("=====================\n")
+
+                        return {"type": "error", "error_code": error_response.error_code}
+                    else:
+                        if self.debug:
+                            self.logger.error(f"不明なパケットタイプ: {response_type}")
+                        return None
+
+                except asyncio.TimeoutError:
+                    self.logger.error("421: クライアントエラー: 天気データ受信タイムアウト")
+                    return None
                 except Exception as e:
                     self.logger.error(f"420: クライアントエラー: 天気データ受信エラー - {e}")
                     if self.debug:
                         self.logger.exception("Traceback:")
                     return None
-                    
-            elif response_type == 3:  # 天気レスポンス（直接応答）
+
+            elif response_type == 3:
                 response = QueryResponse.from_bytes(response_data)
                 self.debug_logger.log_response(response, "DIRECT WEATHER RESPONSE")
-                
+
                 if response.is_success():
                     result = response.get_weather_data()
-                    
-                    # 統一フォーマットでの成功ログ出力
+
                     if result:
                         execution_time = time.time() - start_time
-                        self.debug_logger.log_unified_packet_received("Direct request", execution_time, result)
-                    
+                        self.debug_logger.log_unified_packet_received(
+                            "Direct request", execution_time, result
+                        )
+
                     return result
                 else:
                     if self.debug:
                         self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
                     return None
-                    
-            elif response_type == 7:  # エラーレスポンス
+
+            elif response_type == 7:
                 response = ErrorResponse.from_bytes(response_data)
                 if self.debug:
                     self.logger.error("\n=== ERROR RESPONSE ===")
                     self.logger.error(f"Error Code: {response.error_code}")
                     self.logger.error("=====================\n")
-                
-                return {
-                    'type': 'error',
-                    'error_code': response.error_code,
-                }
+
+                return {"type": "error", "error_code": response.error_code}
             else:
                 if self.debug:
                     self.logger.error(f"不明なパケットタイプ: {response_type}")
                 return None
-            
-        except socket.timeout:
+
+        except asyncio.TimeoutError:
             self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
             return None
         except Exception as e:

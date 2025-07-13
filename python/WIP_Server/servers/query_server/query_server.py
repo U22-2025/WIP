@@ -81,6 +81,12 @@ class QueryServer(BaseServer):
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("QueryServer")
         
+        # 起動時に気象データを更新
+        self._update_weather_data_scheduled()
+
+        # 起動時に警報と災害情報を更新
+        self._update_disaster_alert_scheduled()
+        
         # スケジューラーを開始（loggerが初期化された後）
         self._setup_scheduler()
     

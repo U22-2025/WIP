@@ -4,13 +4,14 @@ import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, AsyncGenerator
 import uvicorn
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
 
 # 直接実行時のパス調整
 
@@ -18,24 +19,38 @@ if __name__ == "__main__":
     sys.path.insert(
         0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     )
-from WIP_Client import Client
 
+# Windows環境では ProactorEventLoop がデフォルトとなるが、このイベントループは
+# sock_sendto が実装されていないため非同期クライアントでエラーになる。
+# そのため SelectorEventLoop を使用するようにポリシーを設定する。
+if sys.platform.startswith("win"):
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    except Exception:  # pragma: no cover - Windows 環境以外では実行されない
+        pass
+from WIP_Client import ClientAsync
+from common.utils.config_loader import ConfigLoader
 # ドキュメントエンドポイントを有効化
 app = FastAPI()
 script_dir = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(script_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(script_dir / "templates"))
 
-client = Client(host="localhost", port=4110, debug=True)
+WEATHER_SERVER_HOST = os.getenv("WEATHER_SERVER_HOST", "localhost")
+WEATHER_SERVER_PORT = int(os.getenv("WEATHER_SERVER_PORT", 4110))
 
 logger = logging.getLogger("fastapi_app")
 logging.basicConfig(level=logging.INFO)
 
+config_loader = ConfigLoader()
+LOG_LIMIT = config_loader.getint("logging", "log_limit", default=100)
+
 
 class ConnectionManager:
-    def __init__(self) -> None:
+    def __init__(self, log_limit: int = 100) -> None:
         self.active: List[WebSocket] = []
         self.logs: List[str] = []
+        self.log_limit = log_limit
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -49,6 +64,8 @@ class ConnectionManager:
 
     async def broadcast(self, message: str) -> None:
         self.logs.append(message)
+        if len(self.logs) > self.log_limit:
+            self.logs = self.logs[-self.log_limit:]
         for ws in list(self.active):
             try:
                 await ws.send_text(message)
@@ -56,7 +73,7 @@ class ConnectionManager:
                 self.disconnect(ws)
 
 
-manager = ConnectionManager()
+manager = ConnectionManager(log_limit=LOG_LIMIT)
 
 
 class Coordinates(BaseModel):
@@ -95,6 +112,22 @@ def _create_fallback_weather_data(area_code: str, days_offset: int = 0) -> dict:
 
 
 # ----------------------------------------------------------------------
+# Dependency
+# ----------------------------------------------------------------------
+
+async def get_client() -> AsyncGenerator[ClientAsync, None]:
+    client = ClientAsync(
+        host=WEATHER_SERVER_HOST,
+        port=WEATHER_SERVER_PORT,
+        debug=True,
+    )
+    try:
+        yield client
+    finally:
+        client.close()
+
+
+# ----------------------------------------------------------------------
 # Routes
 # ----------------------------------------------------------------------
 
@@ -106,7 +139,9 @@ async def index(request: Request):
 
 
 @app.post("/weekly_forecast")
-async def weekly_forecast(coords: Coordinates):
+async def weekly_forecast(
+    coords: Coordinates, client: ClientAsync = Depends(get_client)
+):
     lat = coords.lat
     lng = coords.lng
     await log_event(f"POST /weekly_forecast lat={lat} lng={lng}")
@@ -118,7 +153,7 @@ async def weekly_forecast(coords: Coordinates):
 
     try:
         client.set_coordinates(lat, lng)
-        today_weather = client.get_weather(day=0)
+        today_weather = await client.get_weather(day=0)
         if not today_weather or (
             isinstance(today_weather, dict) and "error_code" in today_weather
         ):
@@ -134,47 +169,23 @@ async def weekly_forecast(coords: Coordinates):
                 status_code=500,
             )
 
-        weekly_forecast_list = []
-        for day in range(7):
+        async def fetch(day: int):
             try:
-                base_date = datetime.now()
-                target_date = base_date + timedelta(days=day)
-                date_str = target_date.strftime("%Y-%m-%d")
-                day_of_week = target_date.strftime("%A")
-
-                if day == 0:
-                    weather_data = today_weather.copy()
-                else:
-                    weather_data = client.get_weather_by_area_code(
-                        area_code=area_code, day=day
-                    )
-                    if not weather_data or (
-                        isinstance(weather_data, dict) and "error_code" in weather_data
-                    ):
-                        weather_data = {
-                            "weather_code": "100",
-                            "temperature": "--",
-                            "precipitation_prob": "--",
-                            "area_code": area_code,
-                        }
-
-                weather_data["date"] = date_str
-                weather_data["day_of_week"] = day_of_week
-                weather_data["day"] = day
-                weekly_forecast_list.append(weather_data)
+                weather_data = await client.get_weather_by_area_code(
+                    area_code=area_code, day=day
+                )
+                if not weather_data or (
+                    isinstance(weather_data, dict) and "error_code" in weather_data
+                ):
+                    weather_data = _create_fallback_weather_data(area_code, day)
             except Exception as e:  # pragma: no cover
                 logger.error(f"Error getting weather for day {day}: {e}")
-                target_date = datetime.now() + timedelta(days=day)
-                dummy = {
-                    "date": target_date.strftime("%Y-%m-%d"),
-                    "day_of_week": target_date.strftime("%A"),
-                    "weather_code": "100",
-                    "temperature": "--",
-                    "precipitation_prob": "--",
-                    "area_code": area_code,
-                    "day": day,
-                }
-                weekly_forecast_list.append(dummy)
+                weather_data = _create_fallback_weather_data(area_code, day)
+            return _add_date_info(weather_data, day)
+
+        tasks = [fetch(day) for day in range(1, 7)]
+        results = await asyncio.gather(*tasks)
+        weekly_forecast_list = [_add_date_info(today_weather.copy(), 0)] + results
 
         weekly_forecast_list.sort(key=lambda x: x["day"])
         return JSONResponse(

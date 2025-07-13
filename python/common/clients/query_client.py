@@ -7,11 +7,12 @@ import socket
 import concurrent.futures
 import os
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id
+from .utils import receive_with_id, receive_with_id_async
 from ..utils.cache import Cache
 PIDG = PacketIDGenerator12Bit()
 
@@ -234,6 +235,133 @@ class QueryClient:
                 self.logger.exception("Traceback:")
             self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない: {e}")
             return {'420': str(e)}
+        finally:
+            sock.close()
+
+    async def get_weather_data_async(
+        self,
+        area_code,
+        weather=False,
+        temperature=False,
+        precipitation_prob=False,
+        alert=False,
+        disaster=False,
+        source=None,
+        timeout=5.0,
+        use_cache=True,
+        day=0,
+        force_refresh=False,
+    ):
+        """非同期版 get_weather_data"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setblocking(False)
+
+        try:
+            start_time = datetime.now()
+
+            if use_cache and not force_refresh:
+                cache_key = self._get_cache_key(
+                    area_code, weather, temperature, precipitation_prob, alert, disaster, day
+                )
+                cached_data = self.cache.get(cache_key)
+
+                if cached_data:
+                    cached_response = self._create_cached_response(cached_data, area_code)
+                    cache_time = datetime.now() - start_time
+                    cached_response["timing"] = {
+                        "request_creation": 0,
+                        "network_roundtrip": 0,
+                        "response_parsing": 0,
+                        "total_time": cache_time.total_seconds() * 1000,
+                    }
+                    cached_response["cache_hit"] = True
+                    return cached_response
+
+            request_start = datetime.now()
+            request = QueryRequest.create_query_request(
+                area_code=area_code,
+                packet_id=PIDG.next_id(),
+                weather=weather,
+                temperature=temperature,
+                precipitation_prob=precipitation_prob,
+                alert=alert,
+                disaster=disaster,
+                source=source,
+                day=day,
+                version=self.VERSION,
+            )
+
+            if self.auth_enabled and self.auth_passphrase:
+                request.enable_auth(self.auth_passphrase)
+                request.set_auth_flags()
+
+            request_time = datetime.now() - request_start
+
+            self.debug_logger.log_request(request, "QUERY REQUEST")
+
+            packet_bytes = request.to_bytes()
+            loop = asyncio.get_running_loop()
+            network_start = datetime.now()
+            await loop.sock_sendto(sock, packet_bytes, (self.host, self.port))
+
+            response_data, server_addr = await receive_with_id_async(
+                sock, request.packet_id, timeout
+            )
+            network_time = datetime.now() - network_start
+
+            parse_start = datetime.now()
+            response = QueryResponse.from_bytes(response_data)
+            parse_time = datetime.now() - parse_start
+
+            self.debug_logger.log_response(response, "QUERY RESPONSE")
+
+            if response.is_success():
+                result = response.get_weather_data()
+
+                if use_cache and result:
+                    cache_key = self._get_cache_key(
+                        area_code,
+                        weather,
+                        temperature,
+                        precipitation_prob,
+                        alert,
+                        disaster,
+                        day,
+                    )
+                    cache_data = {k: v for k, v in result.items() if k != "timing"}
+
+                    if "temperature" in cache_data and cache_data["temperature"] is not None:
+                        cache_data["temperature"] = cache_data["temperature"] + 100
+
+                    self.cache.set(cache_key, cache_data)
+
+                total_time = datetime.now() - start_time
+                result["timing"] = {
+                    "request_creation": request_time.total_seconds() * 1000,
+                    "network_roundtrip": network_time.total_seconds() * 1000,
+                    "response_parsing": parse_time.total_seconds() * 1000,
+                    "total_time": total_time.total_seconds() * 1000,
+                }
+                result["cache_hit"] = False
+
+                execution_time = total_time.total_seconds()
+                self.debug_logger.log_unified_packet_received(
+                    "Direct request", execution_time, result
+                )
+
+                return result
+            else:
+                self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
+                return {"error": "Query request failed", "response_type": response.type}
+
+        except asyncio.TimeoutError:
+            self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
+            return {"error": "Request timeout", "timeout": timeout}
+        except Exception as e:
+            if self.debug:
+                self.logger.exception("Traceback:")
+            self.logger.error(f"420: クライアントエラー: クエリサーバが見つからない: {e}")
+            return {"420": str(e)}
         finally:
             sock.close()
 
