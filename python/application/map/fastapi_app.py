@@ -95,11 +95,22 @@ class Coordinates(BaseModel):
     lng: float
 
 
-async def log_event(message: str) -> None:
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    msg = f"[{timestamp}] {message}"
-    logger.info(msg)
-    await manager.broadcast(msg)
+async def log_event(
+    message: str,
+    *,
+    level: str = "info",
+    details: Optional[dict] = None,
+) -> None:
+    log_data = {
+        "type": "log",
+        "timestamp": datetime.now().isoformat(),
+        "level": level,
+        "message": message,
+    }
+    if details:
+        log_data["details"] = details
+    logger.info(json.dumps(log_data, ensure_ascii=False))
+    await manager.broadcast(json.dumps(log_data, ensure_ascii=False))
 
 
 def record_packet_metrics(duration_ms: float) -> None:
@@ -115,7 +126,11 @@ async def call_with_metrics(func, *args, **kwargs):
     result = await func(*args, **kwargs)
     duration_ms = (time.perf_counter() - start) * 1000
     record_packet_metrics(duration_ms)
-    await log_event(f"packet_call {func.__name__} {duration_ms:.2f}ms")
+    await log_event(
+        f"packet_call {func.__name__}",
+        level="packet",
+        details={"response_time": round(duration_ms, 2)},
+    )
     return result
 
 
@@ -129,9 +144,14 @@ async def metrics_middleware(request: Request, call_next):
     total_response_time += process_time
     avg_ms = total_response_time / total_accesses
     packet_avg = packet_response_time / packet_accesses if packet_accesses > 0 else 0
-    await log_event(
-        f"{request.method} {request.url.path} {response.status_code} {process_time:.2f}ms"
-    )
+    details = {
+        "endpoint": request.url.path,
+        "status_code": response.status_code,
+        "response_time": round(process_time, 2),
+    }
+    if request.client:
+        details["ip"] = request.client.host
+    await log_event(f"{request.method} {request.url.path}", details=details)
     metrics = {
         "type": "metrics",
         "total": total_accesses,
@@ -211,7 +231,10 @@ async def weekly_forecast(
 ):
     lat = coords.lat
     lng = coords.lng
-    await log_event(f"POST /weekly_forecast lat={lat} lng={lng}")
+    await log_event(
+        "POST /weekly_forecast",
+        details={"endpoint": "/weekly_forecast", "lat": lat, "lng": lng},
+    )
 
     if lat is None or lng is None:
         return JSONResponse(

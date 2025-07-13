@@ -498,20 +498,20 @@ class WeatherApp {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       this.ws = new WebSocket(`${proto}//${location.host}/ws`);
       const lp = window.logPanel;
-      this.ws.onopen = () => lp.appendLog({ timestamp: Date.now(), level: 'success', message: 'WebSocket 接続完了' });
+      this.ws.onopen = () => lp.appendLog({ type: 'log', timestamp: Date.now(), level: 'success', message: 'WebSocket 接続完了' });
       this.ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
           if (data.type === 'metrics') {
             lp.updateMetrics(data.total, data.avg_ms, data.packet_total, data.packet_avg_ms);
           } else if (data.type === 'log') {
-            lp.appendLog({ timestamp: Date.now(), level: 'info', message: data.message });
+            lp.appendLog(data);
           }
         } catch {
-          lp.appendLog({ timestamp: Date.now(), level: 'warning', message: e.data });
+          lp.appendLog({ type: 'log', timestamp: Date.now(), level: 'warning', message: e.data });
         }
       };
-      this.ws.onclose = () => { lp.appendLog({ timestamp: Date.now(), level: 'warning', message: 'WebSocket 切断 - 再接続します' }); setTimeout(connect, 3000); };
+      this.ws.onclose = () => { lp.appendLog({ type: 'log', timestamp: Date.now(), level: 'warning', message: 'WebSocket 切断 - 再接続します' }); setTimeout(connect, 3000); };
       this.ws.onerror = (e) => console.error('WebSocket エラー:', e);
     };
     connect();
