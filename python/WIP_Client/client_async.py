@@ -64,6 +64,9 @@ class ClientAsync:
         else:
             self.logger.setLevel(logging.INFO)
 
+        # 非同期操作時の同時アクセスを防ぐためのロック
+        self._lock = asyncio.Lock()
+
         if not 1 <= self.config.port <= 65535:
             raise ValueError("112: 無効なポート番号")
 
@@ -152,7 +155,8 @@ class ClientAsync:
                 day=day,
                 version=self._weather_client.VERSION,
             )
-            result = await self._weather_client._execute_query_request_async(request=request)
+            async with self._lock:
+                result = await self._weather_client._execute_query_request_async(request=request)
         else:
             request = LocationRequest.create_coordinate_lookup(
                 latitude=self.state.latitude,
@@ -166,7 +170,8 @@ class ClientAsync:
                 day=day,
                 version=self._weather_client.VERSION,
             )
-            result = await self._weather_client._execute_location_request_async(request=request)
+            async with self._lock:
+                result = await self._weather_client._execute_location_request_async(request=request)
 
         if isinstance(result, dict) and result.get("type") == "error":
             return {"error_code": result["error_code"]}
@@ -180,7 +185,8 @@ class ClientAsync:
             version=self._weather_client.VERSION,
             **kwargs,
         )
-        return await self._weather_client._execute_location_request_async(request=request)
+        async with self._lock:
+            return await self._weather_client._execute_location_request_async(request=request)
 
     async def get_weather_by_area_code(self, area_code: str | int, **kwargs) -> Optional[Dict]:
         request = QueryRequest.create_query_request(
@@ -189,7 +195,8 @@ class ClientAsync:
             version=self._weather_client.VERSION,
             **kwargs,
         )
-        return await self._weather_client._execute_query_request_async(request=request)
+        async with self._lock:
+            return await self._weather_client._execute_query_request_async(request=request)
 
     def get_state(self) -> Dict:
         return {**asdict(self.state), "host": self.config.host, "port": self.config.port}
