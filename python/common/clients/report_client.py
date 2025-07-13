@@ -9,13 +9,14 @@ import logging
 import socket
 import time
 import os
+import asyncio
 from typing import Optional, Dict, Any, Union, List
 
 from ..packet.types.report_packet import ReportRequest, ReportResponse
 from ..packet.types.error_response import ErrorResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id
+from .utils import receive_with_id, receive_with_id_async
 
 
 class ReportClient:
@@ -192,6 +193,106 @@ class ReportClient:
                 return None
 
         except socket.timeout:
+            self.logger.error("レポートサーバー接続タイムアウト")
+            return None
+        except Exception as e:
+            self.logger.error(f"レポート送信エラー: {e}")
+            if self.debug:
+                self.logger.exception("Traceback:")
+            return None
+
+    async def send_report_data_async(self) -> Optional[Dict[str, Any]]:
+        """非同期でレポートを送信"""
+        if self.area_code is None:
+            self.logger.error("エリアコードが設定されていません")
+            return None
+
+        loop = asyncio.get_running_loop()
+        self.sock.setblocking(False)
+
+        try:
+            start_time = time.time()
+
+            request = ReportRequest.create_sensor_data_report(
+                area_code=self.area_code,
+                weather_code=self.weather_code,
+                temperature=self.temperature,
+                precipitation_prob=self.precipitation_prob,
+                alert=self.alert,
+                disaster=self.disaster,
+                version=self.VERSION,
+            )
+
+            if self.auth_enabled and self.auth_passphrase:
+                request.enable_auth(self.auth_passphrase)
+                request.set_auth_flags()
+
+            self.debug_logger.log_request(request, "SENSOR REPORT REQUEST")
+            await loop.sock_sendto(self.sock, request.to_bytes(), (self.host, self.port))
+            response_data, _ = await receive_with_id_async(
+                self.sock, request.packet_id, 10.0
+            )
+
+            response_type = int.from_bytes(response_data[2:3], byteorder="little") & 0x07
+
+            if response_type == 5:
+                response = ReportResponse.from_bytes(response_data)
+                self.debug_logger.log_response(response, "SENSOR REPORT RESPONSE")
+
+                if response.is_success():
+                    result = {
+                        "type": "report_ack",
+                        "success": True,
+                        "area_code": response.area_code,
+                        "packet_id": response.packet_id,
+                        "timestamp": response.timestamp,
+                        "response_time_ms": (time.time() - start_time) * 1000,
+                    }
+
+                    if hasattr(response, "get_response_summary"):
+                        result.update(response.get_response_summary())
+
+                    execution_time = time.time() - start_time
+                    report_data = {
+                        "area_code": self.area_code,
+                        "timestamp": result["timestamp"],
+                    }
+                    if self.weather_code is not None:
+                        report_data["weather_code"] = self.weather_code
+                    if self.temperature is not None:
+                        report_data["temperature"] = self.temperature
+                    if self.precipitation_prob is not None:
+                        report_data["precipitation_prob"] = self.precipitation_prob
+                    if self.alert:
+                        report_data["alert"] = self.alert
+                    if self.disaster:
+                        report_data["disaster"] = self.disaster
+
+                    self.debug_logger.log_unified_packet_received(
+                        "Direct request", execution_time, report_data
+                    )
+
+                    return result
+                else:
+                    self.logger.error("レポート送信失敗: サーバーからエラーレスポンス")
+                    return None
+
+            elif response_type == 7:
+                response = ErrorResponse.from_bytes(response_data)
+                self.debug_logger.log_error(
+                    "Report failed", f"Error Code: {response.error_code}"
+                )
+
+                return {
+                    "type": "error",
+                    "error_code": response.error_code,
+                    "success": False,
+                }
+            else:
+                self.logger.error(f"不明なパケットタイプ: {response_type}")
+                return None
+
+        except asyncio.TimeoutError:
             self.logger.error("レポートサーバー接続タイムアウト")
             return None
         except Exception as e:
