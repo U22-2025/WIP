@@ -4,7 +4,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, AsyncGenerator
 import uvicorn
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -115,7 +115,7 @@ def _create_fallback_weather_data(area_code: str, days_offset: int = 0) -> dict:
 # Dependency
 # ----------------------------------------------------------------------
 
-async def get_client() -> ClientAsync:
+async def get_client() -> AsyncGenerator[ClientAsync, None]:
     client = ClientAsync(
         host=WEATHER_SERVER_HOST,
         port=WEATHER_SERVER_PORT,
