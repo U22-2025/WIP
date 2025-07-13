@@ -234,11 +234,12 @@ class WeatherApp {
     async loadWeatherCodes() {
         try {
             console.log('天気コードを読み込み中...');
-            const response = await fetch('./weather_code.json');
+            const response = await fetch('/static/json/weather_code.json');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            this.weatherCodeMap = await response.json();
+            const data = await response.json();
+            this.weatherCodeMap = data.codes;
             this.isWeatherCodeLoaded = true;
             console.log('天気コードの読み込み完了:', Object.keys(this.weatherCodeMap).length + '個のコード');
         } catch (error) {
@@ -257,11 +258,12 @@ class WeatherApp {
     // エラーコードを読み込む
     async loadErrorCodes() {
         try {
-            const response = await fetch('./error_code.json');
+            const response = await fetch('/static/json/error_code.json');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            this.errorCodeMap = await response.json();
+            const data = await response.json();
+            this.errorCodeMap = data.codes;
             this.isErrorCodeLoaded = true;
         } catch (error) {
             console.error('エラーコード読み込みエラー:', error);
