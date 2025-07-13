@@ -19,6 +19,15 @@ if __name__ == "__main__":
     sys.path.insert(
         0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     )
+
+# Windows環境では ProactorEventLoop がデフォルトとなるが、このイベントループは
+# sock_sendto が実装されていないため非同期クライアントでエラーになる。
+# そのため SelectorEventLoop を使用するようにポリシーを設定する。
+if sys.platform.startswith("win"):
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    except Exception:  # pragma: no cover - Windows 環境以外では実行されない
+        pass
 from WIP_Client import ClientAsync
 
 # ドキュメントエンドポイントを有効化
