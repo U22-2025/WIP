@@ -1278,13 +1278,22 @@ class WeatherApp {
 
     // ログ表示
     appendLog(message) {
-        const panel = document.getElementById('log-panel');
-        if (!panel) return;
+        const container = document.getElementById('log-entries');
+        if (!container) return;
         const div = document.createElement('div');
+        div.classList.add('log-entry');
         const time = new Date().toLocaleTimeString();
         div.textContent = `[${time}] ${message}`;
-        panel.appendChild(div);
-        panel.scrollTop = panel.scrollHeight;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // メトリクス更新
+    updateMetrics(total, avgMs) {
+        const totalEl = document.getElementById('total-count');
+        const avgEl = document.getElementById('avg-response');
+        if (totalEl) totalEl.textContent = total;
+        if (avgEl) avgEl.textContent = avgMs;
     }
 
     // WebSocket 接続処理
@@ -1293,7 +1302,20 @@ class WeatherApp {
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
             this.ws = new WebSocket(`${protocol}//${location.host}/ws`);
             this.ws.onopen = () => this.appendLog('WebSocket 接続完了');
-            this.ws.onmessage = (e) => this.appendLog(e.data);
+            this.ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'metrics') {
+                        this.updateMetrics(data.total, data.avg_ms);
+                    } else if (data.type === 'log') {
+                        this.appendLog(data.message);
+                    } else {
+                        this.appendLog(e.data);
+                    }
+                } catch (err) {
+                    this.appendLog(e.data);
+                }
+            };
             this.ws.onclose = () => {
                 this.appendLog('WebSocket 切断 - 再接続します');
                 setTimeout(connect, 3000);
