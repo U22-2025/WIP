@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.packet.debug import create_debug_logger
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from common.clients.utils import receive_with_id
 PIDG = PacketIDGenerator12Bit()
 
 
@@ -98,7 +99,7 @@ class WeatherClient:
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
             
             # レスポンスを受信
-            response_data, addr = self.sock.recvfrom(1024)
+            response_data, addr = receive_with_id(self.sock, request.packet_id, 10.0)
             self.logger.debug(response_data)
             
             # パケットタイプに基づいて適切なレスポンスクラスを選択
