@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 import sys
+import json
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional, AsyncGenerator
@@ -75,6 +77,10 @@ class ConnectionManager:
 
 manager = ConnectionManager(log_limit=LOG_LIMIT)
 
+# メトリクス用グローバル変数
+total_accesses = 0
+total_response_time = 0.0  # milliseconds
+
 
 class Coordinates(BaseModel):
     """リクエストボディ用の座標モデル"""
@@ -88,6 +94,21 @@ async def log_event(message: str) -> None:
     msg = f"[{timestamp}] {message}"
     logger.info(msg)
     await manager.broadcast(msg)
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    process_time = (time.perf_counter() - start) * 1000
+    global total_accesses, total_response_time
+    total_accesses += 1
+    total_response_time += process_time
+    avg_ms = total_response_time / total_accesses
+    await log_event(f"{request.method} {request.url.path} {response.status_code} {process_time:.2f}ms")
+    metrics = {"type": "metrics", "total": total_accesses, "avg_ms": round(avg_ms, 2)}
+    await manager.broadcast(json.dumps(metrics))
+    return response
 
 
 def _add_date_info(weather_data: dict, day_offset: int = 0) -> dict:

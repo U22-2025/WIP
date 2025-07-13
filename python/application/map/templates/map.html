@@ -107,7 +107,12 @@
     </div>
 
     <!-- 受信ログ表示パネル -->
-    <div id="log-panel" class="log-panel"></div>
+    <div id="log-panel" class="log-panel">
+        <div id="log-stats" class="log-stats">
+            総アクセス: <span id="total-count">0</span>回 / 平均応答: <span id="avg-response">0</span>ms
+        </div>
+        <div id="log-entries" class="log-entries"></div>
+    </div>
 
     <!-- 外部ライブラリ -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
