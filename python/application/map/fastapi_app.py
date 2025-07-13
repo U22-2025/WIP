@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from common.utils.config_loader import ConfigLoader
 
 # 直接実行時のパス調整
 
@@ -31,11 +32,15 @@ client = Client(host="localhost", port=4110, debug=True)
 logger = logging.getLogger("fastapi_app")
 logging.basicConfig(level=logging.INFO)
 
+config_loader = ConfigLoader()
+LOG_LIMIT = config_loader.getint("logging", "log_limit", default=100)
+
 
 class ConnectionManager:
-    def __init__(self) -> None:
+    def __init__(self, log_limit: int = 100) -> None:
         self.active: List[WebSocket] = []
         self.logs: List[str] = []
+        self.log_limit = log_limit
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -49,6 +54,8 @@ class ConnectionManager:
 
     async def broadcast(self, message: str) -> None:
         self.logs.append(message)
+        if len(self.logs) > self.log_limit:
+            self.logs = self.logs[-self.log_limit:]
         for ws in list(self.active):
             try:
                 await ws.send_text(message)
@@ -56,7 +63,7 @@ class ConnectionManager:
                 self.disconnect(ws)
 
 
-manager = ConnectionManager()
+manager = ConnectionManager(log_limit=LOG_LIMIT)
 
 
 class Coordinates(BaseModel):
