@@ -15,6 +15,7 @@ from ..packet.types.report_packet import ReportRequest, ReportResponse
 from ..packet.types.error_response import ErrorResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
+from .utils import receive_with_id
 
 
 class ReportClient:
@@ -132,7 +133,7 @@ class ReportClient:
 
             self.debug_logger.log_request(request, "SENSOR REPORT REQUEST")
             self.sock.sendto(request.to_bytes(), (self.host, self.port))
-            response_data, _ = self.sock.recvfrom(1024)
+            response_data, _ = receive_with_id(self.sock, request.packet_id, 10.0)
 
             response_type = int.from_bytes(response_data[2:3], byteorder='little') & 0x07
 
