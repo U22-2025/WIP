@@ -7,13 +7,14 @@ import json
 import socket
 import struct
 import time
+import asyncio
 from dotenv import load_dotenv
 import os
 import logging
 from ..packet import LocationRequest, LocationResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id
+from .utils import receive_with_id, receive_with_id_async
 import sys
 import os
 
@@ -200,6 +201,119 @@ class LocationClient:
             return response, total_time
 
         except socket.timeout:
+            self.logger.error("411: クライアントエラー: 座標解決サーバ接続タイムアウト")
+            if self.debug:
+                self.logger.exception("Traceback:")
+            return None, 0
+        except (ValueError, struct.error) as e:
+            self.logger.error(f"400: クライアントエラー: 不正なパケット: {e}")
+            if self.debug:
+                self.logger.exception("Traceback:")
+            return None, 0
+        except Exception as e:
+            self.logger.error(f"410: クライアントエラー: 座標解決サーバが見つからない: {e}")
+            if self.debug:
+                self.logger.exception("Traceback:")
+            return None, 0
+
+    async def get_location_data_async(self, latitude, longitude, source=None,
+                                      use_cache=True, enable_debug=None,
+                                      weather=True, temperature=True,
+                                      precipitation_prob=True, alert=False,
+                                      disaster=False, day=0,
+                                      validate_response=True,
+                                      force_refresh=False):
+        """非同期版 get_location_data"""
+        try:
+            start_time = time.time()
+
+            debug_enabled = enable_debug if enable_debug is not None else self.debug
+
+            if use_cache and not force_refresh:
+                cache_key = self._get_cache_key(latitude, longitude)
+                cached_area_code = self.cache.get(cache_key)
+
+                if cached_area_code:
+                    cached_response = self._create_cached_response(
+                        cached_area_code, latitude, longitude
+                    )
+                    cached_response.cache_hit = True
+                    cache_time = time.time() - start_time
+                    return cached_response, cache_time
+
+            request_start = time.time()
+            request = LocationRequest.create_coordinate_lookup(
+                latitude=latitude,
+                longitude=longitude,
+                packet_id=PIDG.next_id(),
+                weather=weather,
+                temperature=temperature,
+                precipitation_prob=precipitation_prob,
+                alert=alert,
+                disaster=disaster,
+                source=source,
+                day=day,
+                version=self.VERSION,
+            )
+
+            if self.auth_enabled and self.auth_passphrase:
+                request.enable_auth(self.auth_passphrase)
+                request.set_auth_flags()
+
+            request_time = time.time() - request_start
+
+            self.debug_logger.log_request(request, "LOCATION REQUEST")
+
+            loop = asyncio.get_running_loop()
+            self.sock.setblocking(False)
+            network_start = time.time()
+            await loop.sock_sendto(
+                self.sock, request.to_bytes(), (self.server_host, self.server_port)
+            )
+            self.logger.debug(f"Sent request to {self.server_host}:{self.server_port}")
+
+            data, addr = await receive_with_id_async(
+                self.sock, request.packet_id, 10.0
+            )
+            network_time = time.time() - network_start
+            self.logger.debug(f"Received response from {addr}")
+
+            parse_start = time.time()
+            response = LocationResponse.from_bytes(data)
+            parse_time = time.time() - parse_start
+
+            self.debug_logger.log_response(response, "LOCATION RESPONSE")
+
+            if validate_response and response and not response.is_valid():
+                self.logger.warning("Response validation failed")
+                if debug_enabled:
+                    self.logger.debug(
+                        f"Invalid response details: {response.get_response_summary()}"
+                    )
+
+            if use_cache and response and response.is_valid():
+                area_code = response.get_area_code()
+                if area_code:
+                    cache_key = self._get_cache_key(latitude, longitude)
+                    self.cache.set(cache_key, area_code)
+
+            total_time = time.time() - start_time
+
+            if response:
+                response.cache_hit = False
+
+                if response.is_valid():
+                    location_data = {
+                        "area_code": response.get_area_code(),
+                        "timestamp": time.time(),
+                    }
+                    self.debug_logger.log_unified_packet_received(
+                        "Direct request", total_time, location_data
+                    )
+
+            return response, total_time
+
+        except asyncio.TimeoutError:
             self.logger.error("411: クライアントエラー: 座標解決サーバ接続タイムアウト")
             if self.debug:
                 self.logger.exception("Traceback:")
