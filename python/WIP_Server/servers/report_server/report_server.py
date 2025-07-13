@@ -21,7 +21,7 @@ from ..base_server import BaseServer
 from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet.debug.debug_logger import PacketDebugLogger
-
+JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
     
@@ -83,7 +83,7 @@ class ReportServer(BaseServer):
         self.max_report_size = self.config.getint('validation', 'max_report_size', 4096)
         
         # ログファイル設定
-        self.log_file_path = Path(self.config.get('logging', 'log_file_path', 'logs/reports/report_server.log'))
+        self.log_file_path = Path(self.config.get('logging', 'log_file_path', JSON_DIR / 'logs/reports/report_server.log'))
         
         # 統計情報
         self.report_count = 0

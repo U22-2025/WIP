@@ -30,7 +30,7 @@ from WIP_Server.data.xml_base import XMLBaseProcessor
 
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-
+JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 class AlertProcessor(XMLBaseProcessor):
     """
     警報・注意報情報処理クラス
@@ -221,7 +221,7 @@ def main():
         
         # Step 2: 警報・注意報情報の取得・統合
         print("Step 2: Processing alert info...")
-        json_result = processor.get_alert_info(url_list, 'logs/json/alert_data.json')
+        json_result = processor.get_alert_info(url_list, JSON_DIR / 'alert_data.json')
         print("\n=== Alert Info Processing Complete ===")
         print(json_result)
 
