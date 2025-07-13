@@ -1291,11 +1291,15 @@ class WeatherApp {
     }
 
     // メトリクス更新
-    updateMetrics(total, avgMs) {
+    updateMetrics(total, avgMs, packetTotal, packetAvgMs) {
         const totalEl = document.getElementById('total-count');
         const avgEl = document.getElementById('avg-response');
+        const packetTotalEl = document.getElementById('packet-count');
+        const packetAvgEl = document.getElementById('packet-avg-response');
         if (totalEl) totalEl.textContent = total;
         if (avgEl) avgEl.textContent = avgMs;
+        if (packetTotalEl) packetTotalEl.textContent = packetTotal;
+        if (packetAvgEl) packetAvgEl.textContent = packetAvgMs;
     }
 
     // WebSocket 接続処理
@@ -1308,7 +1312,12 @@ class WeatherApp {
                 try {
                     const data = JSON.parse(e.data);
                     if (data.type === 'metrics') {
-                        this.updateMetrics(data.total, data.avg_ms);
+                        this.updateMetrics(
+                            data.total,
+                            data.avg_ms,
+                            data.packet_total,
+                            data.packet_avg_ms
+                        );
                     } else if (data.type === 'log') {
                         this.appendLog(data.message);
                     } else {

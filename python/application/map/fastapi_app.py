@@ -80,6 +80,9 @@ manager = ConnectionManager(log_limit=LOG_LIMIT)
 # メトリクス用グローバル変数
 total_accesses = 0
 total_response_time = 0.0  # milliseconds
+# パケット通信のメトリクス
+packet_accesses = 0
+packet_response_time = 0.0  # milliseconds
 
 
 class Coordinates(BaseModel):
@@ -96,6 +99,23 @@ async def log_event(message: str) -> None:
     await manager.broadcast(msg)
 
 
+def record_packet_metrics(duration_ms: float) -> None:
+    """パケット通信のメトリクスを更新"""
+    global packet_accesses, packet_response_time
+    packet_accesses += 1
+    packet_response_time += duration_ms
+
+
+async def call_with_metrics(func, *args, **kwargs):
+    """クライアント呼び出しを計測して実行"""
+    start = time.perf_counter()
+    result = await func(*args, **kwargs)
+    duration_ms = (time.perf_counter() - start) * 1000
+    record_packet_metrics(duration_ms)
+    await log_event(f"packet_call {func.__name__} {duration_ms:.2f}ms")
+    return result
+
+
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
     start = time.perf_counter()
@@ -105,8 +125,17 @@ async def metrics_middleware(request: Request, call_next):
     total_accesses += 1
     total_response_time += process_time
     avg_ms = total_response_time / total_accesses
-    await log_event(f"{request.method} {request.url.path} {response.status_code} {process_time:.2f}ms")
-    metrics = {"type": "metrics", "total": total_accesses, "avg_ms": round(avg_ms, 2)}
+    packet_avg = packet_response_time / packet_accesses if packet_accesses > 0 else 0
+    await log_event(
+        f"{request.method} {request.url.path} {response.status_code} {process_time:.2f}ms"
+    )
+    metrics = {
+        "type": "metrics",
+        "total": total_accesses,
+        "avg_ms": round(avg_ms, 2),
+        "packet_total": packet_accesses,
+        "packet_avg_ms": round(packet_avg, 2),
+    }
     await manager.broadcast(json.dumps(metrics))
     return response
 
@@ -174,7 +203,7 @@ async def weekly_forecast(
 
     try:
         client.set_coordinates(lat, lng)
-        today_weather = await client.get_weather(day=0)
+        today_weather = await call_with_metrics(client.get_weather, day=0)
         if not today_weather or (
             isinstance(today_weather, dict) and "error_code" in today_weather
         ):
@@ -192,8 +221,8 @@ async def weekly_forecast(
 
         async def fetch(day: int):
             try:
-                weather_data = await client.get_weather_by_area_code(
-                    area_code=area_code, day=day
+                weather_data = await call_with_metrics(
+                    client.get_weather_by_area_code, area_code=area_code, day=day
                 )
                 if not weather_data or (
                     isinstance(weather_data, dict) and "error_code" in weather_data
