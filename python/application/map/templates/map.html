@@ -107,12 +107,47 @@
     </div>
 
     <!-- 受信ログ表示パネル -->
-    <div id="log-panel" class="log-panel">
-        <div id="log-stats" class="log-stats">
-            総アクセス: <span id="total-count">0</span>回 / 平均応答: <span id="avg-response">0</span>ms
-            / パケット: <span id="packet-count">0</span>回 / 平均パケット応答: <span id="packet-avg-response">0</span>ms
+    <div id="log-panel">
+        <div class="log-header">
+            <div class="log-title">system.log</div>
+            <div class="connection-status">
+                <div class="connection-dot" id="connection-dot"></div>
+                <span id="connection-text">connected</span>
+            </div>
+            <div class="log-controls">
+                <button class="control-btn" onclick="toggleAutoScroll()">
+                    <span id="auto-scroll-text">auto</span>
+                </button>
+                <button class="control-btn" onclick="clearLogs()">clear</button>
+                <button class="control-btn" onclick="togglePanel()">−</button>
+            </div>
         </div>
-        <div id="log-entries" class="log-entries"></div>
+
+        <div class="log-status">
+            <div class="status-section">
+                <div class="status-item">
+                    <span>requests: <span class="status-value" id="total-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <span>avg: <span class="status-value" id="avg-response">0</span>ms</span>
+                </div>
+            </div>
+            <div class="status-section">
+                <div class="status-item">
+                    <span>packets: <span class="status-value" id="packet-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <span>avg: <span class="status-value" id="packet-avg-response">0</span>ms</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-entries" id="log-entries">
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <div>Waiting for logs...</div>
+            </div>
+        </div>
     </div>
 
     <!-- 外部ライブラリ -->
@@ -121,6 +156,7 @@
 
     <!-- カスタムスクリプト -->
     <script src="{{ url_for('static', path='js/weather-app.js') }}"></script>
+    <script src="{{ url_for('static', path='js/terminal-log-panel.js') }}"></script>
 </body>
 
 </html>
