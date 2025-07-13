@@ -11,12 +11,13 @@ import asyncio
 from dotenv import load_dotenv
 import os
 import logging
+from pathlib import Path
 from ..packet import LocationRequest, LocationResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from .utils import receive_with_id, receive_with_id_async
+from common.utils.config_loader import ConfigLoader
 import sys
-import os
 
 # PersistentCacheを使用するためのパス追加
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
@@ -28,11 +29,18 @@ load_dotenv()
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
 
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30, cache_enabled=True):
+    def __init__(self, host=None, port=None, debug=False,
+                 cache_ttl_minutes=30, cache_enabled=None, config_path=None):
+        if config_path is None:
+            config_path = Path(__file__).resolve().parents[2] / 'WIP_Client' / 'config.ini'
+        config = ConfigLoader(config_path)
+
         if host is None:
             host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
         if port is None:
             port = int(os.getenv('LOCATION_RESOLVER_PORT', '4111'))
+        if cache_enabled is None:
+            cache_enabled = config.getboolean('cache', 'enable_coordinate_cache', True)
         """
         初期化
         
