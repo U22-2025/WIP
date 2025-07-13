@@ -120,17 +120,28 @@ def record_packet_metrics(duration_ms: float) -> None:
     packet_response_time += duration_ms
 
 
-async def call_with_metrics(func, *args, **kwargs):
+async def call_with_metrics(func, *args, ip: str | None = None, context=None, **kwargs):
     """クライアント呼び出しを計測して実行"""
     start = time.perf_counter()
     result = await func(*args, **kwargs)
     duration_ms = (time.perf_counter() - start) * 1000
     record_packet_metrics(duration_ms)
-    await log_event(
-        f"packet_call {func.__name__}",
-        level="packet",
-        details={"response_time": round(duration_ms, 2)},
-    )
+
+    details = {"response_time": round(duration_ms, 2)}
+    if ip:
+        details["ip"] = ip
+    if context:
+        details.update(context)
+
+    name = func.__name__
+    if name == "get_location_data_async":
+        message = "Location"
+    elif name == "get_weather_data_async":
+        message = "Weather"
+    else:
+        message = f"packet_call {name}"
+
+    await log_event(message, level="packet", details=details)
     return result
 
 
@@ -150,7 +161,9 @@ async def metrics_middleware(request: Request, call_next):
         "response_time": round(process_time, 2),
     }
     if request.client:
-        details["ip"] = request.client.host
+        ip = request.client.host
+        request.state.ip = ip
+        details["ip"] = ip
     await log_event(f"{request.method} {request.url.path}", details=details)
     metrics = {
         "type": "metrics",
@@ -225,12 +238,14 @@ async def index(request: Request):
 
 @app.post("/weekly_forecast")
 async def weekly_forecast(
+    request: Request,
     coords: Coordinates,
     loc_client: LocationClient = Depends(get_location_client),
     query_client: QueryClient = Depends(get_query_client),
 ):
     lat = coords.lat
     lng = coords.lng
+    ip = getattr(request.state, "ip", None)
     await log_event(
         "POST /weekly_forecast",
         details={"endpoint": "/weekly_forecast", "lat": lat, "lng": lng},
@@ -247,6 +262,8 @@ async def weekly_forecast(
             latitude=lat,
             longitude=lng,
             use_cache=True,
+            ip=ip,
+            context={"coords": f"{lat},{lng}"},
         )
         if not location_response or not location_response.is_valid():
             return JSONResponse(
@@ -258,16 +275,25 @@ async def weekly_forecast(
 
         async def fetch(day: int):
             try:
+                flags = {
+                    "weather": True,
+                    "temperature": True,
+                    "precipitation_prob": True,
+                    "alert": True,
+                    "disaster": True,
+                }
                 weather_data = await call_with_metrics(
                     query_client.get_weather_data_async,
                     area_code=area_code,
-                    weather=True,
-                    temperature=True,
-                    precipitation_prob=True,
-                    alert=True,
-                    disaster=True,
+                    **flags,
                     day=day,
                     use_cache=True,
+                    ip=ip,
+                    context={
+                        "area_code": area_code,
+                        "day": day,
+                        "flags": ",".join(k for k, v in flags.items() if v),
+                    },
                 )
                 if not weather_data or (
                     isinstance(weather_data, dict)
