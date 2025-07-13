@@ -13,3 +13,9 @@ def test_common_packet_types_importable():
     assert hasattr(module, '__package__')
     sub = importlib.import_module('common.packet.types.location_packet')
     assert hasattr(sub, 'LocationRequest')
+
+
+def test_wip_client_async_importable():
+    module = importlib.import_module('WIP_Client')
+    assert hasattr(module, 'ClientAsync')
+    assert hasattr(module, 'client_async')
