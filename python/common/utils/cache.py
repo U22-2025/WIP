@@ -2,12 +2,13 @@ import threading
 from datetime import datetime, timedelta
 
 class Cache:
-    def __init__(self, default_ttl: timedelta = timedelta(minutes=30)):
+    def __init__(self, default_ttl: timedelta = timedelta(minutes=30), enabled: bool = True):
         """
         汎用キャッシュクラス
         
         :param default_ttl: デフォルトの有効期限（デフォルト30分）
         """
+        self.enabled = enabled
         self._cache = {}
         self._lock = threading.RLock()
         self.default_ttl = default_ttl
@@ -20,6 +21,8 @@ class Cache:
         :param value: キャッシュ値
         :param ttl: 有効期限（Noneの場合はデフォルト値を使用）
         """
+        if not self.enabled:
+            return
         with self._lock:
             expire = datetime.now() + (ttl or self.default_ttl)
             self._cache[key] = (value, expire)
@@ -31,11 +34,13 @@ class Cache:
         :param key: キャッシュキー
         :return: キャッシュ値（有効期限切れまたは存在しない場合はNone）
         """
+        if not self.enabled:
+            return None
         with self._lock:
             item = self._cache.get(key)
             if not item:
                 return None
-                
+
             value, expire = item
             if datetime.now() > expire:
                 del self._cache[key]
@@ -48,6 +53,8 @@ class Cache:
         
         :param key: キャッシュキー
         """
+        if not self.enabled:
+            return
         with self._lock:
             if key in self._cache:
                 del self._cache[key]
@@ -56,6 +63,8 @@ class Cache:
         """
         キャッシュを全クリア
         """
+        if not self.enabled:
+            return
         with self._lock:
             self._cache.clear()
 
@@ -63,5 +72,7 @@ class Cache:
         """
         キャッシュエントリ数を返す
         """
+        if not self.enabled:
+            return 0
         with self._lock:
             return len(self._cache)

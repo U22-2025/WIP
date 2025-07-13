@@ -382,6 +382,7 @@ python wip/scripts/update_weather_data.py
 - Redis による高速キャッシュ
 - 地域コードキャッシュ（`cache/area_cache.json`）
 - 気象データキャッシュ（TTL: 1時間）
+- 各キャッシュは設定ファイルの `enable_*_cache` オプションで有効/無効を切り替え可能
 
 ## トラブルシューティング
 

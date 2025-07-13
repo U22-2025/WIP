@@ -91,11 +91,13 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
         try:
             # location_clientでエリアキャッシュを統一管理（TTLを設定から取得）
             area_cache_ttl_minutes = self.config.getint('cache', 'expiration_time_area', 604800) // 60
+            area_cache_enabled = self.config.getboolean('cache', 'enable_area_cache', True)
             self.location_client = LocationClient(
                 host=self.location_resolver_host,
                 port=self.location_resolver_port,
                 debug=self.debug,
-                cache_ttl_minutes=area_cache_ttl_minutes
+                cache_ttl_minutes=area_cache_ttl_minutes,
+                cache_enabled=area_cache_enabled
             )
         except Exception as e:
             print(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
@@ -105,11 +107,13 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
         try:
             # query_clientでweatherキャッシュも統一管理（TTLを設定から取得）
             weather_cache_ttl_minutes = self.config.getint('cache', 'expiration_time_weather', 600) // 60
+            weather_cache_enabled = self.config.getboolean('cache', 'enable_weather_cache', True)
             self.query_client = QueryClient(
                 host=self.query_generator_host,
                 port=self.query_generator_port,
                 debug=self.debug,
-                cache_ttl_minutes=weather_cache_ttl_minutes
+                cache_ttl_minutes=weather_cache_ttl_minutes,
+                cache_enabled=weather_cache_enabled
             )
         except Exception as e:
             print( f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")

@@ -26,7 +26,7 @@ class QueryClient:
         # このメソッドは空実装とする
         pass
     
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10):
+    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10, cache_enabled=True):
         if host is None:
             host = os.getenv('QUERY_GENERATOR_HOST', 'localhost')
         if port is None:
@@ -53,8 +53,9 @@ class QueryClient:
         self._init_auth_config()
         
         # キャッシュの初期化
-        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
-        self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes")
+        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes), enabled=cache_enabled)
+        self.cache_enabled = cache_enabled
+        self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes (enabled={cache_enabled})")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
