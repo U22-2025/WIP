@@ -12,12 +12,17 @@ if __name__ == "__main__":
     # 設定を読み込む
     config_loader = ConfigLoader()
     workers = config_loader.getint('uvicorn', 'workers', default=1)
+    reload_opt = config_loader.getboolean('uvicorn', 'reload', default=False)
+
+    if workers > 1 and reload_opt:
+        print("Warning: workers が 1 より大きい場合は reload を無効化します")
+        reload_opt = False
     
     import uvicorn
     uvicorn.run(
         "fastapi_app:app",
         host="0.0.0.0",
         port=5000,
-        reload=True,
+        reload=reload_opt,
         workers=workers
     )
