@@ -89,6 +89,15 @@
       if (details.ip) {
         items.push(`<span class="log-meta-item"><span class="log-meta-label">ip:</span><span class="log-meta-value">${details.ip}</span></span>`);
       }
+      if (details.coords) {
+        items.push(`<span class="log-meta-item"><span class="log-meta-label">coords:</span><span class="log-meta-value">${details.coords}</span></span>`);
+      }
+      if (details.area_code) {
+        items.push(`<span class="log-meta-item"><span class="log-meta-label">area:</span><span class="log-meta-value">${details.area_code}</span></span>`);
+      }
+      if (details.flags) {
+        items.push(`<span class="log-meta-item"><span class="log-meta-label">flags:</span><span class="log-meta-value">${details.flags}</span></span>`);
+      }
       return items.length ? `<div class="log-meta">${items.join('')}</div>` : '';
     }
 
