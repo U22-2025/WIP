@@ -136,6 +136,7 @@
 
   // ---------- グローバルインスタンスと DEMO ----------
   const logPanel = new TerminalLogPanel();
+  window.logPanel = logPanel;
 
   // HTML の onclick から呼ばれる関数を window に公開
   window.addDemoLog = function (level) {
