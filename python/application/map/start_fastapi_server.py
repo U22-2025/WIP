@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 from common.utils.config_loader import ConfigLoader
+import uvicorn
 
 if __name__ == "__main__":
     base_dir = Path(__file__).resolve().parent
@@ -18,7 +19,6 @@ if __name__ == "__main__":
         print("Warning: workers が 1 より大きい場合は reload を無効化します")
         reload_opt = False
     
-    import uvicorn
     uvicorn.run(
         "fastapi_app:app",
         host="0.0.0.0",
