@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 from common.utils.config_loader import ConfigLoader
+import uvicorn
 
 if __name__ == "__main__":
     base_dir = Path(__file__).resolve().parent
@@ -13,7 +14,6 @@ if __name__ == "__main__":
     config_loader = ConfigLoader()
     workers = config_loader.getint('uvicorn', 'workers', default=1)
     
-    import uvicorn
     uvicorn.run(
         "fastapi_app:app",
         host="0.0.0.0",
