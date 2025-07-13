@@ -147,6 +147,9 @@ async def call_with_metrics(func, *args, ip: str | None = None, context=None, **
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
+    if request.client:
+        request.state.ip = request.client.host
+
     start = time.perf_counter()
     response = await call_next(request)
     process_time = (time.perf_counter() - start) * 1000
@@ -160,10 +163,8 @@ async def metrics_middleware(request: Request, call_next):
         "status_code": response.status_code,
         "response_time": round(process_time, 2),
     }
-    if request.client:
-        ip = request.client.host
-        request.state.ip = ip
-        details["ip"] = ip
+    if hasattr(request.state, "ip"):
+        details["ip"] = request.state.ip
     await log_event(f"{request.method} {request.url.path}", details=details)
     metrics = {
         "type": "metrics",
