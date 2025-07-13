@@ -30,7 +30,8 @@ if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     except Exception:  # pragma: no cover - Windows 環境以外では実行されない
         pass
-from WIP_Client import ClientAsync
+from common.clients.location_client import LocationClient
+from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
 # ドキュメントエンドポイントを有効化
 app = FastAPI()
@@ -38,8 +39,10 @@ script_dir = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(script_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(script_dir / "templates"))
 
-WEATHER_SERVER_HOST = os.getenv("WEATHER_SERVER_HOST", "localhost")
-WEATHER_SERVER_PORT = int(os.getenv("WEATHER_SERVER_PORT", 4110))
+LOCATION_SERVER_HOST = os.getenv("LOCATION_RESOLVER_HOST", "localhost")
+LOCATION_SERVER_PORT = int(os.getenv("LOCATION_RESOLVER_PORT", 4109))
+QUERY_SERVER_HOST = os.getenv("QUERY_GENERATOR_HOST", "localhost")
+QUERY_SERVER_PORT = int(os.getenv("QUERY_GENERATOR_PORT", 4111))
 
 logger = logging.getLogger("fastapi_app")
 logging.basicConfig(level=logging.INFO)
@@ -165,10 +168,22 @@ def _create_fallback_weather_data(area_code: str, days_offset: int = 0) -> dict:
 # Dependency
 # ----------------------------------------------------------------------
 
-async def get_client() -> AsyncGenerator[ClientAsync, None]:
-    client = ClientAsync(
-        host=WEATHER_SERVER_HOST,
-        port=WEATHER_SERVER_PORT,
+async def get_location_client() -> AsyncGenerator[LocationClient, None]:
+    client = LocationClient(
+        host=LOCATION_SERVER_HOST,
+        port=LOCATION_SERVER_PORT,
+        debug=True,
+    )
+    try:
+        yield client
+    finally:
+        client.close()
+
+
+async def get_query_client() -> AsyncGenerator[QueryClient, None]:
+    client = QueryClient(
+        host=QUERY_SERVER_HOST,
+        port=QUERY_SERVER_PORT,
         debug=True,
     )
     try:
@@ -190,7 +205,9 @@ async def index(request: Request):
 
 @app.post("/weekly_forecast")
 async def weekly_forecast(
-    coords: Coordinates, client: ClientAsync = Depends(get_client)
+    coords: Coordinates,
+    loc_client: LocationClient = Depends(get_location_client),
+    query_client: QueryClient = Depends(get_query_client),
 ):
     lat = coords.lat
     lng = coords.lng
@@ -202,30 +219,36 @@ async def weekly_forecast(
         )
 
     try:
-        client.set_coordinates(lat, lng)
-        today_weather = await call_with_metrics(client.get_weather, day=0)
-        if not today_weather or (
-            isinstance(today_weather, dict) and "error_code" in today_weather
-        ):
+        location_response, _ = await call_with_metrics(
+            loc_client.get_location_data_async,
+            latitude=lat,
+            longitude=lng,
+            use_cache=True,
+        )
+        if not location_response or not location_response.is_valid():
             return JSONResponse(
-                {"status": "error", "message": "今日の天気データの取得に失敗しました"},
+                {"status": "error", "message": "エリアコードの取得に失敗しました"},
                 status_code=500,
             )
 
-        area_code = today_weather.get("area_code")
-        if not area_code:
-            return JSONResponse(
-                {"status": "error", "message": "エリアコードが見つかりませんでした"},
-                status_code=500,
-            )
+        area_code = location_response.get_area_code()
 
         async def fetch(day: int):
             try:
                 weather_data = await call_with_metrics(
-                    client.get_weather_by_area_code, area_code=area_code, day=day
+                    query_client.get_weather_data_async,
+                    area_code=area_code,
+                    weather=True,
+                    temperature=True,
+                    precipitation_prob=True,
+                    alert=True,
+                    disaster=True,
+                    day=day,
+                    use_cache=True,
                 )
                 if not weather_data or (
-                    isinstance(weather_data, dict) and "error_code" in weather_data
+                    isinstance(weather_data, dict)
+                    and ("error" in weather_data or "error_code" in weather_data)
                 ):
                     weather_data = _create_fallback_weather_data(area_code, day)
             except Exception as e:  # pragma: no cover
@@ -233,11 +256,10 @@ async def weekly_forecast(
                 weather_data = _create_fallback_weather_data(area_code, day)
             return _add_date_info(weather_data, day)
 
-        tasks = [fetch(day) for day in range(1, 7)]
+        tasks = [fetch(day) for day in range(7)]
         results = await asyncio.gather(*tasks)
-        weekly_forecast_list = [_add_date_info(today_weather.copy(), 0)] + results
+        weekly_forecast_list = sorted(results, key=lambda x: x["day"])
 
-        weekly_forecast_list.sort(key=lambda x: x["day"])
         return JSONResponse(
             {
                 "status": "ok",
