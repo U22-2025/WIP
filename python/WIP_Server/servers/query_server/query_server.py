@@ -115,7 +115,8 @@ class QueryServer(BaseServer):
             'redis_db': self.config.getint('redis', 'db', 0),
             'debug': self.debug,
             'max_workers': self.max_workers,
-            'version': self.version
+            'version': self.version,
+            'cache_enabled': self.config.getboolean('cache', 'enable_redis_cache', True)
         }
         self.weather_manager = WeatherDataManager(weather_config)
         

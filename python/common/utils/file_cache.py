@@ -8,16 +8,18 @@ from typing import Optional
 
 class PersistentCache:
     """ファイルベースの永続キャッシュ"""
-    
-    def __init__(self, cache_file: str = "WIP_Client/coordinate_cache.json", ttl_hours: int = 24):
+
+    def __init__(self, cache_file: str = "WIP_Client/coordinate_cache.json", ttl_hours: int = 24, enabled: bool = True):
+        self.enabled = enabled
         self.cache_file = Path(cache_file)
         self.ttl_seconds = ttl_hours * 3600
         self._cache = {}
-        self._load_cache()
+        if self.enabled:
+            self._load_cache()
     
     def _load_cache(self):
         """キャッシュファイルから読み込み"""
-        if not self.cache_file.exists():
+        if not self.enabled or not self.cache_file.exists():
             return
         
         try:
@@ -36,6 +38,8 @@ class PersistentCache:
     
     def _save_cache(self):
         """キャッシュファイルに保存"""
+        if not self.enabled:
+            return
         try:
             with open(self.cache_file, 'w', encoding='utf-8') as f:
                 json.dump(self._cache, f, ensure_ascii=False, indent=2)
@@ -44,6 +48,8 @@ class PersistentCache:
     
     def get(self, key: str) -> Optional[str]:
         """キャッシュから値を取得"""
+        if not self.enabled:
+            return None
         if key in self._cache:
             entry = self._cache[key]
             if time.time() - entry['timestamp'] < self.ttl_seconds:
@@ -56,6 +62,8 @@ class PersistentCache:
     
     def set(self, key: str, area_code: str):
         """キャッシュに値を設定"""
+        if not self.enabled:
+            return
         self._cache[key] = {
             'area_code': area_code,
             'timestamp': time.time()
@@ -64,10 +72,14 @@ class PersistentCache:
     
     def clear(self):
         """キャッシュをクリア"""
+        if not self.enabled:
+            return
         self._cache = {}
         if self.cache_file.exists():
             self.cache_file.unlink()
     
     def size(self) -> int:
         """キャッシュサイズを取得"""
+        if not self.enabled:
+            return 0
         return len(self._cache)

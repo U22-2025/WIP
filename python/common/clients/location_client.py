@@ -28,7 +28,7 @@ load_dotenv()
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
 
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30):
+    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30, cache_enabled=True):
         if host is None:
             host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
         if port is None:
@@ -57,8 +57,9 @@ class LocationClient:
         
         # 永続キャッシュの初期化
         cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client', 'coordinate_cache.json')
-        self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60)
-        self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes")
+        self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60, enabled=cache_enabled)
+        self.cache_enabled = cache_enabled
+        self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes (enabled={cache_enabled})")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
