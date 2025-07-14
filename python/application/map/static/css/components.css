@@ -169,6 +169,23 @@
     color: var(--accent-color);
 }
 
+.disaster-item {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 4px;
+}
+.disaster-item .kind {
+    font-weight: 600;
+}
+.disaster-item .time {
+    font-size: 0.75em;
+    margin-left: 2px;
+    color: var(--text-secondary);
+}
+.disaster-sep {
+    color: var(--text-secondary);
+}
+
 
 /* モバイル対応 */
 
@@ -588,6 +605,7 @@ button:focus,
     gap: 4px;
     font-size: var(--font-xs);
     color: var(--accent-color);
+    margin-top: 2px;
 }
 
 .day-disaster i {
@@ -796,10 +814,14 @@ button:focus,
         justify-self: end;
         text-align: right;
     }
-    .day-precipitation_prob {
-        grid-column: 1 / -1;
-        justify-self: center;
-        margin-top: var(--space-xs);
-    }
+  .day-precipitation_prob {
+      grid-column: 1 / -1;
+      justify-self: center;
+      margin-top: var(--space-xs);
+  }
+  .day-disaster {
+      grid-column: 1 / -1;
+      justify-content: center;
+  }
 }
 
