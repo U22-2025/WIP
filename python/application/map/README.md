@@ -220,7 +220,13 @@ python start_http3_server.py
 const initialLat = 35.6762;  // 緯度
 const initialLng = 139.6503; // 経度
 const initialZoom = 10;      // ズームレベル
+// タイルレイヤ
+const tileProvider = 'google aerial';
 ```
+
+地図読み込みを軽量化するため、ズーム上限を16に設定し、
+`maxBounds`で日本全域に範囲を限定しています。
+タイルはGoogleの航空写真を使用します。
 
 #### スタイル変更
 `static/css/` 配下の各CSSファイルでUI要素のスタイルをカスタマイズ可能
