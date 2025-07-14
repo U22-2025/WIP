@@ -217,6 +217,32 @@
     transform: scale(0.95);
 }
 
+/* モバイル用ビュー切り替えボタン */
+.mobile-view-switch {
+    display: none;
+}
+
+.mobile-view-switch .switch-btn {
+    background: var(--surface-primary);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    width: 44px;
+    height: 44px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: var(--font-base);
+    color: var(--primary-color);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.mobile-view-switch .switch-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+}
+
 
 /* レスポンシブデザイン */
 
@@ -257,6 +283,15 @@
     }
     .sidebar-header {
         padding: var(--space-sm);
+    }
+
+    .mobile-view-switch {
+        position: fixed;
+        bottom: 60px;
+        right: var(--space-sm);
+        display: flex;
+        gap: var(--space-sm);
+        z-index: 10001;
     }
 }
 

@@ -439,6 +439,13 @@ class WeatherApp {
     const hideWeeklyBtn = document.getElementById('hide-weekly-btn');
     if (hideWeeklyBtn) hideWeeklyBtn.addEventListener('click', () => this.hideWeeklyForecast());
 
+    const mobileForecastBtn = document.getElementById('mobile-forecast-btn');
+    const mobileLogBtn = document.getElementById('mobile-log-btn');
+    if (mobileForecastBtn && mobileLogBtn) {
+      mobileForecastBtn.addEventListener('click', () => this.showMobileForecast());
+      mobileLogBtn.addEventListener('click', () => this.showMobileLog());
+    }
+
     window.addEventListener('resize', () => { if (this.map) this.map.invalidateSize(); });
 
     const tabSwitch = document.getElementById('viewSwitch');
@@ -495,6 +502,28 @@ class WeatherApp {
     const wf = document.getElementById('weekly-forecast');
     if (wf) wf.style.display = 'none';
     this.isWeeklyForecastVisible = false;
+  }
+
+  showMobileForecast() {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.add('active');
+    const lp = document.getElementById('log-panel');
+    if (lp) lp.style.display = 'none';
+    const fb = document.getElementById('mobile-forecast-btn');
+    const lb = document.getElementById('mobile-log-btn');
+    if (fb) fb.classList.add('active');
+    if (lb) lb.classList.remove('active');
+  }
+
+  showMobileLog() {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.remove('active');
+    const lp = document.getElementById('log-panel');
+    if (lp) lp.style.display = 'flex';
+    const fb = document.getElementById('mobile-forecast-btn');
+    const lb = document.getElementById('mobile-log-btn');
+    if (fb) fb.classList.remove('active');
+    if (lb) lb.classList.add('active');
   }
 
   displayWeeklyForecastData(array) {
