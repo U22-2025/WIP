@@ -35,7 +35,7 @@ from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_d
 class QueryServer(BaseServer):
     """気象データサーバーのメインクラス（基底クラス継承版）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None, noupdate=False):
         """
         初期化
         
@@ -81,11 +81,13 @@ class QueryServer(BaseServer):
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("QueryServer")
         
-        # 起動時に気象データを更新
-        self._update_weather_data_scheduled()
+        # noupdateフラグがFalseの場合のみ起動時更新を実行
+        if not noupdate:
+            # 起動時に気象データを更新
+            self._update_weather_data_scheduled()
 
-        # 起動時に警報と災害情報を更新
-        self._update_disaster_alert_scheduled()
+            # 起動時に警報と災害情報を更新
+            self._update_disaster_alert_scheduled()
         
         # スケジューラーを開始（loggerが初期化された後）
         self._setup_scheduler()
@@ -402,6 +404,11 @@ class QueryServer(BaseServer):
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='気象データサーバーを起動します')
+    parser.add_argument('--noupdate', action='store_true', help='起動時の自動気象情報更新をスキップ')
+    args = parser.parse_args()
+
     # 設定ファイルから読み込んで起動
-    server = QueryServer()
+    server = QueryServer(noupdate=args.noupdate)
     server.run()
