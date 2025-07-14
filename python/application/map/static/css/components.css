@@ -888,28 +888,8 @@ button:focus,
     color: var(--danger-color);
     margin-bottom: 1px;
 }
-.disaster-details {
-    color: var(--text-secondary);
-    font-size: var(--font-xs);
-}
 .disaster-time {
     color: var(--text-secondary);
     font-size: 10px;
     margin-top: 1px;
 }
-.weekly-day.with-disaster {
-    grid-template-rows: auto auto;
-}
-.weekly-day.with-disaster .disaster-alert {
-    grid-column: 1 / -1;
-    margin-top: var(--space-sm);
-}
-.weekly-day.today .disaster-alert {
-    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.15));
-    border-color: rgba(255,255,255,0.3);
-}
-.weekly-day.today .disaster-alert::before { background: white; }
-.weekly-day.today .disaster-header { color: white; }
-.weekly-day.today .disaster-type { color: white; }
-.weekly-day.today .disaster-item { background: rgba(255,255,255,0.15); }
-.weekly-day.today .disaster-item-icon { color: white; }

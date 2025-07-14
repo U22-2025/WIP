@@ -129,28 +129,14 @@ class WeatherApp {
     const parsed = this.parseDisasterInfo(disasterArray);
     if (parsed.length === 0) return '';
     const items = parsed.map(d => {
-      const time = d.timeRange ? `<div class="disaster-time">${d.timeRange.start.replace('-', ' ')} 〜 ${d.timeRange.end.replace('-', ' ')}</div>` : '';
-      const details = this.getDisasterDetails(d.type);
-      return `<div class="disaster-item"><i class="${d.icon} disaster-item-icon"></i><div class="disaster-item-content"><div class="disaster-type">${d.type}</div><div class="disaster-details">${details}</div>${time}</div></div>`;
+      const time = d.timeRange ?
+        `<div class="disaster-time">${d.timeRange.start.replace('-', ' ')} 〜 ${d.timeRange.end.replace('-', ' ')}</div>` : '';
+      return `<div class="disaster-item"><i class="${d.icon} disaster-item-icon"></i><div class="disaster-item-content"><div class="disaster-type">${d.type}</div>${time}</div></div>`;
     }).join('');
     return `<div class="disaster-alert" role="alert"><div class="disaster-header"><i class="fas fa-exclamation-triangle disaster-icon"></i><span>緊急災害情報</span></div><div class="disaster-items">${items}</div></div>`;
   }
 
-  generateWeeklyDisasterHTML(disasterArray) {
-    const parsed = this.parseDisasterInfo(disasterArray);
-    if (parsed.length === 0) return '';
-    const summary = parsed.length > 1 ? `${parsed[0].type}・${parsed[1].type}` : parsed[0].type;
-    const timeStr = parsed[0].timeRange ? `<div class="disaster-details">${parsed[0].timeRange.start.substring(5)} 〜 ${parsed[0].timeRange.end.substring(5)}</div>` : '';
-    return `<div class="disaster-alert" role="alert"><div class="disaster-header"><i class="fas fa-exclamation-triangle disaster-icon"></i><span>災害情報</span></div><div class="disaster-items"><div class="disaster-item"><i class="${parsed[0].icon} disaster-item-icon"></i><div class="disaster-item-content"><div class="disaster-type">${summary}</div>${timeStr}</div></div></div></div>`;
-  }
-
-  getDisasterDetails(type) {
-    if (type.includes('降灰')) return '火山灰の飛散が予想されています';
-    if (type.includes('噴石')) return '火山周辺での噴石落下に注意';
-    if (type.includes('津波')) return '津波による浸水に注意してください';
-    if (type.includes('地震')) return '地震による揺れに注意してください';
-    return '詳細情報を確認してください';
-  }
+  /* generateWeeklyDisasterHTML は不要になったため削除 */
 
   // ------------------------------------------------------------------
   // 初期化
@@ -497,10 +483,7 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-      const disaster = this.generateWeeklyDisasterHTML(d.disaster);
-      const dayClass = i===0 ? 'weekly-day today' : 'weekly-day';
-      const cls = disaster ? `${dayClass} with-disaster` : dayClass;
-      html += `<div class="${cls}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div>${disaster}</div>`;
+      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
@@ -559,10 +542,7 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-    const disaster = this.generateWeeklyDisasterHTML(d.disaster);
-    const dayClass = i===0 ? 'weekly-day today' : 'weekly-day';
-    const cls = disaster ? `${dayClass} with-disaster` : dayClass;
-    html += `<div class="${cls}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div>${disaster}</div>`;
+    html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
