@@ -30,7 +30,7 @@ class QueryClient:
         if host is None:
             host = os.getenv('QUERY_GENERATOR_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('QUERY_GENERATOR_PORT', '4112'))
+            port = int(os.getenv('QUERY_GENERATOR_PORT', '4111'))
         """
         初期化
         

@@ -1,8 +1,13 @@
 import os
 import sys
 from pathlib import Path
-from common.utils.config_loader import ConfigLoader
 import uvicorn
+if __name__ == "__main__":
+    sys.path.insert(
+        0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
+
+from common.utils.config_loader import ConfigLoader
 
 if __name__ == "__main__":
     base_dir = Path(__file__).resolve().parent
