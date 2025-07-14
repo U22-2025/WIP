@@ -775,6 +775,10 @@ button:focus,
         grid-template-columns: repeat(7, 1fr);
         gap: var(--space-xs);
     }
+    .weekly-content {
+        overflow: hidden;
+        max-height: none;
+    }
     .weekly-day {
         display: flex;
         flex-direction: column;
