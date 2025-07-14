@@ -427,12 +427,6 @@ class WeatherApp {
   // 各種イベント
   // ------------------------------------------------------------------
   setupEventListeners() {
-    const toggleBtn = document.querySelector('.mobile-toggle');
-    if (toggleBtn) toggleBtn.addEventListener('click', this.toggleSidebar);
-
-    const showWeeklyBtn = document.getElementById('show-weekly-btn');
-    if (showWeeklyBtn) showWeeklyBtn.addEventListener('click', () => this.showWeeklyForecast());
-
     const hideWeeklyBtn = document.getElementById('hide-weekly-btn');
     if (hideWeeklyBtn) hideWeeklyBtn.addEventListener('click', () => this.hideWeeklyForecast());
 
@@ -461,11 +455,11 @@ class WeatherApp {
   showWeeklyForecastMobile() {
     const panel = document.getElementById('log-panel');
     const wf = document.getElementById('weekly-forecast');
-    const wfVisible = wf && wf.style.display !== 'none';
+    if (!wf) return;
+    const wfVisible = wf.style.display !== 'none';
 
     if (wfVisible) {
       this.hideWeeklyForecast();
-      if (panel) panel.style.display = 'none';
       return;
     }
 
@@ -473,8 +467,6 @@ class WeatherApp {
       panel.style.display = 'none';
     }
 
-    const sb = document.getElementById('sidebar');
-    if (window.innerWidth <= 768 && sb && !sb.classList.contains('active')) sb.classList.add('active');
     this.showWeeklyForecast();
   }
 
