@@ -136,10 +136,19 @@ class WeatherApp {
   // 地図
   // ------------------------------------------------------------------
   async initializeMap() {
-    this.map = L.map('map', { zoomControl: true, attributionControl: true }).setView([35.6895, 139.6917], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 18
+    const japanBounds = L.latLngBounds([
+      [20.0, 122.0],
+      [46.0, 154.0]
+    ]);
+    this.map = L.map('map', {
+      zoomControl: true,
+      attributionControl: true,
+      maxBounds: japanBounds,
+      maxBoundsViscosity: 1.0
+    }).setView([35.6895, 139.6917], 5);
+    L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      maxZoom: 16,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
     }).addTo(this.map);
     this.setupMapEvents();
   }
