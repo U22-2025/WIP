@@ -825,3 +825,91 @@ button:focus,
   }
 }
 
+/* 災害情報カード新デザイン */
+.disaster-alert {
+    background: linear-gradient(135deg, rgba(231,76,60,0.05), rgba(231,76,60,0.1));
+    border: 1px solid rgba(231,76,60,0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    margin-top: var(--space-sm);
+    position: relative;
+    overflow: hidden;
+}
+.disaster-alert::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--danger-color);
+}
+.disaster-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xs);
+    font-weight: 600;
+    color: var(--danger-color);
+    font-size: var(--font-xs);
+}
+.disaster-icon {
+    font-size: var(--font-base);
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.disaster-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+.disaster-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+    background: rgba(255,255,255,0.7);
+    border-radius: 4px;
+    font-size: var(--font-xs);
+    line-height: 1.4;
+}
+.disaster-item-icon {
+    color: var(--danger-color);
+    font-size: var(--font-xs);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.disaster-item-content { flex: 1; }
+.disaster-type {
+    font-weight: 600;
+    color: var(--danger-color);
+    margin-bottom: 1px;
+}
+.disaster-details {
+    color: var(--text-secondary);
+    font-size: var(--font-xs);
+}
+.disaster-time {
+    color: var(--text-secondary);
+    font-size: 10px;
+    margin-top: 1px;
+}
+.weekly-day.with-disaster {
+    grid-template-rows: auto auto;
+}
+.weekly-day.with-disaster .disaster-alert {
+    grid-column: 1 / -1;
+    margin-top: var(--space-sm);
+}
+.weekly-day.today .disaster-alert {
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.15));
+    border-color: rgba(255,255,255,0.3);
+}
+.weekly-day.today .disaster-alert::before { background: white; }
+.weekly-day.today .disaster-header { color: white; }
+.weekly-day.today .disaster-type { color: white; }
+.weekly-day.today .disaster-item { background: rgba(255,255,255,0.15); }
+.weekly-day.today .disaster-item-icon { color: white; }
