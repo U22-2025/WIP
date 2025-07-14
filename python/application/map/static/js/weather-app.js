@@ -289,7 +289,8 @@ class WeatherApp {
         };
         this.displayWeatherInfo(current, lat, lng);
         if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
-        this.displayWeeklyForecastData(array);
+        this.weeklyDataForChart = array;
+        if (this.isWeeklyForecastVisible) this.displayWeeklyForecastData(array);
       } else if (data.status === 'error') {
         this.handleAPIError(lat, lng, data.error_code);
       } else {
@@ -494,30 +495,17 @@ class WeatherApp {
   // ------------------------------------------------------------------
   // 週間予報 (取得 & UI)
   // ------------------------------------------------------------------
-  async showWeeklyForecast() {
-    if (!this.currentLat || !this.currentLng) return;
+  showWeeklyForecast() {
     const wf = document.getElementById('weekly-forecast');
     const wl = document.getElementById('weekly-loading');
-    const wd = document.getElementById('weekly-data');
-    if (!wf) return;
+    if (!wf || !wl) return;
     wf.style.display = 'block';
     this.isWeeklyForecastVisible = true;
-    wl.style.display = 'flex';
-    wd.style.display = 'none';
-    try {
-      const res = await fetch('/weekly_forecast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: this.currentLat, lng: this.currentLng }) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.status === 'ok' && data.weekly_forecast) {
-        const array = Object.values(data.weekly_forecast).sort((a, b) => a.day_number - b.day_number);
-        this.displayWeeklyForecast(array);
-      } else if (data.status === 'error') {
-        this.handleWeeklyForecastError(data.error_code);
-      } else throw new Error('無効な週間予報レスポンス');
-    } catch (err) {
-      console.error('週間予報取得エラー:', err);
-      this.handleWeeklyForecastError();
-    } finally { wl.style.display = 'none'; }
+    if (this.weeklyDataForChart) {
+      this.displayWeeklyForecastData(this.weeklyDataForChart);
+    } else {
+      wl.style.display = 'flex';
+    }
   }
 
   hideWeeklyForecast() {
