@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async
+from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
 from ..utils.cache import Cache
 PIDG = PacketIDGenerator12Bit()
 
@@ -303,7 +303,7 @@ class QueryClient:
             packet_bytes = request.to_bytes()
             loop = asyncio.get_running_loop()
             network_start = datetime.now()
-            await loop.sock_sendto(sock, packet_bytes, (self.host, self.port))
+            await safe_sock_sendto(loop, sock, packet_bytes, (self.host, self.port))
 
             response_data, server_addr = await receive_with_id_async(
                 sock, request.packet_id, timeout

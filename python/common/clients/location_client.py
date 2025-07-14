@@ -15,7 +15,7 @@ from pathlib import Path
 from ..packet import LocationRequest, LocationResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async
+from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
 from common.utils.config_loader import ConfigLoader
 import sys
 
@@ -276,8 +276,8 @@ class LocationClient:
             loop = asyncio.get_running_loop()
             self.sock.setblocking(False)
             network_start = time.time()
-            await loop.sock_sendto(
-                self.sock, request.to_bytes(), (self.server_host, self.server_port)
+            await safe_sock_sendto(
+                loop, self.sock, request.to_bytes(), (self.server_host, self.server_port)
             )
             self.logger.debug(f"Sent request to {self.server_host}:{self.server_port}")
 
