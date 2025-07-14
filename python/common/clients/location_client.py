@@ -38,7 +38,7 @@ class LocationClient:
         if host is None:
             host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('LOCATION_RESOLVER_PORT', '4111'))
+            port = int(os.getenv('LOCATION_RESOLVER_PORT', '4109'))
         if cache_enabled is None:
             cache_enabled = config.getboolean('cache', 'enable_coordinate_cache', True)
         """
