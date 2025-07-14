@@ -106,12 +106,19 @@ class WeatherApp {
       parts.forEach(part => {
         const trimmed = part.trim();
         if (trimmed) {
-          const m = trimmed.match(/(\d{4}\/\d{2}\/\d{2}-\d{2}:\d{2})から(\d{4}\/\d{2}\/\d{2}-\d{2}:\d{2})まで/);
+          const range = trimmed.match(/(\d{4}[\/\-]\d{2}[\/\-]\d{2}[ T]\d{2}:\d{2})から(\d{4}[\/\-]\d{2}[\/\-]\d{2}[ T]\d{2}:\d{2})まで/);
           let type = trimmed;
           let timeRange = null;
-          if (m) {
-            type = trimmed.replace(m[0], '').replace(/_$/, '');
-            timeRange = { start: m[1], end: m[2] };
+          if (range) {
+            type = trimmed.replace(range[0], '').replace(/_$/, '');
+            timeRange = { start: range[1], end: range[2] };
+          } else if (trimmed.includes('_')) {
+            const idx = trimmed.indexOf('_');
+            type = trimmed.slice(0, idx);
+            const tPart = trimmed.slice(idx + 1);
+            if (tPart) {
+              timeRange = { start: tPart };
+            }
           }
           let icon = 'fas fa-exclamation-circle';
           if (type.includes('降灰')) icon = 'fas fa-mountain';
@@ -125,12 +132,26 @@ class WeatherApp {
     return parsed;
   }
 
+  formatDisasterTime(str) {
+    if (!str) return '';
+    if (str.includes('/')) {
+      return str.replace('-', ' ');
+    }
+    return str.replace('T', ' ');
+  }
+
   generatePopupDisasterHTML(disasterArray) {
     const parsed = this.parseDisasterInfo(disasterArray);
     if (parsed.length === 0) return '';
     const items = parsed.map(d => {
-      const time = d.timeRange ?
-        `<div class="disaster-time">${d.timeRange.start.replace('-', ' ')} 〜 ${d.timeRange.end.replace('-', ' ')}</div>` : '';
+      let time = '';
+      if (d.timeRange) {
+        if (d.timeRange.end) {
+          time = `<div class="disaster-time">${this.formatDisasterTime(d.timeRange.start)} 〜 ${this.formatDisasterTime(d.timeRange.end)}</div>`;
+        } else if (d.timeRange.start) {
+          time = `<div class="disaster-time">${this.formatDisasterTime(d.timeRange.start)}</div>`;
+        }
+      }
       return `<div class="disaster-item"><i class="${d.icon} disaster-item-icon"></i><div class="disaster-item-content"><div class="disaster-type">${d.type}</div>${time}</div></div>`;
     }).join('');
     return `<div class="disaster-alert" role="alert"><div class="disaster-header"><i class="fas fa-exclamation-triangle disaster-icon"></i><span>緊急災害情報</span></div><div class="disaster-items">${items}</div></div>`;
