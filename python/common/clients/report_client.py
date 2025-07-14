@@ -17,6 +17,7 @@ from ..packet.types.error_response import ErrorResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
+from common.utils.network import resolve_ipv4
 
 
 class ReportClient:
@@ -31,7 +32,7 @@ class ReportClient:
             port: 天気サーバーのポート
             debug: デバッグモード
         """
-        self.host = host
+        self.host = resolve_ipv4(host)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(10.0)

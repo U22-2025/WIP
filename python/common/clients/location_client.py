@@ -17,6 +17,7 @@ from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
 from common.utils.config_loader import ConfigLoader
+from common.utils.network import resolve_ipv4
 import sys
 
 # PersistentCacheを使用するためのパス追加
@@ -50,7 +51,7 @@ class LocationClient:
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
         """
-        self.server_host = host
+        self.server_host = resolve_ipv4(host)
         self.server_port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.debug = debug

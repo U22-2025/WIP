@@ -139,6 +139,7 @@ DATABASE_URL=postgresql://user:password@localhost/wip_db
 REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
+`localhost` を指定した場合は内部で IPv4 アドレス `127.0.0.1` に解決されます。環境によっては直接 `127.0.0.1` を指定することもできます。
 
 ## 使用方法
 
@@ -161,7 +162,7 @@ python -m wip.servers.query_server.query_server
 ```python
 from wip.clients.weather_client import WeatherClient
 
-# クライアント初期化
+# クライアント初期化（"localhost" は自動で IPv4 に解決されます）
 client = WeatherClient(host='localhost', port=4110, debug=True)
 
 # 座標から天気情報を取得
