@@ -290,7 +290,6 @@ class WeatherApp {
         this.displayWeatherInfo(current, lat, lng);
         if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
         this.weeklyDataForChart = array;
-        this.showWeeklyForecast();
         if (this.isWeeklyForecastVisible) this.displayWeeklyForecastData(array);
       } else if (data.status === 'error') {
         this.handleAPIError(lat, lng, data.error_code);
@@ -694,13 +693,7 @@ class ParticleSystemManager {
 window.toggleSidebar = function(){ const sb=document.getElementById('sidebar'); if(sb) sb.classList.toggle('active'); };
 
 let weatherApp;
-document.addEventListener('DOMContentLoaded',()=>{ 
-  console.log('DOM loaded – WeatherApp init'); 
-  weatherApp = new WeatherApp();
-  document.addEventListener('wheel', e=>{ if(e.ctrlKey) e.preventDefault(); }, { passive:false });
-  document.addEventListener('keydown', e=>{ if(e.ctrlKey && ['+','-','=','0'].includes(e.key)) e.preventDefault(); });
-  document.addEventListener('touchstart', e=>{ if(e.touches && e.touches.length>1) e.preventDefault(); }, { passive:false });
-});
+document.addEventListener('DOMContentLoaded',()=>{ console.log('DOM loaded – WeatherApp init'); weatherApp = new WeatherApp(); });
 window.addEventListener('load',()=>{ if(!weatherApp){ console.log('window load – WeatherApp re-init'); weatherApp = new WeatherApp(); } });
 
 if(typeof module!=='undefined' && module.exports){ module.exports = { WeatherApp, ParticleSystemManager }; }
