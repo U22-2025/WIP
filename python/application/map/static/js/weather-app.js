@@ -460,6 +460,7 @@ class WeatherApp {
   // モバイル: 週間予報切り替え
   showWeeklyForecastMobile() {
     const panel = document.getElementById('log-panel');
+    const sb = document.getElementById('sidebar');
     const wf = document.getElementById('weekly-forecast');
     const wfVisible = wf && wf.style.display !== 'none';
 
@@ -473,7 +474,8 @@ class WeatherApp {
       panel.style.display = 'none';
     }
 
-    const sb = document.getElementById('sidebar');
+    if (sb && !sb.classList.contains('active')) sb.classList.add('active');
+
     if (window.innerWidth <= 768 && sb && !sb.classList.contains('active')) sb.classList.add('active');
     this.showWeeklyForecast();
   }
