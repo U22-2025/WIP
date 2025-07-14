@@ -459,6 +459,45 @@ class WeatherApp {
     if (sb) sb.classList.toggle('active');
   }
 
+  // モバイル: 週間予報切り替え
+  showWeeklyForecastMobile() {
+    const panel = document.getElementById('log-panel');
+    const wf = document.getElementById('weekly-forecast');
+    const wfVisible = wf && wf.style.display !== 'none';
+
+    if (wfVisible) {
+      this.hideWeeklyForecast();
+      if (panel) panel.style.display = 'none';
+      return;
+    }
+
+    if (panel && panel.style.display !== 'none' && window.getComputedStyle(panel).display !== 'none') {
+      panel.style.display = 'none';
+    }
+
+    const sb = document.getElementById('sidebar');
+    if (window.innerWidth <= 768 && sb && !sb.classList.contains('active')) sb.classList.add('active');
+    this.showWeeklyForecast();
+  }
+
+  // モバイル: ログパネル切り替え
+  toggleLogPanelMobile() {
+    const panel = document.getElementById('log-panel');
+    const wf = document.getElementById('weekly-forecast');
+    if (!panel) return;
+
+    const panelVisible = panel.style.display !== 'none' && window.getComputedStyle(panel).display !== 'none';
+
+    if (panelVisible) {
+      panel.style.display = 'none';
+      if (wf && wf.style.display !== 'none') this.hideWeeklyForecast();
+      return;
+    }
+
+    if (wf && wf.style.display !== 'none') this.hideWeeklyForecast();
+    panel.style.display = 'flex';
+  }
+
   showLoading() { const lo = document.getElementById('loading-overlay'); if (lo) lo.style.display = 'flex'; }
   hideLoading() { const lo = document.getElementById('loading-overlay'); if (lo) lo.style.display = 'none'; }
 

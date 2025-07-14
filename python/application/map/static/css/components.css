@@ -893,3 +893,40 @@ button:focus,
     font-size: 10px;
     margin-top: 1px;
 }
+
+/* モバイルボトムナビ */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: var(--surface-primary);
+    border-top: 1px solid var(--glass-border);
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    z-index: 10001;
+    display: flex;
+}
+
+.mobile-bottom-nav .nav-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: var(--font-base);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-bottom-nav .nav-btn:active {
+    background: rgba(0,0,0,0.05);
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav { display: flex; }
+    #log-panel { bottom: 50px; }
+    #show-weekly-btn { display: none; }
+}
