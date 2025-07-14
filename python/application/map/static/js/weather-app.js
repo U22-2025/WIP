@@ -96,6 +96,69 @@ class WeatherApp {
     }).join('<span class="disaster-sep">, </span>');
   }
 
+
+  // 新しい災害情報解析
+  parseDisasterInfo(disasterArray) {
+    if (!disasterArray || disasterArray.length === 0) return [];
+    const parsed = [];
+    disasterArray.forEach(str => {
+      const parts = str.split(',');
+      parts.forEach(part => {
+        const trimmed = part.trim();
+        if (trimmed) {
+          const range = trimmed.match(/(\d{4}[\/\-]\d{2}[\/\-]\d{2}[ T]\d{2}:\d{2})から(\d{4}[\/\-]\d{2}[\/\-]\d{2}[ T]\d{2}:\d{2})まで/);
+          let type = trimmed;
+          let timeRange = null;
+          if (range) {
+            type = trimmed.replace(range[0], '').replace(/_$/, '');
+            timeRange = { start: range[1], end: range[2] };
+          } else if (trimmed.includes('_')) {
+            const idx = trimmed.indexOf('_');
+            type = trimmed.slice(0, idx);
+            const tPart = trimmed.slice(idx + 1);
+            if (tPart) {
+              timeRange = { start: tPart };
+            }
+          }
+          let icon = 'fas fa-exclamation-circle';
+          if (type.includes('降灰')) icon = 'fas fa-mountain';
+          else if (type.includes('噴石')) icon = 'fas fa-exclamation-circle';
+          else if (type.includes('津波')) icon = 'fas fa-water';
+          else if (type.includes('地震')) icon = 'fas fa-house-crack';
+          parsed.push({ type, icon, timeRange, original: trimmed });
+        }
+      });
+    });
+    return parsed;
+  }
+
+  formatDisasterTime(str) {
+    if (!str) return '';
+    if (str.includes('/')) {
+      return str.replace('-', ' ');
+    }
+    return str.replace('T', ' ');
+  }
+
+  generatePopupDisasterHTML(disasterArray) {
+    const parsed = this.parseDisasterInfo(disasterArray);
+    if (parsed.length === 0) return '';
+    const items = parsed.map(d => {
+      let time = '';
+      if (d.timeRange) {
+        if (d.timeRange.end) {
+          time = `<div class="disaster-time">${this.formatDisasterTime(d.timeRange.start)} 〜 ${this.formatDisasterTime(d.timeRange.end)}</div>`;
+        } else if (d.timeRange.start) {
+          time = `<div class="disaster-time">${this.formatDisasterTime(d.timeRange.start)}</div>`;
+        }
+      }
+      return `<div class="disaster-item"><i class="${d.icon} disaster-item-icon"></i><div class="disaster-item-content"><div class="disaster-type">${d.type}</div>${time}</div></div>`;
+    }).join('');
+    return `<div class="disaster-alert" role="alert"><div class="disaster-header"><i class="fas fa-exclamation-triangle disaster-icon"></i><span>緊急災害情報</span></div><div class="disaster-items">${items}</div></div>`;
+  }
+
+  /* generateWeeklyDisasterHTML は不要になったため削除 */
+
   // ------------------------------------------------------------------
   // 初期化
   // ------------------------------------------------------------------
@@ -281,9 +344,7 @@ class WeatherApp {
       if (data.weather.temperature !== undefined) temp = data.weather.temperature;
       if (data.weather.precipitation_prob !== undefined && data.weather.precipitation_prob !== null) precip = data.weather.precipitation_prob;
     }
-    const disaster = data.disaster && data.disaster.length > 0
-      ? `<div class="popup-disaster"><i class="fas fa-exclamation-triangle"></i>${this.formatDisasterList(data.disaster)}</div>`
-      : '';
+    const disaster = this.generatePopupDisasterHTML(data.disaster);
     const iconClass = this.weatherIconMap[code] || 'fas fa-sun';
     const name = this.weatherCodeMap[code] || '天気情報不明';
     return `<div class="popup-content"><div class="popup-weather-icon"><i class="${iconClass}"></i></div><div class="popup-description">${name}</div><div class="popup-weather-data"><div class="popup-temp-container"><div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div><div class="popup-temp-label">気温</div></div><div class="popup-precipitation_prob-container"><div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div><div class="popup-precipitation_prob-label">降水確率</div></div></div>${disaster}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
@@ -443,10 +504,7 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-      const disaster = d.disaster && d.disaster.length > 0
-        ? `<div class="day-disaster"><i class="fas fa-exclamation-triangle"></i>${this.formatDisasterList(d.disaster)}</div>`
-        : '';
-      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div>${disaster}<div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
+      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
@@ -505,10 +563,7 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-    const disaster = d.disaster && d.disaster.length>0
-      ? `<div class="day-disaster"><i class="fas fa-exclamation-triangle"></i>${this.formatDisasterList(d.disaster)}</div>`
-      : '';
-    html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div>${disaster}<div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
+    html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
