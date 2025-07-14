@@ -818,6 +818,17 @@ body {
     font-weight: 600;
 }
 
+.popup-disaster {
+    margin-top: var(--space-sm);
+    font-size: var(--font-xs);
+    color: var(--accent-color);
+    text-align: left;
+}
+.popup-disaster i {
+    margin-right: var(--space-xs);
+    color: var(--accent-color);
+}
+
 
 /* モバイル対応 */
 
@@ -1228,6 +1239,24 @@ button:focus,
 .day-precipitation_prob i {
     font-size: var(--font-sm);
     color: var(--accent-color);
+}
+
+.day-disaster {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-xs);
+    color: var(--accent-color);
+}
+
+.day-disaster i {
+    color: var(--accent-color);
+}
+
+.weekly-day.today .day-disaster,
+.weekly-day.today .day-disaster i {
+    color: white;
 }
 
 
