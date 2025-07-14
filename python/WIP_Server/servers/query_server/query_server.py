@@ -202,6 +202,7 @@ class QueryServer(BaseServer):
             # デバッグ：リクエストの状態を確認
             
             # 気象データを取得
+            weather_start = time.time()
             weather_data = self.weather_manager.get_weather_data(
                 area_code=request.area_code,
                 weather_flag=request.weather_flag,
@@ -211,6 +212,8 @@ class QueryServer(BaseServer):
                 disaster_flag=request.disaster_flag,
                 day=request.day
             )
+            weather_time = time.time() - weather_start
+            self.logger.debug(f"Data fetch: {weather_time:.3f}s")
             
             # QueryResponseクラスのcreate_query_responseメソッドを使用
             response = QueryResponse.create_query_response(
@@ -295,7 +298,6 @@ class QueryServer(BaseServer):
             return
             
         print(f"\n[{self.server_name}] === 送信レスポンスパケット ===")
-        print(f"Total Length: {len(response)} bytes")
         
         # レスポンスオブジェクトの詳細情報を表示
         try:

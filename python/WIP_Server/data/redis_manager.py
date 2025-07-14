@@ -24,7 +24,7 @@ class RedisConfig:
     host: str = 'localhost'
     port: int = 6379
     db: int = 0
-    timeout: int = 5
+    timeout: int = 1  # タイムアウトを1秒に短縮
     
     @classmethod
     def from_env(cls) -> 'RedisConfig':
