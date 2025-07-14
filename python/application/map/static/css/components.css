@@ -374,6 +374,7 @@ button:focus,
     position: relative;
     width: 100%;
     margin: var(--space-md) 0;
+    padding: var(--space-md);
     background: var(--surface-primary);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-xl);
@@ -906,6 +907,7 @@ button:focus,
         width: 100%;
         max-height: 40vh;
         margin: 0;
+        padding: 0;
         border-radius: var(--radius-md) var(--radius-md) 0 0;
         box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
         z-index: 10001;
