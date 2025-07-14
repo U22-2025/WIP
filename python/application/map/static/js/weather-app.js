@@ -191,7 +191,8 @@ class WeatherApp {
             pressure: today.pressure || '--',
             humidity: today.humidity || '--',
             uv_index: today.uv_index || '--'
-          }
+          },
+          disaster: today.disaster || []
         };
         this.displayWeatherInfo(current, lat, lng);
         if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
@@ -225,7 +226,7 @@ class WeatherApp {
     const weekly = document.getElementById('weekly-data');
     if (weekly) weekly.innerHTML = '';
     this.weeklyDataForChart = null;
-    const dummy = { status: 'ok', weather: { weather_code: '100', temperature: '--', precipitation_prob: '--' } };
+    const dummy = { status: 'ok', weather: { weather_code: '100', temperature: '--', precipitation_prob: '--' }, disaster: [] };
     if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(dummy, lat, lng)).openPopup();
   }
 
@@ -257,9 +258,12 @@ class WeatherApp {
       if (data.weather.temperature !== undefined) temp = data.weather.temperature;
       if (data.weather.precipitation_prob !== undefined && data.weather.precipitation_prob !== null) precip = data.weather.precipitation_prob;
     }
+    const disaster = data.disaster && data.disaster.length > 0
+      ? `<div class="popup-disaster"><i class="fas fa-exclamation-triangle"></i>${data.disaster.join('<br>')}</div>`
+      : '';
     const iconClass = this.weatherIconMap[code] || 'fas fa-sun';
     const name = this.weatherCodeMap[code] || '天気情報不明';
-    return `<div class="popup-content"><div class="popup-weather-icon"><i class="${iconClass}"></i></div><div class="popup-description">${name}</div><div class="popup-weather-data"><div class="popup-temp-container"><div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div><div class="popup-temp-label">気温</div></div><div class="popup-precipitation_prob-container"><div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div><div class="popup-precipitation_prob-label">降水確率</div></div></div><div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
+    return `<div class="popup-content"><div class="popup-weather-icon"><i class="${iconClass}"></i></div><div class="popup-description">${name}</div><div class="popup-weather-data"><div class="popup-temp-container"><div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div><div class="popup-temp-label">気温</div></div><div class="popup-precipitation_prob-container"><div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div><div class="popup-precipitation_prob-label">降水確率</div></div></div>${disaster}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
   }
 
   // ------------------------------------------------------------------
@@ -416,7 +420,10 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
+      const disaster = d.disaster && d.disaster.length > 0
+        ? `<div class="day-disaster"><i class="fas fa-exclamation-triangle"></i>${d.disaster.join('<br>')}</div>`
+        : '';
+      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div>${disaster}</div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
@@ -475,7 +482,10 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
+      const disaster = d.disaster && d.disaster.length>0
+        ? `<div class="day-disaster"><i class="fas fa-exclamation-triangle"></i>${d.disaster.join('<br>')}</div>`
+        : '';
+      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div>${disaster}</div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
