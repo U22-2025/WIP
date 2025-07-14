@@ -14,6 +14,7 @@ from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
 from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
 from ..utils.cache import Cache
+from common.utils.network import resolve_ipv4
 PIDG = PacketIDGenerator12Bit()
 
 
@@ -40,7 +41,7 @@ class QueryClient:
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
         """
-        self.host = host
+        self.host = resolve_ipv4(host)
         self.port = port
         self.debug = debug
         logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
