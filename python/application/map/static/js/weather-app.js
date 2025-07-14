@@ -106,7 +106,7 @@ class WeatherApp {
       parts.forEach(part => {
         const trimmed = part.trim();
         if (trimmed) {
-          const range = trimmed.match(/(\d{4}[\/\-]\d{2}[\/\-]\d{2}[ T]\d{2}:\d{2})から(\d{4}[\/\-]\d{2}[\/\-]\d{2}[ T]\d{2}:\d{2})まで/);
+        const range = trimmed.match(/(\d{4}[\/\-]\d{2}[\/\-]\d{2}[T\s]\d{2}:\d{2}(?::\d{2})?(?:[+\-]\d{2}:?\d{2})?)から(\d{4}[\/\-]\d{2}[\/\-]\d{2}[T\s]\d{2}:\d{2}(?::\d{2})?(?:[+\-]\d{2}:?\d{2})?)まで/);
           let type = trimmed;
           let timeRange = null;
           if (range) {
@@ -134,10 +134,20 @@ class WeatherApp {
 
   formatDisasterTime(str) {
     if (!str) return '';
-    if (str.includes('/')) {
-      return str.replace('-', ' ');
+    try {
+      const d = new Date(str);
+      if (!isNaN(d)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const h = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${y}/${m}/${day} ${h}:${min}`;
+      }
+    } catch (e) {
+      /* ignore */
     }
-    return str.replace('T', ' ');
+    return str.replace('T', ' ').replace('_', ' ');
   }
 
   generatePopupDisasterHTML(disasterArray) {
@@ -147,7 +157,7 @@ class WeatherApp {
       let time = '';
       if (d.timeRange) {
         if (d.timeRange.end) {
-          time = `<div class="disaster-time">${this.formatDisasterTime(d.timeRange.start)} 〜 ${this.formatDisasterTime(d.timeRange.end)}</div>`;
+          time = `<div class="disaster-time">${this.formatDisasterTime(d.timeRange.start)} ~ ${this.formatDisasterTime(d.timeRange.end)}</div>`;
         } else if (d.timeRange.start) {
           time = `<div class="disaster-time">${this.formatDisasterTime(d.timeRange.start)}</div>`;
         }
