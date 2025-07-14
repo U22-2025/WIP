@@ -49,13 +49,20 @@ logging.basicConfig(level=logging.INFO)
 
 config_loader = ConfigLoader()
 LOG_LIMIT = config_loader.getint("logging", "log_limit", default=100)
+# ログ送信間隔（秒）
+BROADCAST_INTERVAL = float(
+    config_loader.get("logging", "broadcast_interval", default="1")
+)
 
 
 class ConnectionManager:
-    def __init__(self, log_limit: int = 100) -> None:
+    def __init__(self, log_limit: int = 100, interval: float = 1.0) -> None:
         self.active: List[WebSocket] = []
         self.logs: List[str] = []
         self.log_limit = log_limit
+        self.interval = interval
+        self.queue: asyncio.Queue[str] = asyncio.Queue()
+        self._task: asyncio.Task | None = None
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -67,7 +74,10 @@ class ConnectionManager:
         if websocket in self.active:
             self.active.remove(websocket)
 
-    async def broadcast(self, message: str) -> None:
+    async def enqueue(self, message: str) -> None:
+        await self.queue.put(message)
+
+    async def _broadcast(self, message: str) -> None:
         self.logs.append(message)
         if len(self.logs) > self.log_limit:
             self.logs = self.logs[-self.log_limit:]
@@ -77,8 +87,43 @@ class ConnectionManager:
             except WebSocketDisconnect:
                 self.disconnect(ws)
 
+    async def _broadcast_loop(self) -> None:
+        try:
+            while True:
+                await asyncio.sleep(self.interval)
+                messages: List[str] = []
+                while not self.queue.empty():
+                    messages.append(await self.queue.get())
+                for msg in messages:
+                    await self._broadcast(msg)
+        except asyncio.CancelledError:
+            pass
 
-manager = ConnectionManager(log_limit=LOG_LIMIT)
+    def start(self) -> None:
+        if self._task is None:
+            self._task = asyncio.create_task(self._broadcast_loop())
+
+    async def stop(self) -> None:
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+
+
+manager = ConnectionManager(log_limit=LOG_LIMIT, interval=BROADCAST_INTERVAL)
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    manager.start()
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    await manager.stop()
 
 # メトリクス用グローバル変数
 total_accesses = 0
@@ -110,7 +155,7 @@ async def log_event(
     if details:
         log_data["details"] = details
     logger.info(json.dumps(log_data, ensure_ascii=False))
-    await manager.broadcast(json.dumps(log_data, ensure_ascii=False))
+    await manager.enqueue(json.dumps(log_data, ensure_ascii=False))
 
 
 def record_packet_metrics(duration_ms: float) -> None:
@@ -184,7 +229,7 @@ async def metrics_middleware(request: Request, call_next):
         "packet_total": packet_accesses,
         "packet_avg_ms": round(packet_avg, 2),
     }
-    await manager.broadcast(json.dumps(metrics))
+    await manager.enqueue(json.dumps(metrics))
     return response
 
 
