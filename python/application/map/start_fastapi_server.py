@@ -23,6 +23,7 @@ if __name__ == "__main__":
         "fastapi_app:app",
         host="0.0.0.0",
         port=5000,
+        loop="asyncio",
         reload=reload_opt,
         workers=workers
     )
