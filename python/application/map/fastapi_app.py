@@ -165,7 +165,18 @@ async def metrics_middleware(request: Request, call_next):
     }
     if hasattr(request.state, "ip"):
         details["ip"] = request.state.ip
-    await log_event(f"{request.method} {request.url.path}", details=details)
+    status = response.status_code
+    if status >= 500:
+        level = "error"
+    elif status >= 400:
+        level = "warning"
+    else:
+        level = "success"
+    await log_event(
+        f"{request.method} {request.url.path}",
+        level=level,
+        details=details,
+    )
     metrics = {
         "type": "metrics",
         "total": total_accesses,
