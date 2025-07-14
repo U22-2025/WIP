@@ -136,7 +136,13 @@ class WeatherApp {
   // 地図
   // ------------------------------------------------------------------
   async initializeMap() {
-    this.map = L.map('map', { zoomControl: true, attributionControl: true }).setView([35.6895, 139.6917], 6);
+    const japanBounds = L.latLngBounds([20, 122], [46, 154]);
+    this.map = L.map('map', {
+      zoomControl: true,
+      attributionControl: true,
+      maxBounds: japanBounds,
+      maxBoundsViscosity: 1.0
+    }).setView([35.6895, 139.6917], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 18
