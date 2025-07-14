@@ -371,15 +371,20 @@ button:focus,
 }
 
 .weekly-forecast {
-    position: relative;
-    width: 100%;
-    margin: var(--space-md) 0;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 420px;
+    margin: 0;
     background: var(--surface-primary);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-xl);
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-glass);
     overflow: hidden;
+    transform: translateY(20px);
+    opacity: 0;
+    animation: slideInUp 0.6s var(--bounce) forwards;
     max-height: 80vh;
     display: flex;
     flex-direction: column;

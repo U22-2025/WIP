@@ -52,44 +52,6 @@
 
                 </div>
             </div>
-
-            <!-- 週間予報パネル -->
-            <div class="weekly-forecast" id="weekly-forecast" style="display: none;">
-                <div class="weekly-header">
-                    <h3><i class="fas fa-calendar-week"></i> 7日間の天気予報</h3>
-                    <button id="hide-weekly-btn" class="weekly-close-btn">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="weekly-tabs">
-                    <div class="tab-switch">
-                        <input type="checkbox" id="viewSwitch" class="tab-switch-input">
-                        <label for="viewSwitch" class="tab-switch-label">
-                            <span class="tab-switch-text">リスト</span>
-                            <span class="tab-switch-text">グラフ</span>
-                            <span class="tab-switch-slider"></span>
-                        </label>
-                    </div>
-                </div>
-                <div class="weekly-content">
-                    <div id="weekly-loading" class="weekly-loading">
-                        <div class="loading-spinner-small"></div>
-                        <span>週間予報を取得中...</span>
-                    </div>
-                    <div id="weekly-list-view" class="tab-content active">
-                        <div id="weekly-data" class="weekly-data" style="display: none;">
-                            <!-- 週間予報データがここに動的に挿入されます -->
-                        </div>
-                    </div>
-                    <div id="weekly-chart-view" class="tab-content">
-                        <div class="chart-container">
-                            <div class="chart-wrapper">
-                                <canvas id="weather-chart" width="300" height="250"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div id="map" role="main" aria-label="気象情報地図"></div>
@@ -100,6 +62,43 @@
         <div class="loading-text">気象データを取得中...</div>
     </div>
 
+    <!-- 週間予報パネル -->
+    <div class="weekly-forecast" id="weekly-forecast" style="display: none;">
+        <div class="weekly-header">
+            <h3><i class="fas fa-calendar-week"></i> 7日間の天気予報</h3>
+            <button id="hide-weekly-btn" class="weekly-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="weekly-tabs">
+            <div class="tab-switch">
+                <input type="checkbox" id="viewSwitch" class="tab-switch-input">
+                <label for="viewSwitch" class="tab-switch-label">
+                    <span class="tab-switch-text">リスト</span>
+                    <span class="tab-switch-text">グラフ</span>
+                    <span class="tab-switch-slider"></span>
+                </label>
+            </div>
+        </div>
+        <div class="weekly-content">
+            <div id="weekly-loading" class="weekly-loading">
+                <div class="loading-spinner-small"></div>
+                <span>週間予報を取得中...</span>
+            </div>
+            <div id="weekly-list-view" class="tab-content active">
+                <div id="weekly-data" class="weekly-data" style="display: none;">
+                    <!-- 週間予報データがここに動的に挿入されます -->
+                </div>
+            </div>
+            <div id="weekly-chart-view" class="tab-content">
+                <div class="chart-container">
+                    <div class="chart-wrapper">
+                        <canvas id="weather-chart" width="300" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
 
 
