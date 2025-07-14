@@ -102,6 +102,10 @@ application/map/
 | `/weekly_forecast` | POST | 週間天気予報取得 |
 | `/ws` | WebSocket | ログメッセージ購読 |
 
+ログメッセージは JSON 形式で配信され、`level` フィールドには
+`success`、`warning`、`error` のいずれかが設定されます。HTTP ステータス
+コードに応じて分類されるため、クライアント側で容易に重要度を判別できます。
+
 ### リクエスト例
 
 ```javascript
