@@ -117,8 +117,8 @@ class WeatherDataManager:
             if alert_flag and 'warnings' in weather_data:
                 result['warnings'] = weather_data['warnings']
             
-            # 災害情報
-            if disaster_flag:
+            # 災害情報（存在する場合のみ取得）
+            if disaster_flag and ('disaster' in weather_data or 'disaster_info' in weather_data):
                 disaster_data = weather_data.get('disaster') or weather_data.get('disaster_info')
                 if disaster_data:
                     result['disaster'] = disaster_data
