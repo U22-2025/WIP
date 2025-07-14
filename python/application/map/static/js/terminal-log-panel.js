@@ -203,5 +203,13 @@
   window.clearLogs = () => logPanel.clearLogs();
   window.toggleAutoScroll = () => logPanel.toggleAutoScroll();
   window.togglePanel = () => logPanel.togglePanel();
+  window.showLogPanel = () => {
+    const panel = document.getElementById('log-panel');
+    if (panel) panel.style.display = 'flex';
+  };
+  window.hideLogPanel = () => {
+    const panel = document.getElementById('log-panel');
+    if (panel) panel.style.display = 'none';
+  };
 
 })();

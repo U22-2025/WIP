@@ -913,3 +913,44 @@ button:focus,
 .weekly-day.today .disaster-type { color: white; }
 .weekly-day.today .disaster-item { background: rgba(255,255,255,0.15); }
 .weekly-day.today .disaster-item-icon { color: white; }
+
+/* -------------------------------------------------- */
+/* モバイルナビゲーション                          */
+/* -------------------------------------------------- */
+.mobile-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 50px;
+        background: var(--glass-background);
+        backdrop-filter: blur(15px) saturate(180%);
+        border-top: 1px solid var(--glass-border);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 10001;
+    }
+    .mobile-nav .nav-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-size: var(--font-lg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 4px 8px;
+    }
+    .mobile-nav .nav-btn.active {
+        color: var(--primary-color);
+    }
+    #log-panel {
+        bottom: 50px;
+    }
+}

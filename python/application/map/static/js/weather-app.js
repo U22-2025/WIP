@@ -435,11 +435,31 @@ class WeatherApp {
         if (wf && wf.style.display !== 'none') this.hideWeeklyForecast();
       }
     });
+
+    this.initializeMobileNav();
   }
 
   toggleSidebar() {
     const sb = document.getElementById('sidebar');
     if (sb) sb.classList.toggle('active');
+  }
+
+  initializeMobileNav() {
+    const forecastBtn = document.getElementById('nav-forecast');
+    const logBtn = document.getElementById('nav-logs');
+    if (!forecastBtn || !logBtn) return;
+    forecastBtn.addEventListener('click', () => {
+      forecastBtn.classList.add('active');
+      logBtn.classList.remove('active');
+      this.showWeeklyForecast();
+      if (window.hideLogPanel) window.hideLogPanel();
+    });
+    logBtn.addEventListener('click', () => {
+      logBtn.classList.add('active');
+      forecastBtn.classList.remove('active');
+      this.hideWeeklyForecast();
+      if (window.showLogPanel) window.showLogPanel();
+    });
   }
 
   showLoading() { const lo = document.getElementById('loading-overlay'); if (lo) lo.style.display = 'flex'; }
