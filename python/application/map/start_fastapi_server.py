@@ -20,6 +20,14 @@ if __name__ == "__main__":
     workers = config_loader.getint('uvicorn', 'workers', default=1)
     reload_opt = config_loader.getboolean('uvicorn', 'reload', default=False)
 
+    log_host = config_loader.get('logging', 'log_redis_host', os.getenv('LOG_REDIS_HOST', 'localhost'))
+    log_port = config_loader.get('logging', 'log_redis_port', os.getenv('LOG_REDIS_PORT', '6380'))
+    log_db = config_loader.get('logging', 'log_redis_db', os.getenv('LOG_REDIS_DB', '0'))
+
+    os.environ.setdefault('LOG_REDIS_HOST', log_host)
+    os.environ.setdefault('LOG_REDIS_PORT', str(log_port))
+    os.environ.setdefault('LOG_REDIS_DB', str(log_db))
+
     if workers > 1 and reload_opt:
         print("Warning: workers が 1 より大きい場合は reload を無効化します")
         reload_opt = False

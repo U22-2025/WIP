@@ -33,6 +33,8 @@ if sys.platform.startswith("win"):
 from common.clients.location_client import LocationClient
 from common.clients.query_client import QueryClient
 from common.utils.config_loader import ConfigLoader
+from common.utils.redis_log_handler import RedisLogHandler
+import redis.asyncio as aioredis
 # ドキュメントエンドポイントを有効化
 app = FastAPI()
 script_dir = Path(__file__).resolve().parent
@@ -44,8 +46,18 @@ LOCATION_SERVER_PORT = int(os.getenv("LOCATION_RESOLVER_PORT", 4109))
 QUERY_SERVER_HOST = os.getenv("QUERY_GENERATOR_HOST", "localhost")
 QUERY_SERVER_PORT = int(os.getenv("QUERY_GENERATOR_PORT", 4111))
 
+LOG_REDIS_HOST = os.getenv("LOG_REDIS_HOST", "localhost")
+LOG_REDIS_PORT = int(os.getenv("LOG_REDIS_PORT", 6380))
+LOG_REDIS_DB = int(os.getenv("LOG_REDIS_DB", 0))
+
 logger = logging.getLogger("fastapi_app")
 logging.basicConfig(level=logging.INFO)
+redis_log_handler = RedisLogHandler(
+    host=LOG_REDIS_HOST,
+    port=LOG_REDIS_PORT,
+    db=LOG_REDIS_DB,
+)
+logger.addHandler(redis_log_handler)
 
 config_loader = ConfigLoader()
 LOG_LIMIT = config_loader.getint("logging", "log_limit", default=100)
@@ -63,6 +75,14 @@ class ConnectionManager:
         self.interval = interval
         self.queue: asyncio.Queue[str] = asyncio.Queue()
         self._task: asyncio.Task | None = None
+        self.redis = aioredis.Redis(
+            host=LOG_REDIS_HOST,
+            port=LOG_REDIS_PORT,
+            db=LOG_REDIS_DB,
+            decode_responses=True,
+        )
+        self.pubsub = self.redis.pubsub()
+        self._redis_task: asyncio.Task | None = None
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -99,9 +119,20 @@ class ConnectionManager:
         except asyncio.CancelledError:
             pass
 
+    async def _redis_listener(self) -> None:
+        await self.pubsub.subscribe("wip.log")
+        try:
+            async for msg in self.pubsub.listen():
+                if msg.get("type") == "message":
+                    await self.enqueue(str(msg.get("data")))
+        except asyncio.CancelledError:
+            pass
+
     def start(self) -> None:
         if self._task is None:
             self._task = asyncio.create_task(self._broadcast_loop())
+        if self._redis_task is None:
+            self._redis_task = asyncio.create_task(self._redis_listener())
 
     async def stop(self) -> None:
         if self._task:
@@ -111,6 +142,15 @@ class ConnectionManager:
             except asyncio.CancelledError:
                 pass
             self._task = None
+        if self._redis_task:
+            self._redis_task.cancel()
+            try:
+                await self._redis_task
+            except asyncio.CancelledError:
+                pass
+            self._redis_task = None
+        await self.pubsub.close()
+        await self.redis.close()
 
 
 manager = ConnectionManager(log_limit=LOG_LIMIT, interval=BROADCAST_INTERVAL)
@@ -154,8 +194,10 @@ async def log_event(
     }
     if details:
         log_data["details"] = details
-    logger.info(json.dumps(log_data, ensure_ascii=False))
-    await manager.enqueue(json.dumps(log_data, ensure_ascii=False))
+    msg = json.dumps(log_data, ensure_ascii=False)
+    logger.info(msg)
+    await manager.enqueue(msg)
+    await redis_log_handler.publish(msg)
 
 
 def record_packet_metrics(duration_ms: float) -> None:
