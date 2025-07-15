@@ -34,7 +34,7 @@ tmux split-window -h  -t "$SESSION":0 -c "$CURRENT_DIR" \
   "$CONDA_INIT && python python/launch_server.py --report   --debug"
 
 tmux split-window -v  -t "$SESSION":0.3 -c "$CURRENT_DIR" \
-  "$CONDA_INIT && python python/application/map/fastapi_app.py --debug"
+  "$CONDA_INIT && python python/application/map/start_fastapi_server.py --debug"
 
 tmux select-layout -t "$SESSION":0 tiled   # 見やすくタイル配置
 tmux select-pane   -t "$SESSION":0.0       # 最初のペインにカーソル
