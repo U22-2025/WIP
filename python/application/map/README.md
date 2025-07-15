@@ -30,6 +30,7 @@ cd application/map
 python start_http3_server.py
 python start_fastapi_server.py
 ```
+Windows 環境では `config.ini` の `uvicorn.workers` を 1 に設定してください。
 
 ### 手動起動
 

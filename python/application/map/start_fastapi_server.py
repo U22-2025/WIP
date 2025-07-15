@@ -23,7 +23,11 @@ if __name__ == "__main__":
     if workers > 1 and reload_opt:
         print("Warning: workers が 1 より大きい場合は reload を無効化します")
         reload_opt = False
-    
+
+    if sys.platform.startswith("win") and workers > 1:
+        print("Warning: Windows環境ではworkers>1はサポートされていません。workers=1に変更します")
+        workers = 1
+
     uvicorn.run(
         "fastapi_app:app",
         host="0.0.0.0",
