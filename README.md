@@ -111,6 +111,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 - PostgreSQL (座標解決用)
 - PostGIS (地理情報処理)
 - Redis (キャッシュ)
+- KeyDB (ログ配信用)
 
 ### 依存関係のインストール
 ```bash
@@ -138,7 +139,17 @@ DATABASE_URL=postgresql://user:password@localhost/wip_db
 # Redis設定
 REDIS_HOST=localhost
 REDIS_PORT=6379
+LOG_REDIS_HOST=localhost
+LOG_REDIS_PORT=6380
+LOG_REDIS_DB=1
 ```
+KeyDB を使用してログを配信する場合は、以下の例のように Docker で起動できます。
+```bash
+docker run -d --name keydb -p 6380:6379 eqalpha/keydb
+# conf/keydb_log.conf を使う場合
+# docker run -d --name keydb -v $(pwd)/conf/keydb_log.conf:/etc/keydb/keydb.conf eqalpha/keydb keydb-server /etc/keydb/keydb.conf
+```
+RedisJSON モジュールは特に必要ありません。
 `localhost` を指定した場合は内部で IPv4 アドレス `127.0.0.1` に解決されます。環境によっては直接 `127.0.0.1` を指定することもできます。
 
 ## 使用方法
