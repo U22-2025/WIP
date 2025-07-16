@@ -634,21 +634,70 @@ class WeatherApp {
     const connect = () => {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       this.ws = new WebSocket(`${proto}//${location.host}/ws`);
+
       const lp = window.logPanel;
-      this.ws.onopen = () => lp.appendLog({ type: 'log', timestamp: Date.now(), level: 'success', message: 'WebSocket 接続完了' });
+
+      this.ws.onopen = () => lp.appendLog({
+        type: 'log',
+        timestamp: new Date().toISOString(),
+        level: 'success',
+        message: 'WebSocket 接続完了'
+      });
+
+      // bulk対応：terminal-log-panel.js が提供する共通ハンドラに委譲
       this.ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.type === 'metrics') {
-            lp.updateMetrics(data.total, data.avg_ms, data.packet_total, data.packet_avg_ms);
-          } else if (data.type === 'log') {
-            lp.appendLog(data);
-          }
-        } catch {
-          lp.appendLog({ type: 'log', timestamp: Date.now(), level: 'warning', message: e.data });
+        const lp = window.logPanel;
+        let payload;
+        try { payload = JSON.parse(e.data); }
+        catch {
+          lp.appendLog({type:'log',timestamp:new Date().toISOString(),level:'warning',message:e.data});
+          return;
         }
+
+        // bulk
+        if (payload.type === 'bulk' && Array.isArray(payload.logs)) {
+          payload.logs.forEach(item => {
+            let obj = item;
+            // （後方互換）要素が文字列なら JSON.parse
+            if (typeof item === 'string') {
+              try { obj = JSON.parse(item); } catch {/*skip this*/ return;}
+            }
+            if (obj.type === 'metrics') {
+              lp.updateMetrics(obj.total ?? 0, obj.avg_ms ?? 0, obj.packet_total ?? 0, obj.packet_avg_ms ?? 0);
+            } else {
+              lp.appendLog(obj);
+            }
+          });
+          return;
+        }
+
+        // metrics 単発
+        if (payload.type === 'metrics') {
+          lp.updateMetrics(payload.total ?? 0, payload.avg_ms ?? 0,
+                          payload.packet_total ?? 0, payload.packet_avg_ms ?? 0);
+          return;
+        }
+
+        // 単発ログ
+        if (payload.type === 'log' || payload.level) {
+          lp.appendLog(payload);
+          return;
+        }
+
+        // fallback
+        lp.appendLog({type:'log',timestamp:new Date().toISOString(),level:'info',message:e.data});
       };
-      this.ws.onclose = () => { lp.appendLog({ type: 'log', timestamp: Date.now(), level: 'warning', message: 'WebSocket 切断 - 再接続します' }); setTimeout(connect, 3000); };
+
+      this.ws.onclose = () => {
+        lp.appendLog({
+          type: 'log',
+          timestamp: new Date().toISOString(),
+          level: 'warning',
+          message: 'WebSocket 切断 - 再接続します'
+        });
+        setTimeout(connect, 3000);
+      };
+
       this.ws.onerror = (e) => console.error('WebSocket エラー:', e);
     };
     connect();

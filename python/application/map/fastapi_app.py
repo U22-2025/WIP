@@ -98,24 +98,66 @@ class ConnectionManager:
         await self.queue.put(message)
 
     async def _broadcast(self, message: str) -> None:
+        """単発メッセージ配信（互換用）。"""
         self.logs.append(message)
         if len(self.logs) > self.log_limit:
             self.logs = self.logs[-self.log_limit:]
+
         for ws in list(self.active):
             try:
                 await ws.send_text(message)
             except WebSocketDisconnect:
                 self.disconnect(ws)
 
+    async def _broadcast_batch(self, batch: List[str]) -> None:
+        """まとめて配信（1秒ごと）。JSON文字列→オブジェクト化して送る。"""
+        # 履歴は個別ログ文字列で保持（新規 WS 接続時の replay 用）
+        self.logs.extend(batch)
+        if len(self.logs) > self.log_limit:
+            self.logs = self.logs[-self.log_limit:]
+
+        objs = []
+        for s in batch:
+            try:
+                objs.append(json.loads(s))
+            except Exception:
+                # parse できなかった行もログ化して捨てない
+                objs.append({
+                    "type": "log",
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "info",
+                    "message": s,
+                    "details": {"raw": True},
+                })
+
+        payload = json.dumps({
+            "type": "bulk",
+            "count": len(objs),
+            "logs": objs,   # ← ここがオブジェクト配列になる！
+        }, ensure_ascii=False)
+
+        for ws in list(self.active):
+            try:
+                await ws.send_text(payload)
+            except WebSocketDisconnect:
+                self.disconnect(ws)
+
     async def _broadcast_loop(self) -> None:
+        """self.interval ごとにキューを読み出し、更新があれば 1 回だけ送信。"""
         try:
             while True:
-                await asyncio.sleep(self.interval)
-                messages: List[str] = []
+                await asyncio.sleep(self.interval)  # interval=1.0 で 1秒レート
+                if self.queue.empty():
+                    continue  # この周期は送るものなし
+
+                batch: List[str] = []
                 while not self.queue.empty():
-                    messages.append(await self.queue.get())
-                for msg in messages:
-                    await self._broadcast(msg)
+                    batch.append(await self.queue.get())
+
+                if len(batch) == 1:
+                    await self._broadcast(batch[0])     # 従来互換
+                else:
+                    await self._broadcast_batch(batch)  # bulk 送信
         except asyncio.CancelledError:
             pass
 
@@ -196,8 +238,8 @@ async def log_event(
         log_data["details"] = details
     msg = json.dumps(log_data, ensure_ascii=False)
     logger.info(msg)
-    await manager.enqueue(msg)
-    await redis_log_handler.publish(msg)
+    # await manager.enqueue(msg)
+    # await redis_log_handler.publish(msg)
 
 
 def record_packet_metrics(duration_ms: float) -> None:
