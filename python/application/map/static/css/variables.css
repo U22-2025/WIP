@@ -1,0 +1,123 @@
+/* CSS変数による動的テーマシステム */
+
+:root {
+    /* 基本カラーパレット */
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --accent-color: #4facfe;
+    --danger-color: #e74c3c;
+    --background-primary: #667eea;
+    --background-secondary: #764ba2;
+    --text-primary: #2d3436;
+    --text-secondary: #636e72;
+    --text-tertiary: #b2bec3;
+    --surface-primary: rgba(255, 255, 255, 0.95);
+    --surface-secondary: rgba(255, 255, 255, 0.8);
+    --glass-background: rgba(255, 255, 255, 0.25);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    /* アニメーション設定 */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.6s ease;
+    --bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    /* スペーシング */
+    --space-xs: 0.5rem;
+    --space-sm: 1rem;
+    --space-md: 1.5rem;
+    --space-lg: 2rem;
+    --space-xl: 3rem;
+    /* フォントサイズ */
+    --font-xs: 0.75rem;
+    --font-sm: 0.875rem;
+    --font-base: 1rem;
+    --font-lg: 1.125rem;
+    --font-xl: 1.25rem;
+    --font-2xl: 1.5rem;
+    --font-3xl: 2rem;
+    --font-4xl: 3rem;
+    /* ボーダー半径 */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-full: 50%;
+    /* 影 */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.2);
+    --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.37);
+    /* グラフ用の色 */
+    --chart-text-primary: #2d3436;
+    --chart-text-secondary: #636e72;
+    --chart-grid-color: rgba(182, 190, 195, 0.3);
+    /* 天気連動効果 */
+    --weather-overlay: transparent;
+    --particle-color: #fff;
+}
+
+
+/* 天気別テーマ */
+
+.theme-sunny {
+    --background-primary: #ff7f50;
+    --background-secondary: #ffa726;
+    --primary-color: #ff8a65;
+    --weather-overlay: radial-gradient(circle at 50% 20%, rgba(255, 193, 7, 0.3) 0%, transparent 50%);
+    --particle-color: #ffeb3b;
+}
+
+.theme-cloudy {
+    --background-primary: #78909c;
+    --background-secondary: #90a4ae;
+    --primary-color: #607d8b;
+    --weather-overlay: linear-gradient(135deg, rgba(96, 125, 139, 0.2) 0%, rgba(120, 144, 156, 0.2) 100%);
+}
+
+.theme-rainy {
+    --background-primary: #1e3a8a;
+    --background-secondary: #1e40af;
+    --primary-color: #3b82f6;
+    --weather-overlay: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(30, 64, 175, 0.3) 100%);
+    --particle-color: #60a5fa;
+}
+
+.theme-snowy {
+    --background-primary: #e1f5fe;
+    --background-secondary: #b3e5fc;
+    --primary-color: #03a9f4;
+    --weather-overlay: linear-gradient(135deg, rgba(225, 245, 254, 0.3) 0%, rgba(179, 229, 252, 0.3) 100%);
+    --particle-color: #ffffff;
+}
+
+.theme-stormy {
+    --background-primary: #263238;
+    --background-secondary: #37474f;
+    --primary-color: #546e7a;
+    --weather-overlay: linear-gradient(135deg, rgba(38, 50, 56, 0.4) 0%, rgba(55, 71, 79, 0.4) 100%);
+    --particle-color: #ffeb3b;
+}
+
+
+/* 時間帯別テーマ */
+
+.time-morning {
+    --background-primary: #ff9a9e;
+    --background-secondary: #fecfef;
+}
+
+.time-noon {
+    --background-primary: #667eea;
+    --background-secondary: #764ba2;
+}
+
+.time-evening {
+    --background-primary: #ff6b6b;
+    --background-secondary: #feca57;
+}
+
+.time-night {
+    --background-primary: #2c3e50;
+    --background-secondary: #3498db;
+}
+
+

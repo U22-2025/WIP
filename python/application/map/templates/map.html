@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>次世代気象情報マップ - リアルタイム天気予報</title>
+    <title>WIP Demo</title>
 
     <!-- 外部ライブラリ -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -18,7 +18,10 @@
     <meta name="apple-mobile-web-app-title" content="次世代Weather Map">
 
     <!-- カスタムスタイル -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/log-panel.css') }}">
 </head>
 
 <body>
@@ -38,7 +41,7 @@
 
         <div class="sidebar" id="sidebar" role="complementary">
             <div class="sidebar-header">
-                <h1><i class="fas fa-cloud-sun"></i> 次世代 Weather Map</h1>
+                <h1><i class="fas fa-cloud-sun"></i>WIP Demo v2.0</h1>
                 <p>地図をクリックして詳細な気象情報を取得</p>
             </div>
 
@@ -106,12 +109,71 @@
         <div class="loading-text">気象データを取得中...</div>
     </div>
 
+
+
+    <!-- 受信ログ表示パネル -->
+    <div id="log-panel">
+        <div class="log-header">
+            <div class="log-title">Access Log</div>
+            <div class="connection-status">
+                <div class="connection-dot" id="connection-dot"></div>
+                <span id="connection-text">connected</span>
+            </div>
+            <div class="log-controls">
+                <button class="control-btn" onclick="toggleAutoScroll()">
+                    <span id="auto-scroll-text">auto</span>
+                </button>
+                <button class="control-btn" onclick="clearLogs()">clear</button>
+                <button class="control-btn" onclick="togglePanel()">−</button>
+            </div>
+        </div>
+
+        <div class="log-status">
+            <div class="status-section">
+                <div class="status-item">
+                    <span>requests: <span class="status-value" id="total-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <span>avg: <span class="status-value" id="avg-response">0</span>ms</span>
+                </div>
+            </div>
+            <div class="status-section">
+                <div class="status-item">
+                    <span>packets: <span class="status-value" id="packet-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <span>avg: <span class="status-value" id="packet-avg-response">0</span>ms</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-entries" id="log-entries">
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <div>Waiting for logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モバイル用ボトムナビ -->
+    <div class="mobile-bottom-nav">
+        <button class="nav-btn" onclick="weatherApp.showWeeklyForecastMobile()">
+            <i class="fas fa-calendar-week"></i>
+            <span>予報</span>
+        </button>
+        <button class="nav-btn" onclick="weatherApp.toggleLogPanelMobile()">
+            <i class="fas fa-terminal"></i>
+            <span>ログ</span>
+        </button>
+    </div>
+
     <!-- 外部ライブラリ -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- カスタムスクリプト -->
-    <script src="{{ url_for('static', filename='js/weather-app.js') }}"></script>
+    <script src="{{ url_for('static', path='js/terminal-log-panel.js') }}" defer></script>
+    <script src="{{ url_for('static', path='js/weather-app.js') }}" defer></script>
 </body>
 
 </html>

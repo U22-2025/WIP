@@ -12,8 +12,9 @@ from datetime import datetime, timedelta
 from ..packet import QueryRequest, QueryResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async
+from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
 from ..utils.cache import Cache
+from common.utils.network import resolve_ipv4
 PIDG = PacketIDGenerator12Bit()
 
 
@@ -26,11 +27,11 @@ class QueryClient:
         # このメソッドは空実装とする
         pass
     
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10):
+    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=10, cache_enabled=True):
         if host is None:
             host = os.getenv('QUERY_GENERATOR_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('QUERY_GENERATOR_PORT', '4112'))
+            port = int(os.getenv('QUERY_GENERATOR_PORT', '4111'))
         """
         初期化
         
@@ -40,7 +41,7 @@ class QueryClient:
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
         """
-        self.host = host
+        self.host = resolve_ipv4(host)
         self.port = port
         self.debug = debug
         logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
@@ -53,8 +54,9 @@ class QueryClient:
         self._init_auth_config()
         
         # キャッシュの初期化
-        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes))
-        self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes")
+        self.cache = Cache(default_ttl=timedelta(minutes=cache_ttl_minutes), enabled=cache_enabled)
+        self.cache_enabled = cache_enabled
+        self.logger.debug(f"Query client cache initialized with TTL: {cache_ttl_minutes} minutes (enabled={cache_enabled})")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
@@ -302,7 +304,7 @@ class QueryClient:
             packet_bytes = request.to_bytes()
             loop = asyncio.get_running_loop()
             network_start = datetime.now()
-            await loop.sock_sendto(sock, packet_bytes, (self.host, self.port))
+            await safe_sock_sendto(loop, sock, packet_bytes, (self.host, self.port))
 
             response_data, server_addr = await receive_with_id_async(
                 sock, request.packet_id, timeout

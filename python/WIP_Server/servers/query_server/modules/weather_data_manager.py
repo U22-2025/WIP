@@ -22,6 +22,7 @@ class WeatherDataManager:
         self.config = config
         self.debug = config.get('debug', False)
         self.version = config.get('version', 1)
+        self.cache_enabled = config.get('cache_enabled', True)
         
         # Redis設定
         self.redis_host = config.get('redis_host', 'localhost')
@@ -33,6 +34,9 @@ class WeatherDataManager:
     
     def _init_redis(self):
         """Redis接続を初期化"""
+        if not self.cache_enabled:
+            self.redis_pool = None
+            return
         try:
             # Redis接続プールを作成
             pool_config = {
@@ -73,8 +77,8 @@ class WeatherDataManager:
             dict: 気象データ
         """
         rm = redis_manager.WeatherRedisManager()
-        
-        if not self.redis_pool:
+
+        if not self.cache_enabled or not self.redis_pool:
             return None
 
         try:
@@ -113,8 +117,8 @@ class WeatherDataManager:
             if alert_flag and 'warnings' in weather_data:
                 result['warnings'] = weather_data['warnings']
             
-            # 災害情報
-            if disaster_flag:
+            # 災害情報（存在する場合のみ取得）
+            if disaster_flag and ('disaster' in weather_data or 'disaster_info' in weather_data):
                 disaster_data = weather_data.get('disaster') or weather_data.get('disaster_info')
                 if disaster_data:
                     result['disaster'] = disaster_data
@@ -145,7 +149,7 @@ class WeatherDataManager:
         )
         
         # キャッシュに保存
-        if self.redis_pool and data:
+        if self.cache_enabled and self.redis_pool and data:
             self._save_to_cache(cache_key, data)
     
     def _generate_cache_key(self, area_code, weather_flag, temperature_flag, 
@@ -163,6 +167,8 @@ class WeatherDataManager:
     
     def _get_from_cache(self, key):
         """Redisキャッシュからデータを取得"""
+        if not self.cache_enabled:
+            return None
         try:
             r = redis.Redis(connection_pool=self.redis_pool)
             data = r.get(key)
@@ -175,6 +181,8 @@ class WeatherDataManager:
     
     def _save_to_cache(self, key, data):
         """Redisキャッシュにデータを保存"""
+        if not self.cache_enabled:
+            return
         try:
             r = redis.Redis(connection_pool=self.redis_pool)
             r.setex(key, CacheConstants.DEFAULT_TTL, json.dumps(data, ensure_ascii=False))

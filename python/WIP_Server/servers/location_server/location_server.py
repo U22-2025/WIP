@@ -55,6 +55,7 @@ class LocationServer(BaseServer):
             max_workers = self.config.getint('server', 'max_workers', None)
         if max_cache_size is None:
             max_cache_size = self.config.getint('cache', 'max_cache_size', 1000)
+        self.cache_enabled = self.config.getboolean('cache', 'enable_cache', True)
         
         # データベース設定を読み込む
         self.DB_NAME = self.config.get('database', 'name', 'weather_forecast_map')
@@ -81,7 +82,7 @@ class LocationServer(BaseServer):
         
         # データベース接続とキャッシュの初期化
         self._setup_database()
-        self._setup_cache(max_cache_size)
+        self._setup_cache(max_cache_size, self.cache_enabled)
         
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("LocationServer")
@@ -126,11 +127,12 @@ class LocationServer(BaseServer):
                 self.connection_pool.closeall()
             raise SystemExit(1)
     
-    def _setup_cache(self, max_cache_size):
+    def _setup_cache(self, max_cache_size, enabled=True):
         """キャッシュを初期化"""
-        self.cache = Cache()
+        self.cache = Cache(enabled=enabled)
         if self.debug:
-            print(f"[{self.server_name}] TTLベースのキャッシュを初期化しました")
+            state = "enabled" if enabled else "disabled"
+            print(f"[{self.server_name}] TTLベースのキャッシュを初期化しました ({state})")
     
     def parse_request(self, data):
         """

@@ -28,7 +28,9 @@
 ```bash
 cd application/map
 python start_http3_server.py
+python start_fastapi_server.py
 ```
+Windows 環境では `config.ini` の `uvicorn.workers` を 1 に設定してください。
 
 ### 手動起動
 
@@ -54,7 +56,9 @@ python app_http3.py
 application/map/
 ├── app.py                    # Flask版メインアプリケーション
 ├── app_http3.py             # HTTP/3対応版（Quart）
+├── fastapi_app.py           # FastAPI版アプリケーション
 ├── start_http3_server.py    # 自動セットアップ・起動スクリプト
+├── start_fastapi_server.py  # FastAPI開発サーバー
 ├── generate_cert.py         # SSL証明書生成スクリプト
 ├── requirements_http3.txt   # HTTP/3用依存関係
 ├── README.md               # このファイル
@@ -63,10 +67,13 @@ application/map/
 ├── cert.pem / key.pem     # SSL証明書（生成後）
 ├── templates/             # HTMLテンプレート
 │   ├── map.html          # メインHTML
-│   └── weather_code.json # 天気コード定義
+│   └── weather_code.json # 天気コード定義 (logs/json に配置)
 └── static/               # 静的ファイル
     ├── css/
-    │   └── styles.css    # メインスタイルシート
+    │   ├── variables.css   # 変数定義
+    │   ├── base.css        # ベーススタイル
+    │   ├── components.css  # コンポーネントスタイル
+    │   └── log-panel.css   # ログパネルスタイル
     └── js/
         └── weather-app.js # JavaScriptロジック
 ```
@@ -76,7 +83,6 @@ application/map/
 ### バックエンド
 - **Flask** (標準版) / **Quart** (HTTP/3版)
 - **Hypercorn**: HTTP/3対応ASGIサーバー
-- **geopy**: 地理情報処理・逆ジオコーディング
 - **WIP_Client**: 独自天気情報取得システム
 
 ### フロントエンド
@@ -97,15 +103,22 @@ application/map/
 |---------------|----------|------|
 | `/` | GET | メインマップページ |
 | `/weather_code.json` | GET | 天気コード定義 |
-| `/click` | POST | 座標クリック時の天気・住所取得 |
-| `/get_address` | POST | 住所情報のみ取得 |
 | `/weekly_forecast` | POST | 週間天気予報取得 |
+| `/ws` | WebSocket | ログメッセージ購読 |
+
+ログメッセージは JSON 形式で配信され、`level` フィールドには
+`success`、`warning`、`error` のいずれかが設定されます。HTTP ステータス
+コードに応じて分類されるため、クライアント側で容易に重要度を判別できます。
+
+ログはサーバ側でバッファリングされ、`config.ini` の `broadcast_interval`
+で指定した間隔ごとにまとめて送信されます。これによりリクエスト数に依存しない
+安定した配信が可能です。
 
 ### リクエスト例
 
 ```javascript
-// 座標クリック時の天気情報取得
-fetch('/click', {
+// 週間天気予報の取得
+fetch('/weekly_forecast', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',
@@ -128,18 +141,27 @@ fetch('/click', {
     "lat": 35.6762,
     "lng": 139.6503
   },
-  "weather": {
-    "weather_code": "100",
-    "temperature": "22",
-    "precipitation_prob": "10",
-    "area_code": "130010"
-  },
-  "address": {
-    "full_address": "日本, 東京都千代田区",
-    "prefecture": "東京都",
-    "city": "千代田区",
-    "country": "日本"
-  }
+  "area_code": "130010",
+  "weekly_forecast": [
+    {
+      "date": "2024-04-01",
+      "day_of_week": "Monday",
+      "weather_code": "100",
+      "temperature": "22",
+      "precipitation_prob": "10",
+      "area_code": "130010",
+      "day": 0
+    },
+    {
+      "date": "2024-04-02",
+      "day_of_week": "Tuesday",
+      "weather_code": "101",
+      "temperature": "21",
+      "precipitation_prob": "20",
+      "area_code": "130010",
+      "day": 1
+    }
+  ]
 }
 ```
 
@@ -165,7 +187,6 @@ fetch('/click', {
 #### 標準版 (Flask)
 ```txt
 flask>=2.3.0
-geopy>=2.3.0
 requests>=2.31.0
 ```
 
@@ -173,7 +194,6 @@ requests>=2.31.0
 ```txt
 quart>=0.19.0
 hypercorn[h3]>=0.16.0
-geopy>=2.3.0
 aioquic>=0.9.20
 ```
 
@@ -205,10 +225,16 @@ python start_http3_server.py
 const initialLat = 35.6762;  // 緯度
 const initialLng = 139.6503; // 経度
 const initialZoom = 10;      // ズームレベル
+// タイルレイヤ
+const tileProvider = 'google aerial';
 ```
 
+地図読み込みを軽量化するため、ズーム上限を16に設定し、
+`maxBounds`で日本全域に範囲を限定しています。
+タイルはGoogleの航空写真を使用します。
+
 #### スタイル変更
-`static/css/styles.css`でUI要素のスタイルをカスタマイズ可能
+`static/css/` 配下の各CSSファイルでUI要素のスタイルをカスタマイズ可能
 
 ## 🔒 セキュリティ
 

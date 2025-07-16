@@ -6,10 +6,10 @@ import threading
 import sys
 import os
 import traceback
-
+from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
-
+JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {"weather_reportdatetime": {}}
     output_lock = threading.Lock()
@@ -254,7 +254,7 @@ def update_redis_weather_data(debug=False, area_codes=None):
 
     # エリアコードが指定されていない場合は、JSONファイルから読み込む
     if area_codes is None:
-        with open("logs/json/area_codes.json", "r", encoding="utf-8") as f:
+        with open(JSON_DIR / "area_codes.json", "r", encoding="utf-8") as f:
             area_codes = list(json.load(f).keys())
 
     # 気象データを取得し、直接Redisに保存

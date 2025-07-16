@@ -16,7 +16,8 @@ from ..packet.types.report_packet import ReportRequest, ReportResponse
 from ..packet.types.error_response import ErrorResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async
+from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
+from common.utils.network import resolve_ipv4
 
 
 class ReportClient:
@@ -31,7 +32,7 @@ class ReportClient:
             port: 天気サーバーのポート
             debug: デバッグモード
         """
-        self.host = host
+        self.host = resolve_ipv4(host)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(10.0)
@@ -228,7 +229,7 @@ class ReportClient:
                 request.set_auth_flags()
 
             self.debug_logger.log_request(request, "SENSOR REPORT REQUEST")
-            await loop.sock_sendto(self.sock, request.to_bytes(), (self.host, self.port))
+            await safe_sock_sendto(loop, self.sock, request.to_bytes(), (self.host, self.port))
             response_data, _ = await receive_with_id_async(
                 self.sock, request.packet_id, 10.0
             )

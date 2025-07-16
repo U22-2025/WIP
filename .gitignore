@@ -4,3 +4,5 @@ __pycache__
 /.vscode/
 /Rust/target/
 /cpp/
+/python/logs/json
+!.env.example

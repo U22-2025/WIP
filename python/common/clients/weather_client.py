@@ -13,7 +13,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from common.packet import LocationRequest, LocationResponse, QueryRequest, QueryResponse, ErrorResponse
 from common.packet.debug import create_debug_logger
 from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
-from common.clients.utils import receive_with_id, receive_with_id_async
+from common.clients.utils import receive_with_id, receive_with_id_async, safe_sock_sendto
+from common.utils.network import resolve_ipv4
 PIDG = PacketIDGenerator12Bit()
 
 
@@ -33,7 +34,7 @@ class WeatherClient:
             port: Weather Serverのポート
             debug: デバッグモード
         """
-        self.host = host
+        self.host = resolve_ipv4(host)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(10.0)
@@ -158,7 +159,7 @@ class WeatherClient:
 
             loop = asyncio.get_running_loop()
             self.sock.setblocking(False)
-            await loop.sock_sendto(self.sock, request.to_bytes(), (self.host, self.port))
+            await safe_sock_sendto(loop, self.sock, request.to_bytes(), (self.host, self.port))
 
             response_data, addr = await receive_with_id_async(self.sock, request.packet_id, 10.0)
             self.logger.debug(response_data)
@@ -297,7 +298,7 @@ class WeatherClient:
 
             loop = asyncio.get_running_loop()
             self.sock.setblocking(False)
-            await loop.sock_sendto(self.sock, request.to_bytes(), (self.host, self.port))
+            await safe_sock_sendto(loop, self.sock, request.to_bytes(), (self.host, self.port))
 
             response_data, addr = await receive_with_id_async(self.sock, request.packet_id, 10.0)
             response_type = int.from_bytes(response_data[2:3], byteorder="little") & 0x07

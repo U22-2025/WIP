@@ -11,12 +11,14 @@ import asyncio
 from dotenv import load_dotenv
 import os
 import logging
+from pathlib import Path
 from ..packet import LocationRequest, LocationResponse
 from ..packet.debug import create_debug_logger
 from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async
+from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
+from common.utils.config_loader import ConfigLoader
+from common.utils.network import resolve_ipv4
 import sys
-import os
 
 # PersistentCacheを使用するためのパス追加
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client'))
@@ -28,11 +30,18 @@ load_dotenv()
 class LocationClient:
     """Location Serverと通信するクライアント（専用パケットクラス使用）"""
 
-    def __init__(self, host=None, port=None, debug=False, cache_ttl_minutes=30):
+    def __init__(self, host=None, port=None, debug=False,
+                 cache_ttl_minutes=30, cache_enabled=None, config_path=None):
+        if config_path is None:
+            config_path = Path(__file__).resolve().parents[2] / 'WIP_Client' / 'config.ini'
+        config = ConfigLoader(config_path)
+
         if host is None:
             host = os.getenv('LOCATION_RESOLVER_HOST', 'localhost')
         if port is None:
-            port = int(os.getenv('LOCATION_RESOLVER_PORT', '4111'))
+            port = int(os.getenv('LOCATION_RESOLVER_PORT', '4109'))
+        if cache_enabled is None:
+            cache_enabled = config.getboolean('cache', 'enable_coordinate_cache', True)
         """
         初期化
         
@@ -42,7 +51,7 @@ class LocationClient:
             debug: デバッグモード
             cache_ttl_minutes: キャッシュの有効期限（分）
         """
-        self.server_host = host
+        self.server_host = resolve_ipv4(host)
         self.server_port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.debug = debug
@@ -57,8 +66,9 @@ class LocationClient:
         
         # 永続キャッシュの初期化
         cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'WIP_Client', 'coordinate_cache.json')
-        self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60)
-        self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes")
+        self.cache = PersistentCache(cache_file=cache_file, ttl_hours=cache_ttl_minutes/60, enabled=cache_enabled)
+        self.cache_enabled = cache_enabled
+        self.logger.debug(f"Location client persistent cache initialized with TTL: {cache_ttl_minutes} minutes (enabled={cache_enabled})")
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
@@ -267,8 +277,8 @@ class LocationClient:
             loop = asyncio.get_running_loop()
             self.sock.setblocking(False)
             network_start = time.time()
-            await loop.sock_sendto(
-                self.sock, request.to_bytes(), (self.server_host, self.server_port)
+            await safe_sock_sendto(
+                loop, self.sock, request.to_bytes(), (self.server_host, self.server_port)
             )
             self.logger.debug(f"Sent request to {self.server_host}:{self.server_port}")
 
