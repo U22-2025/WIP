@@ -113,6 +113,34 @@ class ExtendedField:
     FIELD_MAPPING_INT: Dict[int, str] = {}
     FIELD_MAPPING_STR: Dict[str, int] = {}
 
+    @staticmethod
+    def _source_to_int(ip: str, port: int) -> int:
+        """IPとポートを整数へ変換"""
+        parts = ip.split('.')
+        if len(parts) != 4:
+            raise BitFieldError(f"IPアドレスの形式が不正です: {ip}")
+
+        p1 = str(int(parts[0]))
+        p2 = f"{int(parts[1]):03d}"
+        p3 = f"{int(parts[2]):03d}"
+        p4 = f"{int(parts[3]):03d}"
+        port_str = f"{int(port):05d}"
+        return int(p1 + p2 + p3 + p4 + port_str)
+
+    @staticmethod
+    def _int_to_source(value: int) -> tuple[str, int]:
+        """整数からIPとポートを復元"""
+        digits = str(int(value))
+        if len(digits) < 14:
+            raise BitFieldError("source値が短すぎます")
+        port = int(digits[-5:])
+        p4 = str(int(digits[-8:-5]))
+        p3 = str(int(digits[-11:-8]))
+        p2 = str(int(digits[-14:-11]))
+        p1 = digits[:-14]
+        ip = ".".join([p1, p2, p3, p4])
+        return ip, port
+
     @classmethod
     def _generate_properties(cls) -> None:
         """FIELD_MAPPING_STR に基づきプロパティを生成"""
@@ -386,9 +414,7 @@ class ExtendedField:
                 values_to_process = value
                 
                 if key == 'source':
-                    # sourceフィールドは"ip:port"形式でシリアライズ
                     if isinstance(values_to_process, str):
-                        # 文字列の場合は分割処理
                         if ":" not in values_to_process:
                             raise BitFieldError(f"source文字列は'ip:port'形式である必要があります: {values_to_process}")
                         ip, port_str = values_to_process.rsplit(":", 1)
@@ -396,17 +422,15 @@ class ExtendedField:
                             port = int(port_str)
                         except ValueError:
                             raise BitFieldError(f"無効なポート番号: {port_str}")
-                        ip, port = ip, port
                     elif isinstance(values_to_process, (tuple, list)):
-                        # タプルまたはリストの場合は長さを確認
                         if len(values_to_process) != 2:
                             raise BitFieldError(f"sourceは2つの要素(ip, port)である必要があります。実際の要素数: {len(values_to_process)}, 内容: {values_to_process}")
                         ip, port = values_to_process
                     else:
                         raise BitFieldError(f"sourceは文字列またはタプルである必要があります: {type(values_to_process)}")
-                    
-                    value_str = f"{ip}:{port}"
-                    value_bytes = value_str.encode('utf-8')
+
+                    value_int = self._source_to_int(str(ip), int(port))
+                    value_bytes = value_int.to_bytes((value_int.bit_length() + 7) // 8 or 1, byteorder='little')
                 elif isinstance(values_to_process, str):
                     value_bytes = values_to_process.encode('utf-8')
                 elif key in ['latitude', 'longitude']:
@@ -481,14 +505,22 @@ class ExtendedField:
                 
             # SOURCE フィールドの特別処理（後方互換性のため）
             if key == ExtendedFieldType.SOURCE:
-                value_str = value_bytes.decode('utf-8').rstrip('\x00#')
-                if ':' in value_str:
-                    ip, port_str = value_str.split(':')
-                    try:
-                        return (ip, int(port_str))
-                    except ValueError:
-                        return value_str
-                return value_str
+                try:
+                    value_str = value_bytes.decode('utf-8').rstrip('\x00#')
+                    if ':' in value_str:
+                        ip, port_str = value_str.split(':')
+                        try:
+                            return (ip, int(port_str))
+                        except ValueError:
+                            pass
+                except UnicodeDecodeError:
+                    value_str = None
+
+                value_int = int.from_bytes(value_bytes, byteorder='little')
+                try:
+                    return cls._int_to_source(value_int)
+                except Exception:
+                    return value_str if value_str is not None else value_int
                 
             # COORDINATE_FIELDS (latitude, longitude)
             if key in ExtendedFieldType.COORDINATE_FIELDS:

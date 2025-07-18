@@ -84,15 +84,15 @@ class QueryServer(BaseServer):
         
         # noupdateフラグがFalseの場合のみ起動時更新を実行
         if not noupdate:
-            # 起動時に気象データを更新
-            self._update_weather_data_scheduled()
+            # 起動時に気象データを更新（スレッドで非同期実行）
+            threading.Thread(target=self._update_weather_data_scheduled, daemon=True).start()
 
-            # 起動時に警報と災害情報を更新
-            self._update_disaster_alert_scheduled()
-        
-        # スケジューラーを開始（loggerが初期化された後）
+            # 起動時に警報と災害情報を更新（スレッドで非同期実行）
+            threading.Thread(target=self._update_disaster_alert_scheduled, daemon=True).start()
+
+        # スケジューラーを開始
         self._setup_scheduler()
-    
+
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（QueryServer固有）"""
         # QueryServer自身の認証設定
