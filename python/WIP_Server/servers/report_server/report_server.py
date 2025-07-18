@@ -21,6 +21,7 @@ from ..base_server import BaseServer
 from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet.debug.debug_logger import PacketDebugLogger
+from ..common.log_config import UnifiedLogFormatter
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
@@ -502,33 +503,35 @@ class ReportServer(BaseServer):
             raise ValueError(f"サポートされていないパケットタイプ: {packet_type}")
     
     def _debug_print_request(self, data, parsed):
-        """リクエストのデバッグ情報を出力"""
+        """リクエストのデバッグ情報を出力（統一フォーマット）"""
         if not self.debug:
             return
-            
-        print(f"\n[{self.server_name}] === 受信レポートパケット ===")
-        print(f"Total Length: {len(data)} bytes")
-        print(f"Packet Class: {type(parsed).__name__}")
-        
-        print("\nHeader:")
-        print(f"Version: {parsed.version}")
-        print(f"Type: {parsed.type}")
-        print(f"Area Code: {parsed.area_code}")
-        print(f"Packet ID: {parsed.packet_id}")
-        print(f"Timestamp: {time.ctime(parsed.timestamp)}")
-        
-        print("\nFlags:")
-        print(f"Weather: {parsed.weather_flag}")
-        print(f"Temperature: {parsed.temperature_flag}")
-        print(f"POP: {parsed.pop_flag}")
-        print(f"Alert: {parsed.alert_flag}")
-        print(f"Disaster: {parsed.disaster_flag}")
-        
-        # センサーデータ情報
+
+        details = {
+            "Version": getattr(parsed, "version", "N/A"),
+            "Type": getattr(parsed, "type", "N/A"),
+            "Area Code": getattr(parsed, "area_code", "N/A"),
+            "Packet ID": getattr(parsed, "packet_id", "N/A"),
+            "Timestamp": time.ctime(getattr(parsed, "timestamp", 0)),
+            "Weather": getattr(parsed, "weather_flag", False),
+            "Temperature": getattr(parsed, "temperature_flag", False),
+            "POP": getattr(parsed, "pop_flag", False),
+            "Alert": getattr(parsed, "alert_flag", False),
+            "Disaster": getattr(parsed, "disaster_flag", False),
+        }
+
         sensor_data = self._extract_sensor_data(parsed)
-        print(f"\nSensor Data: {sensor_data}")
-        
-        print("========================\n")
+        details["Sensor Data"] = sensor_data
+
+        log = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="recv from",
+            remote_addr="unknown",
+            remote_port=0,
+            packet_size=len(data),
+            packet_details=details,
+        )
+        print(log)
     
     def get_statistics(self):
         """サーバー統計情報を取得"""

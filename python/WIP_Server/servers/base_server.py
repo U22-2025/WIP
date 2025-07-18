@@ -9,6 +9,7 @@ import threading
 import concurrent.futures
 import os
 from abc import ABC, abstractmethod
+from .common.log_config import UnifiedLogFormatter
 try:
     from dotenv import load_dotenv
     _DOTENV_AVAILABLE = True
@@ -111,20 +112,43 @@ class BaseServer(ABC):
         print()
     
     def _debug_print_request(self, data, parsed, addr=None):
-        """リクエストのデバッグ情報を出力（派生クラスでオーバーライド可能）"""
-        self._debug_print(
-            "RECEIVED REQUEST PACKET",
-            f"Total Length: {len(data)} bytes\nFrom: {addr or getattr(parsed, 'addr', 'Unknown')}",
-            data
+        """リクエストのデバッグ情報を出力（統一フォーマット）"""
+        if not self.debug:
+            return
+
+        packet_details = {
+            "Version": getattr(parsed, "version", "N/A"),
+            "Type": getattr(parsed, "type", "N/A"),
+            "Packet ID": getattr(parsed, "packet_id", "N/A"),
+        }
+
+        log = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="recv from",
+            remote_addr=addr[0] if addr else "unknown",
+            remote_port=addr[1] if addr else 0,
+            packet_size=len(data),
+            packet_details=packet_details,
         )
-    
+        print(log)
+
     def _debug_print_response(self, response, addr=None, request=None):
-        """レスポンスのデバッグ情報を出力（派生クラスでオーバーライド可能）"""
-        self._debug_print(
-            "SENDING RESPONSE PACKET",
-            f"Total Length: {len(response)} bytes\nTo: {addr or 'Unknown'}",
-            response
+        """レスポンス送信時のログを出力（統一フォーマット）"""
+
+        packet_details = {}
+        if request is not None and self.debug:
+            packet_details["Packet ID"] = getattr(request, "packet_id", "N/A")
+            packet_details["Type"] = getattr(request, "type", "N/A")
+
+        log = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="sent to",
+            remote_addr=addr[0] if addr else "unknown",
+            remote_port=addr[1] if addr else 0,
+            packet_size=len(response),
+            packet_details=packet_details if self.debug else None,
         )
+        print(log)
     
     def _measure_time(self, func, *args, **kwargs):
         """関数の実行時間を計測"""
@@ -261,9 +285,16 @@ class BaseServer(ABC):
             
             # エラーレスポンスを送信
             self.sock.sendto(response_data, addr)
-            
-            if self.debug:
-                print(f"[{threading.current_thread().name}] Sent error response to {addr}, code: {error_code}")
+
+            log = UnifiedLogFormatter.format_communication_log(
+                server_name=self.server_name,
+                direction="sent to",
+                remote_addr=addr[0] if isinstance(addr, tuple) else "unknown",
+                remote_port=addr[1] if isinstance(addr, tuple) else 0,
+                packet_size=len(response_data),
+                packet_details={"Error Code": error_code} if self.debug else None,
+            )
+            print(log)
                 
         except Exception as e:
             print(f"[{threading.current_thread().name}] Failed to send error response: {e}")
@@ -387,8 +418,14 @@ class BaseServer(ABC):
         """
         try:
             bytes_sent = self.sock.sendto(data, (host, port))
-            if self.debug:
-                print(f"[{self.server_name}] Sent {bytes_sent} bytes to {host}:{port} from port {self.port}")
+            log = UnifiedLogFormatter.format_communication_log(
+                server_name=self.server_name,
+                direction="sent to",
+                remote_addr=host,
+                remote_port=port,
+                packet_size=bytes_sent,
+            )
+            print(log)
             return bytes_sent
         except Exception as e:
             print(f"[{self.server_name}] Error sending packet to {host}:{port}: {e}")
@@ -414,8 +451,15 @@ class BaseServer(ABC):
                     # リクエストを受信
                     data, addr = self.sock.recvfrom(buffer_size)
                     
-                    # 常に受信をログ出力
-                    print(f"\n[{self.server_name}] UDP packet received from {addr} ({len(data)} bytes)")
+                    # 常に受信をログ出力（統一フォーマット）
+                    recv_log = UnifiedLogFormatter.format_communication_log(
+                        server_name=self.server_name,
+                        direction="recv from",
+                        remote_addr=addr[0],
+                        remote_port=addr[1],
+                        packet_size=len(data),
+                    )
+                    print(recv_log)
                     
                     if self.debug:
                         print(f"[Main] Submitting to worker pool for processing")
