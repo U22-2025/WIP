@@ -12,6 +12,7 @@ from common.packet import (
     ErrorResponse, ExtendedField,
 )
 from common.packet.debug.debug_logger import PacketDebugLogger
+from ..common.log_config import UnifiedLogFormatter
 
 
 class WeatherRequestHandlers:
@@ -1032,22 +1033,27 @@ class WeatherRequestHandlers:
         return True, None, None
     
     def _debug_print_request(self, data, parsed):
-        """リクエストのデバッグ情報を出力（改良版・専用クラス対応）"""
+        """リクエストのデバッグ情報を出力（統一フォーマット）"""
         if not self.debug:
             return
-            
-        self.logger.debug(f"[{self.server_name}] Received packet: {type(parsed).__name__}, {len(data)} bytes")
-        
-        # 専用クラスのサマリー情報を使用
+
+        details = {
+            "Packet ID": getattr(parsed, "packet_id", "N/A"),
+            "Type": getattr(parsed, "type", "N/A"),
+            "Area": getattr(parsed, "area_code", "N/A"),
+        }
         if hasattr(parsed, 'get_request_summary'):
-            summary = parsed.get_request_summary()
-            self.logger.debug(f"Request: {summary}")
-        elif hasattr(parsed, 'get_response_summary'):
-            summary = parsed.get_response_summary()
-            self.logger.debug(f"Response: {summary}")
-        
-        # 基本情報のみ表示
-        self.logger.debug(f"Packet ID: {parsed.packet_id}, Type: {parsed.type}, Area: {parsed.area_code}")
+            details['Summary'] = parsed.get_request_summary()
+
+        log = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="recv from",
+            remote_addr="unknown",
+            remote_port=0,
+            packet_size=len(data),
+            packet_details=details,
+        )
+        self.logger.debug(log)
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理（オーバーライド）"""
