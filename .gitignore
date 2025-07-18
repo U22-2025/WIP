@@ -5,3 +5,4 @@ __pycache__
 /Rust/target/
 /cpp/
 /python/logs/json
+/logs/reports

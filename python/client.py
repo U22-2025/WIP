@@ -1,5 +1,7 @@
 import sys
 import os
+import time
+from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # 環境変数を.envファイルから読み込み
@@ -15,8 +17,91 @@ use_proxy = "--proxy" in sys.argv
 debug_enabled = "--debug" in sys.argv
 use_report = "--report" in sys.argv
 
-import time
-from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+
+"""
+    --report時のオプション
+
+        --area: エリアコード指定
+        --weather: 天気コード指定
+        --pops: 降水確率指定
+        --temp: 温度指定
+        --alert: 警報情報指定（カンマ区切り）
+        --disaster: 災害情報指定（カンマ区切り）
+        --lat: 緯度指定
+        --lon: 経度指定
+
+"""
+
+# 追加オプション引数の解析
+area_code = 460010  # デフォルト値: 名古屋
+weather_code = 100  # デフォルト値: 晴れ
+pops = 30           # デフォルト値: 30%
+temperature = 25.0  # デフォルト値: 25℃
+alerts = []         # デフォルト値: 空リスト
+disasters = []      # デフォルト値: 空リスト
+latitude = 35.6895  # デフォルト値: 東京
+longitude = 139.6917 # デフォルト値: 東京
+
+# エリアコード指定 (例: --area 010010)
+if '--area' in sys.argv:
+    idx = sys.argv.index('--area') + 1
+    if idx < len(sys.argv):
+        try:
+            area_code = int(sys.argv[idx])
+        except ValueError:
+            print(f"無効なエリアコード: {sys.argv[idx]}, デフォルト値を使用します")
+            area_code = 460010  # デフォルト値にリセット
+
+# 天気コード指定 (例: --weather 010)
+if '--weather' in sys.argv:
+    idx = sys.argv.index('--weather') + 1
+    if idx < len(sys.argv):
+        try:
+            weather_code = int(sys.argv[idx])
+        except ValueError:
+            print(f"無効な天気コード: {sys.argv[idx]}, デフォルト値を使用します")
+
+# 降水確率指定 (例: --pops 50)
+if '--pops' in sys.argv:
+    idx = sys.argv.index('--pops') + 1
+    if idx < len(sys.argv):
+        try:
+            pops = int(sys.argv[idx])
+        except ValueError:
+            print(f"無効な降水確率: {sys.argv[idx]}, デフォルト値を使用します")
+
+# 座標指定 (例: --lat 35.6895 --lon 139.6917)
+if '--lat' in sys.argv:
+    idx = sys.argv.index('--lat') + 1
+    if idx < len(sys.argv):
+        try:
+            latitude = float(sys.argv[idx])
+        except ValueError:
+            print(f"無効な緯度: {sys.argv[idx]}, デフォルト値を使用します")
+
+if '--lon' in sys.argv:
+    idx = sys.argv.index('--lon') + 1
+    if idx < len(sys.argv):
+        try:
+            longitude = float(sys.argv[idx])
+        except ValueError:
+            print(f"無効な経度: {sys.argv[idx]}, デフォルト値を使用します")
+
+# 引数解析結果を表示
+print("\nコマンドライン引数解析結果:")
+print(f"use_coordinates: {use_coordinates}")
+print(f"use_proxy: {use_proxy}")
+print(f"debug_enabled: {debug_enabled}")
+print(f"use_report: {use_report}")
+print(f"area_code: {area_code} (型: {type(area_code)})")
+print(f"weather_code: {weather_code}")
+print(f"pops: {pops}")
+print(f"temperature: {temperature}")
+print(f"alerts: {alerts}")
+print(f"disasters: {disasters}")
+print(f"latitude: {latitude}")
+print(f"longitude: {longitude}")
+print("=" * 60)
 
 if use_proxy:
     # Weather Server経由（プロキシモード）
@@ -34,33 +119,151 @@ else:
 if use_report:
     from common.clients.report_client import ReportClient
 
-"""メイン関数 - 直接通信 vs プロキシ経由の比較テスト"""
+    # 温度指定 (例: --temp 28.5)
+    if '--temp' in sys.argv:
+        idx = sys.argv.index('--temp') + 1
+        if idx < len(sys.argv):
+            try:
+                temperature = float(sys.argv[idx])
+            except ValueError:
+                print(f"無効な温度値: {sys.argv[idx]}, デフォルト値を使用します")
+
+    # 警報指定 (例: --alert "大雨注意報,洪水警報")
+    if '--alert' in sys.argv:
+        idx = sys.argv.index('--alert') + 1
+        if idx < len(sys.argv):
+            alerts = [a.strip() for a in sys.argv[idx].split(',') if a.strip()]
+
+    # 災害情報指定 (例: --disaster "河川氾濫情報,土砂災害警戒")
+    if '--disaster' in sys.argv:
+        idx = sys.argv.index('--disaster') + 1
+        if idx < len(sys.argv):
+            disasters = [d.strip() for d in sys.argv[idx].split(',') if d.strip()]
+
+    # レポートモードの場合は専用処理
+    print("Weather Client Example - Report Mode")
+    print("Report mode enabled - Data will be sent to Report Server")
+    print("=" * 60)
+    
+    print("\n=== Report Mode: Sending dummy data to Report Server ===")
+    print("-" * 55)
+    
+    # レポートデータ作成前に変数値を確認
+    print("\nレポートデータ作成前の変数値:")
+    print(f"area_code: {area_code} (型: {type(area_code)})")
+    print(f"weather_code: {weather_code}")
+    print(f"temperature: {temperature}")
+    print(f"pops: {pops}")
+    print(f"alerts: {alerts}")
+    print(f"disasters: {disasters}")
+    
+    # 引数から取得したデータを使用
+    report_data = {
+        'area_code': area_code,
+        'weather_code': weather_code,
+        'temperature': temperature,
+        'pops': pops,
+        'alert': alerts,
+        'disaster': disasters
+    }
+    
+    print("Using sensor data from command line:")
+    for key, value in report_data.items():
+        print(f"  {key}: {value}")
+    
+    print("\nSending report to Report Server...")
+    # レポートモードでは常に直接レポートサーバへ送信
+    report_host = os.getenv('REPORT_SERVER_HOST', 'localhost')
+    report_port = int(os.getenv('REPORT_SERVER_PORT', '4112'))
+    report_client = ReportClient(host=report_host, port=report_port, debug=debug_enabled)
+    print(f"Using direct mode - sending directly to Report Server ({report_host}:{report_port})")
+    
+    try:
+        report_client.set_sensor_data(
+            area_code=report_data.get('area_code'),
+            weather_code=report_data.get('weather_code'),
+            temperature=report_data.get('temperature'),
+            precipitation_prob=report_data.get('pops'),
+            alert=report_data.get('alert'),
+            disaster=report_data.get('disaster')
+        )
+        
+        start_time = time.time()
+        report_result = report_client.send_report_data()
+        elapsed_time = time.time() - start_time
+        
+        if report_result:
+            print(f"\nOK Report sent successfully! (Execution time: {elapsed_time:.3f}s)")
+            print("=== Report Response ===")
+            for key, value in report_result.items():
+                print(f"  {key}: {value}")
+            print("=======================")
+        else:
+            print("\n✗ Failed to send report to Report Server")
+            
+    except Exception as e:
+        print(f"\n✗ Error sending report: {e}")
+        if debug_enabled:
+            import traceback
+            traceback.print_exc()
+    finally:
+        report_client.close()
+        
+    print("\n" + "=" * 60)
+    print("Report mode completed")
+    # レポートモードの場合は、他の処理を実行せずに終了
+    exit(0)
+
+"""通常モードの処理"""
 if use_proxy:
     print("Weather Client Example - Via Weather Server (Proxy Mode)")
 else:
     print("Weather Client Example - Direct Communication")
-    
-if use_report:
-    print("Report mode enabled - Data will be sent to Report Server")
 print("=" * 60)
-
-# --report指定時は、ダミーデータでレポートサーバーに送信
-if use_report:
-    print("\n=== Report Mode: Sending dummy data to Report Server ===")
-    print("-" * 55)
     
-    # ダミーデータを作成
-    dummy_data = {
-        'area_code': 460010,  # 名古屋
-        'weather_code': 100,  # 晴れ
-        'temperature': 25.0,  # 25℃
-        'precipitation_prob': 30,  # 30%
-        'alert': ["大雨注意報"],
-        'disaster': ["河川氾濫情報"]
+# 温度指定 (例: --temp 28.5)
+if '--temp' in sys.argv:
+    idx = sys.argv.index('--temp') + 1
+    if idx < len(sys.argv):
+        try:
+            temperature = float(sys.argv[idx])
+        except ValueError:
+            print(f"無効な温度値: {sys.argv[idx]}, デフォルト値を使用します")
+
+# 警報指定 (例: --alert "大雨注意報,洪水警報")
+if '--alert' in sys.argv:
+    idx = sys.argv.index('--alert') + 1
+    if idx < len(sys.argv):
+        alerts = [a.strip() for a in sys.argv[idx].split(',') if a.strip()]
+
+# 災害情報指定 (例: --disaster "河川氾濫情報,土砂災害警戒")
+if '--disaster' in sys.argv:
+    idx = sys.argv.index('--disaster') + 1
+    if idx < len(sys.argv):
+        disasters = [d.strip() for d in sys.argv[idx].split(',') if d.strip()]
+
+        
+    # レポートデータ作成前に変数値を確認
+    print("\nレポートデータ作成前の変数値:")
+    print(f"area_code: {area_code} (型: {type(area_code)})")
+    print(f"weather_code: {weather_code}")
+    print(f"temperature: {temperature}")
+    print(f"pops: {pops}")
+    print(f"alerts: {alerts}")
+    print(f"disasters: {disasters}")
+    
+    # 引数から取得したデータを使用
+    report_data = {
+        'area_code': area_code,
+        'weather_code': weather_code,
+        'temperature': temperature,
+        'pops': pops,
+        'alert': alerts,
+        'disaster': disasters
     }
     
-    print("Using dummy sensor data:")
-    for key, value in dummy_data.items():
+    print("Using sensor data from command line:")
+    for key, value in report_data.items():
         print(f"  {key}: {value}")
     
     print("\nSending report to Report Server...")
@@ -80,12 +283,12 @@ if use_report:
     
     try:
         report_client.set_sensor_data(
-            area_code=dummy_data['area_code'],
-            weather_code=dummy_data['weather_code'],
-            temperature=dummy_data['temperature'],
-            precipitation_prob=dummy_data['precipitation_prob'],
-            alert=dummy_data['alert'],
-            disaster=dummy_data['disaster']
+            area_code=report_data.get('area_code'),
+            weather_code=report_data.get('weather_code'),
+            temperature=report_data.get('temperature'),
+            precipitation_prob=report_data.get('pops'),
+            alert=report_data.get('alert'),
+            disaster=report_data.get('disaster')
         )
         
         start_time = time.time()
@@ -125,8 +328,8 @@ if use_coordinates:
         
         # LocationRequestを作成して実行
         request = LocationRequest.create_coordinate_lookup(
-            latitude=35.6895,
-            longitude=139.6917,
+            latitude=latitude,
+            longitude=longitude,
             packet_id=PIDG.next_id(),
             weather=True,
             temperature=True,
@@ -182,8 +385,8 @@ if use_coordinates:
         location_client = LocationClient(debug=debug_enabled, cache_ttl_minutes=60)  # キャッシュ有効期限を60分に設定
         
         location_request = LocationRequest.create_coordinate_lookup(
-            latitude=35.6895,
-            longitude=139.6917,
+            latitude=latitude,
+            longitude=longitude,
             packet_id=PIDG.next_id(),
             version=1
         )
@@ -194,8 +397,8 @@ if use_coordinates:
         
         # キャッシュ情報も取得
         area_code_with_cache_info = location_client.get_area_code_simple(
-            latitude=35.6895,
-            longitude=139.6917,
+            latitude=latitude,
+            longitude=longitude,
             use_cache=True,
             return_cache_info=True
         )
@@ -210,8 +413,8 @@ if use_coordinates:
         
         # 従来のメソッドも実行してレスポンスを取得
         location_response, raw_data = location_client.get_location_data(
-            latitude=35.6895,
-            longitude=139.6917,
+            latitude=latitude,
+            longitude=longitude,
             use_cache=True
         )
         
@@ -225,8 +428,8 @@ if use_coordinates:
             # キャッシュテスト：同じ座標を再度取得
             print("\n--- Cache Test: Getting same coordinates again ---")
             location_response2, raw_data2 = location_client.get_location_data(
-                latitude=35.6895,
-                longitude=139.6917,
+                latitude=latitude,
+                longitude=longitude,
                 use_cache=True
             )
             
@@ -242,7 +445,7 @@ if use_coordinates:
             query_client = QueryClient(debug=debug_enabled)
             
             weather_result = query_client.get_weather_data(
-                area_code=area_code,
+                area_code=area_code,  # 座標から取得したエリアコード
                 weather=True,
                 temperature=True,
                 precipitation_prob=True,
@@ -299,7 +502,7 @@ else:
         start_time = time.time()
         client = WeatherClient(debug=debug_enabled)
         result = client.get_weather_data(
-            area_code=460010,
+            area_code=area_code,  # 引数で指定されたエリアコード
             weather=True,
             temperature=True,
             precipitation_prob=True,
@@ -361,7 +564,7 @@ else:
         start_time = time.time()
         query_client = QueryClient(debug=debug_enabled)
         result = query_client.get_weather_data(
-            area_code=460010,
+            area_code=area_code,  # 引数で指定されたエリアコード
             weather=True,
             temperature=True,
             precipitation_prob=True,
