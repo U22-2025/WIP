@@ -3,3 +3,6 @@ __pycache__
 *.pem
 /.vscode/
 /Rust/target/
+/cpp/
+/python/logs/json
+!.env.example

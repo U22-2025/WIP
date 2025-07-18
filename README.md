@@ -111,6 +111,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 - PostgreSQL (座標解決用)
 - PostGIS (地理情報処理)
 - Redis (キャッシュ)
+- KeyDB (ログ配信用)
 
 ### 依存関係のインストール
 ```bash
@@ -138,7 +139,18 @@ DATABASE_URL=postgresql://user:password@localhost/wip_db
 # Redis設定
 REDIS_HOST=localhost
 REDIS_PORT=6379
+LOG_REDIS_HOST=localhost
+LOG_REDIS_PORT=6380
+LOG_REDIS_DB=1
 ```
+KeyDB を使用してログを配信する場合は、以下の例のように Docker で起動できます。
+```bash
+docker run -d --name keydb -p 6380:6379 eqalpha/keydb
+# conf/keydb_log.conf を使う場合
+# docker run -d --name keydb -v $(pwd)/conf/keydb_log.conf:/etc/keydb/keydb.conf eqalpha/keydb keydb-server /etc/keydb/keydb.conf
+```
+RedisJSON モジュールは特に必要ありません。
+`localhost` を指定した場合は内部で IPv4 アドレス `127.0.0.1` に解決されます。環境によっては直接 `127.0.0.1` を指定することもできます。
 
 ## 使用方法
 
@@ -161,7 +173,7 @@ python -m wip.servers.query_server.query_server
 ```python
 from wip.clients.weather_client import WeatherClient
 
-# クライアント初期化
+# クライアント初期化（"localhost" は自動で IPv4 に解決されます）
 client = WeatherClient(host='localhost', port=4110, debug=True)
 
 # 座標から天気情報を取得
@@ -382,6 +394,9 @@ python wip/scripts/update_weather_data.py
 - Redis による高速キャッシュ
 - 地域コードキャッシュ（`cache/area_cache.json`）
 - 気象データキャッシュ（TTL: 1時間）
+- 各キャッシュは設定ファイルの `enable_*_cache` オプションで有効/無効を切り替え可能
+- WIP_Client の座標キャッシュは `python/WIP_Client/config.ini` の
+  `enable_coordinate_cache` でオン/オフを設定
 
 ## トラブルシューティング
 
