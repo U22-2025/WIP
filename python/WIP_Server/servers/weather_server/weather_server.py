@@ -100,7 +100,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 cache_enabled=area_cache_enabled
             )
         except Exception as e:
-            print(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
+            self.logger.error(f"ロケーションクライアントの初期化に失敗しました: {self.location_resolver_host}:{self.location_resolver_port} - {str(e)}")
             self.logger.debug(traceback.format_exc())
             raise RuntimeError(f"ロケーションクライアント初期化エラー: {str(e)}")
 
@@ -116,7 +116,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 cache_enabled=weather_cache_enabled
             )
         except Exception as e:
-            print( f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
+            self.logger.error(f"クエリクライアントの初期化に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}")
             self.logger.debug(traceback.format_exc())
             raise RuntimeError(f"クエリクライアント初期化エラー: {str(e)}")
         
@@ -250,7 +250,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 timing_info['parse'] = parse_time
                 # リクエストパース成功のデバッグ出力を削除
             except Exception as e:
-                print(f"530: [{self.server_name}] リクエストのパース中にエラーが発生しました: {e}")
+                self.logger.error(f"530: [{self.server_name}] リクエストのパース中にエラーが発生しました: {e}")
                 self.logger.debug(traceback.format_exc())
                 # ErrorResponseを作成して返す（パースエラー時はpacket_id=0とする）
                 error_response = ErrorResponse(
@@ -391,7 +391,7 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
         except Exception as e:
             with self.lock:
                 self.error_count += 1
-            print(f"530: [{self.server_name}:{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
+            self.logger.error(f"530: [{self.server_name}:{threading.current_thread().name}] {addr} からのリクエスト処理中にエラーが発生しました: {e}")
             self.logger.debug(traceback.format_exc())
             # ErrorResponseを作成して返す（requestが未定義の場合の処理を追加）
             packet_id = getattr(request, 'packet_id', 0)  # requestが未定義の場合は0

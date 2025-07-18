@@ -110,19 +110,19 @@ class BaseServer(ABC):
         print("=" * (len(title) + 8))
         print()
     
-    def _debug_print_request(self, data, parsed):
+    def _debug_print_request(self, data, parsed, addr=None):
         """リクエストのデバッグ情報を出力（派生クラスでオーバーライド可能）"""
         self._debug_print(
             "RECEIVED REQUEST PACKET",
-            f"Total Length: {len(data)} bytes\nFrom: {getattr(parsed, 'addr', 'Unknown')}",
+            f"Total Length: {len(data)} bytes\nFrom: {addr or getattr(parsed, 'addr', 'Unknown')}",
             data
         )
     
-    def _debug_print_response(self, response, request=None):
+    def _debug_print_response(self, response, addr=None, request=None):
         """レスポンスのデバッグ情報を出力（派生クラスでオーバーライド可能）"""
         self._debug_print(
             "SENDING RESPONSE PACKET",
-            f"Total Length: {len(response)} bytes",
+            f"Total Length: {len(response)} bytes\nTo: {addr or 'Unknown'}",
             response
         )
     
@@ -291,7 +291,7 @@ class BaseServer(ABC):
             timing_info['parse'] = parse_time
             
             # デバッグ出力
-            self._debug_print_request(data, request)
+            self._debug_print_request(data, request, addr)
             
             # リクエストの妥当性をチェック（基本チェックのみ）
             # 詳細なバリデーションは create_response 内で行われる
@@ -312,7 +312,7 @@ class BaseServer(ABC):
             timing_info['response'] = response_time
             
             # デバッグ出力
-            self._debug_print_response(response, request)
+            self._debug_print_response(response, addr, request)
             
             # レスポンスを送信
             send_start = time.time()

@@ -10,6 +10,29 @@ from typing import Optional, Dict
 
 from dotenv import load_dotenv
 
+# 統一ログフォーマットをインポート
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'WIP_Server', 'servers'))
+try:
+    from common.log_config import LoggerConfig, UnifiedLogFormatter
+except ImportError:
+    # フォールバック用
+    class LoggerConfig:
+        @staticmethod
+        def setup_client_logger(client_name="WIPClient", debug=False):
+            logger = logging.getLogger(f"Client.{client_name}")
+            if not logger.handlers and debug:
+                handler = logging.StreamHandler()
+                formatter = logging.Formatter('%(message)s')
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
+                logger.setLevel(logging.DEBUG)
+            return logger
+    
+    class UnifiedLogFormatter:
+        @staticmethod
+        def format_communication_log(**kwargs):
+            return "*** Client Log ***"
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.clients.weather_client import WeatherClient
 from common.packet import LocationRequest, QueryRequest
@@ -60,12 +83,10 @@ class Client:
         self.debug = debug
         self.state = ClientState(latitude, longitude, area_code)
 
-        self.logger = logging.getLogger(__name__)
-        if self.debug:
-            logging.basicConfig(level=logging.DEBUG)
-            self.logger.setLevel(logging.DEBUG)
-        else:
-            self.logger.setLevel(logging.INFO)
+        self.logger = LoggerConfig.setup_client_logger(
+            client_name="WIPClient",
+            debug=self.debug
+        )
 
         if not 1 <= self.config.port <= 65535:
             raise ValueError("112: 無効なポート番号")
@@ -78,10 +99,15 @@ class Client:
             raise RuntimeError(f"111: クライアント初期化失敗 - {e}") from e
 
         if self.debug:
-            self.logger.debug(
-                f"WIP Client initialized - Server: {self.config.host}:{self.config.port}"
+            init_log = UnifiedLogFormatter.format_communication_log(
+                server_name="WIPClient",
+                direction="connected to",
+                remote_addr=self.config.host,
+                remote_port=self.config.port,
+                packet_size=0,
+                packet_details={"Initial State": str(self.state)}
             )
-            self.logger.debug(f"Initial state: {self.state}")
+            self.logger.debug(init_log)
 
     # ---------------------------------------------------------------
     # プロパティ

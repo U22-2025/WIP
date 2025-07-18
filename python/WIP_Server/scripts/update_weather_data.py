@@ -39,6 +39,10 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
     # Redisから既存のweather_reportdatetimeを取得
     existing_report_datetimes = rm.get_weather_data("weather_reportdatetime")
 
+    # レート制限のためのロック
+    rate_limit_lock = threading.Lock()
+    last_request_time = [0]  # リストにして参照渡し
+
     def fetch_and_process_area(area_code):
         area_output = {}
 
@@ -47,6 +51,15 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             print(f"エリアコード {area_code} の処理を開始します")
 
         try:
+            # レート制限: 1秒間に1リクエスト
+            with rate_limit_lock:
+                current_time = time.time()
+                time_since_last = current_time - last_request_time[0]
+                if time_since_last < 1.0:
+                    sleep_time = 1.0 - time_since_last
+                    time.sleep(sleep_time)
+                last_request_time[0] = time.time()
+
             URL = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
             # 共有セッションとタイムアウトを使用
             response = session.get(URL, timeout=timeout)

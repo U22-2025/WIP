@@ -6,6 +6,7 @@
 
 import sys
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 import schedule
@@ -108,7 +109,7 @@ class QueryServer(BaseServer):
     def _setup_components(self):
         """各コンポーネントを初期化"""
         # デバッグヘルパー
-        self.debug_helper = DebugHelper(self.debug)
+        self.debug_helper = DebugHelper(self.debug, logger_name=self.server_name)
         
         # 気象データマネージャー（設定情報を渡す）
         weather_config = {
@@ -264,62 +265,54 @@ class QueryServer(BaseServer):
         
         return response.to_bytes()
     
-    def _debug_print_request(self, data, parsed):
-        """リクエストのデバッグ情報を出力（オーバーライド）"""
+    def _debug_print_request(self, data, parsed, addr=None):
+        """リクエストのデバッグ情報を出力（統一フォーマット）"""
         if not self.debug:
             return
-            
-        print(f"\n[{self.server_name}] === 受信リクエストパケット ===")
-        print(f"Total Length: {len(data)} bytes")
-        print("\nHeader:")
-        print(f"Version: {parsed.version}")
-        print(f"Type: {parsed.type}")
-        print(f"Area Code: {parsed.area_code}")
-        print(f"Day: {parsed.day}")
-        print("\nFlags:")
-        print(f"Weather: {parsed.weather_flag}")
-        print(f"Temperature: {parsed.temperature_flag}")
-        print(f"pop: {parsed.pop_flag}")
-        print(f"Alert: {parsed.alert_flag}")
-        print(f"Disaster: {parsed.disaster_flag}")
-        print(f"Extended Field Flag: {parsed.ex_flag}")
         
-        # ex_fieldの詳細を表示
-        if hasattr(parsed, 'ex_field'):
-            print(f"\nExtended Field content: {parsed.ex_field}")
-            if hasattr(parsed.ex_field, 'source') and parsed.ex_field.source:
-                print(f"  Source: {parsed.ex_field.source[0]}:{parsed.ex_field.source[1]}")
-        else:
-            print("\nパースされたリクエストに ex_field 属性がありません！")
+        # タイマー開始
+        self.debug_helper.start_timing()
         
-        print("===========================\n")
+        # 認証状態の確認（認証が有効な場合）
+        auth_status = None
+        if hasattr(self, 'auth_enabled') and self.auth_enabled:
+            # 認証結果を確認する処理（実装に応じて調整）
+            auth_status = "認証成功"  # または "認証失敗"
+        
+        # debug_helperの統一フォーマットを使用
+        self.debug_helper.print_request_debug(
+            data=data,
+            parsed_request=parsed,
+            remote_addr=addr[0] if addr else "unknown",
+            remote_port=addr[1] if addr else 0,
+            auth_status=auth_status
+        )
     
-    def _debug_print_response(self, response, request=None):
-        """レスポンスのデバッグ情報を出力（オーバーライド）"""
+    def _debug_print_response(self, response, addr=None, request=None):
+        """レスポンスのデバッグ情報を出力（統一フォーマット）"""
         if not self.debug:
             return
-            
-        print(f"\n[{self.server_name}] === 送信レスポンスパケット ===")
         
-        # レスポンスオブジェクトの詳細情報を表示
+        # 認証状態の確認（認証が有効な場合）
+        auth_status = None
+        if hasattr(self, 'auth_enabled') and self.auth_enabled:
+            auth_status = "認証成功"  # または "認証失敗"
+        
+        # レスポンスオブジェクトの詳細情報を取得
+        response_obj = None
         try:
-            resp_obj = QueryResponse.from_bytes(response)
-            print("\nResponse Data:")
-            if resp_obj.weather_flag:
-                print(f"Weather Code: {resp_obj.weather_code}")
-            if resp_obj.temperature_flag:
-                actual_temp = resp_obj.temperature - 100
-                print(f"Temperature: {resp_obj.temperature} ({actual_temp}℃)")
-            if resp_obj.pop_flag:
-                print(f"precipitation_prob: {resp_obj.pop}%")
-            if hasattr(resp_obj, 'ex_field') and resp_obj.ex_field:
-                print(f"Extended Fields: {resp_obj.ex_field}")
-                if hasattr(resp_obj.ex_field, 'source') and resp_obj.ex_field.source:
-                    print(f"  Source: {resp_obj.ex_field.source[0]}:{resp_obj.ex_field.source[1]}")
+            response_obj = QueryResponse.from_bytes(response)
         except:
             pass
         
-        print("============================\n")
+        # debug_helperの統一フォーマットを使用
+        self.debug_helper.print_response_debug(
+            response_data=response,
+            remote_addr=addr[0] if addr else "unknown",
+            remote_port=addr[1] if addr else 0,
+            auth_status=auth_status,
+            response_obj=response_obj
+        )
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理（オーバーライド）"""
@@ -368,7 +361,7 @@ class QueryServer(BaseServer):
             self.skip_area = update_redis_weather_data(debug=self.debug)
             self.logger.debug(f"[{self.server_name}] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。")
         except Exception as e:
-            print(f"[{self.server_name}] 気象データ更新エラー: {e}")
+            self.logger.error(f"[{self.server_name}] 気象データ更新エラー: {e}")
             self.logger.debug(traceback.format_exc())
 
     def _check_and_update_skip_area_scheduled(self):
@@ -386,7 +379,7 @@ class QueryServer(BaseServer):
                 self.skip_area = updated_skip_area
                 self.logger.debug(f"[{self.server_name}] skip_areaの更新完了。現在のskip_area: {self.skip_area}")
             except Exception as e:
-                print(f"[{self.server_name}] skip_area更新エラー: {e}")
+                self.logger.error(f"[{self.server_name}] skip_area更新エラー: {e}")
                 self.logger.debug(traceback.format_exc())
         else:
             self.logger.debug(f"[{self.server_name}] skip_areaは空です。更新はスキップされます。")
@@ -401,7 +394,7 @@ class QueryServer(BaseServer):
             update_alert_disaster_main()
             self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新完了。")
         except Exception as e:
-            print(f"[{self.server_name}] 災害情報と気象注意報の更新エラー: {e}")
+            self.logger.error(f"[{self.server_name}] 災害情報と気象注意報の更新エラー: {e}")
             self.logger.debug(traceback.format_exc())
 
 

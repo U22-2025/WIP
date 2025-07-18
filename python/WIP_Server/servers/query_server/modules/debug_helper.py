@@ -5,20 +5,50 @@
 
 import time
 import threading
+import logging
+import sys
+import os
 from .weather_constants import DebugConstants
+
+# 共通ログ設定をインポート
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+try:
+    from common.log_config import LoggerConfig
+except ImportError:
+    # フォールバック用の簡易設定
+    class LoggerConfig:
+        @staticmethod
+        def setup_debug_helper_logger(name, debug_enabled=False):
+            logger = logging.getLogger(f"DebugHelper.{name}")
+            if not logger.handlers and debug_enabled:
+                handler = logging.StreamHandler()
+                formatter = logging.Formatter(
+                    '%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s'
+                )
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
+                logger.setLevel(logging.DEBUG)
+            return logger
 
 
 class DebugHelper:
     """デバッグ支援クラス"""
     
-    def __init__(self, debug_enabled=False):
+    def __init__(self, debug_enabled=False, logger_name=None):
         """
         初期化
         
         Args:
             debug_enabled: デバッグモードの有効/無効
+            logger_name: ロガー名（指定しない場合はモジュール名を使用）
         """
         self.debug_enabled = debug_enabled
+        self.server_name = logger_name or "QueryServer"
+        self.logger = LoggerConfig.setup_debug_helper_logger(
+            name=self.server_name,
+            debug_enabled=debug_enabled
+        )
+        self.timer = PerformanceTimer()
     
     def _hex_dump(self, data):
         """
@@ -34,41 +64,103 @@ class DebugHelper:
         ascii_str = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
         return f"Hex: {hex_str}\nASCII: {ascii_str}"
     
-    def print_request_debug(self, data, parsed_request):
+    def print_request_debug(self, data, parsed_request, remote_addr="unknown", remote_port=0, auth_status=None):
         """
-        リクエストパケットのデバッグ情報を出力
+        リクエストパケットのデバッグ情報を出力（統一フォーマット）
         
         Args:
             data: 受信したバイナリデータ
             parsed_request: パースされたリクエスト
+            remote_addr: 送信元アドレス
+            remote_port: 送信元ポート
+            auth_status: 認証状態
         """
         if not self.debug_enabled:
             return
         
-        print(f"\n{DebugConstants.REQUEST_SEPARATOR}")
-        print(f"Total Length: {len(data)} bytes")
-        print("\nCoordinates:")
-        print(f"{parsed_request.ex_field}")
-        print("===========================\n")
+        # パケット詳細情報の収集
+        packet_details = {
+            "Version": getattr(parsed_request, 'version', 'N/A'),
+            "Type": getattr(parsed_request, 'type', 'N/A'),
+            "Area Code": getattr(parsed_request, 'area_code', 'N/A'),
+            "Day": getattr(parsed_request, 'day', 'N/A'),
+            "Weather Flag": getattr(parsed_request, 'weather_flag', 'N/A'),
+            "Temperature Flag": getattr(parsed_request, 'temperature_flag', 'N/A'),
+            "Precipitation Flag": getattr(parsed_request, 'pop_flag', 'N/A'),
+            "Alert Flag": getattr(parsed_request, 'alert_flag', 'N/A'),
+            "Disaster Flag": getattr(parsed_request, 'disaster_flag', 'N/A')
+        }
+        
+        if hasattr(parsed_request, 'ex_field') and parsed_request.ex_field:
+            packet_details["Extended Field"] = str(parsed_request.ex_field)
+            if hasattr(parsed_request.ex_field, 'source'):
+                packet_details["Source"] = f"{parsed_request.ex_field.source[0]}:{parsed_request.ex_field.source[1]}"
+        
+        log_message = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="recv from",
+            remote_addr=remote_addr,
+            remote_port=remote_port,
+            packet_size=len(data),
+            auth_status=auth_status,
+            packet_details=packet_details
+        )
+        
+        self.logger.debug(log_message)
     
-    def print_response_debug(self, response_data):
+    def print_response_debug(self, response_data, remote_addr="unknown", remote_port=0, auth_status=None, response_obj=None):
         """
-        レスポンスパケットのデバッグ情報を出力
+        レスポンスパケットのデバッグ情報を出力（統一フォーマット）
         
         Args:
             response_data: レスポンスのバイナリデータ
+            remote_addr: 送信先アドレス
+            remote_port: 送信先ポート
+            auth_status: 認証状態
+            response_obj: レスポンスオブジェクト（詳細表示用）
         """
         if not self.debug_enabled:
             return
         
-        print(f"\n{DebugConstants.RESPONSE_SEPARATOR}")
-        print(f"Total Length: {len(response_data)} bytes")
-        print(f"Response : {response_data}")
-        print("============================\n")
+        # 処理時間を計算
+        processing_time_ms = self.timer.get_elapsed_ms() if self.timer.start_time else None
+        
+        # パケット詳細情報の収集
+        packet_details = {}
+        if response_obj:
+            if hasattr(response_obj, 'weather_code'):
+                packet_details["Weather Code"] = response_obj.weather_code
+            if hasattr(response_obj, 'temperature'):
+                packet_details["Temperature"] = response_obj.temperature
+            if hasattr(response_obj, 'pop'):
+                packet_details["Precipitation Probability"] = f"{response_obj.pop}%"
+            if hasattr(response_obj, 'ex_field') and response_obj.ex_field:
+                packet_details["Extended Field"] = str(response_obj.ex_field)
+                if hasattr(response_obj.ex_field, 'source'):
+                    packet_details["Source"] = f"{response_obj.ex_field.source[0]}:{response_obj.ex_field.source[1]}"
+        
+        log_message = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="sent to",
+            remote_addr=remote_addr,
+            remote_port=remote_port,
+            packet_size=len(response_data),
+            auth_status=auth_status,
+            processing_time_ms=processing_time_ms,
+            packet_details=packet_details if packet_details else None
+        )
+        
+        self.logger.debug(log_message)
+    
+    def start_timing(self):
+        """
+        処理時間測定を開始
+        """
+        self.timer.start()
     
     def print_timing_info(self, thread_id, addr, timing_data):
         """
-        処理時間情報を出力
+        処理時間情報を出力（統一フォーマット対応）
         
         Args:
             thread_id: スレッドID
@@ -78,13 +170,11 @@ class DebugHelper:
         if not self.debug_enabled:
             return
         
-        print(f"\n{DebugConstants.TIMING_SEPARATOR}")
-        print(f"[{thread_id}] Processing times for {addr}:")
-        
+        timing_info = f"[{thread_id}] Processing times for {addr}:"
         for key, value in timing_data.items():
-            print(f"{key}: {value * DebugConstants.MS_MULTIPLIER:.2f}ms")
+            timing_info += f"\n  {key}: {value * DebugConstants.MS_MULTIPLIER:.2f}ms"
         
-        print("========================\n")
+        self.logger.debug(timing_info)
     
     def print_thread_info(self, message, addr=None):
         """
@@ -99,9 +189,9 @@ class DebugHelper:
         
         thread_id = threading.current_thread().name
         if addr:
-            print(f"[{thread_id}] {message} from {addr}")
+            self.logger.debug(f"[{thread_id}] {message} from {addr}")
         else:
-            print(f"[{thread_id}] {message}")
+            self.logger.debug(f"[{thread_id}] {message}")
     
     def print_error(self, message, addr=None, exception=None):
         """
@@ -121,7 +211,7 @@ class DebugHelper:
         if exception:
             error_msg += f" - {exception}"
         
-        print(error_msg)
+        self.logger.error(error_msg)
     
     def print_info(self, message):
         """
@@ -131,62 +221,63 @@ class DebugHelper:
             message: 情報メッセージ
         """
         if self.debug_enabled:
-            print(f"INFO: {message}")
+            self.logger.info(f"INFO: {message}")
 
 
 class PerformanceTimer:
-    """パフォーマンス測定クラス"""
+    """パフォーマンス測定用タイマー"""
     
     def __init__(self):
-        """初期化"""
         self.start_time = None
-        self.timings = {}
     
     def start(self):
-        """測定開始"""
+        """タイマーを開始"""
         self.start_time = time.time()
-        return self.start_time
     
-    def mark(self, label):
-        """
-        特定のポイントの時間を記録
-        
-        Args:
-            label: ラベル名
-            
-        Returns:
-            float: 経過時間
-        """
+    def get_elapsed_ms(self):
+        """経過時間をミリ秒で取得"""
         if self.start_time is None:
-            self.start()
-        
-        current_time = time.time()
-        elapsed = current_time - self.start_time
-        self.timings[label] = elapsed
-        return elapsed
+            return None
+        return (time.time() - self.start_time) * 1000
+
+
+class UnifiedLogFormatter:
+    """統一ログフォーマット"""
     
-    def get_timing(self, label):
+    @staticmethod
+    def format_communication_log(server_name, direction, remote_addr, remote_port, packet_size, 
+                                auth_status=None, processing_time_ms=None, packet_details=None):
         """
-        特定のラベルの時間を取得
+        通信ログの統一フォーマット
         
         Args:
-            label: ラベル名
-            
-        Returns:
-            float: 経過時間
-        """
-        return self.timings.get(label, 0.0)
-    
-    def get_all_timings(self):
-        """
-        全ての測定時間を取得
+            server_name: サーバー名
+            direction: 通信方向 ("recv from" or "sent to")
+            remote_addr: リモートアドレス
+            remote_port: リモートポート
+            packet_size: パケットサイズ
+            auth_status: 認証状態
+            processing_time_ms: 処理時間（ミリ秒）
+            packet_details: パケット詳細情報
         
         Returns:
-            dict: 全ての測定時間
+            str: フォーマットされたログメッセージ
         """
-        return self.timings.copy()
-    
-    def reset(self):
-        """測定データをリセット"""
-        self.start_time = None
-        self.timings.clear()
+        log_parts = [
+            f"[{server_name}] {direction} {remote_addr}:{remote_port}",
+            f"Size: {packet_size}B"
+        ]
+        
+        if auth_status:
+            log_parts.append(f"Auth: {auth_status}")
+        
+        if processing_time_ms is not None:
+            log_parts.append(f"Time: {processing_time_ms:.2f}ms")
+        
+        if packet_details:
+            details_str = ", ".join([f"{k}: {v}" for k, v in packet_details.items()])
+            log_parts.append(f"Details: {details_str}")
+        
+        return " | ".join(log_parts)
+
+

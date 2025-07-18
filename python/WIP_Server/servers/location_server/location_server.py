@@ -395,7 +395,7 @@ class LocationServer(BaseServer):
                 cursor.close()
                 self.connection_pool.putconn(conn)
     
-    def _debug_print_request(self, data, parsed):
+    def _debug_print_request(self, data, parsed, addr=None):
         """リクエストのデバッグ情報を出力（オーバーライド）"""
         if not self.debug:
             return
@@ -414,7 +414,7 @@ class LocationServer(BaseServer):
             print("リクエストに座標がありません")
         print("===========================\n")
     
-    def _debug_print_response(self, response, request=None):
+    def _debug_print_response(self, response, addr=None, request=None):
         """レスポンスのデバッグ情報を出力（オーバーライド）"""
         if not self.debug:
             return

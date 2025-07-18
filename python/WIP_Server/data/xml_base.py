@@ -14,6 +14,8 @@ XML処理基底クラス
 import xml.etree.ElementTree as ET
 import json
 import requests
+import time
+import threading
 from typing import Optional, Dict, Any
 from abc import ABC, abstractmethod
 
@@ -36,6 +38,9 @@ class XMLBaseProcessor(ABC):
             'jmx_eb': 'http://xml.kishou.go.jp/jmaxml1/elementBasis1/',
             'atom': 'http://www.w3.org/2005/Atom'
         }
+        # レート制限のためのロック
+        self.rate_limit_lock = threading.Lock()
+        self.last_request_time = 0
     
     def fetch_xml(self, url: str) -> Optional[str]:
         """
@@ -48,6 +53,15 @@ class XMLBaseProcessor(ABC):
             XMLデータ（文字列）、エラー時はNone
         """
         try:
+            # レート制限: 1秒間に1リクエスト
+            with self.rate_limit_lock:
+                current_time = time.time()
+                time_since_last = current_time - self.last_request_time
+                if time_since_last < 1.0:
+                    sleep_time = 1.0 - time_since_last
+                    time.sleep(sleep_time)
+                self.last_request_time = time.time()
+
             response = requests.get(url)
             response.encoding = 'utf-8'
             response.raise_for_status()
