@@ -2,27 +2,20 @@ from fastapi.testclient import TestClient
 
 from application.map.fastapi_app import (
     app,
-    get_location_client,
-    get_query_client,
+    get_wip_client,
 )
 
-class DummyLocationClient:
-    async def get_location_data_async(self, latitude, longitude, use_cache=True):
-        class Resp:
-            def is_valid(self_inner):
-                return True
+class DummyWIPClient:
+    async def get_weather_by_coordinates(self, latitude, longitude, **kwargs):
+        day = kwargs.get("day", 0)
+        return {
+            "weather_code": "100",
+            "temperature": str(20 + day),
+            "precipitation_prob": "0",
+            "area_code": "0000",
+        }
 
-            def get_area_code(self_inner):
-                return "0000"
-
-        return Resp(), 0.0
-
-    def close(self):
-        pass
-
-
-class DummyQueryClient:
-    async def get_weather_data_async(self, area_code, **kwargs):
+    async def get_weather_by_area_code(self, area_code, **kwargs):
         day = kwargs.get("day", 0)
         return {
             "weather_code": "100",
@@ -35,24 +28,15 @@ class DummyQueryClient:
         pass
 
 
-def override_get_location_client():
-    client = DummyLocationClient()
+def override_get_wip_client():
+    client = DummyWIPClient()
     try:
         yield client
     finally:
         client.close()
 
 
-def override_get_query_client():
-    client = DummyQueryClient()
-    try:
-        yield client
-    finally:
-        client.close()
-
-
-app.dependency_overrides[get_location_client] = override_get_location_client
-app.dependency_overrides[get_query_client] = override_get_query_client
+app.dependency_overrides[get_wip_client] = override_get_wip_client
 
 client = TestClient(app)
 
