@@ -13,7 +13,7 @@ from .weather_constants import DebugConstants
 # 共通ログ設定をインポート
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 try:
-    from common.log_config import LoggerConfig
+    from common.log_config import LoggerConfig, UnifiedLogFormatter
 except ImportError:
     # フォールバック用の簡易設定
     class LoggerConfig:
@@ -240,44 +240,5 @@ class PerformanceTimer:
             return None
         return (time.time() - self.start_time) * 1000
 
-
-class UnifiedLogFormatter:
-    """統一ログフォーマット"""
-    
-    @staticmethod
-    def format_communication_log(server_name, direction, remote_addr, remote_port, packet_size, 
-                                auth_status=None, processing_time_ms=None, packet_details=None):
-        """
-        通信ログの統一フォーマット
-        
-        Args:
-            server_name: サーバー名
-            direction: 通信方向 ("recv from" or "sent to")
-            remote_addr: リモートアドレス
-            remote_port: リモートポート
-            packet_size: パケットサイズ
-            auth_status: 認証状態
-            processing_time_ms: 処理時間（ミリ秒）
-            packet_details: パケット詳細情報
-        
-        Returns:
-            str: フォーマットされたログメッセージ
-        """
-        log_parts = [
-            f"[{server_name}] {direction} {remote_addr}:{remote_port}",
-            f"Size: {packet_size}B"
-        ]
-        
-        if auth_status:
-            log_parts.append(f"Auth: {auth_status}")
-        
-        if processing_time_ms is not None:
-            log_parts.append(f"Time: {processing_time_ms:.2f}ms")
-        
-        if packet_details:
-            details_str = ", ".join([f"{k}: {v}" for k, v in packet_details.items()])
-            log_parts.append(f"Details: {details_str}")
-        
-        return " | ".join(log_parts)
 
 

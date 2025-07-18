@@ -13,6 +13,7 @@ from common.utils.cache import Cache
 from common.packet import ErrorResponse
 from common.packet import ExtendedField
 from common.packet.debug.debug_logger import PacketDebugLogger
+from ..common.log_config import UnifiedLogFormatter
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -396,40 +397,52 @@ class LocationServer(BaseServer):
                 self.connection_pool.putconn(conn)
     
     def _debug_print_request(self, data, parsed, addr=None):
-        """リクエストのデバッグ情報を出力（オーバーライド）"""
+        """リクエストのデバッグ情報を出力（統一フォーマット）"""
         if not self.debug:
             return
-            
-        print(f"\n[{self.server_name}] === 受信リクエストパケット ===")
-        print(f"Total Length: {len(data)} bytes")
-        print("\nHeader:")
-        print(f"Version: {parsed.version}")
-        print(f"Type: {parsed.type}")
-        print(f"Packet ID: {parsed.packet_id}")
-        print("\nCoordinates:")
+
+        details = {
+            "Version": getattr(parsed, "version", "N/A"),
+            "Type": getattr(parsed, "type", "N/A"),
+            "Packet ID": getattr(parsed, "packet_id", "N/A"),
+        }
         if hasattr(parsed, 'ex_field') and parsed.ex_field:
-            print(f"Latitude: {parsed.ex_field.get('latitude')}")
-            print(f"Longitude: {parsed.ex_field.get('longitude')}")
-        else:
-            print("リクエストに座標がありません")
-        print("===========================\n")
+            if parsed.ex_field.get('latitude'):
+                details['Latitude'] = parsed.ex_field.get('latitude')
+            if parsed.ex_field.get('longitude'):
+                details['Longitude'] = parsed.ex_field.get('longitude')
+
+        log = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="recv from",
+            remote_addr=addr[0] if addr else "unknown",
+            remote_port=addr[1] if addr else 0,
+            packet_size=len(data),
+            packet_details=details,
+        )
+        print(log)
     
     def _debug_print_response(self, response, addr=None, request=None):
-        """レスポンスのデバッグ情報を出力（オーバーライド）"""
+        """レスポンスのデバッグ情報を出力（統一フォーマット）"""
         if not self.debug:
             return
-            
-        print(f"\n[{self.server_name}] === 送信レスポンスパケット ===")
-        print(f"Total Length: {len(response)} bytes")
-        
-        # レスポンスから地域コードを抽出（デバッグ用）
+
+        details = {}
         try:
             resp_obj = Response.from_bytes(response)
-            print(f"Area Code: {resp_obj.area_code}")
-        except:
+            details['Area Code'] = resp_obj.area_code
+        except Exception:
             pass
-        
-        print("============================\n")
+
+        log = UnifiedLogFormatter.format_communication_log(
+            server_name=self.server_name,
+            direction="sent to",
+            remote_addr=addr[0] if addr else "unknown",
+            remote_port=addr[1] if addr else 0,
+            packet_size=len(response),
+            packet_details=details if details else None,
+        )
+        print(log)
     
     def _print_timing_info(self, addr, timing_info):
         """タイミング情報を出力（オーバーライド）"""
