@@ -423,16 +423,15 @@ class LocationServer(BaseServer):
         print(log)
     
     def _debug_print_response(self, response, addr=None, request=None):
-        """レスポンスのデバッグ情報を出力（統一フォーマット）"""
-        if not self.debug:
-            return
+        """レスポンス送信時のログを出力（統一フォーマット）"""
 
         details = {}
-        try:
-            resp_obj = Response.from_bytes(response)
-            details['Area Code'] = resp_obj.area_code
-        except Exception:
-            pass
+        if self.debug:
+            try:
+                resp_obj = Response.from_bytes(response)
+                details['Area Code'] = resp_obj.area_code
+            except Exception:
+                pass
 
         log = UnifiedLogFormatter.format_communication_log(
             server_name=self.server_name,
@@ -440,7 +439,7 @@ class LocationServer(BaseServer):
             remote_addr=addr[0] if addr else "unknown",
             remote_port=addr[1] if addr else 0,
             packet_size=len(response),
-            packet_details=details if details else None,
+            packet_details=details if self.debug and details else None,
         )
         print(log)
     

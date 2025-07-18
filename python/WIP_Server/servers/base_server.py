@@ -133,12 +133,10 @@ class BaseServer(ABC):
         print(log)
 
     def _debug_print_response(self, response, addr=None, request=None):
-        """レスポンスのデバッグ情報を出力（統一フォーマット）"""
-        if not self.debug:
-            return
+        """レスポンス送信時のログを出力（統一フォーマット）"""
 
         packet_details = {}
-        if request is not None:
+        if request is not None and self.debug:
             packet_details["Packet ID"] = getattr(request, "packet_id", "N/A")
             packet_details["Type"] = getattr(request, "type", "N/A")
 
@@ -148,7 +146,7 @@ class BaseServer(ABC):
             remote_addr=addr[0] if addr else "unknown",
             remote_port=addr[1] if addr else 0,
             packet_size=len(response),
-            packet_details=packet_details,
+            packet_details=packet_details if self.debug else None,
         )
         print(log)
     
@@ -287,9 +285,16 @@ class BaseServer(ABC):
             
             # エラーレスポンスを送信
             self.sock.sendto(response_data, addr)
-            
-            if self.debug:
-                print(f"[{threading.current_thread().name}] Sent error response to {addr}, code: {error_code}")
+
+            log = UnifiedLogFormatter.format_communication_log(
+                server_name=self.server_name,
+                direction="sent to",
+                remote_addr=addr[0] if isinstance(addr, tuple) else "unknown",
+                remote_port=addr[1] if isinstance(addr, tuple) else 0,
+                packet_size=len(response_data),
+                packet_details={"Error Code": error_code} if self.debug else None,
+            )
+            print(log)
                 
         except Exception as e:
             print(f"[{threading.current_thread().name}] Failed to send error response: {e}")
@@ -413,8 +418,14 @@ class BaseServer(ABC):
         """
         try:
             bytes_sent = self.sock.sendto(data, (host, port))
-            if self.debug:
-                print(f"[{self.server_name}] Sent {bytes_sent} bytes to {host}:{port} from port {self.port}")
+            log = UnifiedLogFormatter.format_communication_log(
+                server_name=self.server_name,
+                direction="sent to",
+                remote_addr=host,
+                remote_port=port,
+                packet_size=bytes_sent,
+            )
+            print(log)
             return bytes_sent
         except Exception as e:
             print(f"[{self.server_name}] Error sending packet to {host}:{port}: {e}")
