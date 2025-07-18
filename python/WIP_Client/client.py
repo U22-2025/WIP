@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.clients.weather_client import WeatherClient
+from common.clients.location_client import LocationClient
+from common.clients.query_client import QueryClient
 from common.packet import LocationRequest, QueryRequest
 
 load_dotenv()
@@ -74,6 +76,8 @@ class Client:
             self._weather_client = WeatherClient(
                 host=self.config.host, port=self.config.port, debug=self.debug
             )
+            self._location_client = LocationClient(debug=self.debug)
+            self._query_client = QueryClient(debug=self.debug)
         except Exception as e:  # pragma: no cover
             raise RuntimeError(f"111: クライアント初期化失敗 - {e}") from e
 
@@ -135,6 +139,8 @@ class Client:
         alert: bool = False,
         disaster: bool = False,
         day: int = 0,
+        *,
+        proxy: bool = False,
     ) -> Optional[Dict]:
         if (
             self.state.latitude is None
@@ -143,43 +149,100 @@ class Client:
         ):
             raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
 
-        if self.state.area_code is not None:
-            request = QueryRequest.create_query_request(
-                area_code=self.state.area_code,
-                packet_id=self._weather_client.PIDG.next_id(),
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alert=alert,
-                disaster=disaster,
-                day=day,
-                version=self._weather_client.VERSION
-            )
-            result = self._weather_client._execute_query_request(request=request)
+        if proxy:
+            if self.state.area_code is not None:
+                request = QueryRequest.create_query_request(
+                    area_code=self.state.area_code,
+                    packet_id=self._weather_client.PIDG.next_id(),
+                    weather=weather,
+                    temperature=temperature,
+                    precipitation_prob=precipitation_prob,
+                    alert=alert,
+                    disaster=disaster,
+                    day=day,
+                    version=self._weather_client.VERSION
+                )
+                result = self._weather_client._execute_query_request(request=request)
+            else:
+                request = LocationRequest.create_coordinate_lookup(
+                    latitude=self.state.latitude,
+                    longitude=self.state.longitude,
+                    packet_id=self._weather_client.PIDG.next_id(),
+                    weather=weather,
+                    temperature=temperature,
+                    precipitation_prob=precipitation_prob,
+                    alert=alert,
+                    disaster=disaster,
+                    day=day,
+                    version=self._weather_client.VERSION
+                )
+                result = self._weather_client._execute_location_request(request=request)
         else:
-            request = LocationRequest.create_coordinate_lookup(
-                latitude=self.state.latitude,
-                longitude=self.state.longitude,
-                packet_id=self._weather_client.PIDG.next_id(),
-                weather=weather,
-                temperature=temperature,
-                precipitation_prob=precipitation_prob,
-                alert=alert,
-                disaster=disaster,
-                day=day,
-                version=self._weather_client.VERSION
-            )
-            result = self._weather_client._execute_location_request(request=request)
+            if self.state.area_code is not None:
+                result = self._query_client.get_weather_data(
+                    area_code=self.state.area_code,
+                    weather=weather,
+                    temperature=temperature,
+                    precipitation_prob=precipitation_prob,
+                    alert=alert,
+                    disaster=disaster,
+                    day=day,
+                )
+            else:
+                area_code = self._location_client.get_area_code_simple(
+                    latitude=self.state.latitude,
+                    longitude=self.state.longitude,
+                )
+                if area_code is None:
+                    return None
+                result = self._query_client.get_weather_data(
+                    area_code=area_code,
+                    weather=weather,
+                    temperature=temperature,
+                    precipitation_prob=precipitation_prob,
+                    alert=alert,
+                    disaster=disaster,
+                    day=day,
+                )
 
         if isinstance(result, dict) and result.get("type") == "error":
             return {"error_code": result["error_code"]}
         return result
 
-    def get_weather_by_coordinates(self, latitude: float, longitude: float, **kwargs) -> Optional[Dict]:
-        return self._weather_client.get_weather_by_coordinates(latitude=latitude, longitude=longitude, **kwargs)
+    def get_weather_by_coordinates(
+        self,
+        latitude: float,
+        longitude: float,
+        *,
+        proxy: bool = False,
+        **kwargs,
+    ) -> Optional[Dict]:
+        if proxy:
+            return self._weather_client.get_weather_by_coordinates(
+                latitude=latitude, longitude=longitude, **kwargs
+            )
+        area_code = self._location_client.get_area_code_simple(
+            latitude=latitude, longitude=longitude
+        )
+        if area_code is None:
+            return None
+        return self._query_client.get_weather_data(
+            area_code=area_code,
+            **kwargs,
+        )
 
-    def get_weather_by_area_code(self, area_code: str | int, **kwargs) -> Optional[Dict]:
-        return self._weather_client.get_weather_by_area_code(area_code=area_code, **kwargs)
+    def get_weather_by_area_code(
+        self,
+        area_code: str | int,
+        *,
+        proxy: bool = False,
+        **kwargs,
+    ) -> Optional[Dict]:
+        if proxy:
+            return self._weather_client.get_weather_by_area_code(
+                area_code=area_code, **kwargs
+            )
+        return self._query_client.get_weather_data(area_code=area_code, **kwargs)
 
     def get_state(self) -> Dict:
         return {**asdict(self.state), "host": self.config.host, "port": self.config.port}
@@ -188,6 +251,10 @@ class Client:
         self.config.update(host, port)
         self._weather_client.close()
         self._weather_client = WeatherClient(host=self.config.host, port=self.config.port, debug=self.debug)
+        self._location_client.close()
+        self._query_client.close()
+        self._location_client = LocationClient(debug=self.debug)
+        self._query_client = QueryClient(debug=self.debug)
         if self.debug:
             self.logger.debug(f"Server updated - New server: {self.config.host}:{self.config.port}")
 
@@ -196,6 +263,8 @@ class Client:
     # ---------------------------------------------------------------
     def close(self) -> None:
         self._weather_client.close()
+        self._location_client.close()
+        self._query_client.close()
         if self.debug:
             self.logger.debug("WIP Client closed")
 
