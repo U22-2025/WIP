@@ -30,8 +30,7 @@ if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     except Exception:  # pragma: no cover - Windows 環境以外では実行されない
         pass
-from common.clients.location_client import LocationClient
-from common.clients.query_client import QueryClient
+from WIP_Client import ClientAsync
 from common.utils.config_loader import ConfigLoader
 from common.utils.redis_log_handler import RedisLogHandler
 import redis.asyncio as aioredis
@@ -41,10 +40,6 @@ script_dir = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(script_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(script_dir / "templates"))
 
-LOCATION_SERVER_HOST = os.getenv("LOCATION_RESOLVER_HOST", "localhost")
-LOCATION_SERVER_PORT = int(os.getenv("LOCATION_RESOLVER_PORT", 4109))
-QUERY_SERVER_HOST = os.getenv("QUERY_GENERATOR_HOST", "localhost")
-QUERY_SERVER_PORT = int(os.getenv("QUERY_GENERATOR_PORT", 4111))
 
 LOG_REDIS_HOST = os.getenv("LOG_REDIS_HOST", "localhost")
 LOG_REDIS_PORT = int(os.getenv("LOG_REDIS_PORT", 6380))
@@ -342,24 +337,8 @@ def _create_fallback_weather_data(area_code: str, days_offset: int = 0) -> dict:
 # Dependency
 # ----------------------------------------------------------------------
 
-async def get_location_client() -> AsyncGenerator[LocationClient, None]:
-    client = LocationClient(
-        host=LOCATION_SERVER_HOST,
-        port=LOCATION_SERVER_PORT,
-        debug=True,
-    )
-    try:
-        yield client
-    finally:
-        client.close()
-
-
-async def get_query_client() -> AsyncGenerator[QueryClient, None]:
-    client = QueryClient(
-        host=QUERY_SERVER_HOST,
-        port=QUERY_SERVER_PORT,
-        debug=True,
-    )
+async def get_wip_client() -> AsyncGenerator[ClientAsync, None]:
+    client = ClientAsync(debug=True)
     try:
         yield client
     finally:
@@ -381,8 +360,7 @@ async def index(request: Request):
 async def weekly_forecast(
     request: Request,
     coords: Coordinates,
-    loc_client: LocationClient = Depends(get_location_client),
-    query_client: QueryClient = Depends(get_query_client),
+    client: ClientAsync = Depends(get_wip_client),
 ):
     lat = coords.lat
     lng = coords.lng
@@ -398,29 +376,34 @@ async def weekly_forecast(
         )
 
     try:
-        try:
-            location_response, _ = await call_with_metrics(
-                loc_client.get_location_data_async,
-                latitude=lat,
-                longitude=lng,
-                use_cache=True,
-                ip=ip,
-                context={"coords": f"{lat},{lng}"},
-            )
-        except Exception as e:
-            logger.error(f"Location client error: {e}")
-            return JSONResponse(
-                {"status": "error", "message": "位置情報サービスとの通信に失敗しました"},
-                status_code=503,
-            )
-        
-        if not location_response or not location_response.is_valid():
+        today_weather = await call_with_metrics(
+            client.get_weather_by_coordinates,
+            lat,
+            lng,
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            alert=True,
+            disaster=True,
+            day=0,
+            ip=ip,
+            context={"coords": f"{lat},{lng}", "day": 0},
+        )
+        if not today_weather or (
+            isinstance(today_weather, dict)
+            and ("error" in today_weather or "error_code" in today_weather)
+        ):
             return JSONResponse(
                 {"status": "error", "message": "エリアコードの取得に失敗しました"},
                 status_code=500,
             )
 
-        area_code = location_response.get_area_code()
+        area_code = today_weather.get("area_code")
+        if not area_code:
+            return JSONResponse(
+                {"status": "error", "message": "エリアコードの取得に失敗しました"},
+                status_code=500,
+            )
 
         async def fetch(day: int):
             try:
@@ -432,11 +415,10 @@ async def weekly_forecast(
                     "disaster": True,
                 }
                 weather_data = await call_with_metrics(
-                    query_client.get_weather_data_async,
+                    client.get_weather_by_area_code,
                     area_code=area_code,
                     **flags,
                     day=day,
-                    use_cache=True,
                     ip=ip,
                     context={
                         "area_code": area_code,
@@ -454,9 +436,10 @@ async def weekly_forecast(
                 weather_data = _create_fallback_weather_data(area_code, day)
             return _add_date_info(weather_data, day)
 
-        tasks = [fetch(day) for day in range(7)]
+        tasks = [fetch(day) for day in range(1, 7)]
         results = await asyncio.gather(*tasks)
-        weekly_forecast_list = sorted(results, key=lambda x: x["day"])
+        weekly_forecast_list = [_add_date_info(today_weather, 0)] + results
+        weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
 
         return JSONResponse(
             {
