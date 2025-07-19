@@ -66,10 +66,138 @@ class WeatherApp {
   // 共通ユーティリティ
   // ------------------------------------------------------------------
   getErrorMessage(code) {
-    if (this.isErrorCodeLoaded && code && this.errorCodeMap[String(code)]) {
-      return this.errorCodeMap[String(code)];
+    if (this.isErrorCodeLoaded && code) {
+      const codeStr = String(code);
+      // 各カテゴリーから検索
+      const allErrors = { 
+        ...this.errorCodeMap.client_errors, 
+        ...this.errorCodeMap.connection_errors, 
+        ...this.errorCodeMap.server_errors 
+      };
+      if (allErrors[codeStr]) {
+        return allErrors[codeStr].message;
+      }
     }
     return '不明なエラーが発生しました';
+  }
+
+  getErrorDetails(code) {
+    if (this.isErrorCodeLoaded && code) {
+      const codeStr = String(code);
+      // 各カテゴリーから検索
+      const allErrors = { 
+        ...this.errorCodeMap.client_errors, 
+        ...this.errorCodeMap.connection_errors, 
+        ...this.errorCodeMap.server_errors 
+      };
+      if (allErrors[codeStr]) {
+        return {
+          message: allErrors[codeStr].message,
+          description: allErrors[codeStr].description,
+          serverType: allErrors[codeStr].server_type,
+          category: this.getErrorCategory(codeStr)
+        };
+      }
+    }
+    return null;
+  }
+
+  getErrorCategory(code) {
+    if (!code) return null;
+    const codeStr = String(code);
+    if (this.errorCodeMap.client_errors && this.errorCodeMap.client_errors[codeStr]) {
+      return 'client_error';
+    }
+    if (this.errorCodeMap.connection_errors && this.errorCodeMap.connection_errors[codeStr]) {
+      return 'connection_error';
+    }
+    if (this.errorCodeMap.server_errors && this.errorCodeMap.server_errors[codeStr]) {
+      return 'server_error';
+    }
+    return null;
+  }
+
+  getErrorCategoryInfo(category) {
+    switch (category) {
+      case 'client_error':
+        return {
+          categoryInfo: {
+            name: 'クライアントエラー',
+            description: 'リクエストに問題があります'
+          },
+          actionableInfo: {
+            title: '対処方法',
+            message: 'クライアント側で修正可能です。座標や入力データを確認してください。',
+            icon: 'fas fa-tools',
+            class: 'fixable'
+          }
+        };
+      case 'connection_error':
+        return {
+          categoryInfo: {
+            name: '接続エラー',
+            description: 'サーバーとの接続に問題があります'
+          },
+          actionableInfo: {
+            title: '対処方法',
+            message: 'サーバー側の問題です。しばらく時間をおいて再度お試しください。',
+            icon: 'fas fa-clock',
+            class: 'wait'
+          }
+        };
+      case 'server_error':
+        return {
+          categoryInfo: {
+            name: 'サーバーエラー',
+            description: 'サーバー内部で問題が発生しました'
+          },
+          actionableInfo: {
+            title: '対処方法',
+            message: 'サーバー側の問題です。システム管理者にお問い合わせください。',
+            icon: 'fas fa-phone-alt',
+            class: 'contact'
+          }
+        };
+      default:
+        return {
+          categoryInfo: {
+            name: '不明なエラー',
+            description: 'エラーの詳細が不明です'
+          },
+          actionableInfo: {
+            title: '対処方法',
+            message: 'しばらく時間をおいて再度お試しください。',
+            icon: 'fas fa-question',
+            class: 'unknown'
+          }
+        };
+    }
+  }
+
+  getErrorIcon(category) {
+    switch (category) {
+      case 'client_error':
+        return 'fas fa-user-times';
+      case 'connection_error':
+        return 'fas fa-wifi';
+      case 'server_error':
+        return 'fas fa-server';
+      default:
+        return 'fas fa-question-circle';
+    }
+  }
+
+  getServerTypeName(serverType) {
+    switch (serverType) {
+      case 'location_server':
+        return '位置情報サーバー';
+      case 'query_server':
+        return 'クエリサーバー';
+      case 'weather_server':
+        return '気象サーバー';
+      default:
+        return serverType;
+    }
   }
 
   getCSSVariable(name) {
@@ -210,7 +338,7 @@ class WeatherApp {
       const res = await fetch('/static/json/error_code.json');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      this.errorCodeMap = data.codes || {};
+      this.errorCodeMap = data || {};
       this.isErrorCodeLoaded = true;
     } catch (err) {
       console.error('エラーコード読み込みエラー:', err);
@@ -320,7 +448,7 @@ class WeatherApp {
     if (weekly) weekly.innerHTML = '';
     this.weeklyDataForChart = null;
     const dummy = { status: 'ok', weather: { weather_code: '100', temperature: '--', precipitation_prob: '--' }, disaster: [] };
-    if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(dummy, lat, lng)).openPopup();
+    if (this.currentMarker) this.currentMarker.bindPopup(this.createErrorPopupContent(msg, errorCode, lat, lng)).openPopup();
   }
 
   // ------------------------------------------------------------------
@@ -355,6 +483,38 @@ class WeatherApp {
     const iconClass = this.weatherIconMap[code] || 'fas fa-sun';
     const name = this.weatherCodeMap[code] || '天気情報不明';
     return `<div class="popup-content"><div class="popup-weather-icon"><i class="${iconClass}"></i></div><div class="popup-description">${name}</div><div class="popup-weather-data"><div class="popup-temp-container"><div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div><div class="popup-temp-label">気温</div></div><div class="popup-precipitation_prob-container"><div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div><div class="popup-precipitation_prob-label">降水確率</div></div></div>${disaster}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
+  }
+
+  createErrorPopupContent(message, errorCode, lat, lng) {
+    const errorCodeDisplay = errorCode ? `<div class="popup-error-code">エラーコード: ${errorCode}</div>` : '';
+    
+    // エラーの詳細情報を取得
+    const errorDetails = this.getErrorDetails(errorCode);
+    let detailsHTML = '';
+    
+    if (errorDetails) {
+      const { categoryInfo, actionableInfo } = this.getErrorCategoryInfo(errorDetails.category);
+      const icon = this.getErrorIcon(errorDetails.category);
+      
+      detailsHTML = `
+        <div class="popup-error-details">
+          <div class="error-category-header">
+            <i class="${icon}"></i>
+            <strong>${categoryInfo.name}</strong>
+          </div>
+          <div class="error-detail-item">
+            <strong>問題:</strong> ${errorDetails.description}
+          </div>
+          <div class="error-actionable-info ${actionableInfo.class}">
+            <i class="${actionableInfo.icon}"></i>
+            <strong>${actionableInfo.title}:</strong> ${actionableInfo.message}
+          </div>
+          ${errorDetails.serverType ? `<div class="error-detail-item"><strong>関連サーバ:</strong> ${this.getServerTypeName(errorDetails.serverType)}</div>` : ''}
+        </div>
+      `;
+    }
+    
+    return `<div class="popup-content popup-error"><div class="popup-weather-icon"><i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i></div><div class="popup-description error-message">${message}</div>${errorCodeDisplay}${detailsHTML}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
   }
 
   // ------------------------------------------------------------------

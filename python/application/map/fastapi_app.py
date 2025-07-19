@@ -398,14 +398,22 @@ async def weekly_forecast(
         )
 
     try:
-        location_response, _ = await call_with_metrics(
-            loc_client.get_location_data_async,
-            latitude=lat,
-            longitude=lng,
-            use_cache=True,
-            ip=ip,
-            context={"coords": f"{lat},{lng}"},
-        )
+        try:
+            location_response, _ = await call_with_metrics(
+                loc_client.get_location_data_async,
+                latitude=lat,
+                longitude=lng,
+                use_cache=True,
+                ip=ip,
+                context={"coords": f"{lat},{lng}"},
+            )
+        except Exception as e:
+            logger.error(f"Location client error: {e}")
+            return JSONResponse(
+                {"status": "error", "message": "位置情報サービスとの通信に失敗しました"},
+                status_code=503,
+            )
+        
         if not location_response or not location_response.is_valid():
             return JSONResponse(
                 {"status": "error", "message": "エリアコードの取得に失敗しました"},

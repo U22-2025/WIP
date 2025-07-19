@@ -16,7 +16,7 @@ set PYTHONPATH=%CURRENT_DIR%;%PYTHONPATH%
 
 wt ^
   new-tab cmd /k "cd /d %CURRENT_DIR% && conda activate U22-WIP && timeout /t 1 /nobreak > nul && python python/launch_server.py --weather" ^
-  ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && conda activate U22-WIP && timeout /t 2 /nobreak > nul && python python/launch_server.py --query --noupdate" ^
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && conda activate U22-WIP && timeout /t 2 /nobreak > nul && python python/launch_server.py --query" ^
   ; focus-pane -t 0 ^
   ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && conda activate U22-WIP && timeout /t 3 /nobreak > nul && python python/launch_server.py --location" ^
   ; focus-pane -t 1 ^

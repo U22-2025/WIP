@@ -1,0 +1,31 @@
+<feed xmlns="http://www.w3.org/2005/Atom" lang="ja">
+<title>高頻度（地震火山）</title>
+<subtitle>JMAXML publishing feed</subtitle>
+<updated>2025-07-18T14:32:43+09:00</updated>
+<id>https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml#short_1752816763</id>
+<link rel="related" href="https://www.jma.go.jp/"/>
+<link rel="self" href="https://www.data.jma.go.jp/developer/xml/feed/eqvol.xml"/>
+<link rel="hub" href="http://alert-hub.appspot.com/"/>
+<rights type="html">
+<![CDATA[ <a href="https://www.jma.go.jp/jma/kishou/info/coment.html">利用規約</a>, <a href="https://www.jma.go.jp/jma/en/copyright.html">Terms of Use</a> ]]>
+</rights>
+<entry>
+<title>震源・震度に関する情報</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250718053221_0_VXSE53_270000.xml</id>
+<updated>2025-07-18T05:32:21Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250718053221_0_VXSE53_270000.xml"/>
+<content type="text">【震源・震度情報】１８日１４時２９分ころ、地震がありました。</content>
+</entry>
+<entry>
+<title>降灰予報（定時）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250718050049_0_VFVO53_010000.xml</id>
+<updated>2025-07-18T05:00:00Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250718050049_0_VFVO53_010000.xml"/>
+<content type="text">【火山名　口永良部島　降灰予報（定時）】　現在、口永良部島は噴火警戒レベル３（入山規制）です。口永良部島で噴火が発生した場合には、１８日２１時から２４時までは火口から北西方向に降灰が予想されます。</content>
+</entry>

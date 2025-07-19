@@ -110,6 +110,47 @@ class XMLBaseProcessor(ABC):
                 return report_dt_elem.text
         return ""
     
+    def detect_xml_type(self, xml_data: str) -> str:
+        """
+        XMLの種類を判別
+        
+        Args:
+            xml_data: XML文字列
+            
+        Returns:
+            XMLタイプ ('earthquake', 'volcano', 'unknown')
+        """
+        try:
+            root = self.parse_xml(xml_data, '<Report')
+            if root is None:
+                return 'unknown'
+            
+            # 名前空間をチェック
+            body_ns = root.find('.//{http://xml.kishou.go.jp/jmaxml1/body/seismology1/}Earthquake')
+            if body_ns is not None:
+                return 'earthquake'
+            
+            volcano_ns = root.find('.//{http://xml.kishou.go.jp/jmaxml1/body/volcanology1/}VolcanoInfo')
+            if volcano_ns is not None:
+                return 'volcano'
+            
+            # Head内のInfoKindでも判別を試行
+            head = root.find('ib:Head', self.ns)
+            if head is not None:
+                info_kind = head.find('ib:InfoKind', self.ns)
+                if info_kind is not None and info_kind.text:
+                    info_kind_text = info_kind.text
+                    if '地震' in info_kind_text:
+                        return 'earthquake'
+                    elif '火山' in info_kind_text or '噴火' in info_kind_text:
+                        return 'volcano'
+            
+            return 'unknown'
+            
+        except Exception as e:
+            print(f"Error detecting XML type: {e}")
+            return 'unknown'
+    
     def save_json(self, data: Dict[str, Any], file_path: str) -> bool:
         """
         データをJSONファイルとして保存

@@ -78,7 +78,9 @@ async def receive_with_id_async(
                 data, addr = await asyncio.wait_for(
                     loop.run_in_executor(None, sock.recvfrom, 1024), remaining
                 )
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, BlockingIOError) as e:
+            if isinstance(e, BlockingIOError):
+                continue  # Retry on Windows BlockingIOError
             raise asyncio.TimeoutError("receive timeout")
         if len(data) >= 2:
             value = int.from_bytes(data[:2], byteorder="little")

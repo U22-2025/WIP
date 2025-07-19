@@ -3,7 +3,7 @@ import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from WIP_Server.data import get_alert,get_disaster
+from WIP_Server.data import get_alert,get_unified_data
 
 def main():
     print("alert処理開始")
@@ -11,11 +11,11 @@ def main():
         get_alert.main()
     except Exception as e:
         print(f"Error calling get_alert.main: {e}")
-    print("disaster処理開始")
+    print("統合災害・地震処理開始")
     try:
-        get_disaster.main()
+        get_unified_data.main()
     except Exception as e:
-        print(f"Error calling get_disaster.main: {e}")
+        print(f"Error calling get_unified_data.main: {e}")
     print("処理完了")
 
 if __name__ == "__main__":

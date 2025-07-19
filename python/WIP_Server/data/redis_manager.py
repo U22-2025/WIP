@@ -1,13 +1,14 @@
 """
 Redis管理クラス
 
-気象データ、警報・注意報、災害情報のRedis操作を統一管理します。
+気象データ、警報・注意報、災害情報、地震情報のRedis操作を統一管理します。
 
 主な機能:
 - Redis接続管理
 - 気象データの取得・更新
 - 警報・注意報情報の追加
 - 災害情報の追加
+- 地震情報の追加
 - エラーハンドリング
 """
 
@@ -40,7 +41,7 @@ class WeatherRedisManager:
     """
     気象データRedis管理クラス
     
-    気象データ、警報・注意報、災害情報のRedis操作を統一管理
+    気象データ、警報・注意報、災害情報、地震情報のRedis操作を統一管理
     """
     
     def __init__(self, config: Optional[RedisConfig] = None, debug: bool = False):
@@ -254,6 +255,71 @@ class WeatherRedisManager:
             except Exception as e:
                 if self.debug:
                     print(f"災害処理エラー ({area_code}): {e}")
+                error_count += 1
+                
+        return {'updated': updated_count, 'created': created_count, 'errors': error_count}
+    
+    def update_earthquakes(self, earthquake_data: Dict[str, Any]) -> Dict[str, int]:
+        """
+        地震情報を災害情報として更新（earthquakeデータをdisasterに統合）
+        
+        Args:
+            earthquake_data: 地震情報データ
+            
+        Returns:
+            更新結果 {'updated': 更新数, 'created': 新規作成数, 'errors': エラー数}
+        """
+        if not self.redis_client:
+            return {'updated': 0, 'created': 0, 'errors': 0}
+        
+        updated_count = 0
+        created_count = 0
+        error_count = 0
+
+        for area_code, earthquake_info in earthquake_data.items():
+            new_data={}
+            try:
+                # 地震データ取得時刻をdisasterpulldatetimeとして処理
+                if area_code == "earthquake_pulldatetime":
+                    self.update_weather_data("disaster_pulldatetime", earthquake_info)
+                    continue
+                
+
+                # 既存の気象データを取得、なければデフォルトデータを作成
+                existing_data = self.get_weather_data(area_code)
+                    
+                if existing_data:
+                    new_data = existing_data
+                    updated_count += 1
+                else:
+                    new_data = self._create_default_weather_data()
+                    created_count += 1
+
+                # earthquakeキーのデータをdisaster配列に統合
+                earthquake_list = earthquake_info.get('earthquake', [])
+                
+                # 既存のdisaster配列を取得（なければ空配列）
+                existing_disasters = new_data.get('disaster', [])
+                
+                # 重複を避けるため、地震情報のみを先に削除
+                filtered_disasters = [d for d in existing_disasters if not (isinstance(d, str) and d.startswith('地震情報'))]
+                
+                # 地震情報を既存のdisaster配列に追加
+                new_data['disaster'] = filtered_disasters + earthquake_list
+
+                if self.update_weather_data(area_code, new_data):
+                    if self.debug:
+                        if existing_data:
+                            print(f"災害情報（地震）更新成功: {area_code} - {len(earthquake_list)}件")
+                        else:
+                            print(f"災害情報（地震）新規成功: {area_code} - {len(earthquake_list)}件")
+                else:
+                    if self.debug:
+                        print(f"災害情報（地震）更新失敗: {area_code}")
+                    error_count += 1
+            except Exception as e:
+                if self.debug:
+                    print(f"災害情報（地震）処理エラー ({area_code}): {e}")
                 error_count += 1
                 
         return {'updated': updated_count, 'created': created_count, 'errors': error_count}

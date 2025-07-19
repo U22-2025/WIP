@@ -186,6 +186,129 @@
     color: var(--text-secondary);
 }
 
+/* エラーポップアップ用スタイル */
+.popup-error {
+    background: linear-gradient(145deg, #fff5f5, #ffeaea);
+    border: 1px solid #fbb4b4;
+}
+
+.popup-error .popup-description.error-message {
+    color: #c53030;
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+}
+
+.popup-error-code {
+    font-size: var(--font-sm);
+    color: #e53e3e;
+    font-family: 'Consolas', 'Monaco', monospace;
+    background: rgba(254, 178, 178, 0.3);
+    padding: var(--space-xs);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-xs);
+    border: 1px solid rgba(254, 178, 178, 0.6);
+}
+
+.popup-error-details {
+    text-align: left;
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    background: rgba(254, 178, 178, 0.1);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(254, 178, 178, 0.4);
+}
+
+.error-category-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid rgba(254, 178, 178, 0.3);
+}
+
+.error-category-header i {
+    margin-right: var(--space-xs);
+    color: #e53e3e;
+    font-size: var(--font-lg);
+}
+
+.error-category-header strong {
+    color: #e53e3e;
+    font-weight: 600;
+}
+
+.error-detail-item {
+    margin-bottom: var(--space-xs);
+    font-size: var(--font-sm);
+    color: #c53030;
+    line-height: 1.4;
+}
+
+.error-detail-item:last-child {
+    margin-bottom: 0;
+}
+
+.error-detail-item strong {
+    color: #e53e3e;
+    font-weight: 600;
+}
+
+.error-actionable-info {
+    display: flex;
+    align-items: flex-start;
+    margin-top: var(--space-sm);
+    padding: var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    line-height: 1.4;
+}
+
+.error-actionable-info i {
+    margin-right: var(--space-xs);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.error-actionable-info.fixable {
+    background: rgba(72, 187, 120, 0.1);
+    border: 1px solid rgba(72, 187, 120, 0.3);
+    color: #2f855a;
+}
+
+.error-actionable-info.fixable i {
+    color: #38a169;
+}
+
+.error-actionable-info.wait {
+    background: rgba(237, 137, 54, 0.1);
+    border: 1px solid rgba(237, 137, 54, 0.3);
+    color: #c05621;
+}
+
+.error-actionable-info.wait i {
+    color: #dd6b20;
+}
+
+.error-actionable-info.contact {
+    background: rgba(229, 62, 62, 0.1);
+    border: 1px solid rgba(229, 62, 62, 0.3);
+    color: #c53030;
+}
+
+.error-actionable-info.contact i {
+    color: #e53e3e;
+}
+
+.error-actionable-info.unknown {
+    background: rgba(113, 128, 150, 0.1);
+    border: 1px solid rgba(113, 128, 150, 0.3);
+    color: #4a5568;
+}
+
+.error-actionable-info.unknown i {
+    color: #718096;
+}
+
 
 /* モバイル対応 */
 
