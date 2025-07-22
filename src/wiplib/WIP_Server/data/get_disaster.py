@@ -10,9 +10,10 @@
 """
 
 import json
-import sys 
-import os 
+import sys
+import os
 from pathlib import Path
+from common.utils.area_code_loader import load_area_codes, DEFAULT_AREA_CODES_PATH
 # パスを追加して直接実行にも対応
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -20,7 +21,7 @@ from WIP_Server.data.controllers.disaster_data_processor import DisasterDataProc
 from WIP_Server.data.redis_manager import create_redis_manager 
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(area_codes_path: str | Path | None = None):
     """
     災害情報処理のメイン関数
     
@@ -60,8 +61,7 @@ def main():
         print(f"\nVolcano Location Resolution Results: {len(volcano_locations)} locations resolved.") # 簡潔な表示に変更
         
         # Step 4: エリアコードデータの読み込み
-        with open(JSON_DIR / 'area_codes.json', 'r', encoding='utf-8') as f:
-            area_codes_data = json.load(f)
+        area_codes_data = load_area_codes(area_codes_path or DEFAULT_AREA_CODES_PATH)
         print(f"Debug: area_codes_data type: {type(area_codes_data)}")
         print(f"Debug: area_codes_data is None: {area_codes_data is None}")
         
@@ -113,4 +113,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    custom_path = sys.argv[1] if len(sys.argv) > 1 else None
+    main(custom_path)

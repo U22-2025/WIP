@@ -4,9 +4,10 @@ from .disaster_data_processor import DisasterDataProcessor, DisasterProcessor
 import json
 import os
 from pathlib import Path
+from common.utils.area_code_loader import load_area_codes, DEFAULT_AREA_CODES_PATH
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(area_codes_path: str | Path | None = None):
     """
     メイン処理関数
     """
@@ -38,8 +39,7 @@ def main():
         
         # Step 4: エリアコードデータの読み込み
         print("Step 4: Loading area codes...")
-        with open(JSON_DIR / 'area_codes.json', 'r', encoding='utf-8') as f:
-            area_codes_data = json.load(f)
+        area_codes_data = load_area_codes(area_codes_path or DEFAULT_AREA_CODES_PATH)
         
         # Step 5: エリアコード変換・統合処理
         print("Step 5: Converting area codes...")
@@ -79,18 +79,18 @@ if __name__ == "__main__":
     
 if __name__ == "__main__":
     import sys
-    
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
         # 簡易テストモード
         if len(sys.argv) < 3:
             print("テストURLを指定してください")
             print("使用例: python disaster_main.py --test [URL]")
             sys.exit(1)
-            
+
         processor = DisasterProcessor()
         result = processor._process_single_url(sys.argv[2])
         print(f"テスト結果:\n{json.dumps(result, ensure_ascii=False, indent=2)}")
     else:
         # 通常のmain関数実行
-        main()
+        custom_path = sys.argv[1] if len(sys.argv) > 1 else None
+        main(custom_path)
 
