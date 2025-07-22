@@ -17,10 +17,12 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIPServerPy.data.controllers.earthquake_data_processor import EarthquakeDataProcessor
-from WIPServerPy.data.redis_manager import create_redis_manager 
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+from WIPServerPy.data.redis_manager import create_redis_manager
 
-def main():
+# デフォルトのarea_codes.jsonパス
+DEFAULT_AREA_CODES = Path(__file__).resolve().parent.parent / "area_codes.json"
+
+def main(area_codes_path=None):
     """
     地震情報処理のメイン関数
     
@@ -43,7 +45,7 @@ def main():
         print(f"Found {len(url_list)} earthquake XML files to process.")
         
         # Step 2: 地震情報の取得・統合
-        json_result = processor.get_earthquake_info(url_list, JSON_DIR / 'earthquake_data.json')
+        json_result = processor.get_earthquake_info(url_list)
         print("\n=== Earthquake Info Processing Complete ===")
         print(f"Debug: json_result type: {type(json_result)}")
         
@@ -56,7 +58,8 @@ def main():
             return # 処理を中断
         
         # Step 4: エリアコードデータの読み込み
-        with open(JSON_DIR / 'area_codes.json', 'r', encoding='utf-8') as f:
+        path = Path(area_codes_path) if area_codes_path else DEFAULT_AREA_CODES
+        with open(path, 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         print(f"Debug: area_codes_data type: {type(area_codes_data)}")
         print(f"Debug: area_codes_data is None: {area_codes_data is None}")
@@ -70,11 +73,8 @@ def main():
         print(f"Debug: converted_report_times type: {type(converted_report_times)}")
         print(f"Debug: converted_report_times is None: {converted_report_times is None}")
         
-        # Step 6: 最終結果を新しいフォーマットで保存（ReportDateTime付き）
+        # Step 6: 最終結果を新しいフォーマットに変換（ReportDateTime付き）
         final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
-        
-        with open(JSON_DIR / 'earthquake_data.json', 'w', encoding='utf-8') as f:
-            json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
         
         print("=== 地震情報取得完了 ===")
         print("Processing completed successfully.")
@@ -109,4 +109,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="地震情報を取得してRedisに保存します")
+    parser.add_argument("--area-codes-path", dest="area_codes_path", help="area_codes.json のパス", default=None)
+    args = parser.parse_args()
+
+    main(area_codes_path=args.area_codes_path)

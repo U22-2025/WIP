@@ -13,9 +13,11 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIPServerPy.data.controllers.earthquake_data_processor import EarthquakeDataProcessor
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+# デフォルトのarea_codes.jsonパス
+DEFAULT_AREA_CODES = Path(__file__).resolve().parent.parent / "area_codes.json"
+
+def main(area_codes_path=None):
     """
     地震情報処理のデバッグ用メイン関数
     
@@ -44,7 +46,7 @@ def main():
             print(f"  {i:2d}. {url}")
         
         # Step 2: 地震情報の取得・統合
-        json_result = processor.get_earthquake_info(debug_url_list, JSON_DIR / 'earthquake_debug.json')
+        json_result = processor.get_earthquake_info(debug_url_list)
         print("\n=== Earthquake Info Processing Complete ===")
         
         # Step 3: JSONデータの解析
@@ -67,9 +69,9 @@ def main():
                 print(f"    - {disaster}")
         
         # Step 5: エリアコードデータの読み込み
-        area_codes_file = JSON_DIR / 'area_codes.json'
-        if area_codes_file.exists():
-            with open(area_codes_file, 'r', encoding='utf-8') as f:
+        path = Path(area_codes_path) if area_codes_path else DEFAULT_AREA_CODES
+        if path.exists():
+            with open(path, 'r', encoding='utf-8') as f:
                 area_codes_data = json.load(f)
             
             # Step 6: エリアコード変換・統合処理
@@ -81,9 +83,7 @@ def main():
             final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
             
             # デバッグ用ファイルに保存
-            debug_output_file = JSON_DIR / 'earthquake_debug_final.json'
-            with open(debug_output_file, 'w', encoding='utf-8') as f:
-                json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
+            # デバッグ用ファイルへの保存は省略
             
             print(f"\n=== 最終結果保存 ===")
             print(f"ファイル: {debug_output_file}")
@@ -110,7 +110,7 @@ def main():
                         if '地震情報' in disaster:
                             print(f"    - {disaster}")
         else:
-            print(f"Warning: area_codes.json not found at {area_codes_file}")
+            print(f"Warning: area_codes.json not found at {path}")
         
         print("\n=== デバッグ処理完了 ===")
         
@@ -120,4 +120,10 @@ def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="地震情報デバッグ取得を実行します")
+    parser.add_argument("--area-codes-path", dest="area_codes_path", help="area_codes.json のパス", default=None)
+    args = parser.parse_args()
+
+    main(area_codes_path=args.area_codes_path)

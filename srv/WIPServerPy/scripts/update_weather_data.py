@@ -9,7 +9,9 @@ import traceback
 from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from WIPServerPy.data.redis_manager import create_redis_manager, WeatherRedisManager
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+
+# デフォルトのarea_codes.jsonパス
+DEFAULT_AREA_CODES = Path(__file__).resolve().parent.parent / "area_codes.json"
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {"weather_reportdatetime": {}}
     output_lock = threading.Lock()
@@ -253,7 +255,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
     return skip_area
 
-def update_redis_weather_data(debug=False, area_codes=None):
+def update_redis_weather_data(debug=False, area_codes=None, area_codes_path=None):
     """
     気象情報を取得してRedisに保存する関数
 
@@ -265,9 +267,10 @@ def update_redis_weather_data(debug=False, area_codes=None):
         print("気象情報の取得を開始します")
         start_time = time.time()
 
-    # エリアコードが指定されていない場合は、JSONファイルから読み込む
+    # エリアコードが指定されていない場合は、area_codes.json から読み込む
     if area_codes is None:
-        with open(JSON_DIR / "area_codes.json", "r", encoding="utf-8") as f:
+        path = Path(area_codes_path) if area_codes_path else DEFAULT_AREA_CODES
+        with open(path, "r", encoding="utf-8") as f:
             area_codes = list(json.load(f).keys())
 
     # 気象データを取得し、直接Redisに保存
@@ -281,8 +284,15 @@ def update_redis_weather_data(debug=False, area_codes=None):
     return skip_area
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="気象データを更新してRedisに保存します")
+    parser.add_argument("--area-codes-path", dest="area_codes_path", help="area_codes.json のパス", default=None)
+    parser.add_argument("--debug", action="store_true", help="デバッグモードを有効にする")
+    args = parser.parse_args()
+
     # 気象データの更新を実行し、スキップされたエリアを取得
-    skip_area = update_redis_weather_data(debug=True)
+    skip_area = update_redis_weather_data(debug=args.debug, area_codes_path=args.area_codes_path)
     
     # スキップされたエリアを表示
     if skip_area:
