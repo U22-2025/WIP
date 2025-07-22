@@ -21,14 +21,13 @@ def index():
 
 
 # JSONファイル配置ディレクトリ
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+JSON_DIR = Path(__file__).resolve().parent / "static" / "json"
 
 
 # 天気コードJSONを提供するルート
 @app.route("/weather_code.json")
 def weather_code():
     import json
-
     try:
         with open(JSON_DIR / "weather_code.json", "r", encoding="utf-8") as f:
             data = json.load(f)

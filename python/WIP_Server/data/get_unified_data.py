@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from WIP_Server.data.controllers.unified_data_processor import UnifiedDataProcessor
 from WIP_Server.data.redis_manager import create_redis_manager 
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+JSON_DIR = Path(__file__).resolve().parent.parent / "json"
 
 def main():
     """
@@ -43,7 +43,7 @@ def main():
         print(f"Found {len(url_list)} XML files to process.")
         
         # Step 2: 統合データの取得・分類処理
-        disaster_json, earthquake_json = processor.process_unified_data(url_list, JSON_DIR / 'unified_data.json')
+        disaster_json, earthquake_json = processor.process_unified_data(url_list)
         print("\n=== Unified Data Processing Complete ===")
         
         # Step 3: エリアコードデータの読み込み
@@ -77,9 +77,7 @@ def main():
                 disaster_converted_data, disaster_converted_report_times, area_codes_data, 'disaster'
             )
             
-            # 災害データ保存
-            with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-                json.dump(disaster_final_data, f, ensure_ascii=False, indent=2)
+            # 災害データ処理完了
             
             print(f"=== 災害情報処理完了 ===")
             print(f"処理されたエリア数: {len(disaster_converted_data)}")
@@ -102,9 +100,7 @@ def main():
                 earthquake_converted_data, earthquake_converted_report_times, area_codes_data, 'earthquake'
             )
             
-            # 地震データ保存
-            with open(JSON_DIR / 'earthquake_data.json', 'w', encoding='utf-8') as f:
-                json.dump(earthquake_final_data, f, ensure_ascii=False, indent=2)
+            # 地震データ処理完了
             
             print(f"=== 地震情報処理完了 ===")
             print(f"処理されたエリア数: {len(earthquake_converted_data)}")
@@ -117,9 +113,7 @@ def main():
                     earthquake_final_data if earthquake_converted_data else {}
                 )
                 
-                # 統合されたデータを保存
-                with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-                    json.dump(merged_disaster_data, f, ensure_ascii=False, indent=2)
+                # 統合処理完了
                 
                 print(f"統合完了: {len(merged_disaster_data) - 1}エリアの災害データ（地震データ含む）")
         

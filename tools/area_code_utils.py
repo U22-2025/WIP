@@ -1,7 +1,7 @@
 import json
 from typing import Optional, List
 
-AREA_CODE_PATH = 'python/logs/json/area_codes.json'
+AREA_CODE_PATH = 'python/WIP_Server/json/area_codes.json'
 
 area_data: Optional[dict] = None
 

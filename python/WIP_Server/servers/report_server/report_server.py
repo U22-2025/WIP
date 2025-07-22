@@ -22,7 +22,7 @@ from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet.debug.debug_logger import PacketDebugLogger
 from ..common.log_config import UnifiedLogFormatter
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+# JSON_DIR references removed
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
     
@@ -77,22 +77,19 @@ class ReportServer(BaseServer):
         self.enable_data_validation = self.config.getboolean('validation', 'enable_data_validation', True)
         self.enable_alert_processing = self.config.getboolean('processing', 'enable_alert_processing', True)
         self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
-        self.enable_file_logging = self.config.getboolean('logging', 'enable_file_logging', True)
+        # ファイルログ機能は削除
         self.enable_database = self.config.getboolean('database', 'enable_database', False)
         
         # レポートサイズ制限
         self.max_report_size = self.config.getint('validation', 'max_report_size', 4096)
         
-        # ログファイル設定
-        self.log_file_path = Path(self.config.get('logging', 'log_file_path', JSON_DIR / 'logs/reports/report_server.log'))
+        # ログファイル設定は削除
         
         # 統計情報
         self.report_count = 0
         self.success_count = 0
         
-        # ログファイル初期化
-        if self.enable_file_logging:
-            self._setup_log_file()
+        # ログファイル初期化は削除
         
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("ReportServer")
@@ -295,61 +292,9 @@ class ReportServer(BaseServer):
         
         return processed_data
     
-    def _setup_log_file(self):
-        """ログファイルの設定"""
-        try:
-            # ログディレクトリを作成
-            self.log_file_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # ログファイルの初期化（存在しない場合はヘッダーを書き込み）
-            if not self.log_file_path.exists():
-                with open(self.log_file_path, 'w', encoding='utf-8') as f:
-                    f.write("timestamp,area_code,weather_code,temperature,precipitation_prob,alert,disaster\n")
-            
-            if self.debug:
-                print(f"[{self.server_name}] ログファイルを初期化しました: {self.log_file_path}")
-                
-        except Exception as e:
-            print(f"[{self.server_name}] ログファイル初期化エラー: {e}")
-            if self.debug:
-                traceback.print_exc()
+    # _setup_log_file method removed
     
-    def _log_report_data(self, request, sensor_data, source_addr=None):
-        """レポートデータをログファイルに追記（高速化版）"""
-        if not self.enable_file_logging:
-            return
-            
-        try:
-            # CSVライクな1行を作成
-            timestamp = datetime.now().isoformat()
-            area_code = request.area_code
-            weather_code = sensor_data.get('weather_code', '')
-            temperature = sensor_data.get('temperature', '')
-            precipitation_prob = sensor_data.get('precipitation_prob', '')
-            
-            # 配列データを文字列に変換
-            alert_data = sensor_data.get('alert', '')
-            if isinstance(alert_data, list):
-                alert_data = "; ".join(str(x) for x in alert_data)
-            
-            disaster_data = sensor_data.get('disaster', '')
-            if isinstance(disaster_data, list):
-                disaster_data = "; ".join(str(x) for x in disaster_data)
-            
-            # CSV形式の行を作成
-            log_line = f"{timestamp},{area_code},{weather_code},{temperature},{precipitation_prob},{alert_data},{disaster_data}\n"
-            
-            # ログファイルに追記（単純な追記のため高速）
-            with open(self.log_file_path, 'a', encoding='utf-8') as f:
-                f.write(log_line)
-            
-            if self.debug:
-                print(f"  ✓ ログファイルに追記: {area_code}")
-            
-        except Exception as e:
-            print(f"[{self.server_name}] ログファイル記録エラー: {e}")
-            if self.debug:
-                traceback.print_exc()
+    # _log_report_data method removed
     
     def _save_to_database(self, request, sensor_data, source_addr=None):
         """データベースに保存（実装予定）"""
@@ -395,12 +340,7 @@ class ReportServer(BaseServer):
             processed_data = self._process_sensor_data(sensor_data, request)
             timing_info['process'] = time.time() - process_start
             
-            # ログファイルに記録（時間計測）
-            log_start = time.time()
-            self._log_report_data(request, sensor_data, None)
-            timing_info['log'] = time.time() - log_start
-            if self.enable_file_logging:
-                print(f"  ✓ ログファイル記録完了 ({timing_info['log']*1000:.1f}ms)")
+            # ログファイル記録は削除
             
             # データベース保存（オプション）
             if self.enable_database:
@@ -439,8 +379,7 @@ class ReportServer(BaseServer):
             print(f"  📊 処理時間詳細:")
             print(f"    - データ抽出: {timing_info['extract']*1000:.1f}ms")
             print(f"    - データ処理: {timing_info['process']*1000:.1f}ms")
-            if self.enable_file_logging:
-                print(f"    - ログ記録: {timing_info['log']*1000:.1f}ms")
+            # ログ記録表示は削除
             if 'database' in timing_info:
                 print(f"    - DB保存: {timing_info['database']*1000:.1f}ms")
             print(f"    - レスポンス作成: {timing_info['response']*1000:.1f}ms")
@@ -449,8 +388,7 @@ class ReportServer(BaseServer):
             # 遅延警告（20ms以上の場合）
             if timing_info['total'] > 0.02:
                 print(f"  ⚠️  遅延検出: 総処理時間が{timing_info['total']*1000:.1f}msです")
-                if self.enable_file_logging and timing_info['log'] > 0.005:
-                    print(f"     - ログ記録が遅い: {timing_info['log']*1000:.1f}ms")
+                # ログ記録関連の警告は削除
                 if timing_info['extract'] > 0.005:
                     print(f"     - データ抽出が遅い: {timing_info['extract']*1000:.1f}ms")
             

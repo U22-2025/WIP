@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from WIP_Server.data.alert_processor import AlertDataProcessor, AlertProcessor
 from WIP_Server.data.redis_manager import create_redis_manager
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+# JSON_DIR references removed
 
 def main():
     """
@@ -41,7 +41,7 @@ def main():
         
         # Step 2: 警報・注意報情報の取得・統合
         print("Step 2: Processing alert info...")
-        json_result = processor.get_alert_info(url_list, JSON_DIR / 'alert_data.json')
+        json_result = processor.get_alert_info(url_list)
         
         print("\n=== 警報・注意報情報取得完了===")
         

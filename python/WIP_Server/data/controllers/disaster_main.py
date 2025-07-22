@@ -4,7 +4,7 @@ from .disaster_data_processor import DisasterDataProcessor, DisasterProcessor
 import json
 import os
 from pathlib import Path
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+JSON_DIR = Path(__file__).resolve().parents[2] / "json"
 
 def main():
     """
@@ -23,7 +23,7 @@ def main():
         
         # Step 2: 災害情報の取得・統合
         print("Step 2: Processing disaster info...")
-        json_result = processor.get_disaster_info(url_list, JSON_DIR / 'disaster_data.json')
+        json_result = processor.get_disaster_info(url_list)
         print("\n=== Disaster Info Processing Complete ===")
         
         # Step 3: 火山座標の解決処理
@@ -55,10 +55,8 @@ def main():
             converted_data, converted_report_times, area_codes_data # area_codes_dataを渡す
         )
         
-        # Step 7: 最終結果の保存
-        print("Step 7: Saving final data...")
-        with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-            json.dump(final_data, f, ensure_ascii=False, indent=2)
+        # Step 7: 処理完了
+        print("Step 7: Processing complete...")
         
         print("Processing completed successfully.")
         

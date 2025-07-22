@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from WIP_Server.data.controllers.disaster_data_processor import DisasterDataProcessor
 from WIP_Server.data.redis_manager import create_redis_manager 
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+JSON_DIR = Path(__file__).resolve().parent.parent / "json"
 
 def main():
     """
@@ -43,7 +43,7 @@ def main():
         print(f"Found {len(url_list)} disaster XML files to process.")
         
         # Step 2: 災害情報の取得・統合
-        json_result = processor.get_disaster_info(url_list, JSON_DIR / 'disaster_data.json')
+        json_result = processor.get_disaster_info(url_list)
         print("\n=== Disaster Info Processing Complete ===")
         print(f"Debug: json_result type: {type(json_result)}")
         # print(f"Debug: json_result content (first 100 chars): {json_result[:100]}") # エンコーディングエラー回避のためコメントアウト
@@ -77,8 +77,7 @@ def main():
         # Step 6: 最終結果を新しいフォーマットで保存（ReportDateTime付き）
         final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
         
-        with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-            json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
+        # 処理完了 - JSONファイル保存は削除
         
         print("=== 災害情報取得完了 ===")
         print("Processing completed successfully.")

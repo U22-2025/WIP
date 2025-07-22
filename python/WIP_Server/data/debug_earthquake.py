@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIP_Server.data.controllers.earthquake_data_processor import EarthquakeDataProcessor
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+JSON_DIR = Path(__file__).resolve().parent.parent / "json"
 
 def main():
     """
@@ -44,7 +44,7 @@ def main():
             print(f"  {i:2d}. {url}")
         
         # Step 2: 地震情報の取得・統合
-        json_result = processor.get_earthquake_info(debug_url_list, JSON_DIR / 'earthquake_debug.json')
+        json_result = processor.get_earthquake_info(debug_url_list)
         print("\n=== Earthquake Info Processing Complete ===")
         
         # Step 3: JSONデータの解析
@@ -80,13 +80,7 @@ def main():
             # Step 7: 最終結果を新しいフォーマットで保存
             final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
             
-            # デバッグ用ファイルに保存
-            debug_output_file = JSON_DIR / 'earthquake_debug_final.json'
-            with open(debug_output_file, 'w', encoding='utf-8') as f:
-                json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
-            
-            print(f"\n=== 最終結果保存 ===")
-            print(f"ファイル: {debug_output_file}")
+            print(f"\n=== 処理完了 ===")
             print(f"最終データのエリア数: {len(final_formatted_data)}")
             
             # 統合処理の結果を確認

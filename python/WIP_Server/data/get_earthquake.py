@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from WIP_Server.data.controllers.earthquake_data_processor import EarthquakeDataProcessor
 from WIP_Server.data.redis_manager import create_redis_manager 
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+JSON_DIR = Path(__file__).resolve().parent.parent / "json"
 
 def main():
     """
@@ -43,7 +43,7 @@ def main():
         print(f"Found {len(url_list)} earthquake XML files to process.")
         
         # Step 2: 地震情報の取得・統合
-        json_result = processor.get_earthquake_info(url_list, JSON_DIR / 'earthquake_data.json')
+        json_result = processor.get_earthquake_info(url_list)
         print("\n=== Earthquake Info Processing Complete ===")
         print(f"Debug: json_result type: {type(json_result)}")
         
@@ -73,8 +73,7 @@ def main():
         # Step 6: 最終結果を新しいフォーマットで保存（ReportDateTime付き）
         final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
         
-        with open(JSON_DIR / 'earthquake_data.json', 'w', encoding='utf-8') as f:
-            json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
+        # 処理完了 - JSONファイル保存は削除
         
         print("=== 地震情報取得完了 ===")
         print("Processing completed successfully.")
