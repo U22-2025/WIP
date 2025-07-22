@@ -30,7 +30,7 @@ from common.packet.debug.debug_logger import create_debug_logger
 class WeatherServer(WeatherRequestHandlers, BaseServer):
     """天気サーバーのメインクラス（プロキシサーバー・専用パケットクラス使用）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None, config_path: str | Path | None = None):
         """
         初期化
         
@@ -41,11 +41,11 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             max_workers: スレッドプールのワーカー数（Noneの場合は設定ファイルから取得）
         """
         # 設定ファイルを読み込む
-        config_path = Path(__file__).parent / 'config.ini'
+        cfg_path = Path(config_path) if config_path else Path(__file__).parent / 'config.ini'
         try:
-            self.config = ConfigLoader(config_path)
+            self.config = ConfigLoader(cfg_path)
         except Exception as e:
-            error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
+            error_msg = f"設定ファイルの読み込みに失敗しました: {cfg_path} - {str(e)}"
             self.logger.debug(traceback.format_exc())
             raise RuntimeError(f"設定ファイル読み込みエラー: {str(e)}")
         

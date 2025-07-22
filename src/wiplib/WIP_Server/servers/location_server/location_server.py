@@ -29,7 +29,7 @@ from common.utils.config_loader import ConfigLoader
 class LocationServer(BaseServer):
     """位置解決サーバーのメインクラス（基底クラス継承版）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None, max_cache_size=None):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None, max_cache_size=None, config_path: str | Path | None = None):
         """
         初期化
         
@@ -41,8 +41,8 @@ class LocationServer(BaseServer):
             max_cache_size: キャッシュの最大サイズ（Noneの場合は設定ファイルから取得）
         """
         # 設定ファイルを読み込む
-        config_path = Path(__file__).parent / 'config.ini'
-        self.config = ConfigLoader(config_path)
+        cfg_path = Path(config_path) if config_path else Path(__file__).parent / 'config.ini'
+        self.config = ConfigLoader(cfg_path)
         
         # サーバー設定を取得（引数優先、なければ設定ファイル、なければデフォルト）
         if host is None:

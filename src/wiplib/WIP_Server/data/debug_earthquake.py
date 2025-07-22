@@ -6,16 +6,17 @@
 """
 
 import json
-import sys 
-import os 
+import sys
+import os
 from pathlib import Path
+from common.utils.area_code_loader import load_area_codes, DEFAULT_AREA_CODES_PATH
 # パスを追加して直接実行にも対応
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIP_Server.data.controllers.earthquake_data_processor import EarthquakeDataProcessor
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(area_codes_path: str | Path | None = None):
     """
     地震情報処理のデバッグ用メイン関数
     
@@ -67,10 +68,9 @@ def main():
                 print(f"    - {disaster}")
         
         # Step 5: エリアコードデータの読み込み
-        area_codes_file = JSON_DIR / 'area_codes.json'
-        if area_codes_file.exists():
-            with open(area_codes_file, 'r', encoding='utf-8') as f:
-                area_codes_data = json.load(f)
+        area_codes_file = area_codes_path or DEFAULT_AREA_CODES_PATH
+        if Path(area_codes_file).exists():
+            area_codes_data = load_area_codes(area_codes_file)
             
             # Step 6: エリアコード変換・統合処理
             converted_data, converted_report_times = processor.convert_earthquake_keys_to_area_codes(
@@ -120,4 +120,6 @@ def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    main()
+    import sys
+    custom_path = sys.argv[1] if len(sys.argv) > 1 else None
+    main(custom_path)

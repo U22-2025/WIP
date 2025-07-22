@@ -26,7 +26,7 @@ JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None, config_path: str | Path | None = None):
         """
         初期化
         
@@ -37,11 +37,11 @@ class ReportServer(BaseServer):
             max_workers: スレッドプールのワーカー数（Noneの場合は設定ファイルから取得）
         """
         # 設定ファイルを読み込む
-        config_path = Path(__file__).parent / 'config.ini'
+        cfg_path = Path(config_path) if config_path else Path(__file__).parent / 'config.ini'
         try:
-            self.config = ConfigLoader(config_path)
+            self.config = ConfigLoader(cfg_path)
         except Exception as e:
-            error_msg = f"設定ファイルの読み込みに失敗しました: {config_path} - {str(e)}"
+            error_msg = f"設定ファイルの読み込みに失敗しました: {cfg_path} - {str(e)}"
             if debug:
                 traceback.print_exc()
             raise RuntimeError(f"設定ファイル読み込みエラー: {str(e)}")
@@ -77,7 +77,7 @@ class ReportServer(BaseServer):
         self.enable_data_validation = self.config.getboolean('validation', 'enable_data_validation', True)
         self.enable_alert_processing = self.config.getboolean('processing', 'enable_alert_processing', True)
         self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
-        self.enable_file_logging = self.config.getboolean('logging', 'enable_file_logging', True)
+        self.enable_file_logging = self.config.getboolean('logging', 'enable_file_logging', False)
         self.enable_database = self.config.getboolean('database', 'enable_database', False)
         
         # レポートサイズ制限

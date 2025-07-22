@@ -10,9 +10,10 @@ UnifiedDataProcessorを使用して
 """
 
 import json
-import sys 
-import os 
+import sys
+import os
 from pathlib import Path
+from common.utils.area_code_loader import load_area_codes, DEFAULT_AREA_CODES_PATH
 # パスを追加して直接実行にも対応
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -20,7 +21,7 @@ from WIP_Server.data.controllers.unified_data_processor import UnifiedDataProces
 from WIP_Server.data.redis_manager import create_redis_manager 
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(area_codes_path: str | Path | None = None):
     """
     統合データ処理のメイン関数
     
@@ -47,8 +48,7 @@ def main():
         print("\n=== Unified Data Processing Complete ===")
         
         # Step 3: エリアコードデータの読み込み
-        with open(JSON_DIR / 'area_codes.json', 'r', encoding='utf-8') as f:
-            area_codes_data = json.load(f)
+        area_codes_data = load_area_codes(area_codes_path or DEFAULT_AREA_CODES_PATH)
         
         # Step 4: 災害データの処理
         disaster_result_dict = {}
@@ -170,4 +170,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    custom_path = sys.argv[1] if len(sys.argv) > 1 else None
+    main(custom_path)

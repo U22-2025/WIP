@@ -36,7 +36,7 @@ from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_d
 class QueryServer(BaseServer):
     """気象データサーバーのメインクラス（基底クラス継承版）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None, noupdate=False):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None, noupdate=False, config_path: str | Path | None = None):
         """
         初期化
         
@@ -47,8 +47,8 @@ class QueryServer(BaseServer):
             max_workers: ワーカー数（Noneの場合は設定ファイルから取得）
         """
         # 設定ファイルを読み込む
-        config_path = Path(__file__).parent / 'config.ini'
-        self.config = ConfigLoader(config_path)
+        cfg_path = Path(config_path) if config_path else Path(__file__).parent / 'config.ini'
+        self.config = ConfigLoader(cfg_path)
         
         # サーバー設定を取得（引数優先、なければ設定ファイル、なければデフォルト）
         if host is None:

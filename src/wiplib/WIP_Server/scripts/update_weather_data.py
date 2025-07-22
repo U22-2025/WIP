@@ -7,6 +7,7 @@ import sys
 import os
 import traceback
 from pathlib import Path
+from common.utils.area_code_loader import load_area_codes, DEFAULT_AREA_CODES_PATH
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
@@ -253,7 +254,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
     return skip_area
 
-def update_redis_weather_data(debug=False, area_codes=None):
+def update_redis_weather_data(debug=False, area_codes=None, area_codes_path: str | Path | None = None):
     """
     気象情報を取得してRedisに保存する関数
 
@@ -267,8 +268,7 @@ def update_redis_weather_data(debug=False, area_codes=None):
 
     # エリアコードが指定されていない場合は、JSONファイルから読み込む
     if area_codes is None:
-        with open(JSON_DIR / "area_codes.json", "r", encoding="utf-8") as f:
-            area_codes = list(json.load(f).keys())
+        area_codes = list(load_area_codes(area_codes_path or DEFAULT_AREA_CODES_PATH).keys())
 
     # 気象データを取得し、直接Redisに保存
     skip_area = get_data(area_codes, debug=debug, save_to_redis=True)
@@ -281,8 +281,10 @@ def update_redis_weather_data(debug=False, area_codes=None):
     return skip_area
 
 if __name__ == "__main__":
+    import sys
+    custom_path = sys.argv[1] if len(sys.argv) > 1 else None
     # 気象データの更新を実行し、スキップされたエリアを取得
-    skip_area = update_redis_weather_data(debug=True)
+    skip_area = update_redis_weather_data(debug=True, area_codes_path=custom_path)
     
     # スキップされたエリアを表示
     if skip_area:
