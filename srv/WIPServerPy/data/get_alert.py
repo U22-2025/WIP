@@ -15,9 +15,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from WIPServerPy.data.alert_processor import AlertDataProcessor, AlertProcessor
 from WIPServerPy.data.redis_manager import create_redis_manager
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+# デフォルトのarea_codes.jsonパス
+DEFAULT_AREA_CODES = Path(__file__).resolve().parent.parent / "area_codes.json"
+
+def main(area_codes_path=None):
     """
     警報・注意報処理のメイン関数
     
@@ -41,7 +43,7 @@ def main():
         
         # Step 2: 警報・注意報情報の取得・統合
         print("Step 2: Processing alert info...")
-        json_result = processor.get_alert_info(url_list, JSON_DIR / 'alert_data.json')
+        json_result = processor.get_alert_info(url_list)
         
         print("\n=== 警報・注意報情報取得完了===")
         
@@ -75,4 +77,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="警報・注意報情報を取得してRedisに保存します")
+    parser.add_argument("--area-codes-path", dest="area_codes_path", help="area_codes.json のパス", default=None)
+    args = parser.parse_args()
+
+    main(area_codes_path=args.area_codes_path)
+

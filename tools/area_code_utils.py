@@ -1,7 +1,10 @@
 import json
 from typing import Optional, List
 
-AREA_CODE_PATH = 'python/logs/json/area_codes.json'
+from pathlib import Path
+
+# デフォルトのarea_codes.jsonのパス
+AREA_CODE_PATH = Path(__file__).resolve().parents[1] / 'srv' / 'WIPServerPy' / 'area_codes.json'
 
 area_data: Optional[dict] = None
 

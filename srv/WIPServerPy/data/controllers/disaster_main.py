@@ -4,9 +4,11 @@ from .disaster_data_processor import DisasterDataProcessor, DisasterProcessor
 import json
 import os
 from pathlib import Path
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+# デフォルトのarea_codes.jsonパス
+DEFAULT_AREA_CODES = Path(__file__).resolve().parents[1] / "area_codes.json"
+
+def main(area_codes_path=None):
     """
     メイン処理関数
     """
@@ -23,7 +25,7 @@ def main():
         
         # Step 2: 災害情報の取得・統合
         print("Step 2: Processing disaster info...")
-        json_result = processor.get_disaster_info(url_list, JSON_DIR / 'disaster_data.json')
+        json_result = processor.get_disaster_info(url_list)
         print("\n=== Disaster Info Processing Complete ===")
         
         # Step 3: 火山座標の解決処理
@@ -38,7 +40,8 @@ def main():
         
         # Step 4: エリアコードデータの読み込み
         print("Step 4: Loading area codes...")
-        with open(JSON_DIR / 'area_codes.json', 'r', encoding='utf-8') as f:
+        path = Path(area_codes_path) if area_codes_path else DEFAULT_AREA_CODES
+        with open(path, 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         
         # Step 5: エリアコード変換・統合処理
@@ -56,9 +59,7 @@ def main():
         )
         
         # Step 7: 最終結果の保存
-        print("Step 7: Saving final data...")
-        with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-            json.dump(final_data, f, ensure_ascii=False, indent=2)
+        print("Step 7: Saving final data... (skipped)")
         
         print("Processing completed successfully.")
         
@@ -79,7 +80,8 @@ if __name__ == "__main__":
     
 if __name__ == "__main__":
     import sys
-    
+    import argparse
+
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
         # 簡易テストモード
         if len(sys.argv) < 3:
@@ -91,6 +93,11 @@ if __name__ == "__main__":
         result = processor._process_single_url(sys.argv[2])
         print(f"テスト結果:\n{json.dumps(result, ensure_ascii=False, indent=2)}")
     else:
+        parser = argparse.ArgumentParser(description="災害データ処理を実行します")
+        parser.add_argument("--area-codes-path", dest="area_codes_path", help="area_codes.json のパス", default=None)
+        args = parser.parse_args()
+
         # 通常のmain関数実行
-        main()
+        main(area_codes_path=args.area_codes_path)
+
 

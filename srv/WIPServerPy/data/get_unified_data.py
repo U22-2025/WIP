@@ -17,10 +17,12 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIPServerPy.data.controllers.unified_data_processor import UnifiedDataProcessor
-from WIPServerPy.data.redis_manager import create_redis_manager 
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+from WIPServerPy.data.redis_manager import create_redis_manager
 
-def main():
+# デフォルトのarea_codes.jsonパス
+DEFAULT_AREA_CODES = Path(__file__).resolve().parent.parent / "area_codes.json"
+
+def main(area_codes_path=None):
     """
     統合データ処理のメイン関数
     
@@ -43,11 +45,12 @@ def main():
         print(f"Found {len(url_list)} XML files to process.")
         
         # Step 2: 統合データの取得・分類処理
-        disaster_json, earthquake_json = processor.process_unified_data(url_list, JSON_DIR / 'unified_data.json')
+        disaster_json, earthquake_json = processor.process_unified_data(url_list)
         print("\n=== Unified Data Processing Complete ===")
         
         # Step 3: エリアコードデータの読み込み
-        with open(JSON_DIR / 'area_codes.json', 'r', encoding='utf-8') as f:
+        path = Path(area_codes_path) if area_codes_path else DEFAULT_AREA_CODES
+        with open(path, 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         
         # Step 4: 災害データの処理
@@ -77,9 +80,7 @@ def main():
                 disaster_converted_data, disaster_converted_report_times, area_codes_data, 'disaster'
             )
             
-            # 災害データ保存
-            with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-                json.dump(disaster_final_data, f, ensure_ascii=False, indent=2)
+            # 災害データ保存（ファイル出力は不要のため省略）
             
             print(f"=== 災害情報処理完了 ===")
             print(f"処理されたエリア数: {len(disaster_converted_data)}")
@@ -102,9 +103,7 @@ def main():
                 earthquake_converted_data, earthquake_converted_report_times, area_codes_data, 'earthquake'
             )
             
-            # 地震データ保存
-            with open(JSON_DIR / 'earthquake_data.json', 'w', encoding='utf-8') as f:
-                json.dump(earthquake_final_data, f, ensure_ascii=False, indent=2)
+            # 地震データ保存（ファイル出力は不要のため省略）
             
             print(f"=== 地震情報処理完了 ===")
             print(f"処理されたエリア数: {len(earthquake_converted_data)}")
@@ -117,9 +116,7 @@ def main():
                     earthquake_final_data if earthquake_converted_data else {}
                 )
                 
-                # 統合されたデータを保存
-                with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-                    json.dump(merged_disaster_data, f, ensure_ascii=False, indent=2)
+                # 統合されたデータを保存（ファイル出力は不要のため省略）
                 
                 print(f"統合完了: {len(merged_disaster_data) - 1}エリアの災害データ（地震データ含む）")
         
@@ -170,4 +167,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="統合データを取得してRedisに保存します")
+    parser.add_argument("--area-codes-path", dest="area_codes_path", help="area_codes.json のパス", default=None)
+    args = parser.parse_args()
+
+    main(area_codes_path=args.area_codes_path)

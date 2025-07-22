@@ -17,10 +17,12 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIPServerPy.data.controllers.disaster_data_processor import DisasterDataProcessor
-from WIPServerPy.data.redis_manager import create_redis_manager 
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+from WIPServerPy.data.redis_manager import create_redis_manager
 
-def main():
+# デフォルトのarea_codes.jsonパス
+DEFAULT_AREA_CODES = Path(__file__).resolve().parent.parent / "area_codes.json"
+
+def main(area_codes_path=None):
     """
     災害情報処理のメイン関数
     
@@ -43,7 +45,7 @@ def main():
         print(f"Found {len(url_list)} disaster XML files to process.")
         
         # Step 2: 災害情報の取得・統合
-        json_result = processor.get_disaster_info(url_list, JSON_DIR / 'disaster_data.json')
+        json_result = processor.get_disaster_info(url_list)
         print("\n=== Disaster Info Processing Complete ===")
         print(f"Debug: json_result type: {type(json_result)}")
         # print(f"Debug: json_result content (first 100 chars): {json_result[:100]}") # エンコーディングエラー回避のためコメントアウト
@@ -60,7 +62,8 @@ def main():
         print(f"\nVolcano Location Resolution Results: {len(volcano_locations)} locations resolved.") # 簡潔な表示に変更
         
         # Step 4: エリアコードデータの読み込み
-        with open(JSON_DIR / 'area_codes.json', 'r', encoding='utf-8') as f:
+        path = Path(area_codes_path) if area_codes_path else DEFAULT_AREA_CODES
+        with open(path, 'r', encoding='utf-8') as f:
             area_codes_data = json.load(f)
         print(f"Debug: area_codes_data type: {type(area_codes_data)}")
         print(f"Debug: area_codes_data is None: {area_codes_data is None}")
@@ -76,9 +79,6 @@ def main():
         
         # Step 6: 最終結果を新しいフォーマットで保存（ReportDateTime付き）
         final_formatted_data = processor.format_to_alert_style(converted_data, converted_report_times, area_codes_data)
-        
-        with open(JSON_DIR / 'disaster_data.json', 'w', encoding='utf-8') as f:
-            json.dump(final_formatted_data, f, ensure_ascii=False, indent=2)
         
         print("=== 災害情報取得完了 ===")
         print("Processing completed successfully.")
@@ -113,4 +113,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="災害情報を取得してRedisに保存します")
+    parser.add_argument("--area-codes-path", dest="area_codes_path", help="area_codes.json のパス", default=None)
+    args = parser.parse_args()
+
+    main(area_codes_path=args.area_codes_path)
+
