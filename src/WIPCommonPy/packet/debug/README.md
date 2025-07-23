@@ -92,7 +92,7 @@ Packet Size: 64 bytes
 ### 基本的な使用方法
 
 ```python
-from common.packet.debug import create_debug_logger
+from WIPCommonPy.packet.debug import create_debug_logger
 
 # デバッグロガーの作成
 debug_logger = create_debug_logger(__name__, debug_enabled=True)
@@ -194,7 +194,7 @@ if 'error' not in result:
 ## ファイル構造
 
 ```
-common/packet/debug/
+WIPCommonPy/packet/debug/
 ├── __init__.py           # デバッグモジュールのエントリポイント
 ├── debug_logger.py       # PacketDebugLoggerクラスの実装
 └── README.md            # このファイル
@@ -202,11 +202,11 @@ common/packet/debug/
 
 ## 影響を受けるファイル
 
-- `common/clients/query_client.py` - 更新済み
-- `common/clients/weather_client.py` - 更新済み  
-- `common/clients/location_client.py` - 更新済み
-- `common/clients/report_client.py` - 更新済み
-- `common/packet/__init__.py` - デバッグ機能をエクスポート
+- `WIPCommonPy/clients/query_client.py` - 更新済み
+- `WIPCommonPy/clients/weather_client.py` - 更新済み
+- `WIPCommonPy/clients/location_client.py` - 更新済み
+- `WIPCommonPy/clients/report_client.py` - 更新済み
+- `WIPCommonPy/packet/__init__.py` - デバッグ機能をエクスポート
 
 ## 後方互換性
 

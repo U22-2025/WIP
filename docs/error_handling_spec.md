@@ -1,7 +1,7 @@
 # エラーハンドリング機能 要件定義書
 
 ## 1. エラーパケット仕様
-### 1.1 基本構造 (`common/packet/format_base.py`)
+### 1.1 基本構造 (`WIPCommonPy/packet/format_base.py`)
 ```mermaid
 classDiagram
     class ErrorResponse {
@@ -96,8 +96,8 @@ sequenceDiagram
 
 ### 3. 実装タスク
 ### 3.1 共通パケットモジュール
-- [ ] `ErrorResponse`クラス実装 (`common/packet/error_response.py`)
-- [ ] パケットタイプリスト更新 (`common/packet/__init__.py`)
+- [ ] `ErrorResponse`クラス実装 (`WIPCommonPy/packet/error_response.py`)
+- [ ] パケットタイプリスト更新 (`WIPCommonPy/packet/__init__.py`)
   ```python
   def _handle_packet(self, data, addr):
       if packet.type == 7:  # エラーパケット
