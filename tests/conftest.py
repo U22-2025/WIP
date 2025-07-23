@@ -1,3 +1,5 @@
+pytest_plugins = ("pytest_asyncio",)
+
 import sys
 from pathlib import Path
 
