@@ -21,7 +21,9 @@ class RedisLogHandler(logging.Handler):
         self.port = int(port or os.getenv("LOG_REDIS_PORT", 6380))
         self.db = int(db or os.getenv("LOG_REDIS_DB", 0))
         self.channel = channel
-        self.redis = aioredis.Redis(host=self.host, port=self.port, db=self.db, decode_responses=True)
+        self.redis = aioredis.Redis(
+            host=self.host, port=self.port, db=self.db, decode_responses=True
+        )
 
     async def publish(self, message: str) -> None:
         await self.redis.publish(self.channel, message)

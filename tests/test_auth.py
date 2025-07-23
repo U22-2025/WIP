@@ -13,10 +13,10 @@ def test_calculate_and_verify_auth_hash():
 
 
 def test_init_requires_secret_key(monkeypatch):
-    monkeypatch.delenv('WIP_SECRET_KEY', raising=False)
+    monkeypatch.delenv("WIP_SECRET_KEY", raising=False)
     with pytest.raises(ValueError):
         WIPAuth()
 
-    monkeypatch.setenv('WIP_SECRET_KEY', 'key')
+    monkeypatch.setenv("WIP_SECRET_KEY", "key")
     auth = WIPAuth()
-    assert auth.secret_key == 'key'
+    assert auth.secret_key == "key"

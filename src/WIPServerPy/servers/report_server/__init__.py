@@ -7,4 +7,4 @@ ACKレスポンス（Type 5）を返すサーバー
 
 from .report_server import ReportServer
 
-__all__ = ['ReportServer']
+__all__ = ["ReportServer"]

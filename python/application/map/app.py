@@ -28,6 +28,7 @@ JSON_DIR = Path(__file__).resolve().parent / "static" / "json"
 @app.route("/weather_code.json")
 def weather_code():
     import json
+
     try:
         with open(JSON_DIR / "weather_code.json", "r", encoding="utf-8") as f:
             data = json.load(f)

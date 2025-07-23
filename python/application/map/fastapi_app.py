@@ -34,6 +34,7 @@ from WIP_Client import ClientAsync
 from common.utils.config_loader import ConfigLoader
 from common.utils.redis_log_handler import RedisLogHandler
 import redis.asyncio as aioredis
+
 # ドキュメントエンドポイントを有効化
 app = FastAPI()
 script_dir = Path(__file__).resolve().parent
@@ -96,7 +97,7 @@ class ConnectionManager:
         """単発メッセージ配信（互換用）。"""
         self.logs.append(message)
         if len(self.logs) > self.log_limit:
-            self.logs = self.logs[-self.log_limit:]
+            self.logs = self.logs[-self.log_limit :]
 
         for ws in list(self.active):
             try:
@@ -109,7 +110,7 @@ class ConnectionManager:
         # 履歴は個別ログ文字列で保持（新規 WS 接続時の replay 用）
         self.logs.extend(batch)
         if len(self.logs) > self.log_limit:
-            self.logs = self.logs[-self.log_limit:]
+            self.logs = self.logs[-self.log_limit :]
 
         objs = []
         for s in batch:
@@ -117,19 +118,24 @@ class ConnectionManager:
                 objs.append(json.loads(s))
             except Exception:
                 # parse できなかった行もログ化して捨てない
-                objs.append({
-                    "type": "log",
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "info",
-                    "message": s,
-                    "details": {"raw": True},
-                })
+                objs.append(
+                    {
+                        "type": "log",
+                        "timestamp": datetime.now().isoformat(),
+                        "level": "info",
+                        "message": s,
+                        "details": {"raw": True},
+                    }
+                )
 
-        payload = json.dumps({
-            "type": "bulk",
-            "count": len(objs),
-            "logs": objs,   # ← ここがオブジェクト配列になる！
-        }, ensure_ascii=False)
+        payload = json.dumps(
+            {
+                "type": "bulk",
+                "count": len(objs),
+                "logs": objs,  # ← ここがオブジェクト配列になる！
+            },
+            ensure_ascii=False,
+        )
 
         for ws in list(self.active):
             try:
@@ -150,7 +156,7 @@ class ConnectionManager:
                     batch.append(await self.queue.get())
 
                 if len(batch) == 1:
-                    await self._broadcast(batch[0])     # 従来互換
+                    await self._broadcast(batch[0])  # 従来互換
                 else:
                     await self._broadcast_batch(batch)  # bulk 送信
         except asyncio.CancelledError:
@@ -201,6 +207,7 @@ async def startup_event() -> None:
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     await manager.stop()
+
 
 # メトリクス用グローバル変数
 total_accesses = 0
@@ -336,6 +343,7 @@ def _create_fallback_weather_data(area_code: str, days_offset: int = 0) -> dict:
 # ----------------------------------------------------------------------
 # Dependency
 # ----------------------------------------------------------------------
+
 
 async def get_wip_client() -> AsyncGenerator[ClientAsync, None]:
     client = ClientAsync(debug=True)

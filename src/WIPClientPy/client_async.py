@@ -14,6 +14,7 @@ from WIPCommonPy.packet import LocationRequest, QueryRequest
 
 load_dotenv()
 
+
 @dataclass
 class ServerConfig:
     """Weather Server の接続設定"""
@@ -59,8 +60,7 @@ class ClientAsync:
         self.state = ClientState(latitude, longitude, area_code)
 
         self.logger = LoggerConfig.setup_client_logger(
-            client_name="WIPClientAsync",
-            debug=self.debug
+            client_name="WIPClientAsync", debug=self.debug
         )
 
         # 非同期操作時の同時アクセスを防ぐためのロック
@@ -85,7 +85,7 @@ class ClientAsync:
                 remote_addr=self.config.host,
                 remote_port=self.config.port,
                 packet_size=0,
-                packet_details={"Initial State": str(self.state)}
+                packet_details={"Initial State": str(self.state)},
             )
             self.logger.debug(init_log)
 
@@ -149,7 +149,9 @@ class ClientAsync:
             and self.state.longitude is None
             and self.state.area_code is None
         ):
-            raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
+            raise ValueError(
+                "133: 必要なデータ未設定 - 座標またはエリアコードを設定してください"
+            )
 
         if proxy:
             if self.state.area_code is not None:
@@ -165,7 +167,9 @@ class ClientAsync:
                     version=self._weather_client.VERSION,
                 )
                 async with self._lock:
-                    result = await self._weather_client._execute_query_request_async(request=request)
+                    result = await self._weather_client._execute_query_request_async(
+                        request=request
+                    )
             else:
                 request = LocationRequest.create_coordinate_lookup(
                     latitude=self.state.latitude,
@@ -180,7 +184,9 @@ class ClientAsync:
                     version=self._weather_client.VERSION,
                 )
                 async with self._lock:
-                    result = await self._weather_client._execute_location_request_async(request=request)
+                    result = await self._weather_client._execute_location_request_async(
+                        request=request
+                    )
         else:
             if self.state.area_code is not None:
                 async with self._lock:
@@ -240,7 +246,9 @@ class ClientAsync:
                 **kwargs,
             )
             async with self._lock:
-                return await self._weather_client._execute_location_request_async(request=request)
+                return await self._weather_client._execute_location_request_async(
+                    request=request
+                )
         async with self._lock:
             loc_resp, _ = await self._location_client.get_location_data_async(
                 latitude=latitude,
@@ -270,7 +278,9 @@ class ClientAsync:
                 **kwargs,
             )
             async with self._lock:
-                return await self._weather_client._execute_query_request_async(request=request)
+                return await self._weather_client._execute_query_request_async(
+                    request=request
+                )
         async with self._lock:
             return await self._query_client.get_weather_data_async(
                 area_code=area_code,
@@ -278,18 +288,26 @@ class ClientAsync:
             )
 
     def get_state(self) -> Dict:
-        return {**asdict(self.state), "host": self.config.host, "port": self.config.port}
+        return {
+            **asdict(self.state),
+            "host": self.config.host,
+            "port": self.config.port,
+        }
 
     def set_server(self, host: str, port: Optional[int] = None) -> None:
         self.config.update(host, port)
         self._weather_client.close()
-        self._weather_client = WeatherClient(host=self.config.host, port=self.config.port, debug=self.debug)
+        self._weather_client = WeatherClient(
+            host=self.config.host, port=self.config.port, debug=self.debug
+        )
         self._location_client.close()
         self._query_client.close()
         self._location_client = LocationClient(debug=self.debug)
         self._query_client = QueryClient(debug=self.debug)
         if self.debug:
-            self.logger.debug(f"Server updated - New server: {self.config.host}:{self.config.port}")
+            self.logger.debug(
+                f"Server updated - New server: {self.config.host}:{self.config.port}"
+            )
 
     # ---------------------------------------------------------------
     # コンテキストマネージャ対応

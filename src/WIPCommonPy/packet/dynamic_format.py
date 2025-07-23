@@ -3,6 +3,7 @@
 
 JSONファイルからフィールド定義を読み込み辞書として返します。
 """
+
 from __future__ import annotations
 
 import json
@@ -23,7 +24,9 @@ def _resolve_path(file_name: str | Path) -> Path:
     return path
 
 
-def load_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str, Dict[str, Any]]:
+def load_base_fields(
+    file_name: str | Path = "request_fields.json",
+) -> Dict[str, Dict[str, Any]]:
     """基本フィールド定義を読み込む
 
     Args:
@@ -54,17 +57,19 @@ def load_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str,
             result[str(key)] = {"length": length, "type": f_type}
         return result
     except Exception as e:  # noqa: BLE001
-        raise BitFieldError(
-            f"基本フィールド定義の読み込みに失敗: {e}"
-        ) from e
+        raise BitFieldError(f"基本フィールド定義の読み込みに失敗: {e}") from e
 
 
-def reload_base_fields(file_name: str | Path = "request_fields.json") -> Dict[str, Dict[str, Any]]:
+def reload_base_fields(
+    file_name: str | Path = "request_fields.json",
+) -> Dict[str, Dict[str, Any]]:
     """基本フィールド定義を再読み込みする"""
     return load_base_fields(file_name)
 
 
-def load_extended_fields(file_name: str | Path = "extended_fields.json") -> Dict[str, Dict[str, Any]]:
+def load_extended_fields(
+    file_name: str | Path = "extended_fields.json",
+) -> Dict[str, Dict[str, Any]]:
     """拡張フィールド定義を読み込む
 
     Args:
@@ -95,12 +100,12 @@ def load_extended_fields(file_name: str | Path = "extended_fields.json") -> Dict
             result[str(key)] = {"id": field_id, "type": f_type}
         return result
     except Exception as e:  # noqa: BLE001
-        raise BitFieldError(
-            f"拡張フィールド定義の読み込みに失敗: {e}"
-        ) from e
+        raise BitFieldError(f"拡張フィールド定義の読み込みに失敗: {e}") from e
 
 
-def load_response_fields(file_name: str | Path = "response_fields.json") -> Dict[str, Dict[str, Any]]:
+def load_response_fields(
+    file_name: str | Path = "response_fields.json",
+) -> Dict[str, Dict[str, Any]]:
     """レスポンスフィールド定義を読み込む
 
     Args:
@@ -131,6 +136,4 @@ def load_response_fields(file_name: str | Path = "response_fields.json") -> Dict
             result[str(key)] = {"length": length, "type": f_type}
         return result
     except Exception as e:  # noqa: BLE001
-        raise BitFieldError(
-            f"レスポンスフィールド定義の読み込みに失敗: {e}"
-        ) from e
+        raise BitFieldError(f"レスポンスフィールド定義の読み込みに失敗: {e}") from e

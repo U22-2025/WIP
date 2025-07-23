@@ -2,6 +2,7 @@ from ..models.response import Response
 from ..core.extended_field import ExtendedField
 from typing import Optional, Union, Dict, Any
 
+
 class ErrorResponse(Response):
     """Type7 Error packet with optional source information."""
 
@@ -37,4 +38,3 @@ class ErrorResponse(Response):
     @error_code.setter
     def error_code(self, value: Union[int, str]) -> None:
         self.weather_code = int(value)
-
