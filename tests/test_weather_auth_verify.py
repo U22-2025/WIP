@@ -1,6 +1,4 @@
 import logging
-import sys
-sys.path.append('src')
 from WIPServerPy.servers.weather_server.weather_server import WeatherServer
 from WIPCommonPy.packet import Request
 from WIPCommonPy.utils.auth import WIPAuth
