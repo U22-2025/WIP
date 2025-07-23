@@ -17,10 +17,10 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIP_Server.data.controllers.unified_data_processor import UnifiedDataProcessor
-from WIP_Server.data.redis_manager import create_redis_manager 
+from WIP_Server.data.redis_manager import create_redis_manager
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(redis_prefix='REDIS'):
     """
     統合データ処理のメイン関数
     
@@ -130,7 +130,7 @@ def main():
         
         try:
             # Redis管理クラスのインスタンスを作成
-            redis_manager = create_redis_manager(debug=True)
+            redis_manager = create_redis_manager(debug=True, prefix=redis_prefix)
             
             disaster_result = {'updated': 0, 'created': 0, 'errors': 0}
             earthquake_result = {'updated': 0, 'created': 0, 'errors': 0}

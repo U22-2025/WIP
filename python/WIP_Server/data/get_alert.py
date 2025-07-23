@@ -17,7 +17,7 @@ from WIP_Server.data.alert_processor import AlertDataProcessor, AlertProcessor
 from WIP_Server.data.redis_manager import create_redis_manager
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(redis_prefix='REDIS'):
     """
     警報・注意報処理のメイン関数
     
@@ -50,7 +50,7 @@ def main():
         
         try:
             # Redis管理クラスのインスタンスを作成
-            redis_manager = create_redis_manager(debug=True)
+            redis_manager = create_redis_manager(debug=True, prefix=redis_prefix)
             
             # 警報・注意報情報を更新
             # RedisManagerのupdate_alertsはarea_alert_mapping部分を期待

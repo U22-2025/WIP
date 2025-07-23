@@ -36,7 +36,7 @@ from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_d
 class QueryServer(BaseServer):
     """気象データサーバーのメインクラス（基底クラス継承版）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None, noupdate=False):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None, noupdate=False, run_updates=None):
         """
         初期化
         
@@ -83,15 +83,18 @@ class QueryServer(BaseServer):
         self.packet_debug_logger = PacketDebugLogger("QueryServer")
         
         # noupdateフラグがFalseの場合のみ起動時更新を実行
-        if not noupdate:
+        if run_updates is None:
+            run_updates = os.getenv('QUERY_SERVER_RUN_UPDATES', 'false').lower() == 'true'
+
+        if run_updates and not noupdate:
             # 起動時に気象データを更新（スレッドで非同期実行）
             threading.Thread(target=self._update_weather_data_scheduled, daemon=True).start()
 
             # 起動時に警報と災害情報を更新（スレッドで非同期実行）
             threading.Thread(target=self._update_disaster_alert_scheduled, daemon=True).start()
 
-        # スケジューラーを開始
-        self._setup_scheduler()
+            # スケジューラーを開始
+            self._setup_scheduler()
 
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（QueryServer固有）"""

@@ -9,6 +9,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 import traceback
+import schedule
+import threading
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -22,11 +24,13 @@ from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet.debug.debug_logger import PacketDebugLogger
 from ..common.log_config import UnifiedLogFormatter
+from WIP_Server.scripts.update_weather_data import update_redis_weather_data
+from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_disaster_main
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None, run_updates=None):
         """
         初期化
         
@@ -96,6 +100,14 @@ class ReportServer(BaseServer):
         
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("ReportServer")
+
+        if run_updates is None:
+            run_updates = os.getenv('REPORT_SERVER_RUN_UPDATES', 'true').lower() == 'true'
+
+        if run_updates:
+            threading.Thread(target=self._update_weather_data_scheduled, daemon=True).start()
+            threading.Thread(target=self._update_disaster_alert_scheduled, daemon=True).start()
+            self._setup_scheduler()
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（ReportServer固有）"""
@@ -357,6 +369,42 @@ class ReportServer(BaseServer):
             print(f"  [{self.server_name}] データベース保存: {sensor_data['area_code']} (未実装)")
         # TODO: データベース保存機能を実装
         pass
+
+    def _setup_scheduler(self):
+        """天気・災害情報更新のスケジューラーを開始"""
+        update_times_str = self.config.get('schedule', 'weather_update_time', '05:00')
+        update_times = [t.strip() for t in update_times_str.split(',')]
+
+        for update_time in update_times:
+            schedule.every().day.at(update_time).do(self._update_weather_data_scheduled)
+
+        disaster_interval = self.config.getint('schedule', 'disaster_alert_update_time', 10)
+        schedule.every(disaster_interval).minutes.do(self._update_disaster_alert_scheduled)
+
+        def run_scheduler():
+            while True:
+                schedule.run_pending()
+                time.sleep(30)
+
+        threading.Thread(target=run_scheduler, daemon=True).start()
+
+    def _update_weather_data_scheduled(self):
+        """スケジュールされた気象データ更新処理"""
+        try:
+            update_redis_weather_data(debug=self.debug, redis_prefix='REPORT_REDIS')
+        except Exception as e:
+            print(f"[{self.server_name}] 気象データ更新エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+
+    def _update_disaster_alert_scheduled(self):
+        """スケジュールされた災害情報更新処理"""
+        try:
+            update_alert_disaster_main(redis_prefix='REPORT_REDIS')
+        except Exception as e:
+            print(f"[{self.server_name}] 災害情報更新エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
     
     
     def create_response(self, request):
