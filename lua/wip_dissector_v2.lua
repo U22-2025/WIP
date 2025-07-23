@@ -44,12 +44,13 @@ local f_pops = ProtoField.uint8("wip.pops", "precipitation_prob Probability (%)"
 local f_ext_record = ProtoField.bytes("wip.ext_record", "Extension Record")
 local f_ext_key = ProtoField.uint16("wip.ext_key", "Extension Key", base.DEC, {
     [1] = "Alert",
-    [2] = "Disaster", 
+    [2] = "Disaster",
+    [4] = "Auth Hash",
     [33] = "Latitude",
     [34] = "Longitude",
     [40] = "Source"
-}, 0x003F)
-local f_ext_length = ProtoField.uint16("wip.ext_length", "Extension Length", base.DEC, nil, 0xFFC0)
+}, 0xFC00)
+local f_ext_length = ProtoField.uint16("wip.ext_length", "Extension Length", base.DEC, nil, 0x03FF)
 local f_ext_data = ProtoField.string("wip.ext_data", "Extension Data")
 
 -- プロトコルフィールドの登録
@@ -113,6 +114,8 @@ end
 -- 拡張フィールドデコード関数
 local function decode_extension_data(key, data)
     if key == 1 or key == 2 then  -- Alert, Disaster (UTF-8 string)
+        return data:string()
+    elseif key == 4 then  -- Auth Hash (UTF-8 string)
         return data:string()
     elseif key == 33 or key == 34 then  -- Latitude, Longitude (int32 scaled, little-endian)
         if data:len() >= 4 then
@@ -235,10 +238,10 @@ function wip_proto.dissector(buffer, pinfo, tree)
                 break
             end
             
-            -- レコードヘッダー（16ビット: 6ビットキー + 10ビットデータ長）
+            -- レコードヘッダー（16ビット: 10ビットデータ長 + 6ビットキー）
             local header = buffer(offset, 2):le_uint()
-            local key = header & 0x3F  -- 下位6ビット（0-5）
-            local data_len = (header >> 6) & 0x3FF  -- 上位10ビット（6-15）
+            local data_len = header & 0x3FF  -- 下位10ビット（0-9）
+            local key = (header >> 10) & 0x3F  -- 上位6ビット（10-15）
             
             -- 無効なレコード（key=0, data_len=0）の場合は処理を終了
             if header == 0 or (key == 0 and data_len == 0) then

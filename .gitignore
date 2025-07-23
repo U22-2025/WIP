@@ -7,3 +7,4 @@ __pycache__
 /python/logs/json
 /logs/reports
 !.env.example
+/.venv
