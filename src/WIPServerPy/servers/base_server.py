@@ -9,7 +9,7 @@ import threading
 import concurrent.futures
 import os
 from abc import ABC, abstractmethod
-from .common.log_config import UnifiedLogFormatter
+from WIPCommonPy.utils.log_config import UnifiedLogFormatter
 try:
     from dotenv import load_dotenv
     _DOTENV_AVAILABLE = True

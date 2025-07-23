@@ -21,7 +21,7 @@ from ..base_server import BaseServer
 from WIPCommonPy.packet import ReportRequest, ReportResponse
 from WIPCommonPy.utils.config_loader import ConfigLoader
 from WIPCommonPy.packet.debug.debug_logger import PacketDebugLogger
-from ..common.log_config import UnifiedLogFormatter
+from WIPCommonPy.utils.log_config import UnifiedLogFormatter
 # JSON_DIR references removed
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""

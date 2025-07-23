@@ -12,7 +12,7 @@ from WIPCommonPy.packet import (
     ErrorResponse, ExtendedField,
 )
 from WIPCommonPy.packet.debug.debug_logger import PacketDebugLogger
-from ..common.log_config import UnifiedLogFormatter
+from WIPCommonPy.utils.log_config import UnifiedLogFormatter
 
 
 class WeatherRequestHandlers:

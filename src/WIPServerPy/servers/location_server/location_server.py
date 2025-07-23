@@ -13,7 +13,7 @@ from WIPCommonPy.utils.cache import Cache
 from WIPCommonPy.packet import ErrorResponse
 from WIPCommonPy.packet import ExtendedField
 from WIPCommonPy.packet.debug.debug_logger import PacketDebugLogger
-from ..common.log_config import UnifiedLogFormatter
+from WIPCommonPy.utils.log_config import UnifiedLogFormatter
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":

@@ -6,31 +6,10 @@
 import time
 import threading
 import logging
-import sys
 import os
 from .weather_constants import DebugConstants
 
-# 共通ログ設定をインポート
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-try:
-    from common.log_config import LoggerConfig, UnifiedLogFormatter
-except ImportError:
-    # フォールバック用の簡易設定
-    class LoggerConfig:
-        @staticmethod
-        def setup_debug_helper_logger(name, debug_enabled=False):
-            logger = logging.getLogger(f"DebugHelper.{name}")
-            if not logger.handlers and debug_enabled:
-                handler = logging.StreamHandler()
-                formatter = logging.Formatter(
-                    '%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s'
-                )
-                handler.setFormatter(formatter)
-                logger.addHandler(handler)
-                logger.setLevel(logging.DEBUG)
-            return logger
-
-
+from WIPCommonPy.utils.log_config import LoggerConfig, UnifiedLogFormatter
 class DebugHelper:
     """デバッグ支援クラス"""
     

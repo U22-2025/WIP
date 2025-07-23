@@ -1,36 +1,12 @@
 import asyncio
 import logging
 import os
-import sys
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict
 
 from dotenv import load_dotenv
 
-# 統一ログフォーマットをインポート
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'WIP_Server', 'servers'))
-try:
-    from common.log_config import LoggerConfig, UnifiedLogFormatter
-except ImportError:
-    # フォールバック用
-    class LoggerConfig:
-        @staticmethod
-        def setup_client_logger(client_name="WIPClient", debug=False):
-            logger = logging.getLogger(f"Client.{client_name}")
-            if not logger.handlers and debug:
-                handler = logging.StreamHandler()
-                formatter = logging.Formatter('%(message)s')
-                handler.setFormatter(formatter)
-                logger.addHandler(handler)
-                logger.setLevel(logging.DEBUG)
-            return logger
-    
-    class UnifiedLogFormatter:
-        @staticmethod
-        def format_communication_log(**kwargs):
-            return "*** Client Log ***"
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from WIPCommonPy.utils.log_config import LoggerConfig, UnifiedLogFormatter
 from WIPCommonPy.clients.weather_client import WeatherClient
 from WIPCommonPy.clients.location_client import LocationClient
 from WIPCommonPy.clients.query_client import QueryClient

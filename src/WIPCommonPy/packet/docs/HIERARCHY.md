@@ -1,13 +1,13 @@
-# common/packet モジュール概要
+# WIPCommonPy/packet モジュール概要
 
-このドキュメントでは `common/packet` ディレクトリに含まれるモジュールの役割と
+このドキュメントでは `WIPCommonPy/packet` ディレクトリに含まれるモジュールの役割と
 相互関係をまとめます。各モジュールがどのように関連し合うかをマーメイド図で視覚的
 に示します。
 
 ## ディレクトリ構成
 
 ```
-common/packet/
+WIPCommonPy/packet/
 ├── __init__.py
 ├── core/
 │   ├── __init__.py
