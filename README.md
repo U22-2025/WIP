@@ -116,8 +116,8 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 ### 依存関係のインストール
 ```bash
 # Condaを使用する場合
-conda env create -f environment.yml
-conda activate U22-2025
+conda env create -f yml/env311.yml
+conda activate U22-WIP
 
 # pipを使用する場合
 pip install -r requirements.txt
@@ -532,7 +532,7 @@ SOFTWARE.
 - [debug_tools/docs/extended_field_fix_report.md](debug_tools/docs/extended_field_fix_report.md) - 拡張フィールド修正レポート
 
 ### 設定ファイル
-- [environment.yml](environment.yml) - Conda環境設定
+- [yml/env311.yml](yml/env311.yml) - Conda環境設定
 - [weather_code.json](weather_code.json) - 天気コード定義
 - [start_servers.bat](start_servers.bat) - サーバ起動スクリプト
 
