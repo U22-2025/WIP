@@ -1,23 +1,44 @@
+# ─── ビルド設定 ──────────────────────────────
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires      = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
+# ─── メタデータ ──────────────────────────────
 [project]
-name = "wiplib"
-version = "0.1.0"
-description = "Awesome toolkit for weather data."
-readme = "README.md"
-license = { text = "MIT" }
-authors = [{ name = "WIP Team", email = "u22.wip.team@gmail.com" }]
+name            = "wiplib"            # ← パッケージ名はそのまま
+version         = "0.1.0"
+description     = "Awesome toolkit for weather data (client‑side)."
+readme          = "README.md"
+license         = { text = "MIT" }
+authors         = [{ name = "WIP Team", email = "u22.wip.team@gmail.com" }]
 requires-python = ">=3.9"
+
+# クライアントでも必須な最小依存だけを書く
 dependencies = [
-    "requests>=2.32.0"
+    "requests>=2.32.0",
+    "aiohttp>=3.9.0",
+    "websockets>=15.0.1",
 ]
+
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
 ]
+
 keywords = ["weather", "protocol", "data", "disaster", "alert", "Japan", "toolkit"]
 
 [project.urls]
 Homepage = "https://github.com/U22-2025/WIP"
+
+# ─── 開発用 extras（お好みで） ────────────────
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+]
+
+# ─── どのソースを wheel に含めるか ────────────
+[tool.setuptools.packages.find]
+where   = ["src"]                    # src レイアウト
+include = ["WIPClientPy*", "WIPCommonPy*"]  # ✅ ホワイトリスト
+exclude = ["WIPServerPy*"]           # 🚫 念のためブロック（任意）
