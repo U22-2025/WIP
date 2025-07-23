@@ -38,6 +38,9 @@ dev = [
 ]
 
 # ─── どのソースを wheel に含めるか ────────────
+[tool.setuptools]
+package-dir = { "" = "src" }
+
 [tool.setuptools.packages.find]
 where   = ["src"]                    # src レイアウト
 include = ["WIPClientPy*", "WIPCommonPy*"]  # ✅ ホワイトリスト
