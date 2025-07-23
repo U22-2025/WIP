@@ -21,3 +21,13 @@ def test_cache_delete_and_clear():
     assert cache.size() == 1
     cache.clear()
     assert cache.size() == 0
+
+
+def test_cache_disabled():
+    cache = Cache(enabled=False)
+    cache.set('x', 'y')
+    assert cache.get('x') is None
+    cache.delete('x')
+    assert cache.size() == 0
+    cache.clear()
+    assert cache.size() == 0
