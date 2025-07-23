@@ -32,6 +32,7 @@ from WIPCommonPy.clients.query_client import QueryClient
 from WIPCommonPy.utils.config_loader import ConfigLoader
 from WIPCommonPy.packet import ErrorResponse
 from WIPCommonPy.packet.debug.debug_logger import create_debug_logger
+from WIPCommonPy.utils.auth import WIPAuth
 
 
 class WeatherServer(WeatherRequestHandlers, BaseServer):
@@ -226,13 +227,45 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             # パケットタイプに応じたパスフレーズを取得
             passphrase = self._get_passphrase_for_packet_type(packet_type, addr)
 
-            # パケット内の認証ハッシュを取得（拡張フィールドから）
-            # 注意: 実際の実装では、パケットから認証ハッシュを取得する必要があります
-            # ここでは、認証が実装されていることを示すサンプルコードです
+            # 受信データをパースして拡張フィールドからauth_hashを取得
+            from WIPCommonPy.packet import Request
 
-            return True  # 暫定的に常に認証成功とする
+            parsed = Request.from_bytes(data)
+            auth_hash_hex = None
+            if parsed.ex_flag == 1 and parsed.ex_field:
+                try:
+                    auth_hash_hex = parsed.ex_field.auth_hash
+                except Exception:
+                    auth_hash_hex = None
 
-        except Exception as e:
+            if not auth_hash_hex:
+                self.logger.error(
+                    f"[Auth] auth_hashが存在しません packet_id={packet_id}"
+                )
+                return False
+
+            try:
+                received_hash = bytes.fromhex(str(auth_hash_hex))
+            except Exception:
+                self.logger.error(
+                    f"[Auth] auth_hashの形式が不正です packet_id={packet_id}"
+                )
+                return False
+
+            expected_hash = WIPAuth.calculate_auth_hash(
+                packet_id, timestamp, passphrase
+            )
+
+            if expected_hash == received_hash:
+                return True
+
+            self.logger.error(
+                f"[Auth] 認証失敗 packet_id={packet_id} from {addr}"
+            )
+            return False
+
+        except Exception:
+            self.logger.debug(traceback.format_exc())
             return False
 
     def _get_server_type_for_packet(self, packet_type, addr):
