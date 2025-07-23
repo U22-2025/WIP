@@ -34,6 +34,7 @@ Homepage = "https://github.com/U22-2025/WIP"
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-asyncio",
     "black",
 ]
 
