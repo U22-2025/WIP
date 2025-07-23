@@ -51,9 +51,17 @@ def test_emit_without_running_loop(monkeypatch):
     _patch_redis(monkeypatch, dummy)
     handler = RedisLogHandler(channel="test.log")
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname=__file__, lineno=1, msg="msg", args=(), exc_info=None
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="msg",
+        args=(),
+        exc_info=None,
     )
-    monkeypatch.setattr(asyncio, "get_running_loop", lambda: (_ for _ in ()).throw(RuntimeError))
+    monkeypatch.setattr(
+        asyncio, "get_running_loop", lambda: (_ for _ in ()).throw(RuntimeError)
+    )
     loop = asyncio.new_event_loop()
     monkeypatch.setattr(asyncio, "run", lambda coro: loop.run_until_complete(coro))
     handler.emit(record)

@@ -2,8 +2,9 @@
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from WIPServerPy.data import get_alert,get_unified_data
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from WIPServerPy.data import get_alert, get_unified_data
+
 
 def main():
     print("alert処理開始")
@@ -17,6 +18,7 @@ def main():
     except Exception as e:
         print(f"Error calling get_unified_data.main: {e}")
     print("処理完了")
+
 
 if __name__ == "__main__":
     main()

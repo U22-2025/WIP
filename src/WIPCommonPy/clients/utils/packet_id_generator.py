@@ -1,10 +1,11 @@
 import threading
-import random 
+import random
+
 
 class PacketIDGenerator12Bit:
     def __init__(self):
         self._lock = threading.Lock()
-        self._current = random.randint(0,4095) # 0 - 4095
+        self._current = random.randint(0, 4095)  # 0 - 4095
         self._max_id = 4096  # 2^12
 
     def next_id(self) -> int:
@@ -16,4 +17,4 @@ class PacketIDGenerator12Bit:
     def next_id_bytes(self) -> bytes:
         """2バイトに12ビット分を格納して返す（上位4ビットは0埋め）"""
         pid = self.next_id()
-        return pid.to_bytes(2, byteorder='little')
+        return pid.to_bytes(2, byteorder="little")

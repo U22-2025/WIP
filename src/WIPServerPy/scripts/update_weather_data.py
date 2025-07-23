@@ -7,8 +7,11 @@ import sys
 import os
 import traceback
 from pathlib import Path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
+
+
 # JSON_DIRの定義を削除（logs/jsonフォルダは使用しない）
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {"weather_reportdatetime": {}}
@@ -24,18 +27,16 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
     # コネクションプールの最適化
     adapter = requests.adapters.HTTPAdapter(
-        pool_connections=20,
-        pool_maxsize=50,
-        max_retries=3
+        pool_connections=20, pool_maxsize=50, max_retries=3
     )
-    session.mount('https://', adapter)
+    session.mount("https://", adapter)
 
     # タイムアウト設定
     timeout = 5.0
 
     ### ここに日付チェックを追加
     rm = WeatherRedisManager()
-    
+
     # Redisから既存のweather_reportdatetimeを取得
     existing_report_datetimes = rm.get_weather_data("weather_reportdatetime")
 
@@ -75,11 +76,17 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
             ### 時刻チェック
             ### redisが保持しているデータと同じreportdatetimeならスキップ
-            if existing_report_datetimes is not None and area_code in existing_report_datetimes and existing_report_datetimes[area_code] == reporttime:
+            if (
+                existing_report_datetimes is not None
+                and area_code in existing_report_datetimes
+                and existing_report_datetimes[area_code] == reporttime
+            ):
                 if debug:
-                    print(f"エリアコード {area_code} のデータは更新されていません。スキップします。")
+                    print(
+                        f"エリアコード {area_code} のデータは更新されていません。スキップします。"
+                    )
                     skip_area.append(area_code)
-                return # このエリアコードの処理をスキップ
+                return  # このエリアコードの処理をスキップ
 
             week_days = 7
             time_defines = data[0]["timeSeries"][0]["timeDefines"]
@@ -99,7 +106,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 if len(indices) == 1:
                     selected_indices.append(indices[0])
                 else:
-                    min_diff = float('inf')
+                    min_diff = float("inf")
                     sel_idx = indices[0]
                     for idx in indices:
                         hour = int(time_defines[idx][11:13])
@@ -113,7 +120,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                             removed_indices.append(idx)
 
             if debug:
-                print(f"エリアコード {area_code} の選択インデックス: {selected_indices}")
+                print(
+                    f"エリアコード {area_code} の選択インデックス: {selected_indices}"
+                )
                 print(f"エリアコード {area_code} の除外インデックス: {removed_indices}")
 
             parent_code = area_code
@@ -121,7 +130,11 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 area_name = area["area"].get("name", "")
                 code = area["area"].get("code")
                 weather_codes = area.get("weatherCodes", [])
-                weather_codes = [code_ for i, code_ in enumerate(weather_codes) if i not in removed_indices]
+                weather_codes = [
+                    code_
+                    for i, code_ in enumerate(weather_codes)
+                    if i not in removed_indices
+                ]
 
                 if debug:
                     print(f"エリア {area_name}({code}) の天気コード: {weather_codes}")
@@ -178,10 +191,12 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                             if sub_area["area"]["code"][:2] == code[:2]:
                                 if len(weather_codes) < week_days:
                                     add_codes = sub_area.get("weatherCodes", [])
-                                    weather_codes += add_codes[len(weather_codes):week_days]
+                                    weather_codes += add_codes[
+                                        len(weather_codes) : week_days
+                                    ]
                                 if len(pop) < week_days:
                                     add_pop = sub_area.get("pops", [])
-                                    pop += add_pop[len(pop):week_days]
+                                    pop += add_pop[len(pop) : week_days]
                                 break
                 area_data = {
                     "parent_code": parent_code,
@@ -196,13 +211,17 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             # スレッドセーフに結果をマージ
             with output_lock:
                 output.update(area_output)
-                output["weather_reportdatetime"][area_code] = reporttime # weather_reportdatetimeをトップレベルに追加
+                output["weather_reportdatetime"][
+                    area_code
+                ] = reporttime  # weather_reportdatetimeをトップレベルに追加
                 if debug:
                     print(f"エリアコード {area_code} のデータをマージしました")
 
             if debug:
                 area_end_time = time.time()
-                print(f"エリアコード {area_code} の処理完了: 所要時間 {area_end_time - area_start_time:.2f}秒")
+                print(
+                    f"エリアコード {area_code} の処理完了: 所要時間 {area_end_time - area_start_time:.2f}秒"
+                )
 
         except Exception as e:
             print(f"エラー ({area_code}): {e}")
@@ -224,22 +243,26 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
             # Redis管理クラスを使用して一括保存
             redis_manager = create_redis_manager(debug=debug)
-            
+
             # weather_reportdatetime を output から分離
             report_datetimes_data = output.pop("weather_reportdatetime", {})
-            
+
             # エリアごとの気象データを一括保存
             result = redis_manager.bulk_update_weather_data(output)
-            
+
             # weather_reportdatetime を個別に保存
             if report_datetimes_data:
-                redis_manager.update_weather_data("weather_reportdatetime", report_datetimes_data)
+                redis_manager.update_weather_data(
+                    "weather_reportdatetime", report_datetimes_data
+                )
 
             redis_manager.close()
 
             if debug:
                 redis_end_time = time.time()
-                print(f"Redisへの一括保存完了: 所要時間 {redis_end_time - redis_start_time:.2f}秒")
+                print(
+                    f"Redisへの一括保存完了: 所要時間 {redis_end_time - redis_start_time:.2f}秒"
+                )
                 print(f"更新件数: {result['updated']}, エラー件数: {result['errors']}")
         except Exception as e:
             print(f"Redisへの一括保存エラー: {e}")
@@ -252,6 +275,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
         print(f"取得したエリア数: {len(output)}")
 
     return skip_area
+
 
 def update_redis_weather_data(debug=False, area_codes=None):
     """
@@ -274,22 +298,25 @@ def update_redis_weather_data(debug=False, area_codes=None):
 
     if debug:
         end_time = time.time()
-        print(f"気象データの取得と保存完了: {len(area_codes)}エリア処理、{len(skip_area)}エリアスキップ")
+        print(
+            f"気象データの取得と保存完了: {len(area_codes)}エリア処理、{len(skip_area)}エリアスキップ"
+        )
         print(f"合計所要時間: {end_time - start_time:.2f}秒")
 
     return skip_area
 
+
 if __name__ == "__main__":
     # 気象データの更新を実行し、スキップされたエリアを取得
     skip_area = update_redis_weather_data(debug=True)
-    
+
     # スキップされたエリアを表示
     if skip_area:
         print(f"\n=== スキップされたエリア ===")
         print(f"スキップされたエリア数: {len(skip_area)}")
         print(f"スキップされたエリアコード: {skip_area}")
-        print("="*30)
+        print("=" * 30)
     else:
         print(f"\n=== 全エリア更新完了 ===")
         print("スキップされたエリアはありません")
-        print("="*30)
+        print("=" * 30)

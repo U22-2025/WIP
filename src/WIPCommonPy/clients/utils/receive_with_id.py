@@ -73,7 +73,9 @@ async def receive_with_id_async(
             raise asyncio.TimeoutError("receive timeout")
         try:
             if hasattr(loop, "sock_recvfrom"):
-                data, addr = await asyncio.wait_for(loop.sock_recvfrom(sock, 1024), remaining)
+                data, addr = await asyncio.wait_for(
+                    loop.sock_recvfrom(sock, 1024), remaining
+                )
             else:
                 data, addr = await asyncio.wait_for(
                     loop.run_in_executor(None, sock.recvfrom, 1024), remaining
@@ -87,4 +89,3 @@ async def receive_with_id_async(
             packet_id = (value >> 4) & 0x0FFF
             if packet_id == expected_id:
                 return data, addr
-

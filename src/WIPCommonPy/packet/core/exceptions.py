@@ -5,4 +5,5 @@
 
 class BitFieldError(Exception):
     """ビットフィールド操作に関連するエラー"""
+
     pass

@@ -10,4 +10,3 @@ def resolve_ipv4(host: str) -> str:
     except socket.gaierror:
         pass
     return host
-

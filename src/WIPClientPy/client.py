@@ -18,6 +18,7 @@ from WIPCommonPy.packet import LocationRequest, QueryRequest
 
 load_dotenv()
 
+
 @dataclass
 class ServerConfig:
     """Weather Server の接続設定"""
@@ -63,8 +64,7 @@ class Client:
         self.state = ClientState(latitude, longitude, area_code)
 
         self.logger = LoggerConfig.setup_client_logger(
-            client_name="WIPClient",
-            debug=self.debug
+            client_name="WIPClient", debug=self.debug
         )
 
         if not 1 <= self.config.port <= 65535:
@@ -86,7 +86,7 @@ class Client:
                 remote_addr=self.config.host,
                 remote_port=self.config.port,
                 packet_size=0,
-                packet_details={"Initial State": str(self.state)}
+                packet_details={"Initial State": str(self.state)},
             )
             self.logger.debug(init_log)
 
@@ -150,7 +150,9 @@ class Client:
             and self.state.longitude is None
             and self.state.area_code is None
         ):
-            raise ValueError("133: 必要なデータ未設定 - 座標またはエリアコードを設定してください")
+            raise ValueError(
+                "133: 必要なデータ未設定 - 座標またはエリアコードを設定してください"
+            )
 
         if proxy:
             if self.state.area_code is not None:
@@ -163,7 +165,7 @@ class Client:
                     alert=alert,
                     disaster=disaster,
                     day=day,
-                    version=self._weather_client.VERSION
+                    version=self._weather_client.VERSION,
                 )
                 result = self._weather_client._execute_query_request(request=request)
             else:
@@ -177,7 +179,7 @@ class Client:
                     alert=alert,
                     disaster=disaster,
                     day=day,
-                    version=self._weather_client.VERSION
+                    version=self._weather_client.VERSION,
                 )
                 result = self._weather_client._execute_location_request(request=request)
         else:
@@ -248,18 +250,26 @@ class Client:
         return self._query_client.get_weather_data(area_code=area_code, **kwargs)
 
     def get_state(self) -> Dict:
-        return {**asdict(self.state), "host": self.config.host, "port": self.config.port}
+        return {
+            **asdict(self.state),
+            "host": self.config.host,
+            "port": self.config.port,
+        }
 
     def set_server(self, host: str, port: Optional[int] = None) -> None:
         self.config.update(host, port)
         self._weather_client.close()
-        self._weather_client = WeatherClient(host=self.config.host, port=self.config.port, debug=self.debug)
+        self._weather_client = WeatherClient(
+            host=self.config.host, port=self.config.port, debug=self.debug
+        )
         self._location_client.close()
         self._query_client.close()
         self._location_client = LocationClient(debug=self.debug)
         self._query_client = QueryClient(debug=self.debug)
         if self.debug:
-            self.logger.debug(f"Server updated - New server: {self.config.host}:{self.config.port}")
+            self.logger.debug(
+                f"Server updated - New server: {self.config.host}:{self.config.port}"
+            )
 
     # ---------------------------------------------------------------
     # コンテキストマネージャ対応

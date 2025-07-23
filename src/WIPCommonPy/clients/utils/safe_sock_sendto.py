@@ -1,7 +1,10 @@
 import asyncio
 from typing import Any, Tuple
 
-async def safe_sock_sendto(loop: asyncio.AbstractEventLoop, sock: Any, data: bytes, addr: Tuple[str, int]):
+
+async def safe_sock_sendto(
+    loop: asyncio.AbstractEventLoop, sock: Any, data: bytes, addr: Tuple[str, int]
+):
     """``loop.sock_sendto`` の ``NotImplementedError`` を回避するヘルパー。
 
     ``uvloop`` 使用時 ``sock_sendto`` が未実装の場合があるため、
@@ -24,4 +27,3 @@ async def safe_sock_sendto(loop: asyncio.AbstractEventLoop, sock: Any, data: byt
     finally:
         if blocking is not None and not blocking:
             sock.setblocking(False)
-
