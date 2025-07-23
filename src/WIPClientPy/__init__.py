@@ -17,5 +17,4 @@ __author__ = "WIP Team"
 __all__ = [
     "Client",
     "ClientAsync",
-    "client_async",
 ]
