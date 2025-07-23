@@ -23,6 +23,8 @@ dependencies:
 
   # --- dev ---
   - pytest
+  - pytest-cov
+  - pytest-xdist
 
   # ここ以降は conda で見つからなければ pip へ
   - pip:
