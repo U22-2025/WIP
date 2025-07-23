@@ -121,6 +121,9 @@ conda activate U22-WIP
 
 # pipを使用する場合
 pip install -r requirements.txt
+
+# テスト環境を構築する場合
+pip install -e .[dev]
 ```
 
 ### 環境変数設定
