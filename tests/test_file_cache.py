@@ -25,3 +25,13 @@ def test_persistent_cache_clear():
         cache.clear()
         assert cache.size() == 0
         assert not os.path.exists(file_path)
+
+
+def test_persistent_cache_disabled(tmp_path):
+    file_path = tmp_path / 'cache.json'
+    cache = PersistentCache(cache_file=str(file_path), enabled=False)
+    cache.set('k', 'v')
+    assert cache.get('k') is None
+    assert cache.size() == 0
+    cache.clear()
+    assert not file_path.exists()
