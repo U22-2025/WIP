@@ -30,7 +30,7 @@ from .handlers import WeatherRequestHandlers
 from WIPCommonPy.clients.location_client import LocationClient
 from WIPCommonPy.clients.query_client import QueryClient
 from WIPCommonPy.utils.config_loader import ConfigLoader
-from WIPCommonPy.packet import ErrorResponse
+from WIPCommonPy.packet import ErrorResponse, Request
 from WIPCommonPy.packet.debug.debug_logger import create_debug_logger
 from WIPCommonPy.utils.auth import WIPAuth
 
@@ -228,15 +228,10 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
             passphrase = self._get_passphrase_for_packet_type(packet_type, addr)
 
             # 受信データをパースして拡張フィールドからauth_hashを取得
-            from WIPCommonPy.packet import Request
-
             parsed = Request.from_bytes(data)
             auth_hash_hex = None
-            if parsed.ex_flag == 1 and parsed.ex_field:
-                try:
-                    auth_hash_hex = parsed.ex_field.auth_hash
-                except Exception:
-                    auth_hash_hex = None
+            if parsed.ex_flag == 1 and parsed.ex_field and parsed.ex_field.contains("auth_hash"):
+                auth_hash_hex = parsed.ex_field.auth_hash
 
             if not auth_hash_hex:
                 self.logger.error(
@@ -252,11 +247,12 @@ class WeatherServer(WeatherRequestHandlers, BaseServer):
                 )
                 return False
 
-            expected_hash = WIPAuth.calculate_auth_hash(
-                packet_id, timestamp, passphrase
-            )
-
-            if expected_hash == received_hash:
+            if WIPAuth.verify_auth_hash(
+                packet_id=packet_id,
+                timestamp=timestamp,
+                passphrase=passphrase,
+                received_hash=received_hash,
+            ):
                 return True
 
             self.logger.error(
