@@ -37,6 +37,8 @@ Homepage = "https://github.com/U22-2025/WIP"
 dev = [
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
+    "pytest-xdist",
     "black",
 ]
 location_server = [
