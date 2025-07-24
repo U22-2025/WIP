@@ -127,6 +127,13 @@ pip install -e .
 
 # テスト環境を構築する場合
 pip install -e .[dev]
+
+# サーバーを個別にインストールする場合
+pip install -e .[location_server]
+pip install -e .[query_server]
+
+# すべてのサーバーをインストールする場合
+pip install -e .[servers]
 ```
 
 ### 環境変数設定
