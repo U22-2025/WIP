@@ -35,8 +35,8 @@ $ sudo -u postgres psql
 
 ## 3.3 データベース作成
 ```sql
-CREATE DATABASE weather_forecast_map OWNER [ユーザ名];
-\q
+> CREATE DATABASE weather_forecast_map OWNER [ユーザ名];
+> \q
 ```
 
 ## 3.4 PostGIS 拡張機能インストール
@@ -51,7 +51,7 @@ $ sudo apt install postgis postgresql-16-postgis-3
 ```sql
 > CREATE EXTENSION postgis;
 > CREATE EXTENSION postgis_topology;
-\q
+> \q
 ```
 
 ## 3.5 空間データインポート
@@ -66,7 +66,7 @@ $ psql weather_forecast_map
 ```
 テーブル名がエラーを起こしそうなので変更しておく。
 ```sql
-ALTER TABLE 一次細分区域等 RENAME TO districts;
+> ALTER TABLE 一次細分区域等 RENAME TO districts;
 ```
 
 ---
