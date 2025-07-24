@@ -152,10 +152,10 @@ class ExtendedField:
         for key in cls.FIELD_MAPPING_STR:
 
             def getter(self, *, _k=key):
-                return self.get(_k)
+                return self._get_internal(_k)
 
             def setter(self, value, *, _k=key):
-                self.set(_k, value)
+                self._set_internal(_k, value)
 
             setattr(cls, key, property(getter, setter))
 
@@ -177,6 +177,19 @@ class ExtendedField:
                     raise ValueError(f"不正なキー: '{key}'")
                 self._data[key] = self._validate_value(key, value)
 
+    def _set_internal(self, key: str, value: Any) -> None:
+        """警告を出さずにフィールド値を設定"""
+        if key not in self.FIELD_MAPPING_STR:
+            raise ValueError(f"不正なキー: '{key}'")
+
+        validated_value = self._validate_value(key, value)
+        self._data[key] = validated_value
+        self._notify_observers()
+
+    def _get_internal(self, key: str, default: Any = None) -> Any:
+        """警告を出さずにフィールド値を取得"""
+        return self._data.get(key, default)
+
     def set(self, key: str, value: Any) -> None:
         """
         フィールド値を設定（検証付き）
@@ -193,18 +206,7 @@ class ExtendedField:
             DeprecationWarning,
             stacklevel=2,
         )
-        # キーの検証
-        if key not in self.FIELD_MAPPING_STR:
-            raise ValueError(f"不正なキー: '{key}'")
-
-        # 値の検証と正規化
-        validated_value = self._validate_value(key, value)
-
-        # 値を設定
-        self._data[key] = validated_value
-
-        # 変更を通知
-        self._notify_observers()
+        self._set_internal(key, value)
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -222,7 +224,7 @@ class ExtendedField:
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._data.get(key, default)
+        return self._get_internal(key, default)
 
     def update(self, data: Dict[str, Any]) -> None:
         """
