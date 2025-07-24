@@ -1,7 +1,7 @@
 import sys
 import os
 import time
-from common.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from WIPCommonPy.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -107,14 +107,14 @@ print(f"latitude: {latitude}")
 print(f"longitude: {longitude}")
 print("=" * 60)
 
-from WIP_Client import Client
-from common.packet import LocationRequest
+from WIPClientPy import Client
+from WIPCommonPy.packet import LocationRequest
 
 PIDG = PacketIDGenerator12Bit()
 
 # レポート機能のインポート
 if use_report:
-    from common.clients.report_client import ReportClient
+    from WIPCommonPy.clients.report_client import ReportClient
 
     # 温度指定 (例: --temp 28.5)
     if "--temp" in sys.argv:
