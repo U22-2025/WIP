@@ -1,4 +1,4 @@
-from .disaster_data_processor import DisasterDataProcessor
-from .disaster_main import main
+from WIPServerPy.data.controllers.disaster_data_processor import DisasterDataProcessor
+from WIPServerPy.data.controllers.disaster_main import main
 
 __all__ = ["DisasterDataProcessor", "main"]

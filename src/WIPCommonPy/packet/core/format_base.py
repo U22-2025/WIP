@@ -5,10 +5,10 @@
 
 from typing import Optional, Union, Dict, Any
 from pathlib import Path
-from ..dynamic_format import load_base_fields, reload_base_fields
-from .exceptions import BitFieldError
-from .bit_utils import extract_bits
-from ...utils.auth import WIPAuth
+from WIPCommonPy.packet.dynamic_format import load_base_fields, reload_base_fields
+from WIPCommonPy.packet.core.exceptions import BitFieldError
+from WIPCommonPy.packet.core.bit_utils import extract_bits
+from WIPCommonPy.utils.auth import WIPAuth
 
 
 class FormatBase:
@@ -570,7 +570,7 @@ class FormatBase:
         try:
             # 拡張フィールドが存在しない場合は作成
             if not hasattr(self, "ex_field") or not self.ex_field:
-                from ..core.extended_field import ExtendedField
+                from WIPCommonPy.packet.core.extended_field import ExtendedField
 
                 self.ex_field = ExtendedField()
 

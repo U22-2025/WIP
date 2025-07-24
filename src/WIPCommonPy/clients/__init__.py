@@ -32,19 +32,19 @@ __all__ = [
 
 def __getattr__(name):
     if name == "LocationClient":
-        from .location_client import LocationClient
+        from WIPCommonPy.clients.location_client import LocationClient
 
         return LocationClient
     if name == "QueryClient":
-        from .query_client import QueryClient
+        from WIPCommonPy.clients.query_client import QueryClient
 
         return QueryClient
     if name == "WeatherClient":
-        from .weather_client import WeatherClient
+        from WIPCommonPy.clients.weather_client import WeatherClient
 
         return WeatherClient
     if name == "ReportClient":
-        from .report_client import ReportClient
+        from WIPCommonPy.clients.report_client import ReportClient
 
         return ReportClient
     raise AttributeError(f"module {__name__} has no attribute {name}")

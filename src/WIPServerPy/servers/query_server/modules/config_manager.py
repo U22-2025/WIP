@@ -5,7 +5,7 @@
 
 import os
 from dotenv import load_dotenv
-from .weather_constants import NetworkConstants, RedisConstants, ThreadConstants
+from WIPServerPy.servers.query_server.modules.weather_constants import NetworkConstants, RedisConstants, ThreadConstants
 
 
 class ConfigManager:

@@ -11,7 +11,7 @@ from pathlib import Path
 import traceback
 
 # モジュールとして使用される場合
-from ..base_server import BaseServer
+from WIPServerPy.servers.base_server import BaseServer
 from WIPCommonPy.packet import ReportRequest, ReportResponse
 from WIPCommonPy.utils.config_loader import ConfigLoader
 from WIPCommonPy.packet.debug.debug_logger import PacketDebugLogger

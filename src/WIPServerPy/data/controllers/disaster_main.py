@@ -1,6 +1,6 @@
 """Entry point for disaster data processing."""
 
-from .disaster_data_processor import DisasterDataProcessor, DisasterProcessor
+from WIPServerPy.data.controllers.disaster_data_processor import DisasterDataProcessor, DisasterProcessor
 import json
 import os
 from pathlib import Path

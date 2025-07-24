@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 
-from .core.exceptions import BitFieldError
+from WIPCommonPy.packet.core.exceptions import BitFieldError
 
 # フォーマット仕様ディレクトリ
 _FORMAT_SPEC_DIR = Path(__file__).resolve().parent / "format_spec"

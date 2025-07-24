@@ -2,6 +2,6 @@
 気象データサーバーパッケージ
 """
 
-from .query_server import QueryServer
+from WIPServerPy.servers.query_server.query_server import QueryServer
 
 __all__ = ["QueryServer"]

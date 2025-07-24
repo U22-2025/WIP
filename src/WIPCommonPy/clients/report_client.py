@@ -12,11 +12,11 @@ import os
 import asyncio
 from typing import Optional, Dict, Any, Union, List
 
-from ..packet.types.report_packet import ReportRequest, ReportResponse
-from ..packet.types.error_response import ErrorResponse
-from ..packet.debug import create_debug_logger
-from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
+from WIPCommonPy.packet.types.report_packet import ReportRequest, ReportResponse
+from WIPCommonPy.packet.types.error_response import ErrorResponse
+from WIPCommonPy.packet.debug import create_debug_logger
+from WIPCommonPy.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from WIPCommonPy.clients.utils import receive_with_id, receive_with_id_async, safe_sock_sendto
 from WIPCommonPy.utils.network import resolve_ipv4
 
 

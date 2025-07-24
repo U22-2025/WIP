@@ -7,10 +7,10 @@ from datetime import datetime
 
 from WIPCommonPy.clients.location_client import LocationClient
 
-from ..processors.disaster_xml_processor import DisasterProcessor
-from ..processors.time_utils import TimeProcessor
-from ..processors.area_code_validator import AreaCodeValidator
-from ..processors.volcano_processor import VolcanoCoordinateProcessor
+from WIPServerPy.data.processors.disaster_xml_processor import DisasterProcessor
+from WIPServerPy.data.processors.time_utils import TimeProcessor
+from WIPServerPy.data.processors.area_code_validator import AreaCodeValidator
+from WIPServerPy.data.processors.volcano_processor import VolcanoCoordinateProcessor
 
 
 class DisasterDataProcessor:

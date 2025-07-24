@@ -14,11 +14,11 @@ import time
 import traceback
 
 # モジュールとして使用される場合
-from ..base_server import BaseServer
-from .modules.weather_data_manager import WeatherDataManager
-from .modules.response_builder import ResponseBuilder
-from .modules.debug_helper import DebugHelper
-from .modules.weather_constants import ThreadConstants
+from WIPServerPy.servers.base_server import BaseServer
+from WIPServerPy.servers.query_server.modules.weather_data_manager import WeatherDataManager
+from WIPServerPy.servers.query_server.modules.response_builder import ResponseBuilder
+from WIPServerPy.servers.query_server.modules.debug_helper import DebugHelper
+from WIPServerPy.servers.query_server.modules.weather_constants import ThreadConstants
 from WIPCommonPy.packet import QueryRequest, QueryResponse
 from WIPCommonPy.utils.config_loader import ConfigLoader
 from WIPCommonPy.packet import ErrorResponse

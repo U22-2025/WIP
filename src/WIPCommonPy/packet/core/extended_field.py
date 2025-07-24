@@ -19,9 +19,9 @@
 """
 
 from typing import Optional, Dict, Any, List, Union, Callable, Tuple
-from .exceptions import BitFieldError
-from .bit_utils import extract_bits
-from ..dynamic_format import load_extended_fields
+from WIPCommonPy.packet.core.exceptions import BitFieldError
+from WIPCommonPy.packet.core.bit_utils import extract_bits
+from WIPCommonPy.packet.dynamic_format import load_extended_fields
 from pathlib import Path
 
 import csv

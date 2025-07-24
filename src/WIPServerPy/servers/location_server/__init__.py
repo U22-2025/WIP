@@ -2,6 +2,6 @@
 位置解決サーバーパッケージ
 """
 
-from .location_server import LocationServer
+from WIPServerPy.servers.location_server.location_server import LocationServer
 
 __all__ = ["LocationServer"]

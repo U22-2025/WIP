@@ -2,8 +2,8 @@
 WIP (Weather Transport Protocol) クライアントパッケージ
 """
 
-from .client import Client
-from .client_async import ClientAsync
+from WIPClientPy.client import Client
+from WIPClientPy.client_async import ClientAsync
 
 
 # バージョン情報
