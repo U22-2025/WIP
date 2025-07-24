@@ -37,6 +37,24 @@ dev = [
     "pytest-asyncio",
     "black",
 ]
+location_server = [
+    "psycopg2",
+]
+query_server = [
+    "redis",
+    "schedule",
+    "python-dateutil",
+    "python-dotenv",
+]
+weather_server = []
+report_server = []
+servers = [
+    "psycopg2",
+    "redis",
+    "schedule",
+    "python-dateutil",
+    "python-dotenv",
+]
 
 # ─── どのソースを wheel に含めるか ────────────
 [tool.setuptools]
@@ -44,5 +62,8 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where   = ["src"]                    # src レイアウト
-include = ["WIPClientPy*", "WIPCommonPy*"]  # ✅ ホワイトリスト
-exclude = ["WIPServerPy*"]           # 🚫 念のためブロック（任意）
+include = [
+    "WIPClientPy*",
+    "WIPCommonPy*",
+    "WIPServerPy*",
+]  # 各サーバーパッケージも含める
