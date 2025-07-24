@@ -246,5 +246,3 @@ def main():
     print("✓ エラーの少ない開発")
 
 
-if __name__ == "__main__":
-    main()

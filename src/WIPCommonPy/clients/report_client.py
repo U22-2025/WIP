@@ -469,5 +469,3 @@ def send_sensor_report(
         client.close()
 
 
-if __name__ == "__main__":
-    main()

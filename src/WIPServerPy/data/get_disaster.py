@@ -124,5 +124,3 @@ def main():
         print(f"Error in disaster processing: {e}")
 
 
-if __name__ == "__main__":
-    main()

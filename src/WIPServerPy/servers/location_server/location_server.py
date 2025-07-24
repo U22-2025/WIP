@@ -15,13 +15,6 @@ from WIPCommonPy.packet import ExtendedField
 from WIPCommonPy.packet.debug.debug_logger import PacketDebugLogger
 from WIPCommonPy.utils.log_config import UnifiedLogFormatter
 
-# パスを追加して直接実行にも対応
-if __name__ == "__main__":
-    sys.path.insert(
-        0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
-
 # モジュールとして使用される場合
 from ..base_server import BaseServer
 from WIPCommonPy.packet import Request, Response
@@ -500,7 +493,3 @@ class LocationServer(BaseServer):
             print("データベース接続をクローズしました。")
 
 
-if __name__ == "__main__":
-    # 設定ファイルから読み込んで起動
-    server = LocationServer()
-    server.run()
