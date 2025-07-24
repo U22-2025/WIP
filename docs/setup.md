@@ -1,8 +1,15 @@
 # 目次
+- [目次](#目次)
 - [1. リポジトリのクローン](#1-リポジトリのクローン)
 - [2. Ubuntu 24.04 インストール](#2-ubuntu-2404-インストール)
 - [3. PostgreSQL セットアップ](#3-postgresql-セットアップ)
+  - [3.1 PostgreSQL インストール](#31-postgresql-インストール)
+  - [3.2 データベース設定](#32-データベース設定)
+  - [3.3 データベース作成](#33-データベース作成)
+  - [3.4 PostGIS 拡張機能インストール](#34-postgis-拡張機能インストール)
+  - [3.5 空間データインポート](#35-空間データインポート)
 - [4. RedisJSON セットアップ](#4-redisjson-セットアップ)
+  - [4.1 標準インストール](#41-標準インストール)
 
 ---
 
@@ -64,43 +71,6 @@ ALTER TABLE 一次細分区域等 RENAME TO districts;
 # 4. RedisJSON セットアップ
 ## 4.1 標準インストール
 ```bash
-curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/redis.gpg
-echo "deb https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
-sudo apt install redis-stack-server
-```
-
-## 4.2 エラー発生時の対処法
-### ❗ `E: Unable to locate package redis-stack-server` が表示される場合
-
-#### 依存パッケージのインストール
-```bash
 sudo apt update
-sudo apt install -y --no-install-recommends \
-  ca-certificates wget git build-essential cmake \
-  gcc g++ libc6-dev libssl-dev make \
-  python3 python3-venv python3-dev unzip rsync \
-  clang automake autoconf libtool
-```
-
-#### ソースからのビルド
-1. ソース取得:
-```bash
-VER=7.2.5  # または任意のバージョン
-wget -O redis-${VER}.tar.gz https://github.com/redis/redis/archive/refs/tags/${VER}.tar.gz
-tar xvf redis-${VER}.tar.gz && rm redis-${VER}.tar.gz
-cd redis-${VER}
-```
-
-2. コンパイル:
-```bash
-export BUILD_TLS=yes \
-       BUILD_WITH_MODULES=yes \
-       INSTALL_RUST_TOOLCHAIN=yes \
-       DISABLE_WERRORS=yes
-make -j"$(nproc)" all
-```
-
-3. インストール:
-```bash
-sudo make install
+sudo apt install redis-server
 ```
