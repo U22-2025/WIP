@@ -1,6 +1,6 @@
 import threading
 import argparse
-from WIP_Server import QueryServer, LocationServer, WeatherServer, ReportServer
+from WIPServerPy import QueryServer, LocationServer, WeatherServer, ReportServer
 
 
 def main():
