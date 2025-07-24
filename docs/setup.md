@@ -21,49 +21,59 @@ git clone https://github.com/U22-2025/WIP.git
 ---
 
 # 2. Ubuntu 24.04 インストール
-- Ubuntu 24.04 LTS をインストール
+- Ubuntu 24.04 LTS(または22.04 LTS) をインストール
 
 ---
 
 # 3. PostgreSQL セットアップ
 ## 3.1 PostgreSQL インストール
 ```bash
-sudo apt install postgresql postgresql-contrib
+$ sudo apt install postgresql postgresql-contrib
 ```
 
 ## 3.2 データベース設定
 ```bash
-sudo -u postgres psql
+$ sudo -u postgres psql
 ```
 - ユーザ作成:
 ```sql
-CREATE USER bababa WITH PASSWORD 'your_password';
+> CREATE USER [ユーザ名];
 ```
 
 ## 3.3 データベース作成
 ```sql
-CREATE DATABASE weather_forecast_map OWNER bababa;
-\q
+> CREATE DATABASE weather_forecast_map OWNER [ユーザ名];
+> \q
 ```
 
 ## 3.4 PostGIS 拡張機能インストール
-```bash
-sudo apt install postgis postgresql-14-postgis-3
-psql -U bababa -d weather_forecast_map
 ```
+$ psql --version
+psql (PostgreSQL) 16.9 (Ubuntu 16.9-0ubuntu0.24.04.1)
+
+$ sudo apt install postgis postgresql-16-postgis-3
+(( sudo apt install postgis postgresql-{psqlのバージョン番号}-postgis-3 ))
+```
+
 ```sql
-CREATE EXTENSION postgis;
-CREATE EXTENSION postgis_topology;
-\q
+> CREATE EXTENSION postgis;
+> CREATE EXTENSION postgis_topology;
+> \q
 ```
 
 ## 3.5 空間データインポート
+### 3.5.1 気象庁GISデータのダウンロード
+気象庁の[GISデータ](https://www.data.jma.go.jp/developer/gis/20190125_AreaForecastLocalM_1saibun_GIS.zip)をダウンロード。
+### 3.5.2 GISデータのインポート
 ```bash
-shp2pgsql -W utf-8 -D -I -s 6668 20190125_AreaForecastLocalM_1saibun_GIS/一次細分区域等.shp > insert.sql
-psql weather_forecast_map -f insert.sql
+$ shp2pgsql -W utf-8 -D -I -s 6668 20190125_AreaForecastLocalM_1saibun_GIS/一次細分区域等.shp > insert.sql
+$ psql weather_forecast_map
+
+> \i insert.sql
 ```
+テーブル名がエラーを起こしそうなので変更しておく。
 ```sql
-ALTER TABLE 一次細分区域等 RENAME TO districts;
+> ALTER TABLE 一次細分区域等 RENAME TO districts;
 ```
 
 ---
