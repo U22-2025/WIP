@@ -20,5 +20,3 @@ def main():
     print("処理完了")
 
 
-if __name__ == "__main__":
-    main()

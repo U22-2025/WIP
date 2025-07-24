@@ -306,17 +306,3 @@ def update_redis_weather_data(debug=False, area_codes=None):
     return skip_area
 
 
-if __name__ == "__main__":
-    # 気象データの更新を実行し、スキップされたエリアを取得
-    skip_area = update_redis_weather_data(debug=True)
-
-    # スキップされたエリアを表示
-    if skip_area:
-        print(f"\n=== スキップされたエリア ===")
-        print(f"スキップされたエリア数: {len(skip_area)}")
-        print(f"スキップされたエリアコード: {skip_area}")
-        print("=" * 30)
-    else:
-        print(f"\n=== 全エリア更新完了 ===")
-        print("スキップされたエリアはありません")
-        print("=" * 30)

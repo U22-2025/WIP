@@ -624,5 +624,3 @@ def main():
     logger.info("✓ Using specialized packet classes for improved usability")
 
 
-if __name__ == "__main__":
-    main()

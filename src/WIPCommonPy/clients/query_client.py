@@ -687,5 +687,3 @@ def main():
     logger.info("✓ Automatic data conversion and validation")
 
 
-if __name__ == "__main__":
-    main()

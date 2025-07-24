@@ -120,5 +120,3 @@ def main():
         print(f"Error in earthquake processing: {e}")
 
 
-if __name__ == "__main__":
-    main()

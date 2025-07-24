@@ -141,5 +141,3 @@ def main() -> None:
     generate_area_codes_file()
 
 
-if __name__ == "__main__":
-    main()

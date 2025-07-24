@@ -82,30 +82,3 @@ def main():
 
 
 # プロジェクトルートをパスに追加 (直接実行時のみ)
-if __name__ == "__main__":
-    current_file = Path(__file__).absolute()
-    project_root = str(current_file.parent.parent.parent)
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-
-    # xml_baseモジュールのインポート用に追加パス設定
-    sys.path.insert(
-        0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) > 1 and sys.argv[1] == "--test":
-        # 簡易テストモード
-        if len(sys.argv) < 3:
-            print("テストURLを指定してください")
-            print("使用例: python disaster_main.py --test [URL]")
-            sys.exit(1)
-
-        processor = DisasterProcessor()
-        result = processor._process_single_url(sys.argv[2])
-        print(f"テスト結果:\n{json.dumps(result, ensure_ascii=False, indent=2)}")
-    else:
-        # 通常のmain関数実行
-        main()

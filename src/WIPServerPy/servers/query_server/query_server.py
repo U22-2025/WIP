@@ -13,13 +13,6 @@ import threading
 import time
 import traceback
 
-# パスを追加して直接実行にも対応
-if __name__ == "__main__":
-    sys.path.insert(
-        0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
-
 # モジュールとして使用される場合
 from ..base_server import BaseServer
 from .modules.weather_data_manager import WeatherDataManager
@@ -464,15 +457,3 @@ class QueryServer(BaseServer):
             self.logger.debug(traceback.format_exc())
 
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="気象データサーバーを起動します")
-    parser.add_argument(
-        "--noupdate", action="store_true", help="起動時の自動気象情報更新をスキップ"
-    )
-    args = parser.parse_args()
-
-    # 設定ファイルから読み込んで起動
-    server = QueryServer(noupdate=args.noupdate)
-    server.run()
