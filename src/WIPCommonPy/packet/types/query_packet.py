@@ -5,8 +5,8 @@ weather_server ← → query_server間の通信で使用
 
 from typing import Optional, Dict, Any, Union, List
 from datetime import datetime
-from ..models.request import Request
-from ..models.response import Response
+from WIPCommonPy.packet.models.request import Request
+from WIPCommonPy.packet.models.response import Response
 
 
 class QueryRequest(Request):

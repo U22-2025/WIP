@@ -3,7 +3,7 @@
 共通ヘッダー部分の構造を定義し、ビット操作のユーティリティを提供します
 """
 
-from .format_extended import FormatExtended
+from WIPCommonPy.packet.core.format_extended import FormatExtended
 
 
 class Format(FormatExtended):

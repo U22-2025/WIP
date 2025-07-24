@@ -3,10 +3,10 @@
 """
 
 from typing import Optional, Dict, Any, Union
-from ..core.exceptions import BitFieldError
-from ..core.format_base import FormatBase
-from ..core.extended_field import ExtendedField
-from ..core.bit_utils import extract_rest_bits
+from WIPCommonPy.packet.core.exceptions import BitFieldError
+from WIPCommonPy.packet.core.format_base import FormatBase
+from WIPCommonPy.packet.core.extended_field import ExtendedField
+from WIPCommonPy.packet.core.bit_utils import extract_rest_bits
 
 
 class Request(FormatBase):

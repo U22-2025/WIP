@@ -12,10 +12,10 @@ from dotenv import load_dotenv
 import os
 import logging
 from pathlib import Path
-from ..packet import LocationRequest, LocationResponse
-from ..packet.debug import create_debug_logger
-from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
+from WIPCommonPy.packet import LocationRequest, LocationResponse
+from WIPCommonPy.packet.debug import create_debug_logger
+from WIPCommonPy.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from WIPCommonPy.clients.utils import receive_with_id, receive_with_id_async, safe_sock_sendto
 from WIPCommonPy.utils.config_loader import ConfigLoader
 from WIPCommonPy.utils.network import resolve_ipv4
 import sys
@@ -24,7 +24,7 @@ import sys
 sys.path.append(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "WIP_Client")
 )
-from ..utils.file_cache import PersistentCache
+from WIPCommonPy.utils.file_cache import PersistentCache
 
 PIDG = PacketIDGenerator12Bit()
 load_dotenv()

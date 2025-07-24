@@ -2,11 +2,11 @@
 Query Server用モジュール
 """
 
-from .config_manager import ConfigManager
-from .weather_data_manager import WeatherDataManager
-from .response_builder import ResponseBuilder
-from .debug_helper import DebugHelper
-from .weather_constants import ThreadConstants
+from WIPServerPy.servers.query_server.modules.config_manager import ConfigManager
+from WIPServerPy.servers.query_server.modules.weather_data_manager import WeatherDataManager
+from WIPServerPy.servers.query_server.modules.response_builder import ResponseBuilder
+from WIPServerPy.servers.query_server.modules.debug_helper import DebugHelper
+from WIPServerPy.servers.query_server.modules.weather_constants import ThreadConstants
 
 __all__ = [
     "ConfigManager",

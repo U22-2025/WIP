@@ -1,5 +1,5 @@
-from ..models.response import Response
-from ..core.extended_field import ExtendedField
+from WIPCommonPy.packet.models.response import Response
+from WIPCommonPy.packet.core.extended_field import ExtendedField
 from typing import Optional, Union, Dict, Any
 
 

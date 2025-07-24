@@ -16,7 +16,7 @@ from WIPCommonPy.packet.debug.debug_logger import PacketDebugLogger
 from WIPCommonPy.utils.log_config import UnifiedLogFormatter
 
 # モジュールとして使用される場合
-from ..base_server import BaseServer
+from WIPServerPy.servers.base_server import BaseServer
 from WIPCommonPy.packet import Request, Response
 from WIPCommonPy.utils.config_loader import ConfigLoader
 

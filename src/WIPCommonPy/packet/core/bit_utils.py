@@ -2,7 +2,7 @@
 ビット操作のユーティリティ関数
 """
 
-from .exceptions import BitFieldError
+from WIPCommonPy.packet.core.exceptions import BitFieldError
 
 
 def extract_bits(bitstr: int, start: int, length: int) -> int:

@@ -5,7 +5,7 @@ Redisキャッシュを管理
 
 import json
 import redis
-from .weather_constants import RedisConstants, CacheConstants
+from WIPServerPy.servers.query_server.modules.weather_constants import RedisConstants, CacheConstants
 from WIPServerPy.data import redis_manager
 import dateutil.parser
 

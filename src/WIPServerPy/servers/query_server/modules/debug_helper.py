@@ -7,7 +7,7 @@ import time
 import threading
 import logging
 import os
-from .weather_constants import DebugConstants
+from WIPServerPy.servers.query_server.modules.weather_constants import DebugConstants
 
 from WIPCommonPy.utils.log_config import LoggerConfig, UnifiedLogFormatter
 

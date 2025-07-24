@@ -9,11 +9,11 @@ import os
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from ..packet import QueryRequest, QueryResponse
-from ..packet.debug import create_debug_logger
-from .utils.packet_id_generator import PacketIDGenerator12Bit
-from .utils import receive_with_id, receive_with_id_async, safe_sock_sendto
-from ..utils.cache import Cache
+from WIPCommonPy.packet import QueryRequest, QueryResponse
+from WIPCommonPy.packet.debug import create_debug_logger
+from WIPCommonPy.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from WIPCommonPy.clients.utils import receive_with_id, receive_with_id_async, safe_sock_sendto
+from WIPCommonPy.utils.cache import Cache
 from WIPCommonPy.utils.network import resolve_ipv4
 
 PIDG = PacketIDGenerator12Bit()

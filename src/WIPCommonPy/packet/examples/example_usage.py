@@ -4,12 +4,12 @@
 """
 
 from datetime import datetime
-from ..models.request import Request
-from ..models.response import Response
-from ...clients.utils.packet_id_generator import PacketIDGenerator12Bit
-from ..core.extended_field import reload_extended_spec
-from ..types.location_packet import LocationRequest
-from ..types.query_packet import QueryRequest, QueryResponse
+from WIPCommonPy.packet.models.request import Request
+from WIPCommonPy.packet.models.response import Response
+from WIPCommonPy.clients.utils.packet_id_generator import PacketIDGenerator12Bit
+from WIPCommonPy.packet.core.extended_field import reload_extended_spec
+from WIPCommonPy.packet.types.location_packet import LocationRequest
+from WIPCommonPy.packet.types.query_packet import QueryRequest, QueryResponse
 
 # パケットIDジェネレーター
 # JSON定義を読み込んでフィールド仕様を更新

@@ -12,8 +12,8 @@ from pathlib import Path
 import traceback
 
 # モジュールとして使用される場合
-from ..base_server import BaseServer
-from .handlers import WeatherRequestHandlers
+from WIPServerPy.servers.base_server import BaseServer
+from WIPServerPy.servers.weather_server.handlers import WeatherRequestHandlers
 from WIPCommonPy.clients.location_client import LocationClient
 from WIPCommonPy.clients.query_client import QueryClient
 from WIPCommonPy.utils.config_loader import ConfigLoader

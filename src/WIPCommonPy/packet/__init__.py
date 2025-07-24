@@ -12,18 +12,18 @@ WIP Packet - Weather Transport Protocol Packet Implementation
 - QueryRequest, QueryResponse: サーバー間通信（気象データ取得）
 """
 
-from .core.exceptions import BitFieldError
-from .core.extended_field import ExtendedField, ExtendedFieldType
-from .core.format import Format
-from .models.request import Request
-from .models.response import Response
+from WIPCommonPy.packet.core.exceptions import BitFieldError
+from WIPCommonPy.packet.core.extended_field import ExtendedField, ExtendedFieldType
+from WIPCommonPy.packet.core.format import Format
+from WIPCommonPy.packet.models.request import Request
+from WIPCommonPy.packet.models.response import Response
 
 # 専用パケットクラス
-from .types.location_packet import LocationRequest, LocationResponse
-from .types.query_packet import QueryRequest, QueryResponse
-from .types.report_packet import ReportRequest, ReportResponse
-from .types.error_response import ErrorResponse
-from .debug import PacketDebugLogger, create_debug_logger
+from WIPCommonPy.packet.types.location_packet import LocationRequest, LocationResponse
+from WIPCommonPy.packet.types.query_packet import QueryRequest, QueryResponse
+from WIPCommonPy.packet.types.report_packet import ReportRequest, ReportResponse
+from WIPCommonPy.packet.types.error_response import ErrorResponse
+from WIPCommonPy.packet.debug import PacketDebugLogger, create_debug_logger
 
 __version__ = "1.1.0"
 __all__ = [
