@@ -1,0 +1,87 @@
+# ─── ビルド設定 ──────────────────────────────
+[build-system]
+requires      = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ─── メタデータ ──────────────────────────────
+[project]
+name            = "wiplib"            # ← パッケージ名はそのまま
+dynamic         = ["version"]
+description     = "Awesome toolkit for weather data (client‑side)."
+readme          = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE" }
+authors         = [{ name = "WIP Team", email = "u22.wip.team@gmail.com" }]
+requires-python = ">=3.9"
+
+# クライアントでも必須な最小依存だけを書く
+dependencies = [
+    "requests>=2.32.0",
+    "aiohttp>=3.9.0",
+    "websockets>=15.0.1",
+    "python-dotenv>=1.0.0",
+    "redis>=6.2.0",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+keywords = ["weather", "protocol", "data", "disaster", "alert", "Japan", "toolkit"]
+
+[project.urls]
+Homepage = "https://github.com/U22-2025/WIP"
+
+# ─── 開発用 extras（お好みで） ────────────────
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-xdist",
+    "black",
+]
+location_server = [
+    "psycopg2",
+]
+query_server = [
+    "schedule",
+    "python-dateutil",
+    "python-dotenv",
+]
+weather_server = []
+report_server = []
+servers = [
+    "psycopg2",
+    "redis",
+    "schedule",
+    "python-dateutil",
+    "python-dotenv",
+]
+
+# ─── どのソースを wheel に含めるか ────────────
+[tool.setuptools]
+package-dir = { "" = "src" }
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = {attr = "wiplib.version.__version__"}
+
+[tool.setuptools.packages.find]
+where   = ["src"]                    # src レイアウト
+include = [
+    "WIPClientPy*",
+    "WIPCommonPy*",
+    "WIPServerPy*",
+    "wiplib*",
+]  # 各サーバーパッケージも含める
+
+[tool.setuptools.package-data]
+"WIPClientPy" = ["config.ini", "coordinate_cache.json"]
+"WIPCommonPy.packet.format_spec" = ["*.json"]
+"WIPServerPy.servers.location_server" = ["config.ini"]
+"WIPServerPy.servers.query_server" = ["config.ini"]
+"WIPServerPy.servers.weather_server" = ["config.ini"]
+"WIPServerPy.servers.report_server" = ["config.ini"]
