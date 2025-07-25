@@ -1,4 +1,4 @@
-# WIP_Server/scripts/update_alert_disaster_data.py の先頭に追加
+# WIPServerPy/scripts/update_alert_disaster_data.py の先頭に追加
 import sys
 import os
 

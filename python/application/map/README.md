@@ -83,7 +83,7 @@ application/map/
 ### バックエンド
 - **Flask** (標準版) / **Quart** (HTTP/3版)
 - **Hypercorn**: HTTP/3対応ASGIサーバー
-- **WIP_Client**: 独自天気情報取得システム
+- **WIPClientPy**: 独自天気情報取得システム
 
 ### フロントエンド
 - **Leaflet**: インタラクティブ地図ライブラリ
@@ -323,7 +323,7 @@ app.run(debug=True)  # Flask版
 
 - **WIPプロトコル仕様**: `../../WIP仕様表.md`
 - **サーバーサイド**: `../../WIP_Server/`
-- **クライアントライブラリ**: `../../WIP_Client/`
+- **クライアントライブラリ**: `../../WIPClientPy/`
 - **パケット処理**: `../../common/packet/`
 
 ---

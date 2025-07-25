@@ -334,7 +334,7 @@ if "--disaster" in sys.argv:
 client = Client(debug=debug_enabled)
 
 if use_coordinates:
-    print("\n1. Coordinate-based request using WIP_Client")
+    print("\n1. Coordinate-based request using WIPClientPy")
     print("-" * 50)
     client.set_coordinates(latitude, longitude)
     start_time = time.time()
@@ -347,7 +347,7 @@ if use_coordinates:
         proxy=use_proxy,
     )
 else:
-    print("\n1. Area code request using WIP_Client")
+    print("\n1. Area code request using WIPClientPy")
     print("-" * 40)
     start_time = time.time()
     result = client.get_weather_by_area_code(

@@ -11,7 +11,7 @@ class PersistentCache:
 
     def __init__(
         self,
-        cache_file: str = "WIP_Client/coordinate_cache.json",
+        cache_file: str = "WIPClientPy/coordinate_cache.json",
         ttl_hours: int = 24,
         enabled: bool = True,
     ):

@@ -408,7 +408,7 @@ python wip/scripts/update_weather_data.py
 - 地域コードキャッシュ（`cache/area_cache.json`）
 - 気象データキャッシュ（TTL: 1時間）
 - 各キャッシュは設定ファイルの `enable_*_cache` オプションで有効/無効を切り替え可能
-- WIP_Client の座標キャッシュは `python/WIP_Client/config.ini` の
+- WIPClientPy の座標キャッシュは `python/WIPClientPy/config.ini` の
   `enable_coordinate_cache` でオン/オフを設定
 
 ## トラブルシューティング

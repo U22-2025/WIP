@@ -19,8 +19,8 @@ sys.path.insert(
     0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
-from WIP_Server.data.controllers.unified_data_processor import UnifiedDataProcessor
-from WIP_Server.data.redis_manager import create_redis_manager
+from WIPServerPy.data.controllers.unified_data_processor import UnifiedDataProcessor
+from WIPServerPy.data.redis_manager import create_redis_manager
 
 JSON_DIR = Path(__file__).resolve().parent.parent / "json"
 

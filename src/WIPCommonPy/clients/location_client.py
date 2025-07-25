@@ -22,7 +22,7 @@ import sys
 
 # PersistentCacheを使用するためのパス追加
 sys.path.append(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "WIP_Client")
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "WIPClientPy")
 )
 from WIPCommonPy.utils.file_cache import PersistentCache
 
@@ -44,7 +44,7 @@ class LocationClient:
     ):
         if config_path is None:
             config_path = (
-                Path(__file__).resolve().parents[2] / "WIP_Client" / "config.ini"
+                Path(__file__).resolve().parents[2] / "WIPClientPy" / "config.ini"
             )
         config = ConfigLoader(config_path)
 
@@ -81,7 +81,7 @@ class LocationClient:
             os.path.dirname(os.path.abspath(__file__)),
             "..",
             "..",
-            "WIP_Client",
+            "WIPClientPy",
             "coordinate_cache.json",
         )
         self.cache = PersistentCache(

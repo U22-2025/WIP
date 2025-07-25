@@ -19,10 +19,10 @@ sys.path.insert(
     0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
-from WIP_Server.data.controllers.earthquake_data_processor import (
+from WIPServerPy.data.controllers.earthquake_data_processor import (
     EarthquakeDataProcessor,
 )
-from WIP_Server.data.redis_manager import create_redis_manager
+from WIPServerPy.data.redis_manager import create_redis_manager
 
 JSON_DIR = Path(__file__).resolve().parent.parent / "json"
 

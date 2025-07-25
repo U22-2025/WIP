@@ -17,8 +17,8 @@ sys.path.insert(
     0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
-from WIP_Server.data.alert_processor import AlertDataProcessor, AlertProcessor
-from WIP_Server.data.redis_manager import create_redis_manager
+from WIPServerPy.data.alert_processor import AlertDataProcessor, AlertProcessor
+from WIPServerPy.data.redis_manager import create_redis_manager
 
 # JSON_DIR references removed
 

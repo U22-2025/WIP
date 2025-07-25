@@ -9,7 +9,7 @@ import traceback
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
+from WIPServerPy.data.redis_manager import create_redis_manager, WeatherRedisManager
 
 
 # JSON_DIRの定義を削除（logs/jsonフォルダは使用しない）

@@ -398,7 +398,7 @@ class QueryServer(BaseServer):
             f"[{self.server_name}] スケジュールされた気象データ更新を実行中..."
         )
         try:
-            # WIP_Server/scripts/update_weather_data.py の関数を呼び出す
+            # WIPServerPy/scripts/update_weather_data.py の関数を呼び出す
             self.skip_area = update_redis_weather_data(debug=self.debug)
             self.logger.debug(
                 f"[{self.server_name}] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。"
@@ -447,7 +447,7 @@ class QueryServer(BaseServer):
             f"[{self.server_name}] スケジュールされた災害情報と気象注意報の更新を実行中..."
         )
         try:
-            # WIP_Server/scripts/update_alert_disaster_data.py の main() 関数を呼び出す
+            # WIPServerPy/scripts/update_alert_disaster_data.py の main() 関数を呼び出す
             update_alert_disaster_main()
             self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新完了。")
         except Exception as e:
