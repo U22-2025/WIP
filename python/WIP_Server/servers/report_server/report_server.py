@@ -9,6 +9,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 import traceback
+import schedule
+import threading
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -22,6 +24,8 @@ from common.packet import ReportRequest, ReportResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet.debug.debug_logger import PacketDebugLogger
 from ..common.log_config import UnifiedLogFormatter
+from WIP_Server.scripts.update_weather_data import save_weather_data_to_json
+from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_disaster_main
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 class ReportServer(BaseServer):
     """レポートサーバーのメインクラス（IoT機器データ収集専用）"""
@@ -93,9 +97,12 @@ class ReportServer(BaseServer):
         # ログファイル初期化
         if self.enable_file_logging:
             self._setup_log_file()
-        
+
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("ReportServer")
+
+        # データ更新スケジューラーを開始
+        self._setup_scheduler()
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（ReportServer固有）"""
@@ -357,6 +364,43 @@ class ReportServer(BaseServer):
             print(f"  [{self.server_name}] データベース保存: {sensor_data['area_code']} (未実装)")
         # TODO: データベース保存機能を実装
         pass
+
+    def _setup_scheduler(self):
+        """気象庁データ取得のスケジューラーを開始"""
+        update_times_str = self.config.get('schedule', 'weather_update_time', '03:00')
+        update_times = [t.strip() for t in update_times_str.split(',')]
+        for update_time in update_times:
+            schedule.every().day.at(update_time).do(self._update_weather_data_scheduled)
+
+        disaster_alert_interval = self.config.getint('schedule', 'disaster_alert_update_time', 10)
+        schedule.every(disaster_alert_interval).minutes.do(self._update_disaster_alert_scheduled)
+
+        def run_scheduler():
+            while True:
+                schedule.run_pending()
+                time.sleep(30)
+
+        threading.Thread(target=run_scheduler, daemon=True).start()
+
+    def _update_weather_data_scheduled(self):
+        print(f"[{self.server_name}] スケジュールされた気象データ更新を実行中...")
+        try:
+            save_weather_data_to_json(debug=self.debug)
+            print(f"[{self.server_name}] 気象データ更新完了")
+        except Exception as e:
+            print(f"[{self.server_name}] 気象データ更新エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+
+    def _update_disaster_alert_scheduled(self):
+        print(f"[{self.server_name}] スケジュールされた災害情報と気象注意報の更新を実行中...")
+        try:
+            update_alert_disaster_main(save_to_redis=False)
+            print(f"[{self.server_name}] 災害情報と気象注意報の更新完了。")
+        except Exception as e:
+            print(f"[{self.server_name}] 災害情報と気象注意報の更新エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
     
     
     def create_response(self, request):

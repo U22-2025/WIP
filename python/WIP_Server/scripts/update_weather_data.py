@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 def get_data(area_codes: list, debug=False, save_to_redis=False):
+    """指定されたエリアコードの気象データを取得する。"""
+
     output = {"weather_reportdatetime": {}}
     output_lock = threading.Lock()
     skip_area = []  # ローカル変数として定義
@@ -251,7 +253,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
         print(f"全処理完了: 合計所要時間 {end_time - start_time:.2f}秒")
         print(f"取得したエリア数: {len(output)}")
 
-    return skip_area
+    return output, skip_area
 
 def update_redis_weather_data(debug=False, area_codes=None):
     """
@@ -271,11 +273,39 @@ def update_redis_weather_data(debug=False, area_codes=None):
             area_codes = list(json.load(f).keys())
 
     # 気象データを取得し、直接Redisに保存
-    skip_area = get_data(area_codes, debug=debug, save_to_redis=True)
+    _, skip_area = get_data(area_codes, debug=debug, save_to_redis=True)
 
     if debug:
         end_time = time.time()
         print(f"気象データの取得と保存完了: {len(area_codes)}エリア処理、{len(skip_area)}エリアスキップ")
+        print(f"合計所要時間: {end_time - start_time:.2f}秒")
+
+    return skip_area
+
+
+def save_weather_data_to_json(debug=False, area_codes=None, output_path=None):
+    """気象データを取得してJSONファイルに保存する関数"""
+
+    if debug:
+        print("気象情報の取得を開始します")
+        start_time = time.time()
+
+    if area_codes is None:
+        with open(JSON_DIR / "area_codes.json", "r", encoding="utf-8") as f:
+            area_codes = list(json.load(f).keys())
+
+    weather_data, skip_area = get_data(area_codes, debug=debug, save_to_redis=False)
+
+    if output_path is None:
+        output_path = JSON_DIR / "weather_data.json"
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(weather_data, f, ensure_ascii=False, indent=2)
+
+    if debug:
+        end_time = time.time()
+        print(f"気象データの取得完了: {len(area_codes)}エリア処理、{len(skip_area)}エリアスキップ")
+        print(f"保存先: {output_path}")
         print(f"合計所要時間: {end_time - start_time:.2f}秒")
 
     return skip_area

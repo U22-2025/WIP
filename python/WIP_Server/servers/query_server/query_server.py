@@ -82,16 +82,13 @@ class QueryServer(BaseServer):
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("QueryServer")
         
+        self.noupdate = noupdate
+
         # noupdateフラグがFalseの場合のみ起動時更新を実行
-        if not noupdate:
-            # 起動時に気象データを更新（スレッドで非同期実行）
+        if not self.noupdate:
             threading.Thread(target=self._update_weather_data_scheduled, daemon=True).start()
-
-            # 起動時に警報と災害情報を更新（スレッドで非同期実行）
             threading.Thread(target=self._update_disaster_alert_scheduled, daemon=True).start()
-
-        # スケジューラーを開始
-        self._setup_scheduler()
+            self._setup_scheduler()
 
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（QueryServer固有）"""
@@ -324,6 +321,8 @@ class QueryServer(BaseServer):
         """
         気象データ更新のスケジューラーを開始
         """
+        if self.noupdate:
+            return
         update_times_str = self.config.get('schedule', 'weather_update_time', '03:00')
         update_times = [t.strip() for t in update_times_str.split(',')]
         
