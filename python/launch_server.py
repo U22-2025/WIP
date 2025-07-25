@@ -11,7 +11,6 @@ def main():
     parser.add_argument('--weather', action='store_true', help='Weatherサーバーを起動')
     parser.add_argument('--report', action='store_true', help='Reportサーバーを起動')
     parser.add_argument('--debug', action='store_true', help='デバッグモードで起動')
-    parser.add_argument('--noupdate', action='store_true', help='Queryサーバーの起動時自動更新をスキップ')
     
     args = parser.parse_args()
     
@@ -58,9 +57,7 @@ def main():
     if 'query' in servers_to_start:
         debug_msg = " (デバッグモード)" if args.debug else ""
         print(f"Query Serverを起動しています...{debug_msg}")
-        if args.noupdate:
-            print("  ※起動時自動更新をスキップします")
-        servers['query'] = QueryServer(debug=args.debug, noupdate=args.noupdate)
+        servers['query'] = QueryServer(debug=args.debug)
         query_thread = threading.Thread(target=servers['query'].run, name='QueryServer')
         threads.append(query_thread)
         query_thread.start()

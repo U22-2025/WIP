@@ -28,13 +28,12 @@ from common.packet import QueryRequest, QueryResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
 from common.packet.debug.debug_logger import create_debug_logger, PacketDebugLogger
-from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_disaster_main
 
 
 class QueryServer(BaseServer):
     """気象データサーバーのメインクラス（基底クラス継承版）"""
     
-    def __init__(self, host=None, port=None, debug=None, max_workers=None, noupdate=False):
+    def __init__(self, host=None, port=None, debug=None, max_workers=None):
         """
         初期化
         
@@ -79,13 +78,6 @@ class QueryServer(BaseServer):
         
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("QueryServer")
-        
-        self.noupdate = noupdate
-
-        # noupdateフラグがFalseの場合のみ起動時更新を実行
-        if not self.noupdate:
-            threading.Thread(target=self._update_disaster_alert_scheduled, daemon=True).start()
-            self._setup_scheduler()
 
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（QueryServer固有）"""
@@ -312,47 +304,9 @@ class QueryServer(BaseServer):
         if hasattr(self, 'weather_manager'):
             self.weather_manager.close()
 
-    def _setup_scheduler(self):
-        """
-        災害情報更新のスケジューラーを開始
-        """
-        if self.noupdate:
-            return
-        
-        # configから災害情報更新間隔を取得
-        disaster_alert_interval = self.config.getint('schedule', 'disaster_alert_update_time', 10)
-        self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新を {disaster_alert_interval} 分ごとにスケジュールします。")
-        
-        # 災害情報更新を定期実行するスレッドを開始
-        def run_disaster_scheduler():
-            while True:
-                time.sleep(disaster_alert_interval * 60)  # 分を秒に変換
-                self._update_disaster_alert_scheduled()
-
-        scheduler_thread = threading.Thread(target=run_disaster_scheduler, daemon=True)
-        scheduler_thread.start()
-
-
-    def _update_disaster_alert_scheduled(self):
-        """
-        スケジュールされた災害情報と気象注意報の更新処理
-        """
-        self.logger.debug(f"[{self.server_name}] スケジュールされた災害情報と気象注意報の更新を実行中...")
-        try:
-            # WIP_Server/scripts/update_alert_disaster_data.py の main() 関数を呼び出す
-            update_alert_disaster_main()
-            self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新完了。")
-        except Exception as e:
-            self.logger.error(f"[{self.server_name}] 災害情報と気象注意報の更新エラー: {e}")
-            self.logger.debug(traceback.format_exc())
 
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description='気象データサーバーを起動します')
-    parser.add_argument('--noupdate', action='store_true', help='起動時の自動気象情報更新をスキップ')
-    args = parser.parse_args()
-
     # 設定ファイルから読み込んで起動
-    server = QueryServer(noupdate=args.noupdate)
+    server = QueryServer()
     server.run()

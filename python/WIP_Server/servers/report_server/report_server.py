@@ -85,6 +85,12 @@ class ReportServer(BaseServer):
         self.enable_alert_processing = self.config.getboolean('processing', 'enable_alert_processing', True)
         self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
         self.enable_database = self.config.getboolean('database', 'enable_database', False)
+        
+        # データベース設定（Redis）
+        self.db_host = self.config.get('database', 'db_host', 'localhost')
+        self.db_port = self.config.getint('database', 'db_port', 6379)
+        self.db_index = self.config.getint('database', 'db_index', 0)
+        self.data_ttl = self.config.getint('database', 'data_ttl', 86400)
 
         # Redis保存設定
         self.enable_redis = self.config.getboolean('redis', 'enable_redis', False)
@@ -361,11 +367,55 @@ class ReportServer(BaseServer):
     
     
     def _save_to_database(self, request, sensor_data, source_addr=None):
-        """データベースに保存（実装予定）"""
-        if self.debug:
-            print(f"  [{self.server_name}] データベース保存: {sensor_data['area_code']} (未実装)")
-        # TODO: データベース保存機能を実装
-        pass
+        """データベース（Redis）にデータを保存"""
+        try:
+            # config.iniの設定を使用してRedisクライアントを作成
+            db_redis_client = redis.Redis(
+                host=self.db_host,
+                port=self.db_port,
+                db=self.db_index,
+                socket_timeout=2,
+                socket_connect_timeout=2,
+                retry_on_timeout=True,
+                decode_responses=True
+            )
+            
+            # データベース用のキーを生成（weather:{area_code}形式）
+            timestamp = int(time.time())
+            db_key = f"weather:{sensor_data['area_code']}"
+            
+            # 保存用データを準備
+            db_data = {
+                'area_code': sensor_data['area_code'],
+                'timestamp': sensor_data.get('timestamp'),
+                'received_at': timestamp,
+                'packet_id': request.packet_id if hasattr(request, 'packet_id') else None,
+                'source_addr': source_addr[0] if source_addr else None,
+                'sensor_data': sensor_data
+            }
+            
+            # Redisに保存（JSON形式）
+            import json
+            db_redis_client.set(db_key, json.dumps(db_data, ensure_ascii=False), ex=self.data_ttl)
+            
+            # 履歴用のキーも作成（タイムスタンプ付き）
+            history_key = f"weather:history:{sensor_data['area_code']}:{timestamp}"
+            db_redis_client.set(history_key, json.dumps(db_data, ensure_ascii=False), ex=self.data_ttl)
+            
+            if self.debug:
+                print(f"  ✓ データベース保存完了: {db_key}")
+                print(f"    - 履歴保存: {history_key}")
+                print(f"    - 接続先: {self.db_host}:{self.db_port}/{self.db_index}")
+                print(f"    - エリアコード: {sensor_data['area_code']}")
+                print(f"    - TTL: {self.data_ttl}秒")
+                print(f"    - データサイズ: {len(json.dumps(db_data))} bytes")
+                
+        except Exception as e:
+            print(f"  ✗ データベース保存エラー: {e}")
+            if self.debug:
+                print(f"    - 接続先: {self.db_host}:{self.db_port}/{self.db_index}")
+                import traceback
+                traceback.print_exc()
 
     def _setup_scheduler(self):
         """気象庁データ取得のスケジューラーを開始"""
