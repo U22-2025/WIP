@@ -16,6 +16,7 @@ import json
 import requests
 import time
 import threading
+import os
 from typing import Optional, Dict, Any
 from abc import ABC, abstractmethod
 
@@ -163,8 +164,32 @@ class XMLBaseProcessor(ABC):
             保存成功時True、失敗時False
         """
         try:
+            existing: Dict[str, Any] | list | None = None
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        existing = json.load(f)
+                except Exception:
+                    existing = None
+
+            if isinstance(existing, dict) and isinstance(data, dict):
+                existing.update(data)
+                output_data = existing
+            elif isinstance(existing, list) and isinstance(data, list):
+                existing.extend(data)
+                output_data = existing
+            elif existing is None:
+                output_data = data
+            else:
+                # 形式が異なる場合はリストとして追記
+                if isinstance(existing, list):
+                    existing.append(data)
+                    output_data = existing
+                else:
+                    output_data = [existing, data] if existing is not None else [data]
+
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+                json.dump(output_data, f, ensure_ascii=False, indent=2)
             print(f"JSON data saved to: {file_path}")
             return True
         except Exception as e:
