@@ -4,7 +4,7 @@ WIP (Weather Transport Protocol) サーバーパッケージ
 """
 
 # バージョン情報
-__version__ = "1.0.0"
+from wiplib import __version__
 
 # パッケージ情報
 __author__ = "WIP Team"

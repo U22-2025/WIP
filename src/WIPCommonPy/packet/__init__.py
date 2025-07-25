@@ -24,8 +24,7 @@ from WIPCommonPy.packet.types.query_packet import QueryRequest, QueryResponse
 from WIPCommonPy.packet.types.report_packet import ReportRequest, ReportResponse
 from WIPCommonPy.packet.types.error_response import ErrorResponse
 from WIPCommonPy.packet.debug import PacketDebugLogger, create_debug_logger
-
-__version__ = "1.1.0"
+from wiplib import __version__
 __all__ = [
     # 基本クラス
     "BitFieldError",
