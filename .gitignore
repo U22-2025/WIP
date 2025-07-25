@@ -8,3 +8,4 @@ __pycache__
 /logs/reports
 !.env.example
 *.egg-info/
+dist/

@@ -47,7 +47,6 @@ location_server = [
     "psycopg2",
 ]
 query_server = [
-    "redis",
     "schedule",
     "python-dateutil",
     "python-dotenv",

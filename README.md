@@ -559,4 +559,4 @@ python debug_tools/performance/performance_debug_tool.py
 
 **WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
 
-プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/your-repo/wip)をご確認ください。
+プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/U22-2025/WIP)をご確認ください。
