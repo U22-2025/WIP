@@ -8,8 +8,15 @@
   - [3.3 データベース作成](#33-データベース作成)
   - [3.4 PostGIS 拡張機能インストール](#34-postgis-拡張機能インストール)
   - [3.5 空間データインポート](#35-空間データインポート)
+    - [3.5.1 気象庁GISデータのダウンロード](#351-気象庁gisデータのダウンロード)
+    - [3.5.2 GISデータのインポート](#352-gisデータのインポート)
 - [4. RedisJSON セットアップ](#4-redisjson-セットアップ)
-  - [4.1 標準インストール](#41-標準インストール)
+  - [4.1 依存ツールを用意](#41-依存ツールを用意)
+  - [4.2 公式 GPG キーを登録](#42-公式-gpg-キーを登録)
+  - [4.3 APT リポジトリを追加（拡張子は .list！）](#43-apt-リポジトリを追加拡張子は-list)
+  - [4.4 パッケージリスト更新 \& インストール](#44-パッケージリスト更新--インストール)
+  - [4.5 サービス起動と自動起動設定](#45-サービス起動と自動起動設定)
+  - [4.6 バージョン \& JSON コマンド確認](#46-バージョン--json-コマンド確認)
 
 ---
 
@@ -79,8 +86,37 @@ $ psql weather_forecast_map
 ---
 
 # 4. RedisJSON セットアップ
-## 4.1 標準インストール
+## 4.1 依存ツールを用意
+```bashsudo apt-get update
+sudo apt-get install -y lsb-release curl gpg
+```
+## 4.2 公式 GPG キーを登録
 ```bash
-sudo apt update
-sudo apt install redis-server
+curl -fsSL https://packages.redis.io/gpg \
+ | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+sudo chmod 644 /usr/share/keyrings/redis-archive-keyring.gpg
+```
+## 4.3 APT リポジトリを追加（拡張子は .list！）
+```bash
+echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] \
+https://packages.redis.io/deb $(lsb_release -cs) main" \
+ | sudo tee /etc/apt/sources.list.d/redis.list
+```
+## 4.4 パッケージリスト更新 & インストール
+```bash
+sudo apt-get update
+sudo apt-get install -y redis-server
+```
+## 4.5 サービス起動と自動起動設定
+```bash
+sudo systemctl enable --now redis-server
+sudo systemctl status redis-server --no-pager
+```
+## 4.6 バージョン & JSON コマンド確認
+```bash
+redis-server --version
+redis-cli ping              # → PONG
+redis-cli JSON.SET test $ '{"hello":"world"}'  # → OK
+redis-cli JSON.GET test     # → "{\"hello\":\"world\"}"
+redis-cli del test          # → (integer) 1
 ```
