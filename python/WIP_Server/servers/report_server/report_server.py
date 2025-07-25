@@ -429,6 +429,19 @@ class ReportServer(BaseServer):
         try:
             key = f"report:{sensor_data['area_code']}"
             self.redis_client.json().set(key, ".", sensor_data)
+
+            # weather系データが含まれる場合はweather_reportdatetimeも更新
+            if any(k in sensor_data for k in ("weather_code", "temperature", "precipitation_prob")):
+                ts = sensor_data.get("timestamp")
+                if isinstance(ts, int):
+                    dt = datetime.fromtimestamp(ts).isoformat()
+                else:
+                    dt = str(ts)
+                self.redis_client.json().set(
+                    "weather_reportdatetime",
+                    f".{sensor_data['area_code']}",
+                    dt,
+                )
             if self.debug:
                 print(f"  ✓ Redisに保存: {key}")
         except Exception as e:

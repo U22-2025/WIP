@@ -227,13 +227,13 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             
             # weather_reportdatetime を output から分離
             report_datetimes_data = output.pop("weather_reportdatetime", {})
-            
-            # エリアごとの気象データを一括保存
-            result = redis_manager.bulk_update_weather_data(output)
-            
-            # weather_reportdatetime を個別に保存
-            if report_datetimes_data:
-                redis_manager.update_weather_data("weather_reportdatetime", report_datetimes_data)
+
+            # エリアごとの気象データとreportdatetimeを一括保存
+            result = redis_manager.bulk_update_weather_data(
+                output,
+                report_datetimes=report_datetimes_data,
+            )
+
 
             redis_manager.close()
 

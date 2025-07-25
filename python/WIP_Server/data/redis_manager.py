@@ -120,7 +120,7 @@ class WeatherRedisManager:
                 print(f"データ取得エラー ({area_code}): {e}")
             return None
 
-    def update_weather_data(self, area_code: str, data: Dict[str, Any]) -> bool:
+    def update_weather_data(self, area_code: str, data: Dict[str, Any], report_datetime: Optional[str] = None) -> bool:
         """
         気象データを更新
         
@@ -140,6 +140,14 @@ class WeatherRedisManager:
             weather_key = self._get_weather_key(area_code)
             # RedisにJSONデータをセット
             self.redis_client.json().set(weather_key, ".", data)
+
+            # report_datetimeが指定されている場合はweather_reportdatetimeを更新
+            if report_datetime is not None and area_code != "weather_reportdatetime":
+                self.redis_client.json().set(
+                    "weather_reportdatetime",
+                    f".{area_code}",
+                    report_datetime,
+                )
             
             if self.debug:
                 print(f"更新成功: {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}")
@@ -324,7 +332,11 @@ class WeatherRedisManager:
                 
         return {'updated': updated_count, 'created': created_count, 'errors': error_count}
     
-    def bulk_update_weather_data(self, weather_data: Dict[str, Dict[str, Any]]) -> Dict[str, int]:
+    def bulk_update_weather_data(
+        self,
+        weather_data: Dict[str, Dict[str, Any]],
+        report_datetimes: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, int]:
         """
         気象データを一括更新（警報・災害情報フィールドを除く部分更新）
         
@@ -381,6 +393,17 @@ class WeatherRedisManager:
             
             update_pipe.execute()
             updated_count = len(weather_data)
+
+            # weather_reportdatetimeの更新
+            if report_datetimes:
+                datetime_pipe = self.redis_client.pipeline()
+                for area_code, dt in report_datetimes.items():
+                    datetime_pipe.json().set(
+                        "weather_reportdatetime",
+                        f".{area_code}",
+                        dt,
+                    )
+                datetime_pipe.execute()
             
             if self.debug:
                 print(f"一括更新完了: {updated_count}件")
