@@ -9,6 +9,9 @@ import os
 from datetime import datetime
 from pathlib import Path
 import traceback
+import redis
+
+from common.clients.report_client import ReportClient
 
 # パスを追加して直接実行にも対応
 if __name__ == "__main__":
@@ -79,6 +82,17 @@ class ReportServer(BaseServer):
         self.enable_disaster_processing = self.config.getboolean('processing', 'enable_disaster_processing', True)
         self.enable_file_logging = self.config.getboolean('logging', 'enable_file_logging', True)
         self.enable_database = self.config.getboolean('database', 'enable_database', False)
+
+        # Redis保存設定
+        self.enable_redis = self.config.getboolean('redis', 'enable_redis', False)
+        self.redis_host = self.config.get('redis', 'host', 'localhost')
+        self.redis_port = self.config.getint('redis', 'port', 6379)
+        self.redis_db = self.config.getint('redis', 'db', 0)
+
+        # 転送設定
+        self.enable_forward = self.config.getboolean('forward', 'enable_forward', False)
+        self.forward_host = self.config.get('forward', 'host', 'localhost')
+        self.forward_port = self.config.getint('forward', 'port', 4110)
         
         # レポートサイズ制限
         self.max_report_size = self.config.getint('validation', 'max_report_size', 4096)
@@ -93,9 +107,13 @@ class ReportServer(BaseServer):
         # ログファイル初期化
         if self.enable_file_logging:
             self._setup_log_file()
-        
+
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("ReportServer")
+
+        # 追加機能のセットアップ
+        self._setup_redis()
+        self._setup_forward_client()
     
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（ReportServer固有）"""
@@ -313,6 +331,52 @@ class ReportServer(BaseServer):
             print(f"[{self.server_name}] ログファイル初期化エラー: {e}")
             if self.debug:
                 traceback.print_exc()
+
+    def _setup_redis(self):
+        """Redisクライアントを初期化"""
+        self.redis_client = None
+        if not self.enable_redis:
+            return
+        try:
+            self.redis_client = redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                db=self.redis_db,
+                socket_timeout=1,
+                socket_connect_timeout=1,
+                retry_on_timeout=True,
+            )
+            self.redis_client.ping()
+            if self.debug:
+                print(
+                    f"[{self.server_name}] Redis接続成功: {self.redis_host}:{self.redis_port}/{self.redis_db}"
+                )
+        except Exception as e:
+            print(f"[{self.server_name}] Redis接続エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+            self.redis_client = None
+
+    def _setup_forward_client(self):
+        """レポート転送用クライアントを初期化"""
+        self.forward_client = None
+        if not self.enable_forward:
+            return
+        try:
+            self.forward_client = ReportClient(
+                host=self.forward_host,
+                port=self.forward_port,
+                debug=self.debug,
+            )
+            if self.debug:
+                print(
+                    f"[{self.server_name}] Forward client setup: {self.forward_host}:{self.forward_port}"
+                )
+        except Exception as e:
+            print(f"[{self.server_name}] Forward client error: {e}")
+            if self.debug:
+                traceback.print_exc()
+            self.forward_client = None
     
     def _log_report_data(self, request, sensor_data, source_addr=None):
         """レポートデータをログファイルに追記（高速化版）"""
@@ -357,6 +421,46 @@ class ReportServer(BaseServer):
             print(f"  [{self.server_name}] データベース保存: {sensor_data['area_code']} (未実装)")
         # TODO: データベース保存機能を実装
         pass
+
+    def _save_to_redis(self, sensor_data):
+        """Redisにデータを保存"""
+        if not self.redis_client:
+            return
+        try:
+            key = f"report:{sensor_data['area_code']}"
+            self.redis_client.json().set(key, ".", sensor_data)
+            if self.debug:
+                print(f"  ✓ Redisに保存: {key}")
+        except Exception as e:
+            print(f"[{self.server_name}] Redis保存エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+
+    def _forward_report(self, sensor_data):
+        """別サーバーへレポートを転送"""
+        if not self.forward_client:
+            return
+        try:
+            self.forward_client.set_sensor_data(
+                area_code=sensor_data.get('area_code'),
+                weather_code=sensor_data.get('weather_code'),
+                temperature=sensor_data.get('temperature'),
+                precipitation_prob=sensor_data.get('precipitation_prob'),
+                alert=sensor_data.get('alert'),
+                disaster=sensor_data.get('disaster'),
+            )
+            result = self.forward_client.send_report_data()
+            if self.debug:
+                if result:
+                    print(
+                        f"  ✓ レポート転送成功: {self.forward_host}:{self.forward_port}"
+                    )
+                else:
+                    print("  ✗ レポート転送失敗")
+        except Exception as e:
+            print(f"[{self.server_name}] レポート転送エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
     
     
     def create_response(self, request):
@@ -401,7 +505,19 @@ class ReportServer(BaseServer):
             timing_info['log'] = time.time() - log_start
             if self.enable_file_logging:
                 print(f"  ✓ ログファイル記録完了 ({timing_info['log']*1000:.1f}ms)")
-            
+
+            # Redis保存（オプション）
+            if self.enable_redis:
+                redis_start = time.time()
+                self._save_to_redis(processed_data)
+                timing_info['redis'] = time.time() - redis_start
+
+            # レポート転送（オプション）
+            if self.enable_forward:
+                forward_start = time.time()
+                self._forward_report(processed_data)
+                timing_info['forward'] = time.time() - forward_start
+
             # データベース保存（オプション）
             if self.enable_database:
                 db_start = time.time()
@@ -441,6 +557,10 @@ class ReportServer(BaseServer):
             print(f"    - データ処理: {timing_info['process']*1000:.1f}ms")
             if self.enable_file_logging:
                 print(f"    - ログ記録: {timing_info['log']*1000:.1f}ms")
+            if 'redis' in timing_info:
+                print(f"    - Redis保存: {timing_info['redis']*1000:.1f}ms")
+            if 'forward' in timing_info:
+                print(f"    - 転送: {timing_info['forward']*1000:.1f}ms")
             if 'database' in timing_info:
                 print(f"    - DB保存: {timing_info['database']*1000:.1f}ms")
             print(f"    - レスポンス作成: {timing_info['response']*1000:.1f}ms")
@@ -453,6 +573,10 @@ class ReportServer(BaseServer):
                     print(f"     - ログ記録が遅い: {timing_info['log']*1000:.1f}ms")
                 if timing_info['extract'] > 0.005:
                     print(f"     - データ抽出が遅い: {timing_info['extract']*1000:.1f}ms")
+                if 'redis' in timing_info and timing_info['redis'] > 0.005:
+                    print(f"     - Redis保存が遅い: {timing_info['redis']*1000:.1f}ms")
+                if 'forward' in timing_info and timing_info['forward'] > 0.005:
+                    print(f"     - 転送が遅い: {timing_info['forward']*1000:.1f}ms")
             
             print(f"  ===== RESPONSE SENT =====\n")
             
@@ -548,6 +672,16 @@ class ReportServer(BaseServer):
     
     def _cleanup(self):
         """派生クラス固有のクリーンアップ処理"""
+        if hasattr(self, 'redis_client') and self.redis_client:
+            try:
+                self.redis_client.close()
+            except Exception:
+                pass
+        if hasattr(self, 'forward_client') and self.forward_client:
+            try:
+                self.forward_client.close()
+            except Exception:
+                pass
         if self.debug:
             print(f"[{self.server_name}] クリーンアップ完了")
 
