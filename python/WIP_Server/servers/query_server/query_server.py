@@ -9,7 +9,6 @@ import os
 import logging
 from pathlib import Path
 from datetime import datetime
-import schedule
 import threading
 import time
 import traceback
@@ -29,7 +28,6 @@ from common.packet import QueryRequest, QueryResponse
 from common.utils.config_loader import ConfigLoader
 from common.packet import ErrorResponse
 from common.packet.debug.debug_logger import create_debug_logger, PacketDebugLogger
-from WIP_Server.scripts.update_weather_data import update_redis_weather_data
 from WIP_Server.scripts.update_alert_disaster_data import main as update_alert_disaster_main
 
 
@@ -86,7 +84,6 @@ class QueryServer(BaseServer):
 
         # noupdateフラグがFalseの場合のみ起動時更新を実行
         if not self.noupdate:
-            threading.Thread(target=self._update_weather_data_scheduled, daemon=True).start()
             threading.Thread(target=self._update_disaster_alert_scheduled, daemon=True).start()
             self._setup_scheduler()
 
@@ -100,8 +97,6 @@ class QueryServer(BaseServer):
         self.auth_passphrase = auth_passphrase
         
         
-        # スキップエリアリストを初期化
-        self.skip_area = []
     
     def _setup_components(self):
         """各コンポーネントを初期化"""
@@ -319,69 +314,24 @@ class QueryServer(BaseServer):
 
     def _setup_scheduler(self):
         """
-        気象データ更新のスケジューラーを開始
+        災害情報更新のスケジューラーを開始
         """
         if self.noupdate:
             return
-        update_times_str = self.config.get('schedule', 'weather_update_time', '03:00')
-        update_times = [t.strip() for t in update_times_str.split(',')]
-        
-        self.logger.debug(f"[{self.server_name}] 気象データ更新を毎日 {', '.join(update_times)} にスケジュールします。")
-        
-        for update_time in update_times:
-            schedule.every().day.at(update_time).do(self._update_weather_data_scheduled)
-        
-        # configからskip_areaの確認と更新間隔を取得
-        skip_area_interval = self.config.getint('schedule', 'skip_area_check_interval_minutes', 10)
-        self.logger.debug(f"[{self.server_name}] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。")
-        schedule.every(skip_area_interval).minutes.do(self._check_and_update_skip_area_scheduled)
         
         # configから災害情報更新間隔を取得
         disaster_alert_interval = self.config.getint('schedule', 'disaster_alert_update_time', 10)
         self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新を {disaster_alert_interval} 分ごとにスケジュールします。")
-        schedule.every(disaster_alert_interval).minutes.do(self._update_disaster_alert_scheduled)
-
-        # スケジュールを実行するスレッドを開始
-        def run_scheduler():
+        
+        # 災害情報更新を定期実行するスレッドを開始
+        def run_disaster_scheduler():
             while True:
-                schedule.run_pending()
-                time.sleep(30) # 30秒ごとにチェック
+                time.sleep(disaster_alert_interval * 60)  # 分を秒に変換
+                self._update_disaster_alert_scheduled()
 
-        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+        scheduler_thread = threading.Thread(target=run_disaster_scheduler, daemon=True)
         scheduler_thread.start()
 
-    def _update_weather_data_scheduled(self):
-        """
-        スケジュールされた気象データ更新処理
-        """
-        self.logger.debug(f"[{self.server_name}] スケジュールされた気象データ更新を実行中...")
-        try:
-            # WIP_Server/scripts/update_weather_data.py の関数を呼び出す
-            self.skip_area = update_redis_weather_data(debug=self.debug)
-            self.logger.debug(f"[{self.server_name}] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。")
-        except Exception as e:
-            self.logger.error(f"[{self.server_name}] 気象データ更新エラー: {e}")
-            self.logger.debug(traceback.format_exc())
-
-    def _check_and_update_skip_area_scheduled(self):
-        """
-        スケジュールされたskip_areaの確認と更新処理
-        """
-        self.logger.debug(f"[{self.server_name}] スケジュールされたskip_areaの確認と更新を実行中...")
-        
-        if self.skip_area:
-            self.logger.debug(f"[{self.server_name}] skip_areaに地域コードが存在します: {self.skip_area}")
-            self.logger.debug(f"[{self.server_name}] update_redis_weather_dataをskip_areaを引数に実行します。")
-            try:
-                # skip_areaを引数としてupdate_redis_weather_dataを呼び出す
-                updated_skip_area = update_redis_weather_data(debug=self.debug, area_codes=self.skip_area)
-                self.skip_area = updated_skip_area
-                self.logger.debug(f"[{self.server_name}] skip_areaの更新完了。現在のskip_area: {self.skip_area}")
-            except Exception as e:
-                self.logger.error(f"[{self.server_name}] skip_area更新エラー: {e}")
-                self.logger.debug(traceback.format_exc())
-        else:
-            self.logger.debug(f"[{self.server_name}] skip_areaは空です。更新はスキップされます。")
 
     def _update_disaster_alert_scheduled(self):
         """
