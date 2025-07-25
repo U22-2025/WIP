@@ -71,3 +71,11 @@ include = [
     "WIPCommonPy*",
     "WIPServerPy*",
 ]  # 各サーバーパッケージも含める
+
+[tool.setuptools.package-data]
+"WIPClientPy" = ["config.ini", "coordinate_cache.json"]
+"WIPCommonPy.packet.format_spec" = ["*.json"]
+"WIPServerPy.servers.location_server" = ["config.ini"]
+"WIPServerPy.servers.query_server" = ["config.ini"]
+"WIPServerPy.servers.weather_server" = ["config.ini"]
+"WIPServerPy.servers.report_server" = ["config.ini"]
