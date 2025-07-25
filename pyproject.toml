@@ -9,7 +9,7 @@ name            = "wiplib"            # ← パッケージ名はそのまま
 dynamic         = ["version"]
 description     = "Awesome toolkit for weather data (client‑side)."
 readme          = "README.md"
-license         = { text = "MIT" }
+license = { file = "LICENSE" }
 authors         = [{ name = "WIP Team", email = "u22.wip.team@gmail.com" }]
 requires-python = ">=3.9"
 
