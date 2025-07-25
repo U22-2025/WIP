@@ -8,9 +8,9 @@ import os
 import traceback
 from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager
+from WIP_Server.data.redis_manager import create_redis_manager, WeatherRedisManager, RedisConfig
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
-def get_data(area_codes: list, debug=False, save_to_redis=False):
+def get_data(area_codes: list, debug=False, save_to_redis=False, redis_prefix='REDIS'):
     output = {"weather_reportdatetime": {}}
     output_lock = threading.Lock()
     skip_area = []  # ローカル変数として定義
@@ -34,7 +34,8 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
     timeout = 5.0
 
     ### ここに日付チェックを追加
-    rm = WeatherRedisManager()
+    rm_config = RedisConfig.from_env(prefix=redis_prefix)
+    rm = WeatherRedisManager(config=rm_config)
     
     # Redisから既存のweather_reportdatetimeを取得
     existing_report_datetimes = rm.get_weather_data("weather_reportdatetime")
@@ -253,7 +254,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
 
     return skip_area
 
-def update_redis_weather_data(debug=False, area_codes=None):
+def update_redis_weather_data(debug=False, area_codes=None, redis_prefix='REDIS'):
     """
     気象情報を取得してRedisに保存する関数
 
@@ -271,7 +272,7 @@ def update_redis_weather_data(debug=False, area_codes=None):
             area_codes = list(json.load(f).keys())
 
     # 気象データを取得し、直接Redisに保存
-    skip_area = get_data(area_codes, debug=debug, save_to_redis=True)
+    skip_area = get_data(area_codes, debug=debug, save_to_redis=True, redis_prefix=redis_prefix)
 
     if debug:
         end_time = time.time()

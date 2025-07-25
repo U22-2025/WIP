@@ -28,13 +28,19 @@ class RedisConfig:
     timeout: int = 1  # タイムアウトを1秒に短縮
     
     @classmethod
-    def from_env(cls) -> 'RedisConfig':
-        """環境変数からRedis設定を作成"""
-        return cls(
-            host=os.getenv('REDIS_HOST', 'localhost'),
-            port=int(os.getenv('REDIS_PORT', 6379)),
-            db=int(os.getenv('REDIS_DB', 0))
-        )
+    def from_env(cls, prefix: str = 'REDIS') -> 'RedisConfig':
+        """環境変数からRedis設定を作成
+
+        Args:
+            prefix: 環境変数名のプレフィックス
+                例: 'REDIS' → REDIS_HOST, 'REPORT_REDIS' → REPORT_REDIS_HOST
+        """
+        prefix = prefix.upper()
+        host = os.getenv(f'{prefix}_HOST', os.getenv('REDIS_HOST', 'localhost'))
+        port = int(os.getenv(f'{prefix}_PORT', os.getenv('REDIS_PORT', 6379)))
+        db = int(os.getenv(f'{prefix}_DB', os.getenv('REDIS_DB', 0)))
+
+        return cls(host=host, port=port, db=db)
 
 
 class WeatherRedisManager:
@@ -400,15 +406,16 @@ class WeatherRedisManager:
                 print("Redis接続を閉じました")
 
 
-def create_redis_manager(debug: bool = False) -> WeatherRedisManager:
+def create_redis_manager(debug: bool = False, prefix: str = 'REDIS') -> WeatherRedisManager:
     """
     Redis管理クラスのファクトリー関数
     
     Args:
         debug: デバッグモード
-        
+        prefix: 使用する環境変数プレフィックス
+
     Returns:
         WeatherRedisManagerインスタンス
     """
-    config = RedisConfig.from_env()
+    config = RedisConfig.from_env(prefix=prefix)
     return WeatherRedisManager(config, debug)

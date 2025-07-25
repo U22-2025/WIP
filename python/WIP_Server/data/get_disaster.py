@@ -17,10 +17,10 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from WIP_Server.data.controllers.disaster_data_processor import DisasterDataProcessor
-from WIP_Server.data.redis_manager import create_redis_manager 
+from WIP_Server.data.redis_manager import create_redis_manager
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(redis_prefix='REDIS'):
     """
     災害情報処理のメイン関数
     
@@ -88,7 +88,7 @@ def main():
         
         try:
             # Redis管理クラスのインスタンスを作成
-            redis_manager = create_redis_manager(debug=True)
+            redis_manager = create_redis_manager(debug=True, prefix=redis_prefix)
             
             # 災害情報を更新
             result = redis_manager.update_disasters(final_formatted_data)
