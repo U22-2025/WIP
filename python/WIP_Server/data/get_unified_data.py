@@ -3,7 +3,7 @@
 統合データ取得スクリプト
 
 UnifiedDataProcessorを使用して
-地震情報と災害情報を自動判別・統合処理し、Redisに格納します。
+地震情報と災害情報を自動判別・統合処理し、必要に応じてRedisに格納します。
 
 使用方法:
     python get_unified_data.py
@@ -20,7 +20,7 @@ from WIP_Server.data.controllers.unified_data_processor import UnifiedDataProces
 from WIP_Server.data.redis_manager import create_redis_manager 
 JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
 
-def main():
+def main(save_to_redis=True):
     """
     統合データ処理のメイン関数
     
@@ -124,49 +124,51 @@ def main():
                 print(f"統合完了: {len(merged_disaster_data) - 1}エリアの災害データ（地震データ含む）")
         
         print("=== 統合データ取得完了 ===")
-        
-        # Redis管理クラスを使用してデータを更新
-        print("\n=== Redisデータ更新開始 ===")
-        
-        try:
-            # Redis管理クラスのインスタンスを作成
-            redis_manager = create_redis_manager(debug=True)
-            
-            disaster_result = {'updated': 0, 'created': 0, 'errors': 0}
-            earthquake_result = {'updated': 0, 'created': 0, 'errors': 0}
-            
-            # 統合された災害情報（地震データ含む）を更新
-            if disaster_converted_data or earthquake_converted_data:
-                # 統合されたデータを使用
-                if 'merged_disaster_data' in locals():
-                    disaster_result = redis_manager.update_disasters(merged_disaster_data)
-                elif disaster_converted_data:
-                    disaster_result = redis_manager.update_disasters(disaster_final_data)
-                else:
-                    disaster_result = {'updated': 0, 'created': 0, 'errors': 0}
-                
-                print(f"\n=== 災害情報Redis更新結果（地震データ含む） ===")
-                print(f"更新されたエリア: {disaster_result['updated']}件")
-                print(f"新規作成されたエリア: {disaster_result['created']}件")
-                print(f"エラー: {disaster_result['errors']}件")
-            
-            print(f"\n=== 総合更新結果 ===")
-            print(f"合計更新エリア: {disaster_result['updated']}件")
-            print(f"合計新規作成エリア: {disaster_result['created']}件")
-            print(f"合計エラー: {disaster_result['errors']}件")
-            
-            # 接続を閉じる
-            redis_manager.close()
-            
-            print("=== Redisデータ更新完了 ===")
-            
-        except Exception as e:
-            print(f"Redis更新エラー: {e}")
+
+        if save_to_redis:
+            print("\n=== Redisデータ更新開始 ===")
+
+            try:
+                redis_manager = create_redis_manager(debug=True)
+
+                disaster_result = {'updated': 0, 'created': 0, 'errors': 0}
+                earthquake_result = {'updated': 0, 'created': 0, 'errors': 0}
+
+                if disaster_converted_data or earthquake_converted_data:
+                    if 'merged_disaster_data' in locals():
+                        disaster_result = redis_manager.update_disasters(merged_disaster_data)
+                    elif disaster_converted_data:
+                        disaster_result = redis_manager.update_disasters(disaster_final_data)
+                    else:
+                        disaster_result = {'updated': 0, 'created': 0, 'errors': 0}
+
+                    print(f"\n=== 災害情報Redis更新結果（地震データ含む） ===")
+                    print(f"更新されたエリア: {disaster_result['updated']}件")
+                    print(f"新規作成されたエリア: {disaster_result['created']}件")
+                    print(f"エラー: {disaster_result['errors']}件")
+
+                print(f"\n=== 総合更新結果 ===")
+                print(f"合計更新エリア: {disaster_result['updated']}件")
+                print(f"合計新規作成エリア: {disaster_result['created']}件")
+                print(f"合計エラー: {disaster_result['errors']}件")
+
+                redis_manager.close()
+                print("=== Redisデータ更新完了 ===")
+
+            except Exception as e:
+                print(f"Redis更新エラー: {e}")
         
     except Exception as e:
         print(f"Error in unified processing: {e}")
         import traceback
         traceback.print_exc()
+
+    if disaster_converted_data or earthquake_converted_data:
+        if 'merged_disaster_data' in locals():
+            return merged_disaster_data
+        elif disaster_converted_data:
+            return disaster_final_data
+    return {}
 
 
 if __name__ == "__main__":

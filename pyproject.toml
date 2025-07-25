@@ -11,7 +11,8 @@ license = { text = "MIT" }
 authors = [{ name = "WIP Team", email = "u22.wip.team@gmail.com" }]
 requires-python = ">=3.9"
 dependencies = [
-    "requests>=2.32.0"
+    "requests>=2.32.0",
+    "schedule>=1.2.0"
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
