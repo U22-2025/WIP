@@ -4,10 +4,8 @@ WIP (Weather Transport Protocol) クライアントパッケージ
 
 from WIPClientPy.client import Client
 from WIPClientPy.client_async import ClientAsync
+from wiplib import __version__
 
-
-# バージョン情報
-__version__ = "1.0.0"
 
 # パッケージ情報
 __author__ = "WIP Team"
