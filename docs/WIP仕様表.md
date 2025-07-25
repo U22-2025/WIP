@@ -266,7 +266,7 @@ pip install -r requirements.txt
 redis-server
 
 # メインサーバ起動
-python WIP_Server/main.py
+python WIPServerPy/main.py
 ```
 
 ### クライアント実装例
@@ -291,8 +291,8 @@ docker-compose up -d
 ### ディレクトリ構成
 ```
 .
-├── WIP_Server/          # サーバ実装
-├── WIP_Client/          # クライアント実装
+├── WIPServerPy/          # サーバ実装
+├── WIPClientPy/          # クライアント実装
 ├── common/              # 共通ライブラリ
 │   └── packet/          # パケット処理関連
 ├── docs/                # ドキュメント
@@ -306,11 +306,11 @@ docker-compose up -d
 pytest tests/
 
 # カバレッジ計測
-pytest --cov=WIP_Server tests/
+pytest --cov=WIPServerPy tests/
 
 # 静的解析
-flake8 WIP_Server/
-mypy WIP_Server/
+flake8 WIPServerPy/
+mypy WIPServerPy/
 ```
 
 ## 貢献方法

@@ -120,11 +120,24 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 ### 依存関係のインストール
 ```bash
 # Condaを使用する場合
-conda env create -f environment.yml
-conda activate U22-2025
+conda env create -f yml/env311.yml
+conda activate U22-WIP
 
 # pipを使用する場合
 pip install -r requirements.txt
+
+# ライブラリとして開発モードでインストールする場合
+pip install -e .
+
+# テスト環境を構築する場合
+pip install -e .[dev]
+
+# サーバーを個別にインストールする場合
+pip install -e .[location_server]
+pip install -e .[query_server]
+
+# すべてのサーバーをインストールする場合
+pip install -e .[servers]
 ```
 
 ### 環境変数設定
@@ -209,16 +222,16 @@ client.close()
 #### コマンドライン実行
 ```bash
 # クライアントのテスト実行
-python -m common.clients.weather_client
+python -m WIPCommonPy.clients.weather_client
 
 # 座標解決のテスト
-python -m common.clients.location_client
+python -m WIPCommonPy.clients.location_client
 
 # 気象データクエリのテスト
-python -m common.clients.query_client
+python -m WIPCommonPy.clients.query_client
 
 # センサーデータレポートのテスト
-python -m common.clients.report_client
+python -m WIPCommonPy.clients.report_client
 ```
 
 ## データ形式
@@ -399,7 +412,7 @@ python wip/scripts/update_weather_data.py
 - 地域コードキャッシュ（`cache/area_cache.json`）
 - 気象データキャッシュ（TTL: 1時間）
 - 各キャッシュは設定ファイルの `enable_*_cache` オプションで有効/無効を切り替え可能
-- WIP_Client の座標キャッシュは `python/WIP_Client/config.ini` の
+- WIPClientPy の座標キャッシュは `python/WIPClientPy/config.ini` の
   `enable_coordinate_cache` でオン/オフを設定
 
 ## トラブルシューティング
@@ -463,32 +476,7 @@ python debug_tools/performance/performance_debug_tool.py
 - **サーバエラー**: 適切なエラーコード返送
 
 ## ライセンス
-
-このプロジェクトはMITライセンスの下で公開されています。
-
-```
-MIT License
-
-Copyright (c) 2025 WIP Project
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+このプロジェクトはMITライセンスの下で公開されています。詳しくは [LICENSE](LICENSE) をご覧ください。
 
 ## 貢献
 
@@ -536,7 +524,7 @@ SOFTWARE.
 - [debug_tools/docs/extended_field_fix_report.md](debug_tools/docs/extended_field_fix_report.md) - 拡張フィールド修正レポート
 
 ### 設定ファイル
-- [environment.yml](environment.yml) - Conda環境設定
+- [yml/env311.yml](yml/env311.yml) - Conda環境設定
 - [weather_code.json](weather_code.json) - 天気コード定義
 - [start_servers.bat](start_servers.bat) - サーバ起動スクリプト
 
@@ -575,4 +563,4 @@ SOFTWARE.
 
 **WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
 
-プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/your-repo/wip)をご確認ください。
+プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/U22-2025/WIP)をご確認ください。

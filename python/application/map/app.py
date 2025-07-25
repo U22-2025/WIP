@@ -21,7 +21,7 @@ def index():
 
 
 # JSONファイル配置ディレクトリ
-JSON_DIR = Path(__file__).resolve().parents[2] / "logs" / "json"
+JSON_DIR = Path(__file__).resolve().parent / "static" / "json"
 
 
 # 天気コードJSONを提供するルート

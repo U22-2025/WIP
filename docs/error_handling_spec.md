@@ -1,7 +1,7 @@
 # エラーハンドリング機能 要件定義書
 
 ## 1. エラーパケット仕様
-### 1.1 基本構造 (`common/packet/format_base.py`)
+### 1.1 基本構造 (`WIPCommonPy/packet/format_base.py`)
 ```mermaid
 classDiagram
     class ErrorResponse {
@@ -22,7 +22,7 @@ classDiagram
 | ex_field       | 可変     | ソースIP      | 元パケットの送信元IPアドレス |
 
 ## 2. エラー処理フロー
-### サーバー側処理 (`WIP_Server/servers/base_server.py`)
+### サーバー側処理 (`WIPServerPy/servers/base_server.py`)
 ```mermaid
 sequenceDiagram
     participant Client
@@ -64,7 +64,7 @@ sequenceDiagram
 | version | 固定値(1) | ○ |
 
 ## 2. エラー処理フロー
-### 2.1 基本フロー (`WIP_Server/servers/base_server.py`)
+### 2.1 基本フロー (`WIPServerPy/servers/base_server.py`)
   ```python
   PACKET_TYPES = {
       0: "Request",
@@ -76,7 +76,7 @@ sequenceDiagram
   ```
 
 ### サーバーコア
-- [ ] ベースサーバーエラーハンドリング拡張 (`WIP_Server/servers/base_server.py`)
+- [ ] ベースサーバーエラーハンドリング拡張 (`WIPServerPy/servers/base_server.py`)
   ```python
   def _handle_error(self, error_code, original_packet, addr):
       # ソースIP取得ロジック
@@ -96,8 +96,8 @@ sequenceDiagram
 
 ### 3. 実装タスク
 ### 3.1 共通パケットモジュール
-- [ ] `ErrorResponse`クラス実装 (`common/packet/error_response.py`)
-- [ ] パケットタイプリスト更新 (`common/packet/__init__.py`)
+- [ ] `ErrorResponse`クラス実装 (`WIPCommonPy/packet/error_response.py`)
+- [ ] パケットタイプリスト更新 (`WIPCommonPy/packet/__init__.py`)
   ```python
   def _handle_packet(self, data, addr):
       if packet.type == 7:  # エラーパケット
