@@ -60,6 +60,18 @@ servers = [
     "python-dateutil",
     "python-dotenv",
 ]
+all = [
+    "psycopg2",
+    "redis",
+    "schedule",
+    "python-dateutil",
+    "python-dotenv",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-xdist",
+    "black",
+]
 
 # ─── どのソースを wheel に含めるか ────────────
 [tool.setuptools]
