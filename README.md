@@ -138,6 +138,9 @@ pip install -e .[query_server]
 
 # すべてのサーバーをインストールする場合
 pip install -e .[servers]
+
+# PyPI から全機能をインストールする場合
+pip install "wiplib[all]"
 ```
 
 ### 環境変数設定
