@@ -14,6 +14,16 @@ from WIPServerPy.data.redis_manager import create_redis_manager, WeatherRedisMan
 
 # JSON_DIRの定義を削除（logs/jsonフォルダは使用しない）
 def get_data(area_codes: list, debug=False, save_to_redis=False):
+    """指定されたエリアコードの気象情報を取得する
+
+    Args:
+        area_codes (list): 取得対象のエリアコード
+        debug (bool): デバッグ出力を有効にするか
+        save_to_redis (bool): 取得結果をRedisに保存するか
+
+    Returns:
+        tuple(dict, list): 取得した気象情報の辞書とスキップしたエリアコードのリスト
+    """
     output = {"weather_reportdatetime": {}}
     output_lock = threading.Lock()
     skip_area = []  # ローカル変数として定義
@@ -274,7 +284,8 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
         print(f"全処理完了: 合計所要時間 {end_time - start_time:.2f}秒")
         print(f"取得したエリア数: {len(output)}")
 
-    return skip_area
+    # 出力データとスキップされたエリアリストを返す
+    return output, skip_area
 
 
 def update_redis_weather_data(debug=False, area_codes=None):
@@ -294,7 +305,7 @@ def update_redis_weather_data(debug=False, area_codes=None):
         area_codes = []  # area_codes.jsonに依存せず、明示的に指定されたエリアのみ処理
 
     # 気象データを取得し、直接Redisに保存
-    skip_area = get_data(area_codes, debug=debug, save_to_redis=True)
+    _, skip_area = get_data(area_codes, debug=debug, save_to_redis=True)
 
     if debug:
         end_time = time.time()

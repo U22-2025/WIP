@@ -9,6 +9,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 import traceback
+import threading
+import json
 
 # モジュールとして使用される場合
 from WIPServerPy.servers.base_server import BaseServer
@@ -71,6 +73,23 @@ class ReportServer(BaseServer):
         # ネットワーク設定
         self.udp_buffer_size = self.config.getint("network", "udp_buffer_size", 4096)
 
+        # Redis設定（オプション保存先）
+        self.redis_host = self.config.get("redis", "host", "localhost")
+        self.redis_port = self.config.getint("redis", "port", 6379)
+        self.redis_db = self.config.getint("redis", "db", 0)
+        self.enable_redis_save = self.config.getboolean("redis", "enable_redis_save", True)
+
+        # JSON保存パス
+        self.weather_json_path = self.config.get("weather_json", "path", "python/logs/reports/weather_data.json")
+
+        # データ転送設定
+        self.forwarding_enabled = self.config.getboolean("forward", "enable_forwarding", False)
+        self.forward_host = self.config.get("forward", "host", "localhost")
+        self.forward_port = self.config.getint("forward", "port", 4110)
+
+        # skip_area 管理
+        self.skip_area = []
+
         # データ検証設定
         self.enable_data_validation = self.config.getboolean(
             "validation", "enable_data_validation", True
@@ -99,6 +118,9 @@ class ReportServer(BaseServer):
 
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("ReportServer")
+
+        # スケジュール設定
+        self._setup_scheduler()
 
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（ReportServer固有）"""
@@ -548,5 +570,123 @@ class ReportServer(BaseServer):
         """派生クラス固有のクリーンアップ処理"""
         if self.debug:
             print(f"[{self.server_name}] クリーンアップ完了")
+
+    # ------------------------------------------------------------------
+    # 追加機能: 気象データ取得およびスケジュール処理
+    # ------------------------------------------------------------------
+
+    def _setup_scheduler(self):
+        """気象データ取得スケジューラーを設定"""
+        import schedule
+        update_times_str = self.config.get("schedule", "weather_update_time", "05:00")
+        update_times = [t.strip() for t in update_times_str.split(",")]
+
+        for t in update_times:
+            schedule.every().day.at(t).do(self._update_weather_data_scheduled)
+
+        interval = self.config.getint("schedule", "skip_area_check_interval_minutes", 10)
+        schedule.every(interval).minutes.do(self._check_and_update_skip_area_scheduled)
+
+        disaster_interval = self.config.getint("schedule", "disaster_alert_update_time", 10)
+        schedule.every(disaster_interval).minutes.do(self._update_disaster_alert_scheduled)
+
+        threading.Thread(target=self._run_scheduler, daemon=True).start()
+
+    def _run_scheduler(self):
+        import schedule
+        while True:
+            schedule.run_pending()
+            time.sleep(30)
+
+    def _update_weather_data_scheduled(self):
+        """定期気象データ取得処理"""
+        from WIPServerPy.scripts.update_weather_data import get_data
+        try:
+            data, skip_area = get_data([], debug=self.debug, save_to_redis=self.enable_redis_save)
+            self.skip_area = skip_area
+            self._update_json_file(data)
+            self._forward_data(data)
+        except Exception as e:
+            print(f"[{self.server_name}] 気象データ更新エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+
+    def _check_and_update_skip_area_scheduled(self):
+        """skip_area 更新処理"""
+        if not self.skip_area:
+            return
+        from WIPServerPy.scripts.update_weather_data import get_data
+        try:
+            data, skip_area = get_data(self.skip_area, debug=self.debug, save_to_redis=self.enable_redis_save)
+            self.skip_area = skip_area
+            self._update_json_file(data)
+            self._forward_data(data)
+        except Exception as e:
+            print(f"[{self.server_name}] skip_area更新エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+
+    def _update_disaster_alert_scheduled(self):
+        """災害・警報情報の更新処理"""
+        from WIPServerPy.scripts.update_alert_disaster_data import main as update_main
+        try:
+            update_main()
+        except Exception as e:
+            print(f"[{self.server_name}] 災害情報更新エラー: {e}")
+            if self.debug:
+                traceback.print_exc()
+
+    def _update_json_file(self, data):
+        """気象データをJSONファイルに保存"""
+        if not data:
+            return
+        path = Path(self.weather_json_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+            except Exception:
+                existing = {}
+        else:
+            existing = {}
+
+        report_dt = data.get("weather_reportdatetime", {})
+        if report_dt:
+            existing.setdefault("weather_reportdatetime", {}).update(report_dt)
+        for k, v in data.items():
+            if k == "weather_reportdatetime":
+                continue
+            existing[k] = v
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(existing, f, ensure_ascii=False, indent=2)
+
+    def _forward_data(self, data):
+        """取得したデータを別ホストへ送信"""
+        if not self.forwarding_enabled:
+            return
+        from WIPCommonPy.clients.report_client import ReportClient
+        client = ReportClient(host=self.forward_host, port=self.forward_port, debug=self.debug)
+        try:
+            for area_code, info in data.items():
+                if area_code == "weather_reportdatetime":
+                    continue
+                weather = None
+                temp = None
+                pop = None
+                if info.get("weather"):
+                    weather = int(info["weather"][0]) if isinstance(info["weather"], list) else int(info["weather"])
+                if info.get("temperature"):
+                    try:
+                        temp = float(info["temperature"][0]) if isinstance(info["temperature"], list) else float(info["temperature"])
+                    except ValueError:
+                        temp = None
+                if info.get("precipitation_prob"):
+                    pop = int(info["precipitation_prob"][0]) if isinstance(info["precipitation_prob"], list) else int(info["precipitation_prob"])
+                client.set_sensor_data(area_code=area_code, weather_code=weather, temperature=temp, precipitation_prob=pop)
+                client.send_data_simple()
+        finally:
+            client.close()
 
 
