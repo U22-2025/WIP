@@ -365,9 +365,6 @@ class ReportServer(BaseServer):
 
         return processed_data
 
-    # _setup_log_file method removed
-
-    # _log_report_data method removed
 
     def _save_to_database(self, request, sensor_data, source_addr=None):
         """データベースに保存（実装予定）"""

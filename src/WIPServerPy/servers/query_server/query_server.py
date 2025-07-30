@@ -3,15 +3,10 @@
 基底クラスを継承した実装
 """
 
-import sys
 import os
-import logging
 from pathlib import Path
 from datetime import datetime
-import schedule
-import threading
 import time
-import traceback
 
 # モジュールとして使用される場合
 from WIPServerPy.servers.base_server import BaseServer
@@ -23,10 +18,6 @@ from WIPCommonPy.packet import QueryRequest, QueryResponse
 from WIPCommonPy.utils.config_loader import ConfigLoader
 from WIPCommonPy.packet import ErrorResponse
 from WIPCommonPy.packet.debug.debug_logger import create_debug_logger, PacketDebugLogger
-from WIPServerPy.scripts.update_weather_data import update_redis_weather_data
-from WIPServerPy.scripts.update_alert_disaster_data import (
-    main as update_alert_disaster_main,
-)
 
 
 class QueryServer(BaseServer):
@@ -82,20 +73,7 @@ class QueryServer(BaseServer):
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("QueryServer")
 
-        # noupdateフラグがFalseの場合のみ起動時更新を実行
-        if not noupdate:
-            # 起動時に気象データを更新（スレッドで非同期実行）
-            threading.Thread(
-                target=self._update_weather_data_scheduled, daemon=True
-            ).start()
-
-            # 起動時に警報と災害情報を更新（スレッドで非同期実行）
-            threading.Thread(
-                target=self._update_disaster_alert_scheduled, daemon=True
-            ).start()
-
-        # スケジューラーを開始
-        self._setup_scheduler()
+        # noupdateフラグは現在未使用（互換性維持のための引数）
 
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（QueryServer固有）"""
@@ -106,8 +84,6 @@ class QueryServer(BaseServer):
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
 
-        # スキップエリアリストを初期化
-        self.skip_area = []
 
     def _setup_components(self):
         """各コンポーネントを初期化"""
@@ -345,115 +321,5 @@ class QueryServer(BaseServer):
         if hasattr(self, "weather_manager"):
             self.weather_manager.close()
 
-    def _setup_scheduler(self):
-        """
-        気象データ更新のスケジューラーを開始
-        """
-        update_times_str = self.config.get("schedule", "weather_update_time", "03:00")
-        update_times = [t.strip() for t in update_times_str.split(",")]
-
-        self.logger.debug(
-            f"[{self.server_name}] 気象データ更新を毎日 {', '.join(update_times)} にスケジュールします。"
-        )
-
-        for update_time in update_times:
-            schedule.every().day.at(update_time).do(self._update_weather_data_scheduled)
-
-        # configからskip_areaの確認と更新間隔を取得
-        skip_area_interval = self.config.getint(
-            "schedule", "skip_area_check_interval_minutes", 10
-        )
-        self.logger.debug(
-            f"[{self.server_name}] skip_areaの確認と更新を {skip_area_interval} 分ごとにスケジュールします。"
-        )
-        schedule.every(skip_area_interval).minutes.do(
-            self._check_and_update_skip_area_scheduled
-        )
-
-        # configから災害情報更新間隔を取得
-        disaster_alert_interval = self.config.getint(
-            "schedule", "disaster_alert_update_time", 10
-        )
-        self.logger.debug(
-            f"[{self.server_name}] 災害情報と気象注意報の更新を {disaster_alert_interval} 分ごとにスケジュールします。"
-        )
-        schedule.every(disaster_alert_interval).minutes.do(
-            self._update_disaster_alert_scheduled
-        )
-
-        # スケジュールを実行するスレッドを開始
-        def run_scheduler():
-            while True:
-                schedule.run_pending()
-                time.sleep(30)  # 30秒ごとにチェック
-
-        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
-        scheduler_thread.start()
-
-    def _update_weather_data_scheduled(self):
-        """
-        スケジュールされた気象データ更新処理
-        """
-        self.logger.debug(
-            f"[{self.server_name}] スケジュールされた気象データ更新を実行中..."
-        )
-        try:
-            # WIPServerPy/scripts/update_weather_data.py の関数を呼び出す
-            self.skip_area = update_redis_weather_data(debug=self.debug)
-            self.logger.debug(
-                f"[{self.server_name}] 気象データ更新完了。{len(self.skip_area)} エリアがスキップされました。"
-            )
-        except Exception as e:
-            self.logger.error(f"[{self.server_name}] 気象データ更新エラー: {e}")
-            self.logger.debug(traceback.format_exc())
-
-    def _check_and_update_skip_area_scheduled(self):
-        """
-        スケジュールされたskip_areaの確認と更新処理
-        """
-        self.logger.debug(
-            f"[{self.server_name}] スケジュールされたskip_areaの確認と更新を実行中..."
-        )
-
-        if self.skip_area:
-            self.logger.debug(
-                f"[{self.server_name}] skip_areaに地域コードが存在します: {self.skip_area}"
-            )
-            self.logger.debug(
-                f"[{self.server_name}] update_redis_weather_dataをskip_areaを引数に実行します。"
-            )
-            try:
-                # skip_areaを引数としてupdate_redis_weather_dataを呼び出す
-                updated_skip_area = update_redis_weather_data(
-                    debug=self.debug, area_codes=self.skip_area
-                )
-                self.skip_area = updated_skip_area
-                self.logger.debug(
-                    f"[{self.server_name}] skip_areaの更新完了。現在のskip_area: {self.skip_area}"
-                )
-            except Exception as e:
-                self.logger.error(f"[{self.server_name}] skip_area更新エラー: {e}")
-                self.logger.debug(traceback.format_exc())
-        else:
-            self.logger.debug(
-                f"[{self.server_name}] skip_areaは空です。更新はスキップされます。"
-            )
-
-    def _update_disaster_alert_scheduled(self):
-        """
-        スケジュールされた災害情報と気象注意報の更新処理
-        """
-        self.logger.debug(
-            f"[{self.server_name}] スケジュールされた災害情報と気象注意報の更新を実行中..."
-        )
-        try:
-            # WIPServerPy/scripts/update_alert_disaster_data.py の main() 関数を呼び出す
-            update_alert_disaster_main()
-            self.logger.debug(f"[{self.server_name}] 災害情報と気象注意報の更新完了。")
-        except Exception as e:
-            self.logger.error(
-                f"[{self.server_name}] 災害情報と気象注意報の更新エラー: {e}"
-            )
-            self.logger.debug(traceback.format_exc())
 
 
