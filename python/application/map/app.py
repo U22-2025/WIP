@@ -3,13 +3,7 @@ import sys, os
 from pathlib import Path
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
-
-# パスを追加して直接実行にも対応
-if __name__ == "__main__":
-    sys.path.insert(
-        0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-from WIP_Client import Client
+from WIPClientPy import Client
 
 app = Flask(__name__)
 client = Client(host="localhost", port=4110, debug=True)

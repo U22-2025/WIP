@@ -15,13 +15,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 
-# 直接実行時のパス調整
-
-if __name__ == "__main__":
-    sys.path.insert(
-        0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
 # Windows環境では ProactorEventLoop がデフォルトとなるが、このイベントループは
 # sock_sendto が実装されていないため非同期クライアントでエラーになる。
 # そのため SelectorEventLoop を使用するようにポリシーを設定する。
@@ -30,9 +23,9 @@ if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     except Exception:  # pragma: no cover - Windows 環境以外では実行されない
         pass
-from WIP_Client import ClientAsync
-from common.utils.config_loader import ConfigLoader
-from common.utils.redis_log_handler import RedisLogHandler
+from WIPClientPy import ClientAsync
+from WIPCommonPy.utils.config_loader import ConfigLoader
+from WIPCommonPy.utils.redis_log_handler import RedisLogHandler
 import redis.asyncio as aioredis
 
 # ドキュメントエンドポイントを有効化
