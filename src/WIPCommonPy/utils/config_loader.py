@@ -19,8 +19,15 @@ class ConfigLoader:
         Args:
             config_path: 設定ファイルのパス（Noneの場合は呼び出し元のディレクトリから探す）
         """
-        # 環境変数を読み込む
-        load_dotenv()
+        # 環境変数を読み込む（プロジェクトルートの.envファイルを明示的に指定）
+        project_root = Path(__file__).parent.parent.parent.parent
+        env_path = project_root / ".env"
+        if env_path.exists():
+            load_dotenv(env_path)
+            print(f"[ConfigLoader] Loaded .env from: {env_path}")
+        else:
+            print(f"[ConfigLoader] Warning: .env file not found at {env_path}")
+            load_dotenv()  # フォールバック
 
         # 設定ファイルのパスを決定
         if config_path is None:
@@ -58,10 +65,13 @@ class ConfigLoader:
 
                     def replace_env(match):
                         env_var = match.group(1)
-                        value = os.getenv(env_var)
-                        if value is None:
-                            raise ValueError(f"Environment variable '{env_var}' is not set")
-                        return value
+                        env_value = os.getenv(env_var)
+                        if env_value is not None:
+                            print(f"[ConfigLoader] Expanding {env_var}: '{match.group(0)}' -> '{env_value}'")
+                            return env_value
+                        else:
+                            print(f"[ConfigLoader] Warning: Environment variable '{env_var}' not found, keeping: {match.group(0)}")
+                            return match.group(0)
 
                     expanded_value = re.sub(pattern, replace_env, value)
                     self.config.set(section, key, expanded_value)

@@ -37,9 +37,13 @@ class LocationServer(BaseServer):
             max_workers: スレッドプールのワーカー数（Noneの場合は設定ファイルから取得）
             max_cache_size: キャッシュの最大サイズ（Noneの場合は設定ファイルから取得）
         """
+        print("[LocationServer] __init__ called with debug =", debug)
+        
         # 設定ファイルを読み込む
         config_path = Path(__file__).parent / "config.ini"
+        print(f"[LocationServer] Loading config from: {config_path}")
         self.config = ConfigLoader(config_path)
+        print("[LocationServer] ConfigLoader created successfully")
 
         # サーバー設定を取得（引数優先、なければ設定ファイル、なければデフォルト）
         if host is None:
@@ -56,11 +60,17 @@ class LocationServer(BaseServer):
         self.cache_enabled = self.config.getboolean("cache", "enable_cache", True)
 
         # データベース設定を読み込む
+        print("[LocationServer] Reading database configuration...")
         self.DB_NAME = self.config.get("database", "name", "weather_forecast_map")
         self.DB_USER = self.config.get("database", "user", "postgres")
         self.DB_PASSWORD = self.config.get("database", "password")
         self.DB_HOST = self.config.get("database", "host", "localhost")
         self.DB_PORT = self.config.get("database", "port", "5432")
+        
+        print(f"[LocationServer] DB_HOST: {self.DB_HOST}")
+        print(f"[LocationServer] DB_PORT: {self.DB_PORT} (type: {type(self.DB_PORT)})")
+        print(f"[LocationServer] DB_NAME: {self.DB_NAME}")
+        print(f"[LocationServer] DB_USER: {self.DB_USER}")
 
         # パスワードが設定されていない場合はエラー
         if not self.DB_PASSWORD:
