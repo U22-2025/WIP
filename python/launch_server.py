@@ -1,5 +1,15 @@
 import threading
 import argparse
+import sys
+from pathlib import Path
+
+# ローカルのsrcディレクトリを優先してインポートするようにパスを設定
+script_dir = Path(__file__).parent
+src_dir = script_dir.parent / "src"
+if src_dir.exists():
+    sys.path.insert(0, str(src_dir))
+    print(f"[DEBUG] Added {src_dir} to Python path")
+
 from WIPServerPy import QueryServer, LocationServer, WeatherServer, ReportServer
 
 
@@ -24,6 +34,7 @@ def main():
     )
 
     args = parser.parse_args()
+    print(f"[DEBUG] Parsed args: {args}")
 
     # 起動するサーバーを決定
     servers_to_start = []
@@ -40,6 +51,12 @@ def main():
             servers_to_start.append("report")
     else:
         # 個別のフラグをチェック
+        print(f"[DEBUG] Checking individual flags:")
+        print(f"[DEBUG] args.query: {args.query}")
+        print(f"[DEBUG] args.location: {args.location}")
+        print(f"[DEBUG] args.weather: {args.weather}")
+        print(f"[DEBUG] args.report: {args.report}")
+        
         if args.query:
             servers_to_start.append("query")
         if args.location:
@@ -78,12 +95,22 @@ def main():
     if "location" in servers_to_start:
         debug_msg = " (デバッグモード)" if args.debug else ""
         print(f"Location Serverを起動しています...{debug_msg}")
-        servers["location"] = LocationServer(debug=args.debug)
-        location_thread = threading.Thread(
-            target=servers["location"].run, name="LocationServer"
-        )
-        threads.append(location_thread)
-        location_thread.start()
+        print(f"[DEBUG] Creating LocationServer with debug={args.debug}")
+        print(f"[DEBUG] LocationServer class: {LocationServer}")
+        print(f"[DEBUG] LocationServer module: {LocationServer.__module__}")
+        print(f"[DEBUG] LocationServer file: {LocationServer.__module__.__file__ if hasattr(LocationServer.__module__, '__file__') else 'unknown'}")
+        try:
+            servers["location"] = LocationServer(debug=args.debug)
+            print(f"[DEBUG] LocationServer created, starting thread...")
+            location_thread = threading.Thread(
+                target=servers["location"].run, name="LocationServer"
+            )
+            threads.append(location_thread)
+            location_thread.start()
+        except Exception as e:
+            print(f"[ERROR] Failed to create LocationServer: {e}")
+            import traceback
+            traceback.print_exc()
 
     if "weather" in servers_to_start:
         debug_msg = " (デバッグモード)" if args.debug else ""
