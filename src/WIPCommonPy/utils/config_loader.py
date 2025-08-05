@@ -58,7 +58,10 @@ class ConfigLoader:
 
                     def replace_env(match):
                         env_var = match.group(1)
-                        return os.getenv(env_var, match.group(0))
+                        value = os.getenv(env_var)
+                        if value is None:
+                            raise ValueError(f"Environment variable '{env_var}' is not set")
+                        return value
 
                     expanded_value = re.sub(pattern, replace_env, value)
                     self.config.set(section, key, expanded_value)
