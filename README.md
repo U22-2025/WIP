@@ -1,6 +1,6 @@
-# WTP (Weather Transfer Protocol)
+# WIP (Weather Transfer Protocol)
 
-WTP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象データ転送プロトコルです。IoT機器でも使用できるよう、小さなデータサイズでの通信を実現し、気象庁の公開データを効率的に配信します。
+WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象データ転送プロトコルです。IoT機器でも使用できるよう、小さなデータサイズでの通信を実現し、気象庁の公開データを効率的に配信します。
 
 ## 概要
 
@@ -111,6 +111,7 @@ WTP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 - PostgreSQL (座標解決用)
 - PostGIS (地理情報処理)
 - Redis (キャッシュ)
+- KeyDB (ログ配信用)
 
 ### 依存関係のインストール
 ```bash
@@ -119,7 +120,7 @@ conda env create -f environment.yml
 conda activate U22-2025
 
 # pipを使用する場合
-pip install requests python-dotenv redis psycopg2-binary
+pip install -r requirements.txt
 ```
 
 ### 環境変数設定
@@ -133,12 +134,23 @@ QUERY_GENERATOR_HOST=localhost
 QUERY_GENERATOR_PORT=4111
 
 # データベース設定
-DATABASE_URL=postgresql://user:password@localhost/wtp_db
+DATABASE_URL=postgresql://user:password@localhost/wip_db
 
 # Redis設定
 REDIS_HOST=localhost
 REDIS_PORT=6379
+LOG_REDIS_HOST=localhost
+LOG_REDIS_PORT=6380
+LOG_REDIS_DB=1
 ```
+KeyDB を使用してログを配信する場合は、以下の例のように Docker で起動できます。
+```bash
+docker run -d --name keydb -p 6380:6379 eqalpha/keydb
+# conf/keydb_log.conf を使う場合
+# docker run -d --name keydb -v $(pwd)/conf/keydb_log.conf:/etc/keydb/keydb.conf eqalpha/keydb keydb-server /etc/keydb/keydb.conf
+```
+RedisJSON モジュールは特に必要ありません。
+`localhost` を指定した場合は内部で IPv4 アドレス `127.0.0.1` に解決されます。環境によっては直接 `127.0.0.1` を指定することもできます。
 
 ## 使用方法
 
@@ -150,18 +162,18 @@ REDIS_PORT=6379
 start_servers.bat
 
 # 手動で個別起動
-python -m wtp.servers.weather_server.weather_server
-python -m wtp.servers.location_server.location_server
-python -m wtp.servers.query_server.query_server
+python -m wip.servers.weather_server.weather_server
+python -m wip.servers.location_server.location_server
+python -m wip.servers.query_server.query_server
 ```
 
 ### クライアントの使用
 
 #### 基本的な使用例
 ```python
-from wtp.clients.weather_client import WeatherClient
+from wip.clients.weather_client import WeatherClient
 
-# クライアント初期化
+# クライアント初期化（"localhost" は自動で IPv4 に解決されます）
 client = WeatherClient(host='localhost', port=4110, debug=True)
 
 # 座標から天気情報を取得
@@ -193,13 +205,16 @@ client.close()
 #### コマンドライン実行
 ```bash
 # クライアントのテスト実行
-python -m wtp.clients.weather_client
+python -m common.clients.weather_client
 
 # 座標解決のテスト
-python -m wtp.clients.location_client
+python -m common.clients.location_client
 
 # 気象データクエリのテスト
-python -m wtp.clients.query_client
+python -m common.clients.query_client
+
+# センサーデータレポートのテスト
+python -m common.clients.report_client
 ```
 
 ## データ形式
@@ -292,7 +307,7 @@ python debug_tools/individual/debug_encoding_step_by_step.py
 python test/api_test.py
 
 # プロトコルテスト
-python -m wtp.packet.format  # パケット形式テスト
+python -m wip.packet.format  # パケット形式テスト
 ```
 
 ### ログ出力
@@ -343,7 +358,7 @@ python test/api_test.py
 - 同時接続性能
 - 成功率
 
-### WTPの優位性
+### WIPの優位性
 - **軽量**: 48バイトの小さなパケットサイズ
 - **高速**: 平均100ms以下のレスポンス時間
 - **効率**: バイナリ形式による効率的なデータ転送
@@ -372,13 +387,16 @@ python test/api_test.py
 ### 自動データ更新
 ```bash
 # 気象データの定期更新スクリプト
-python wtp/scripts/update_weather_data.py
+python wip/scripts/update_weather_data.py
 ```
 
 ### キャッシュ管理
 - Redis による高速キャッシュ
 - 地域コードキャッシュ（`cache/area_cache.json`）
 - 気象データキャッシュ（TTL: 1時間）
+- 各キャッシュは設定ファイルの `enable_*_cache` オプションで有効/無効を切り替え可能
+- WIP_Client の座標キャッシュは `python/WIP_Client/config.ini` の
+  `enable_coordinate_cache` でオン/オフを設定
 
 ## トラブルシューティング
 
@@ -397,7 +415,7 @@ netstat -an | grep 4110
 #### 2. パケット解析エラー
 ```bash
 # デバッグモードでパケット内容確認
-python -m wtp.clients.weather_client
+python -m wip.clients.weather_client
 ```
 
 #### 3. パフォーマンス問題
@@ -417,7 +435,7 @@ python debug_tools/performance/performance_debug_tool.py
 ### プロトコルスタック
 ```
 +------------------+
-| WTP Application  |
+| WIP Application  |
 +------------------+
 | UDP              |
 +------------------+
@@ -447,7 +465,7 @@ python debug_tools/performance/performance_debug_tool.py
 ```
 MIT License
 
-Copyright (c) 2025 WTP Project
+Copyright (c) 2025 WIP Project
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -483,16 +501,13 @@ SOFTWARE.
 - ドキュメント: 変更内容をREADMEに反映
 - デバッグ: デバッグツールでの検証を実施
 
-### 貢献者
+
 - プロジェクトリーダー: szk27@outlook.jp
 - 開発チーム: U22プロジェクトチーム
 
 ## サポート
 
-### 問い合わせ先
-- **問題報告**: GitHub Issues
-- **技術的質問**: GitHub Discussions
-- **メール**: szk27@outlook.jp
+
 
 ### サポート範囲
 - プロトコル仕様に関する質問
@@ -508,7 +523,7 @@ SOFTWARE.
 ## 関連ドキュメント
 
 ### 技術文書
-- [WTP仕様表.md](WTP仕様表.md) - 詳細な技術仕様
+- [WIP仕様表.md](WIP仕様表.md) - 詳細な技術仕様
 - [project_detail.md](project_detail.md) - プロジェクト詳細
 - [protocol_format.xlsx](protocol_format.xlsx) - パケット形式詳細
 
@@ -554,6 +569,6 @@ SOFTWARE.
 
 ---
 
-**WTP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
+**WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
 
-プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/your-repo/wtp)をご確認ください。
+プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/your-repo/wip)をご確認ください。

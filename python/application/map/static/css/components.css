@@ -1,0 +1,933 @@
+/* カスタムマーカー */
+
+.custom-marker {
+    animation: markerBounce 0.6s var(--bounce);
+}
+
+@keyframes markerBounce {
+    0% {
+        transform: scale(0) translateY(-50px);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2) translateY(-10px);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+
+/* ローディングオーバーレイ */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    flex-direction: column;
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(var(--primary-color), 0.2);
+    border-top: 4px solid var(--primary-color);
+    border-radius: var(--radius-full);
+    animation: spin 1s linear infinite;
+    margin-bottom: var(--space-sm);
+}
+
+.loading-text {
+    color: var(--text-secondary);
+    font-size: var(--font-base);
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* ポップアップスタイル */
+
+.popup-content {
+    text-align: center;
+    padding: var(--space-sm);
+    min-width: 200px;
+    background: var(--surface-primary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--glass-border);
+}
+
+.popup-weather-icon {
+    font-size: var(--font-3xl);
+    margin-bottom: var(--space-xs);
+    color: var(--primary-color);
+}
+
+.popup-temp {
+    font-size: var(--font-2xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+}
+
+.popup-description {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+    font-weight: 500;
+}
+
+.popup-coords {
+    font-size: var(--font-xs);
+    color: var(--text-tertiary);
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.popup-area {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: var(--space-xs) 0;
+}
+
+
+/* 新しいポップアップ天気データレイアウト */
+
+.popup-weather-data {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0;
+}
+
+.popup-temp-container,
+.popup-precipitation_prob-container {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    text-align: center;
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    transition: all var(--transition-normal);
+}
+
+.popup-temp-container:hover,
+.popup-precipitation_prob-container:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.15), inset -1px -1px 3px rgba(255, 255, 255, 0.9), 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.popup-temp {
+    font-size: var(--font-xl);
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: var(--space-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.popup-precipitation_prob {
+    font-size: var(--font-xl);
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-bottom: var(--space-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.popup-temp-label,
+.popup-precipitation_prob-label {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.popup-disaster {
+    margin-top: var(--space-sm);
+    font-size: var(--font-xs);
+    color: var(--accent-color);
+    text-align: left;
+}
+.popup-disaster i {
+    margin-right: var(--space-xs);
+    color: var(--accent-color);
+}
+
+.disaster-item {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 4px;
+}
+.disaster-item .kind {
+    font-weight: 600;
+}
+.disaster-item .time {
+    font-size: 0.75em;
+    margin-left: 2px;
+    color: var(--text-secondary);
+}
+.disaster-sep {
+    color: var(--text-secondary);
+}
+
+
+/* モバイル対応 */
+
+.mobile-toggle {
+    display: none;
+    position: fixed;
+    top: var(--space-sm);
+    left: var(--space-sm);
+    z-index: 10001;
+    background: var(--surface-primary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    width: 50px;
+    height: 50px;
+    box-shadow: var(--shadow-md);
+    font-size: var(--font-lg);
+    color: var(--primary-color);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.mobile-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-lg);
+}
+
+.mobile-toggle:active {
+    transform: scale(0.95);
+}
+
+
+
+/* レスポンシブデザイン */
+
+@media (max-width: 1024px) {
+    .container {
+        grid-template-columns: 320px 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+    }
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        width: 300px;
+        transform: translateX(-100%);
+        z-index: 10000;
+        box-shadow: var(--shadow-lg);
+    }
+    .sidebar.active {
+        transform: translateX(0);
+    }
+    .mobile-toggle {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    #map {
+        width: 100%;
+    }
+    .weather-info {
+        padding: var(--space-sm);
+    }
+    .sidebar-header {
+        padding: var(--space-sm);
+    }
+
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: 280px;
+    }
+    .detail-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .weather-main {
+        padding: var(--space-sm);
+    }
+    .temperature {
+        font-size: var(--font-3xl);
+    }
+    .weather-icon {
+        font-size: var(--font-3xl);
+    }
+}
+
+
+/* データなし表示 */
+
+.no-data {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-secondary);
+    background: var(--surface-secondary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--glass-border);
+    margin-bottom: var(--space-lg);
+}
+
+.no-data i {
+    font-size: var(--font-4xl);
+    margin-bottom: var(--space-sm);
+    color: var(--text-tertiary);
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.no-data p {
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+
+/* アクセシビリティ対応 */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+
+/* 高コントラスト対応 */
+
+@media (prefers-contrast: high) {
+     :root {
+        --surface-primary: rgba(255, 255, 255, 1);
+        --surface-secondary: rgba(255, 255, 255, 0.95);
+        --glass-border: rgba(0, 0, 0, 0.3);
+        --text-primary: #000000;
+        --text-secondary: #333333;
+    }
+}
+
+
+/* フォーカス表示 */
+
+button:focus,
+.detail-item:focus {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+
+/* Print用スタイル */
+
+@media print {
+    .sidebar {
+        position: static;
+        transform: none;
+        box-shadow: none;
+    }
+    #map {
+        display: none;
+    }
+    .container {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* 週間予報スタイル */
+
+.forecast-toggle {
+    margin-top: var(--space-xs);
+    margin-bottom: var(--space-md);
+    text-align: center;
+}
+
+.weekly-toggle-btn {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border: none;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    font-size: var(--font-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    width: 100%;
+}
+
+.weekly-toggle-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.weekly-toggle-btn:active {
+    transform: translateY(0);
+}
+
+.weekly-forecast {
+    margin-top: var(--space-md);
+    background: var(--surface-primary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    overflow: hidden;
+    transform: translateY(20px);
+    opacity: 0;
+    animation: slideInUp 0.6s var(--bounce) forwards;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.weekly-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: white;
+    padding: var(--space-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.weekly-header h3 {
+    font-size: var(--font-lg);
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.weekly-close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.weekly-close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.weekly-content {
+    padding: var(--space-md);
+    overflow-y: auto;
+    flex: 1;
+    max-height: calc(80vh - 80px);
+}
+
+.weekly-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.weekly-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.weekly-content::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: var(--radius-sm);
+    opacity: 0.6;
+}
+
+.weekly-content::-webkit-scrollbar-thumb:hover {
+    opacity: 1;
+}
+
+.weekly-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    color: var(--text-secondary);
+}
+
+/* 週間予報エラーメッセージ */
+.weekly-error {
+    text-align: center;
+    padding: var(--space-lg);
+    color: var(--text-secondary);
+    background: var(--surface-secondary);
+    border-radius: var(--radius-md);
+}
+
+.loading-spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(var(--primary-color), 0.2);
+    border-top: 2px solid var(--primary-color);
+    border-radius: var(--radius-full);
+    animation: spin 1s linear infinite;
+}
+
+.weekly-data {
+    display: grid;
+    gap: var(--space-sm);
+}
+
+.weekly-day {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto;
+    align-items: center;
+    gap: var(--space-sm);
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.05), inset -3px -3px 6px rgba(255, 255, 255, 0.8), 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.weekly-day:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1), inset -2px -2px 4px rgba(255, 255, 255, 0.9), 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.weekly-day.today {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: white;
+}
+
+.weekly-day.today .day-name,
+.weekly-day.today .day-date {
+    color: white;
+    opacity: 0.9;
+}
+
+.weekly-day.today .day-temp {
+    color: white;
+}
+
+.day-info {
+    text-align: left;
+}
+
+.day-name {
+    font-weight: 600;
+    font-size: var(--font-sm);
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.day-date {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+}
+
+.day-weather {
+    text-align: center;
+}
+
+.day-weather i {
+    font-size: var(--font-xl);
+    color: var(--primary-color);
+    margin-bottom: var(--space-xs);
+}
+
+.weekly-day.today .day-weather i {
+    color: white;
+}
+
+.day-temp {
+    text-align: right;
+    font-weight: 600;
+    font-size: var(--font-lg);
+    color: var(--text-primary);
+}
+
+.day-precipitation_prob {
+    text-align: center;
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.day-precipitation_prob i {
+    font-size: var(--font-sm);
+    color: var(--accent-color);
+}
+
+.day-disaster {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-xs);
+    color: var(--accent-color);
+    margin-top: 2px;
+}
+
+.day-disaster i {
+    color: var(--accent-color);
+}
+
+.weekly-day.today .day-disaster,
+.weekly-day.today .day-disaster i {
+    color: white;
+}
+
+
+/* タブナビゲーション（スイッチ形式） */
+
+.weekly-tabs {
+    display: flex;
+    justify-content: center;
+    margin: var(--space-sm) var(--space-md);
+}
+
+.tab-switch {
+    position: relative;
+    display: inline-block;
+}
+
+.tab-switch-input {
+    display: none;
+}
+
+.tab-switch-label {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 25px;
+    padding: 4px;
+    cursor: pointer;
+    position: relative;
+    backdrop-filter: blur(15px) saturate(180%);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    width: 180px;
+    height: 48px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.tab-switch-text {
+    flex: 1;
+    text-align: center;
+    font-size: var(--font-base);
+    font-weight: 700;
+    color: var(--text-primary);
+    transition: all var(--transition-normal);
+    z-index: 2;
+    position: relative;
+    padding: var(--space-xs);
+    text-shadow: none;
+}
+
+.tab-switch-slider {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    height: calc(100% - 8px);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 20px;
+    transition: all var(--transition-normal);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.tab-switch-input:checked+.tab-switch-label .tab-switch-slider {
+    transform: translateX(100%);
+}
+
+.tab-switch-input:not(:checked)+.tab-switch-label .tab-switch-text:first-of-type {
+    color: var(--text-primary);
+    font-weight: 800;
+    text-shadow: none;
+}
+
+.tab-switch-input:checked+.tab-switch-label .tab-switch-text:last-of-type {
+    color: var(--text-primary);
+    font-weight: 800;
+    text-shadow: none;
+}
+
+
+/* タブコンテンツ */
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* グラフコンテナ */
+
+.chart-container {
+    padding: var(--space-md);
+}
+
+
+/* グラフラッパー */
+
+.chart-wrapper {
+    background: var(--surface-primary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
+    border-radius: var(--radius-lg);
+    z-index: -1;
+}
+
+#weather-chart {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 280px;
+    border-radius: var(--radius-sm);
+}
+
+
+/* グラフの背景とスタイル調整 */
+
+.chart-wrapper canvas {
+    background: transparent;
+}
+
+
+/* レスポンシブ対応のグラフ */
+
+@media (max-width: 480px) {
+    .chart-tabs {
+        flex-direction: column;
+        gap: var(--space-xs);
+    }
+    .chart-tab-btn {
+        flex: none;
+        width: 100%;
+    }
+    .chart-wrapper {
+        padding: var(--space-sm);
+    }
+    #weather-chart {
+        max-height: 180px;
+    }
+}
+
+@media (max-width: 768px) {
+    .weekly-tabs {
+        margin: var(--space-sm);
+    }
+    .tab-btn {
+        padding: var(--space-xs);
+        font-size: var(--font-xs);
+    }
+}
+
+
+/* 週間予報のモバイル対応 */
+
+@media (max-width: 480px) {
+    .weekly-day {
+        grid-template-columns: 1fr auto auto;
+        grid-template-rows: auto auto;
+        gap: var(--space-xs);
+    }
+    .day-info {
+        grid-column: 1 / -1;
+        text-align: center;
+        margin-bottom: var(--space-xs);
+    }
+    .day-weather {
+        justify-self: start;
+    }
+    .day-temp {
+        justify-self: end;
+        text-align: right;
+    }
+  .day-precipitation_prob {
+      grid-column: 1 / -1;
+      justify-self: center;
+      margin-top: var(--space-xs);
+  }
+  .day-disaster {
+      grid-column: 1 / -1;
+      justify-content: center;
+  }
+}
+
+/* 災害情報カード新デザイン */
+.disaster-alert {
+    background: linear-gradient(135deg, rgba(231,76,60,0.05), rgba(231,76,60,0.1));
+    border: 1px solid rgba(231,76,60,0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    margin-top: var(--space-sm);
+    position: relative;
+    overflow: hidden;
+}
+.disaster-alert::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--danger-color);
+}
+.disaster-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xs);
+    font-weight: 600;
+    color: var(--danger-color);
+    font-size: var(--font-xs);
+}
+.disaster-icon {
+    font-size: var(--font-base);
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.disaster-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+.disaster-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+    background: rgba(255,255,255,0.7);
+    border-radius: 4px;
+    font-size: var(--font-xs);
+    line-height: 1.4;
+}
+.disaster-item-icon {
+    color: var(--danger-color);
+    font-size: var(--font-xs);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.disaster-item-content { flex: 1; }
+.disaster-type {
+    font-weight: 600;
+    color: var(--danger-color);
+    margin-bottom: 1px;
+}
+.disaster-time {
+    color: var(--text-secondary);
+    font-size: 10px;
+    margin-top: 1px;
+}
+
+/* モバイルボトムナビ */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: var(--surface-primary);
+    border-top: 1px solid var(--glass-border);
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    z-index: 10001;
+}
+
+.mobile-bottom-nav .nav-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: var(--font-base);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-bottom-nav .nav-btn:active {
+    background: rgba(0,0,0,0.05);
+}
+
+@media (max-width: 768px) and (any-pointer: coarse) {
+    .mobile-bottom-nav { display: flex; }
+    #log-panel { bottom: 50px; }
+    #show-weekly-btn { display: none; }
+}

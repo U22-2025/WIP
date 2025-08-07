@@ -1,0 +1,538 @@
+/* リセット・ベース */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-secondary) 100%);
+    color: var(--text-primary);
+    overflow: hidden;
+    position: relative;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* 天気エフェクト用オーバーレイ */
+
+.weather-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--weather-overlay);
+    pointer-events: none;
+    z-index: 1;
+    transition: background var(--transition-slow);
+}
+
+
+/* パーティクル効果 */
+
+.particle-system {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 2;
+    overflow: hidden;
+}
+
+.particle {
+    position: absolute;
+    background: var(--particle-color);
+    border-radius: var(--radius-full);
+    animation: fall linear infinite;
+}
+
+
+/* 雨のパーティクル */
+
+.rain-particle {
+    width: 2px;
+    height: 10px;
+    border-radius: 1px;
+    background: linear-gradient(180deg, transparent 0%, var(--particle-color) 50%, transparent 100%);
+    animation: rain-fall linear infinite;
+}
+
+
+/* 雪のパーティクル */
+
+.snow-particle {
+    width: 4px;
+    height: 4px;
+    background: var(--particle-color);
+    border-radius: var(--radius-full);
+    animation: snow-fall linear infinite;
+}
+
+
+/* 風のパーティクル */
+
+.wind-particle {
+    width: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, var(--particle-color) 50%, transparent 100%);
+    border-radius: 1px;
+    animation: wind-blow linear infinite;
+}
+
+@keyframes rain-fall {
+    0% {
+        transform: translateY(-100vh) translateX(0);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(-20px);
+        opacity: 0;
+    }
+}
+
+@keyframes snow-fall {
+    0% {
+        transform: translateY(-100vh) translateX(0) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(50px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+@keyframes wind-blow {
+    0% {
+        transform: translateX(-100px);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(100vw);
+        opacity: 0;
+    }
+}
+
+
+/* 雷エフェクト */
+
+.lightning-effect {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    animation: lightning 4s infinite;
+}
+
+@keyframes lightning {
+    0%,
+    90%,
+    100% {
+        opacity: 0;
+    }
+    91%,
+    92%,
+    93% {
+        opacity: 1;
+    }
+}
+
+
+/* メインコンテナ */
+
+.container {
+    display: grid;
+    grid-template-columns: minmax(400px, 480px) 1fr;
+    height: 100vh;
+    position: relative;
+    z-index: 5;
+}
+
+
+/* サイドバー */
+
+.sidebar {
+    background: var(--glass-background);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-right: 1px solid var(--glass-border);
+    overflow-y: auto;
+    transition: transform var(--transition-normal);
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: var(--radius-sm);
+}
+
+
+/* サイドバーヘッダー */
+
+.sidebar-header {
+    padding: var(--space-lg);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: white;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+}
+
+.sidebar-header h1 {
+    font-size: var(--font-2xl);
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+    position: relative;
+    z-index: 1;
+}
+
+.sidebar-header p {
+    opacity: 0.9;
+    font-size: var(--font-sm);
+    position: relative;
+    z-index: 1;
+}
+
+
+/* 天気情報セクション */
+
+.weather-info {
+    padding: var(--space-lg);
+}
+
+
+/* 位置情報表示 */
+
+.location-display {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    padding: var(--space-md);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-md);
+    text-align: center;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+    transform: translateY(10px);
+    opacity: 0;
+    animation: slideInUp 0.6s var(--bounce) forwards;
+}
+
+@keyframes slideInUp {
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.coordinates {
+    font-size: var(--font-sm);
+    opacity: 0.9;
+    margin-bottom: var(--space-xs);
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.area-code {
+    font-size: var(--font-lg);
+    font-weight: 600;
+}
+
+
+/* メイン天気情報 */
+
+.weather-main {
+    background: var(--surface-primary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-xl);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-md);
+    box-shadow: var(--shadow-glass);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transform: scale(0.9);
+    opacity: 0;
+    animation: scaleIn 0.6s var(--bounce) 0.2s forwards;
+}
+
+@keyframes scaleIn {
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+
+/* ニューモーフィズム効果 */
+
+.weather-main::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
+    border-radius: var(--radius-xl);
+    z-index: -1;
+}
+
+.weather-icon {
+    font-size: var(--font-4xl);
+    margin-bottom: var(--space-sm);
+    background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: pulse 2s ease-in-out infinite;
+    position: relative;
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+
+/* 天気アイコン別アニメーション */
+
+.weather-icon.sunny {
+    animation: rotate 4s linear infinite, pulse 2s ease-in-out infinite;
+}
+
+.weather-icon.rainy {
+    animation: bounce 1s ease-in-out infinite;
+}
+
+.weather-icon.windy {
+    animation: sway 2s ease-in-out infinite;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes bounce {
+    0%,
+    20%,
+    50%,
+    80%,
+    100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes sway {
+    0%,
+    100% {
+        transform: translateX(0) rotate(0deg);
+    }
+    25% {
+        transform: translateX(-5px) rotate(-2deg);
+    }
+    75% {
+        transform: translateX(5px) rotate(2deg);
+    }
+}
+
+.weather-description {
+    font-size: var(--font-lg);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+    font-weight: 500;
+}
+
+
+/* 簡潔な降水確率表示 */
+
+.precipitation_prob-simple {
+    background: var(--surface-primary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-lg);
+    padding: var(--space-sm);
+    margin-bottom: var(--space-sm);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--glass-border);
+}
+
+.precipitation_prob-simple i {
+    color: var(--accent-color);
+    margin-right: var(--space-xs);
+}
+
+
+/* 天気詳細情報 */
+
+.weather-details {
+    background: var(--surface-primary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-xl);
+    padding: var(--space-md);
+    margin-bottom: var(--space-sm);
+    box-shadow: var(--shadow-glass);
+    border: 1px solid var(--glass-border);
+    transform: translateY(20px);
+    opacity: 0;
+    animation: slideInUp 0.6s var(--bounce) 0.4s forwards;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--space-sm);
+}
+
+.detail-item {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+    padding: var(--space-sm);
+    border-radius: var(--radius-md);
+    text-align: center;
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 5px 5px 10px rgba(0, 0, 0, 0.05), inset -5px -5px 10px rgba(255, 255, 255, 0.8), 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.detail-item:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.1), inset -3px -3px 6px rgba(255, 255, 255, 0.9), 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.detail-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left var(--transition-normal);
+}
+
+.detail-item:hover::before {
+    left: 100%;
+}
+
+.detail-icon {
+    font-size: var(--font-xl);
+    color: var(--primary-color);
+    margin-bottom: var(--space-xs);
+    position: relative;
+    z-index: 1;
+}
+
+.detail-label {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    position: relative;
+    z-index: 1;
+}
+
+.detail-value {
+    font-size: var(--font-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    position: relative;
+    z-index: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* 地図エリア */
+
+#map {
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+}
+
+.leaflet-container {
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+}
+
+

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WIP Demo</title>
+
+    <!-- 外部ライブラリ -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- PWA対応 -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="次世代Weather Map">
+
+    <!-- カスタムスタイル -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/log-panel.css') }}">
+</head>
+
+<body>
+    <!-- 天気エフェクト用オーバーレイ -->
+    <div class="weather-overlay"></div>
+
+    <!-- パーティクルシステム -->
+    <div class="particle-system" id="particle-system"></div>
+
+    <!-- 雷エフェクト -->
+    <div class="lightning-effect" id="lightning-effect"></div>
+
+    <div class="container">
+        <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="サイドバー切り替え">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <div class="sidebar" id="sidebar" role="complementary">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-cloud-sun"></i>WIP Demo v2.0</h1>
+                <p>地図をクリックして詳細な気象情報を取得</p>
+            </div>
+
+            <div class="weather-info">
+                <div id="no-data" class="no-data">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <p>地図上の任意の場所をクリックして<br>リアルタイム気象情報を表示します</p>
+                </div>
+
+                <div id="weather-content" style="display: none;">
+
+                    <!-- 週間予報セクション -->
+                    <div class="weekly-forecast" id="weekly-forecast" style="display: none;">
+                        <div class="weekly-header">
+                            <h3><i class="fas fa-calendar-week"></i> 7日間の天気予報</h3>
+                            <button id="hide-weekly-btn" class="weekly-close-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <!-- タブナビゲーション（スイッチ形式） -->
+                        <div class="weekly-tabs">
+                            <div class="tab-switch">
+                                <input type="checkbox" id="viewSwitch" class="tab-switch-input">
+                                <label for="viewSwitch" class="tab-switch-label">
+                                    <span class="tab-switch-text">リスト</span>
+                                    <span class="tab-switch-text">グラフ</span>
+                                    <span class="tab-switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="weekly-content">
+                            <div id="weekly-loading" class="weekly-loading">
+                                <div class="loading-spinner-small"></div>
+                                <span>週間予報を取得中...</span>
+                            </div>
+
+                            <!-- リスト表示 -->
+                            <div id="weekly-list-view" class="tab-content active">
+                                <div id="weekly-data" class="weekly-data" style="display: none;">
+                                    <!-- 週間予報データがここに動的に挿入されます -->
+                                </div>
+                            </div>
+
+                            <!-- グラフ表示 -->
+                            <div id="weekly-chart-view" class="tab-content">
+                                <div class="chart-container">
+                                    <div class="chart-wrapper">
+                                        <canvas id="weather-chart" width="300" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="map" role="main" aria-label="気象情報地図"></div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay" role="status" aria-label="読み込み中">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">気象データを取得中...</div>
+    </div>
+
+
+
+    <!-- 受信ログ表示パネル -->
+    <div id="log-panel">
+        <div class="log-header">
+            <div class="log-title">Access Log</div>
+            <div class="connection-status">
+                <div class="connection-dot" id="connection-dot"></div>
+                <span id="connection-text">connected</span>
+            </div>
+            <div class="log-controls">
+                <button class="control-btn" onclick="toggleAutoScroll()">
+                    <span id="auto-scroll-text">auto</span>
+                </button>
+                <button class="control-btn" onclick="clearLogs()">clear</button>
+                <button class="control-btn" onclick="togglePanel()">−</button>
+            </div>
+        </div>
+
+        <div class="log-status">
+            <div class="status-section">
+                <div class="status-item">
+                    <span>requests: <span class="status-value" id="total-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <span>avg: <span class="status-value" id="avg-response">0</span>ms</span>
+                </div>
+            </div>
+            <div class="status-section">
+                <div class="status-item">
+                    <span>packets: <span class="status-value" id="packet-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <span>avg: <span class="status-value" id="packet-avg-response">0</span>ms</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-entries" id="log-entries">
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <div>Waiting for logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モバイル用ボトムナビ -->
+    <div class="mobile-bottom-nav">
+        <button class="nav-btn" onclick="weatherApp.showWeeklyForecastMobile()">
+            <i class="fas fa-calendar-week"></i>
+            <span>予報</span>
+        </button>
+        <button class="nav-btn" onclick="weatherApp.toggleLogPanelMobile()">
+            <i class="fas fa-terminal"></i>
+            <span>ログ</span>
+        </button>
+    </div>
+
+    <!-- 外部ライブラリ -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- カスタムスクリプト -->
+    <script src="{{ url_for('static', path='js/terminal-log-panel.js') }}?v=20250716c" defer></script>
+    <script src="{{ url_for('static', path='js/weather-app.js') }}?v=20250716c" defer></script>
+</body>
+
+</html>
