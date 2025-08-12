@@ -13,7 +13,7 @@ import traceback
 
 # モジュールとして使用される場合
 from WIPServerPy.servers.base_server import BaseServer
-from WIPServerPy.servers.query_server.modules.weather_data_manager import WeatherDataManager
+from WIPServerPy.servers.query_server.modules.weather_data_manager import WeatherDataManager, MissingDataError
 from WIPServerPy.servers.query_server.modules.response_builder import ResponseBuilder
 from WIPServerPy.servers.query_server.modules.debug_helper import DebugHelper
 from WIPServerPy.servers.query_server.modules.weather_constants import ThreadConstants
@@ -210,8 +210,18 @@ class QueryServer(BaseServer):
                 disaster_flag=request.disaster_flag,
                 day=request.day,
             )
-            weather_time = time.time() - weather_start
-            self.logger.debug(f"Data fetch: {weather_time:.3f}s")
+        except MissingDataError:
+            # 指定データが未取得（null）の場合は 406 を返す
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=request.packet_id,
+                error_code="406",
+                timestamp=int(datetime.now().timestamp()),
+            )
+            self.logger.debug("406: 指定したデータが見つからない")
+            return error_response.to_bytes()
+        weather_time = time.time() - weather_start
+        self.logger.debug(f"Data fetch: {weather_time:.3f}s")
 
             # QueryResponseクラスのcreate_query_responseメソッドを使用
             response = QueryResponse.create_query_response(

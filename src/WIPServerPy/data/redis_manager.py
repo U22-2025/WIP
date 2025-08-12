@@ -102,11 +102,13 @@ class WeatherRedisManager:
 
     def _create_default_weather_data(self) -> Dict[str, Any]:
         """デフォルト気象データ構造を作成"""
+        # 週次データは要素数7・null埋め、リアルタイム系は空配列で初期化
         return {
-            "area_name": "",
-            "weather": [],
-            "temperature": [],
-            "precipitation_prob": [],
+            "weather": [None] * 7,
+            "temperature": [None] * 7,
+            "precipitation_prob": [None] * 7,
+            "warnings": [],
+            "disaster": [],
         }
 
     def get_weather_data(self, area_code: str) -> Optional[Dict[str, Any]]:
@@ -165,12 +167,22 @@ class WeatherRedisManager:
 
         try:
             weather_key = self._get_weather_key(area_code)
-            # RedisJSON に保存
-            self.redis_client.json().set(weather_key, ".", data)
+            # precipitation_prob に正規化して保存（新旧キーの混在を解消）
+            normalized = dict(data)
+            if "precipitation_prob" not in normalized and "precipitationProbability" in normalized:
+                normalized["precipitation_prob"] = normalized.get("precipitationProbability")
+                # 旧フィールド（camelCase）は保存しない
+                if "precipitationProbability" in normalized:
+                    try:
+                        del normalized["precipitationProbability"]
+                    except Exception:
+                        pass
+
+            self.redis_client.json().set(weather_key, ".", normalized)
 
             if self.debug:
                 print(
-                    f"更新成功(JSON): {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}"
+                    f"更新成功(JSON): {weather_key}, データ: {json.dumps(normalized, ensure_ascii=False)}"
                 )
 
             return True
@@ -179,10 +191,10 @@ class WeatherRedisManager:
             # Fallback: RedisJSONが無い環境では通常のStringとして保存
             try:
                 weather_key = self._get_weather_key(area_code)
-                self.redis_client.set(weather_key, json.dumps(data, ensure_ascii=False))
+                self.redis_client.set(weather_key, json.dumps(normalized, ensure_ascii=False))
                 if self.debug:
                     print(
-                        f"更新成功(STRING): {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}"
+                        f"更新成功(STRING): {weather_key}, データ: {json.dumps(normalized, ensure_ascii=False)}"
                     )
                 return True
             except Exception as e2:
@@ -441,10 +453,11 @@ class WeatherRedisManager:
                     update_pipe.json().set(
                         weather_key, ".temperature", data.get("temperature", [])
                     )
+                    # precipitation_prob を使用（camelCaseからフォールバック）
                     update_pipe.json().set(
                         weather_key,
                         ".precipitation_prob",
-                        data.get("precipitation_prob", []),
+                        data.get("precipitation_prob", data.get("precipitationProbability", [])),
                     )
                     update_pipe.json().set(
                         weather_key, ".parent_code", data["parent_code"]
@@ -453,10 +466,27 @@ class WeatherRedisManager:
                     if self.debug:
                         print(f"部分更新: {weather_key}")
                 else:
-                    # 既存データがない場合は全体を新規作成
-                    new_data = self._create_default_weather_data()
-                    new_data.update(data)
-                    update_pipe.json().set(weather_key, ".", new_data)
+                    # 既存データがない場合は全体を新規作成（snake_caseで統一）
+                    base = self._create_default_weather_data()
+                    # 上書き（必要フィールドのみマッピング）
+                    if "weather" in data:
+                        base["weather"] = data.get("weather", base["weather"])
+                    if "temperature" in data:
+                        base["temperature"] = data.get("temperature", base["temperature"])
+                    # 降水確率は precipitation_prob に正規化
+                    base["precipitation_prob"] = data.get(
+                        "precipitation_prob", data.get("precipitationProbability", base["precipitation_prob"])
+                    )
+                    # 任意フィールド（下位互換維持）
+                    if "area_name" in data:
+                        base["area_name"] = data.get("area_name")
+                    if "parent_code" in data:
+                        base["parent_code"] = data.get("parent_code")
+                    if "warnings" in data:
+                        base["warnings"] = data.get("warnings") or []
+                    if "disaster" in data:
+                        base["disaster"] = data.get("disaster") or []
+                    update_pipe.json().set(weather_key, ".", base)
 
                     if self.debug:
                         print(f"新規作成: {weather_key}")
