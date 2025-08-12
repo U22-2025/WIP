@@ -356,6 +356,20 @@ async def index(request: Request):
     await log_event("GET /")
     return templates.TemplateResponse("map.html", {"request": request})
 
+# ----------------------------------------------------------------------
+# Mount External Weather API under /api
+# ----------------------------------------------------------------------
+# application/weather_api を import できるようにパスを追加
+try:
+    sys.path.insert(0, str(script_dir.parent))  # python/application
+    from weather_api.app import app as weather_api_app  # type: ignore
+
+    # サブアプリとして /api にマウント
+    app.mount("/api", weather_api_app)
+    logger.info("Mounted External Weather API at /api")
+except Exception as e:  # pragma: no cover
+    logger.error(f"Failed to mount External Weather API at /api: {e}")
+
 
 @app.post("/weekly_forecast")
 async def weekly_forecast(

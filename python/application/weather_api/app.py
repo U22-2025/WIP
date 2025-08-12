@@ -317,6 +317,28 @@ def get_weather(
         raise HTTPException(status_code=500, detail=f"fetch error: {e}")
 
 
+# 互換のため /api/weather でも応答できるようエイリアスを追加
+@app.get("/api/weather")
+def get_weather_api_alias(
+    area_code: str,
+    day: int = 0,
+    weather_flag: int = 1,
+    temperature_flag: int = 1,
+    pop_flag: int = 1,
+    alert_flag: int = 1,
+    disaster_flag: int = 1,
+):
+    return get_weather(
+        area_code=area_code,
+        day=day,
+        weather_flag=weather_flag,
+        temperature_flag=temperature_flag,
+        pop_flag=pop_flag,
+        alert_flag=alert_flag,
+        disaster_flag=disaster_flag,
+    )
+
+
 @app.post("/update/weather", response_model=UpdateResponse)
 def update_weather() -> UpdateResponse:
     try:

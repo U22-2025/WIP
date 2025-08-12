@@ -164,7 +164,9 @@ def main():
         )
         processes.append(("map", proc))
 
-    if start_api:
+    # Map 側で /api に Weather API をマウントしているため、
+    # 両方要求された場合は API の単独起動はスキップして競合を防止
+    if start_api and not start_map:
         proc = _start_process(
             "External Weather API",
             ["python/application/weather_api/start_fastapi_server.py"],
@@ -173,10 +175,11 @@ def main():
 
     print(f"{len(threads)}個のサーバー、{len(processes)}個のアプリを起動しました。")
     if start_map:
-        print("  Map:     http://localhost:5000")
-    if start_api:
-        port = os.getenv("WEATHER_API_PORT", "8001")
-        print(f"  Weather API: http://localhost:{port}")
+        print("  Map:           http://localhost")
+        print("  Weather API:   http://localhost/api")
+    elif start_api:
+        port = os.getenv("WEATHER_API_PORT", "80")
+        print(f"  Weather API:   http://localhost:{port}/api (エイリアス: /weather)")
     print("サーバー/アプリを停止するには Ctrl+C を押してください。")
 
     # 停止処理と待機
