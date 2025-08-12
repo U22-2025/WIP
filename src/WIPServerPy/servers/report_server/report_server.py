@@ -481,11 +481,31 @@ class ReportServer(BaseServer):
 
             # 警報・災害は配列をマージ（重複除去）
             if "alert" in sensor_data:
-                alerts = list(dict.fromkeys(sensor_data.get("alert") or []))
+                alert_data = sensor_data.get("alert")
+                if isinstance(alert_data, str):
+                    # 文字列の場合はカンマ区切りでリストに変換
+                    alerts = [item.strip() for item in alert_data.split(",") if item.strip()]
+                elif isinstance(alert_data, list):
+                    alerts = alert_data
+                else:
+                    alerts = []
+                
+                # 重複除去
+                alerts = list(dict.fromkeys(alerts))
                 if alerts:
                     new_data["warnings"] = alerts
             if "disaster" in sensor_data:
-                disasters = list(dict.fromkeys(sensor_data.get("disaster") or []))
+                disaster_data = sensor_data.get("disaster")
+                if isinstance(disaster_data, str):
+                    # 文字列の場合はカンマ区切りでリストに変換
+                    disasters = [item.strip() for item in disaster_data.split(",") if item.strip()]
+                elif isinstance(disaster_data, list):
+                    disasters = disaster_data
+                else:
+                    disasters = []
+                
+                # 重複除去
+                disasters = list(dict.fromkeys(disasters))
                 if disasters:
                     new_data["disaster"] = disasters
 
@@ -642,11 +662,21 @@ class ReportServer(BaseServer):
         Returns:
             ReportRequestインスタンス
         """
+        # パケットサイズの事前チェック
+        if len(data) < 16:
+            from WIPCommonPy.packet.core.exceptions import BitFieldError
+            raise BitFieldError(f"パケットサイズが不足しています。最小16バイト必要ですが、{len(data)}バイトしか受信していません。")
+        
         # まず基本的なパケットを解析してタイプを確認
         from WIPCommonPy.packet import Request
 
-        temp_request = Request.from_bytes(data)
-        packet_type = temp_request.type
+        try:
+            temp_request = Request.from_bytes(data)
+            packet_type = temp_request.type
+        except Exception as e:
+            if self.debug:
+                print(f"  [Debug] パケット解析エラー: {e}")
+            raise
 
         # Type 4のみサポート
         if packet_type == 4:

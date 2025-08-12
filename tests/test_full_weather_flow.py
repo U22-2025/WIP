@@ -149,19 +149,7 @@ class FullWeatherFlowTest(unittest.TestCase):
             except:
                 pass
 
-    def wait_for_server(self, host: str, port: int, timeout: int = 10) -> bool:
-        """サーバーの起動を待機"""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                sock.settimeout(1)
-                sock.sendto(b'test', (host, port))
-                sock.close()
-                return True
-            except:
-                time.sleep(0.5)
-        return False
+    
 
     def test_01_basic_flow_single_city(self):
         """基本フロー: 単一都市のデータ送信→保存→取得"""

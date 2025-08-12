@@ -76,12 +76,25 @@ class JMAAPISimpleTester:
     def check_report_server(self) -> bool:
         """Report Serverの起動確認"""
         try:
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(1)
-            sock.sendto(b'test', ('localhost', self.report_port))
-            sock.close()
-            return True
+            # 実際のReportClientを使用して適切な接続テストを行う
+            from WIPCommonPy.clients.report_client import ReportClient
+            
+            client = ReportClient(host="localhost", port=self.report_port, debug=False)
+            client.set_sensor_data(
+                area_code="130000",  # 有効なエリアコード
+                weather_code=100,
+                temperature=20.0,
+                precipitation_prob=10,
+                alert=[],
+                disaster=[]
+            )
+            
+            # 短いタイムアウトでテスト
+            client.sock.settimeout(2)
+            result = client.send_report_data()
+            client.close()
+            
+            return result is not None and result.get("success", False)
         except:
             return False
     
