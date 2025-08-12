@@ -45,7 +45,12 @@ class WeatherRedisManager:
     気象データ、警報・注意報、災害情報、地震情報のRedis操作を統一管理
     """
 
-    def __init__(self, config: Optional[RedisConfig] = None, debug: bool = False):
+    def __init__(
+        self,
+        config: Optional[RedisConfig] = None,
+        debug: bool = False,
+        key_prefix: Optional[str] = None,
+    ):
         """
         初期化
 
@@ -55,6 +60,12 @@ class WeatherRedisManager:
         """
         self.config = config or RedisConfig.from_env()
         self.debug = debug
+        # キープレフィックス（テスト用途などで使用）
+        if key_prefix is not None:
+            self.key_prefix = str(key_prefix)
+        else:
+            # 環境変数からの既定（REPORT_DB_KEY_PREFIXがあれば優先）
+            self.key_prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", ""))
         self.redis_client = None
         self._connect()
 
@@ -86,7 +97,8 @@ class WeatherRedisManager:
 
     def _get_weather_key(self, area_code: str) -> str:
         """気象データキーを生成"""
-        return f"weather:{area_code}"
+        prefix = getattr(self, "key_prefix", "") or ""
+        return f"{prefix}weather:{area_code}"
 
     def _create_default_weather_data(self) -> Dict[str, Any]:
         """デフォルト気象データ構造を作成"""
@@ -117,8 +129,16 @@ class WeatherRedisManager:
         try:
             weather_key = self._get_weather_key(area_code)
             data = self.redis_client.json().get(weather_key, ".")
-
-            return data
+            if data is not None:
+                return data
+            # Fallback: 通常キーにJSON文字列として保存されている場合
+            raw = self.redis_client.get(weather_key)
+            if raw:
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return None
+            return None
 
         except Exception as e:
             if self.debug:
@@ -145,22 +165,32 @@ class WeatherRedisManager:
 
         try:
             weather_key = self._get_weather_key(area_code)
-            # RedisにJSONデータをセット
+            # RedisJSON に保存
             self.redis_client.json().set(weather_key, ".", data)
 
             if self.debug:
                 print(
-                    f"更新成功: {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}"
+                    f"更新成功(JSON): {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}"
                 )
 
             return True
 
         except Exception as e:
-            if self.debug:
-                print(
-                    f"データ更新エラー ({area_code}): {str(e)}, データ型: {type(data)}, データ: {data}"
-                )
-            return False
+            # Fallback: RedisJSONが無い環境では通常のStringとして保存
+            try:
+                weather_key = self._get_weather_key(area_code)
+                self.redis_client.set(weather_key, json.dumps(data, ensure_ascii=False))
+                if self.debug:
+                    print(
+                        f"更新成功(STRING): {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}"
+                    )
+                return True
+            except Exception as e2:
+                if self.debug:
+                    print(
+                        f"データ更新エラー ({area_code}): {str(e2)}, データ型: {type(data)}, データ: {data}"
+                    )
+                return False
 
     def update_alerts(self, alert_data: Union[str, Dict[str, Any]]) -> Dict[str, int]:
         """

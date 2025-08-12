@@ -20,8 +20,9 @@ wt ^
   ; focus-pane -t 0 ^
   ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && python python/launch_server.py --location" ^
   ; focus-pane -t 1 ^
-  ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && python python/launch_server.py --report" ^
+  ; split-pane -H cmd /k "cd /d %CURRENT_DIR% && python python/launch_server.py --report --debug" ^
   ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && python python/application/map/start_fastapi_server.py" ^
+  ; split-pane -V cmd /k "cd /d %CURRENT_DIR% && python python/application/weather_api/start_fastapi_server.py" ^
 start http://localhost:5000
 
 echo すべてのサーバーが起動しました。

@@ -151,6 +151,7 @@ class WeatherDataManager:
                 traceback.print_exc()
             return None
 
+
     def save_weather_data(
         self,
         area_code,

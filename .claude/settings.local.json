@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(python tests:*)",
+      "Bash(pip install fastapi uvicorn pydantic)"
+    ],
+    "deny": []
+  }
+}
