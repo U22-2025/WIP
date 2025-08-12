@@ -23,15 +23,20 @@ from WIPCommonPy.utils.network import resolve_ipv4
 class ReportClient:
     """IoT機器からのセンサーデータレポート送信用クライアント"""
 
-    def __init__(self, host="localhost", port=4110, debug=False):
+    def __init__(self, host=None, port=None, debug=False):
         """
         初期化
 
         Args:
-            host: 天気サーバーのホスト（レポートを転送）
-            port: 天気サーバーのポート
+            host: Report Serverのホスト
+            port: Report Serverのポート
             debug: デバッグモード
         """
+        if host is None:
+            host = os.getenv("REPORT_SERVER_HOST", "localhost")
+        if port is None:
+            port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
+
         self.host = resolve_ipv4(host)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -364,8 +369,8 @@ def main():
     logger.info("Report Client Example - IoT Sensor Data Reporting")
     logger.info("=" * 60)
 
-    host = os.getenv("WEATHER_SERVER_HOST", "localhost")
-    port = int(os.getenv("WEATHER_SERVER_PORT", "4110"))
+    host = os.getenv("REPORT_SERVER_HOST", "localhost")
+    port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
 
     client = ReportClient(host=host, port=port, debug=True)
 
