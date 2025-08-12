@@ -94,10 +94,12 @@ def main():
         start_map = True
         start_api = True
 
-    # 何も指定されていない場合はコアサーバーのみを起動（従来仕様踏襲）
+    # 何も指定されていない場合はすべて（コア＋アプリ）を起動
     if not servers_to_start and not (start_map or start_api):
         servers_to_start = ["query", "location", "weather", "report"]
-        print("引数が指定されていないため、コアサーバーを起動します。")
+        start_map = True
+        start_api = True
+        print("引数が指定されていないため、全てのサーバーとアプリを起動します。")
 
     label = ", ".join(servers_to_start) if servers_to_start else "(なし)"
     apps_label = ", ".join([n for n, f in (("map", start_map), ("api", start_api)) if f]) or "(なし)"
@@ -177,10 +179,19 @@ def main():
         print(f"  Weather API: http://localhost:{port}")
     print("サーバー/アプリを停止するには Ctrl+C を押してください。")
 
-    # 全てのスレッドが終了するまで待機
+    # 停止処理と待機
     try:
-        for thread in threads:
-            thread.join()
+        if threads:
+            # サーバースレッドがある場合はそれらを待機
+            for thread in threads:
+                thread.join()
+        elif processes:
+            # サーバーが無くアプリのみ起動の場合、プロセスが終了するまで待機
+            while True:
+                alive = any(proc.poll() is None for _, proc in processes)
+                if not alive:
+                    break
+                time.sleep(0.5)
     except KeyboardInterrupt:
         print("\nサーバー/アプリを停止しています...")
     finally:
