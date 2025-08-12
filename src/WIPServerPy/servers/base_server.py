@@ -498,15 +498,32 @@ class BaseServer(ABC):
                     continue
                 except socket.error as e:
                     # Windows特有のエラー処理
-                    if hasattr(e, "winerror") and e.winerror == 10054:
-                        # WSAECONNRESET - クライアントが接続を切断
-                        # UDPでは正常な動作なので無視
-                        if self.debug:
-                            print(f"[Main] Client disconnected (ignored): {e}")
-                        continue
-                    else:
-                        print(f"[Main] Socket error: {e}")
-                        continue
+                    if hasattr(e, "winerror"):
+                        if e.winerror == 10054:
+                            # WSAECONNRESET - クライアントが接続を切断
+                            # UDPでは正常な動作なので無視
+                            if self.debug:
+                                print(f"[Main] Client disconnected (ignored): {e}")
+                            continue
+                        if e.winerror == 10038:
+                            # WSAENOTSOCK - ソケットが無効
+                            print(
+                                f"[Main] Invalid socket detected (WSAENOTSOCK): {e}. Attempting to reinitialize socket."
+                            )
+                            try:
+                                if self.sock:
+                                    self.sock.close()
+                                self._init_socket()
+                                print("[Main] Socket reinitialized successfully")
+                                continue
+                            except Exception as reinit_err:
+                                print(
+                                    f"[Main] Failed to reinitialize socket: {reinit_err}. Shutting down."
+                                )
+                                self.shutdown()
+                                break
+                    print(f"[Main] Socket error: {e}")
+                    continue
                 except Exception as e:
                     print(f"[Main] Error receiving request: {e}")
                     continue
