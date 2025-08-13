@@ -167,9 +167,10 @@ def main():
     # Map 側で /api に Weather API をマウントしているため、
     # 両方要求された場合は API の単独起動はスキップして競合を防止
     if start_api and not start_map:
+        # 公式起動スクリプトを使用（デフォルトでポート8001）
         proc = _start_process(
             "External Weather API",
-            ["python/application/weather_api/start_fastapi_server.py"],
+            ["python/application/weather_api/start_server.py"],
         )
         processes.append(("api", proc))
 

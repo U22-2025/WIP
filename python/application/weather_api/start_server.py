@@ -29,7 +29,7 @@ def setup_environment():
     
     # Weather API環境変数設定
     env_defaults = {
-        'WEATHER_API_PORT': '8001',
+        'WEATHER_API_PORT': '80',
         'WEATHER_API_HOST': '0.0.0.0', 
         'WEATHER_API_RELOAD': 'false',
         'WEATHER_API_TARGET_OFFICES': '130000,270000,011000,400000,230000',

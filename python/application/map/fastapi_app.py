@@ -34,6 +34,11 @@ script_dir = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(script_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(script_dir / "templates"))
 
+# Health endpoint for compatibility when API is mounted under /api
+@app.get("/health")
+async def health_root() -> dict:
+    return {"status": "ok"}
+
 
 LOG_REDIS_HOST = os.getenv("LOG_REDIS_HOST", "localhost")
 LOG_REDIS_PORT = int(os.getenv("LOG_REDIS_PORT", 6380))
@@ -362,11 +367,50 @@ async def index(request: Request):
 # application/weather_api を import できるようにパスを追加
 try:
     sys.path.insert(0, str(script_dir.parent))  # python/application
-    from weather_api.app import app as weather_api_app  # type: ignore
+    from weather_api.app import (
+        app as weather_api_app,  # type: ignore
+        list_areas as _api_list_areas,
+        get_weather as _api_get_weather,
+        update_weather as _api_update_weather,
+        update_disaster as _api_update_disaster,
+    )
 
     # サブアプリとして /api にマウント
     app.mount("/api", weather_api_app)
     logger.info("Mounted External Weather API at /api")
+
+    # 互換エイリアス: 既存テストやクライアントが / に向けて叩くため
+    @app.post("/update/weather")
+    async def _alias_update_weather():  # type: ignore
+        return _api_update_weather()
+
+    @app.post("/update/disaster")
+    async def _alias_update_disaster():  # type: ignore
+        return _api_update_disaster()
+
+    @app.get("/areas")
+    async def _alias_list_areas():  # type: ignore
+        return _api_list_areas()
+
+    @app.get("/weather")
+    async def _alias_get_weather(
+        area_code: str,
+        day: int = 0,
+        weather_flag: int = 1,
+        temperature_flag: int = 1,
+        pop_flag: int = 1,
+        alert_flag: int = 1,
+        disaster_flag: int = 1,
+    ):  # type: ignore
+        return _api_get_weather(
+            area_code=area_code,
+            day=day,
+            weather_flag=weather_flag,
+            temperature_flag=temperature_flag,
+            pop_flag=pop_flag,
+            alert_flag=alert_flag,
+            disaster_flag=disaster_flag,
+        )
 except Exception as e:  # pragma: no cover
     logger.error(f"Failed to mount External Weather API at /api: {e}")
 

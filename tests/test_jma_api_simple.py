@@ -7,11 +7,11 @@ JMA Weather API Simple Test
 
 前提条件:
 - Redis サーバーが起動している
-- Weather API Server が起動している (port 8001)
+- Weather API Server が起動している (port 80)
 - Report Server が起動している (port 9999)
 
 使用方法:
-python test_jma_api_simple.py [--api-port 8001] [--report-port 9999]
+python test_jma_api_simple.py [--api-port 80] [--report-port 9999]
 """
 
 import sys
@@ -32,7 +32,7 @@ from WIPServerPy.data.redis_manager import WeatherRedisManager
 class JMAAPISimpleTester:
     """JMA API シンプルテスター"""
     
-    def __init__(self, api_port: int = 8001, report_port: int = 9999, debug: bool = True):
+    def __init__(self, api_port: int = 80, report_port: int = 9999, debug: bool = True):
         self.api_port = api_port
         self.report_port = report_port
         self.debug = debug
