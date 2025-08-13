@@ -1,11 +1,51 @@
 .env
-__pycache__
-*.pem
-/.vscode/
-/Rust/target/
-/cpp/
-/python/logs/json
-/logs/reports
 !.env.example
+
+# OS/IDE
+/.vscode/
+/.vs/
+/.idea/
+*.VC.db
+*.opendb
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
 *.egg-info/
+.coverage*
+python/logs/json
+logs/
+logs/reports
+
+# Certificates
+*.pem
+
+# Rust
+/Rust/target/
+
+# C++ builds (CMake/VS)
+cpp/build/
+cpp/**/CMakeFiles/
+cpp/**/CMakeCache.txt
+cpp/**/cmake_install.cmake
+cpp/**/x64/
+cpp/**/Debug/
+cpp/**/Release/
+cpp/**/ZERO_CHECK.vcxproj*
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.exe
+
+# Python distribution artifacts
+build/
 dist/

@@ -1,0 +1,44 @@
+﻿#pragma once
+
+#include <string>
+#include <cstdint>
+#include <optional>
+
+#include "wiplib/expected.hpp"
+#include "wiplib/error.hpp"
+#include "wiplib/packet/packet.hpp"
+
+namespace wiplib::client {
+
+struct QueryOptions {
+  bool weather = true;
+  bool temperature = true;
+  bool precipitation_prob = false;
+  bool alerts = false;
+  bool disaster = false;
+  uint8_t day = 0;
+};
+
+struct WeatherResult {
+  uint32_t area_code = 0;
+  std::optional<uint16_t> weather_code{};
+  std::optional<int8_t> temperature{};
+  std::optional<uint8_t> precipitation_prob{};
+};
+
+class WeatherClient {
+public:
+  WeatherClient(std::string host, uint16_t port) : host_(std::move(host)), port_(port) {}
+  ~WeatherClient() = default;
+
+  // Python版に合わせた命名
+  wiplib::Result<WeatherResult> get_weather_by_coordinates(double lat, double lon, const QueryOptions& opt) noexcept;
+  wiplib::Result<WeatherResult> get_weather_by_area_code(std::string_view area_code, const QueryOptions& opt) noexcept;
+
+private:
+  std::string host_;
+  uint16_t port_ = 4110;
+  wiplib::Result<WeatherResult> request_and_parse(const wiplib::proto::Packet& req) noexcept;
+};
+
+} // namespace wiplib::client
