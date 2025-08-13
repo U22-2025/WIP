@@ -196,11 +196,9 @@ class QueryServer(BaseServer):
             )
             return error_response.to_bytes()
 
+        # 気象データの取得（MissingDataErrorは個別に扱う）
+        weather_start = time.time()
         try:
-            # デバッグ：リクエストの状態を確認
-
-            # 気象データを取得
-            weather_start = time.time()
             weather_data = self.weather_manager.get_weather_data(
                 area_code=request.area_code,
                 weather_flag=request.weather_flag,
@@ -220,9 +218,12 @@ class QueryServer(BaseServer):
             )
             self.logger.debug("406: 指定したデータが見つからない")
             return error_response.to_bytes()
+
         weather_time = time.time() - weather_start
         self.logger.debug(f"Data fetch: {weather_time:.3f}s")
 
+        # レスポンス作成と拡張フィールド付与（その他の例外は520として扱う）
+        try:
             # QueryResponseクラスのcreate_query_responseメソッドを使用
             response = QueryResponse.create_query_response(
                 request=request, weather_data=weather_data, version=self.version
@@ -241,7 +242,7 @@ class QueryServer(BaseServer):
                             f"[{self.server_name}] 座標をレスポンスに追加しました: {lat},{long}"
                         )
         except Exception as e:
-            # 内部エラー発生時は500エラーを返す
+            # 内部エラー発生時は520エラーを返す
             error_response = ErrorResponse(
                 version=self.version,
                 packet_id=request.packet_id,
@@ -249,7 +250,7 @@ class QueryServer(BaseServer):
                 timestamp=int(datetime.now().timestamp()),
             )
             self.logger.debug(
-                f"520: [{self.server_name}] エラーレスポンスを生成: {error_code}"
+                f"520: [{self.server_name}] エラーレスポンスを生成: 520"
             )
             return error_response.to_bytes()
 
