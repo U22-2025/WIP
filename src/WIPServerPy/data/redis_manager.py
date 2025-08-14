@@ -15,6 +15,7 @@ Redis管理クラス
 import json
 import redis
 import os
+from datetime import datetime
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
 
@@ -503,6 +504,116 @@ class WeatherRedisManager:
             error_count = len(weather_data)
 
         return {"updated": updated_count, "errors": error_count}
+
+    def update_timestamp(self, area_code: str, source_time: str, source_type: str) -> bool:
+        """
+        指定地域のタイムスタンプを更新
+        
+        Args:
+            area_code: 地域コード
+            source_time: データ元時刻（JMAならreportdatetime、レポートクライアントなら現在時刻）
+            source_type: "jma_api" または "report_client"
+        
+        Returns:
+            bool: 更新成功時True
+        """
+        try:
+            # 現在のタイムスタンプデータを取得
+            timestamps_key = "weather:timestamps"
+            current_data = self.redis_client.json().get(timestamps_key)
+            if current_data is None:
+                current_data = {}
+            
+            # 新しいタイムスタンプデータを作成
+            saved_at = datetime.now().isoformat()
+            timestamp_data = {
+                "saved_at": saved_at,
+                "source_time": source_time,
+                "source_type": source_type
+            }
+            
+            # データを更新
+            current_data[area_code] = timestamp_data
+            
+            # Redisに保存
+            self.redis_client.json().set(timestamps_key, ".", current_data)
+            
+            if self.debug:
+                print(f"タイムスタンプ更新: {area_code} ({source_type}) - {source_time}")
+            
+            return True
+            
+        except Exception as e:
+            if self.debug:
+                print(f"タイムスタンプ更新エラー ({area_code}): {e}")
+            return False
+
+    def bulk_update_timestamps(self, timestamp_data: Dict[str, Dict[str, str]]) -> int:
+        """
+        複数地域のタイムスタンプを一括更新
+        
+        Args:
+            timestamp_data: {area_code: {"source_time": str, "source_type": str}} 形式
+        
+        Returns:
+            int: 更新成功数
+        """
+        try:
+            timestamps_key = "weather:timestamps"
+            current_data = self.redis_client.json().get(timestamps_key)
+            if current_data is None:
+                current_data = {}
+            
+            saved_at = datetime.now().isoformat()
+            updated_count = 0
+            
+            for area_code, data in timestamp_data.items():
+                current_data[area_code] = {
+                    "saved_at": saved_at,
+                    "source_time": data["source_time"],
+                    "source_type": data["source_type"]
+                }
+                updated_count += 1
+            
+            self.redis_client.json().set(timestamps_key, ".", current_data)
+            
+            if self.debug:
+                print(f"一括タイムスタンプ更新: {updated_count}件")
+            
+            return updated_count
+            
+        except Exception as e:
+            if self.debug:
+                print(f"一括タイムスタンプ更新エラー: {e}")
+            return 0
+
+    def get_timestamps(self, area_codes: Optional[list] = None) -> Dict[str, Dict[str, str]]:
+        """
+        タイムスタンプデータを取得
+        
+        Args:
+            area_codes: 取得対象の地域コードリスト（Noneで全取得）
+        
+        Returns:
+            dict: タイムスタンプデータ
+        """
+        try:
+            timestamps_key = "weather:timestamps"
+            all_data = self.redis_client.json().get(timestamps_key)
+            
+            if all_data is None:
+                return {}
+            
+            if area_codes is None:
+                return all_data
+            
+            # 指定された地域コードのみ返す
+            return {code: all_data.get(code, {}) for code in area_codes if code in all_data}
+            
+        except Exception as e:
+            if self.debug:
+                print(f"タイムスタンプ取得エラー: {e}")
+            return {}
 
     def close(self):
         """Redis接続を閉じる"""

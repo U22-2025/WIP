@@ -510,11 +510,17 @@ class ReportServer(BaseServer):
                     new_data["disaster"] = disasters
 
             rm.update_weather_data(area_code, new_data)
+            
+            # タイムスタンプを更新（レポートクライアント経由）
+            current_time = datetime.now().isoformat()
+            rm.update_timestamp(area_code, current_time, "report_client")
+            
             if self.debug:
                 ac_prop = getattr(request, "area_code", None)
                 print(
                     f"  [{self.server_name}] DB保存: key_prefix='{key_prefix}' area='{area_code}' (prop={ac_prop})"
                 )
+                print(f"  [{self.server_name}] タイムスタンプ更新: {area_code} - {current_time}")
         except Exception as e:
             if self.debug:
                 print(f"  [{self.server_name}] DB保存失敗: {e}")

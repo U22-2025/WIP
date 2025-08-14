@@ -339,12 +339,34 @@ def get_weather_api_alias(
     )
 
 
+def get_all_prefecture_codes() -> List[str]:
+    """全都道府県コードを取得"""
+    try:
+        # area_codes.jsonから全都道府県コードを取得
+        script_dir = Path(__file__).resolve().parent.parent.parent.parent  # WIPプロジェクトルート
+        area_codes_file = script_dir / "docs" / "area_codes.json"
+        
+        if area_codes_file.exists():
+            with open(area_codes_file, 'r', encoding='utf-8') as f:
+                area_data = json.load(f)
+            return list(area_data.keys())
+        else:
+            # フォールバック: 主要都道府県コード
+            return ["011000", "012000", "013000", "014100", "015000", "016000", "017000", "020000", "030000", "040000", "050000", "060000", "070000", "080000", "090000", "100000", "110000", "120000", "130000", "140000", "150000", "160000", "170000", "180000", "190000", "200000", "210000", "220000", "230000", "240000", "250000", "260000", "270000", "280000", "290000", "300000", "310000", "320000", "330000", "340000", "350000", "360000", "370000", "380000", "390000", "400000", "410000", "420000", "430000", "440000", "450000", "460000", "470000"]
+    except Exception:
+        return ["130000"]  # 最低限東京は確保
+
 @app.post("/update/weather", response_model=UpdateResponse)
 def update_weather() -> UpdateResponse:
     try:
-        # 監視対象のオフィスコード一覧（例: 130000=東京地方）を環境変数で指定
-        offices = os.getenv("WEATHER_API_TARGET_OFFICES", "130000").split(",")
-        offices = [s.strip() for s in offices if s.strip()]
+        # 環境変数で指定されていない場合は全都道府県を対象にする
+        offices_env = os.getenv("WEATHER_API_TARGET_OFFICES")
+        if offices_env:
+            offices = [s.strip() for s in offices_env.split(",") if s.strip()]
+        else:
+            # デフォルトで全都道府県を取得
+            offices = get_all_prefecture_codes()
+        
         update_weather_json(offices)
         return UpdateResponse(ok=True, detail=f"updated weather for {len(offices)} offices")
     except Exception as e:
@@ -371,8 +393,12 @@ def _scheduler_loop() -> None:
         try:
             if now >= w_next:
                 try:
-                    offices = os.getenv("WEATHER_API_TARGET_OFFICES", "130000").split(",")
-                    offices = [s.strip() for s in offices if s.strip()]
+                    offices_env = os.getenv("WEATHER_API_TARGET_OFFICES")
+                    if offices_env:
+                        offices = [s.strip() for s in offices_env.split(",") if s.strip()]
+                    else:
+                        # デフォルトで全都道府県を取得
+                        offices = get_all_prefecture_codes()
                     update_weather_json(offices)
                 except Exception:
                     pass
@@ -395,8 +421,12 @@ def on_startup() -> None:
     # 初回更新（非同期）
     def _initial_update():
         try:
-            offices = os.getenv("WEATHER_API_TARGET_OFFICES", "130000").split(",")
-            offices = [s.strip() for s in offices if s.strip()]
+            offices_env = os.getenv("WEATHER_API_TARGET_OFFICES")
+            if offices_env:
+                offices = [s.strip() for s in offices_env.split(",") if s.strip()]
+            else:
+                # デフォルトで全都道府県を取得
+                offices = get_all_prefecture_codes()
             update_weather_json(offices)
         except Exception:
             pass
