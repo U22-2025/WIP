@@ -11,3 +11,8 @@ bitvec = "1.0"
 name = "client"
 path = "examples/client.rs"
 test = false
+
+[[example]]
+name = "structured_client"
+path = "examples/structured_client.rs"
+test = false

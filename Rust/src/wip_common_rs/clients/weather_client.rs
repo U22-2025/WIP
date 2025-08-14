@@ -1,5 +1,5 @@
-use crate::common::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
-use crate::common::packet::types::query_packet::{QueryRequest, QueryResponse};
+use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
+use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::time::Duration;
@@ -124,7 +124,7 @@ impl WeatherClient {
 
     /// area_code を指定して QueryRequest を送信する簡易メソッド
     pub fn get_weather_simple(
-        &self,
+        &mut self,
         area_code: u32,
         weather: bool,
         temperature: bool,

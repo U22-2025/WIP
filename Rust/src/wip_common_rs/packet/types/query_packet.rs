@@ -1,7 +1,7 @@
 use bitvec::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Query パケット(Type=2) を表す簡易構造体
+/// Query パケット(Type=2) を表す構造体
 /// Python 実装の `QueryRequest.create_query_request` を参考に実装
 #[derive(Debug, Clone)]
 pub struct QueryRequest {
@@ -49,32 +49,22 @@ impl QueryRequest {
         }
     }
 
-
     /// 12ビットチェックサムを計算する
     fn calc_checksum12(data: &[u8]) -> u16 {
         let mut total = 0u32;
-        
-        println!("Checksum calculation for {} bytes:", data.len());
-        println!("Data: {:02X?}", data);
         
         // 1バイトずつ加算
         for &byte in data {
             total += byte as u32;
         }
         
-        println!("Initial total: 0x{:X}", total);
-        
         // キャリーを12ビットに折り返し
         while total >> 12 != 0 {
-            let carry = total >> 12;
-            total = (total & 0xFFF) + carry;
-            println!("Carry fold: 0x{:X}", total);
+            total = (total & 0xFFF) + (total >> 12);
         }
         
         // 1の補数を返す（12ビットマスク）
         let checksum = (!total) & 0xFFF;
-        println!("Final checksum: 0x{:X}", checksum);
-        
         checksum as u16
     }
 
@@ -118,7 +108,7 @@ impl QueryRequest {
     }
 }
 
-/// QueryResponse (Type=3) の最小実装
+/// QueryResponse (Type=3) の実装
 #[derive(Debug, Clone)]
 pub struct QueryResponse {
     pub version: u8,
@@ -195,10 +185,10 @@ mod tests {
         bits[0..4].store(1u8);
         bits[4..16].store(1u16);
         bits[16..19].store(3u8);
-        bits[104..124].store(123u32);
-        bits[124..140].store(10u16);
-        bits[140..148].store(120u8);
-        bits[148..156].store(80u8);
+        bits[96..116].store(123u32);
+        bits[128..144].store(10u16);
+        bits[144..152].store(120u8);
+        bits[152..160].store(80u8);
         let mut data = [0u8; 20];
         data.copy_from_slice(bits.as_raw_slice());
         let resp = QueryResponse::from_bytes(&data).unwrap();
