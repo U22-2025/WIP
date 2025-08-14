@@ -15,6 +15,7 @@ Redis管理クラス
 import json
 import redis
 import os
+from datetime import datetime
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
 
@@ -45,7 +46,12 @@ class WeatherRedisManager:
     気象データ、警報・注意報、災害情報、地震情報のRedis操作を統一管理
     """
 
-    def __init__(self, config: Optional[RedisConfig] = None, debug: bool = False):
+    def __init__(
+        self,
+        config: Optional[RedisConfig] = None,
+        debug: bool = False,
+        key_prefix: Optional[str] = None,
+    ):
         """
         初期化
 
@@ -55,6 +61,12 @@ class WeatherRedisManager:
         """
         self.config = config or RedisConfig.from_env()
         self.debug = debug
+        # キープレフィックス（テスト用途などで使用）
+        if key_prefix is not None:
+            self.key_prefix = str(key_prefix)
+        else:
+            # 環境変数からの既定（REPORT_DB_KEY_PREFIXがあれば優先）
+            self.key_prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", ""))
         self.redis_client = None
         self._connect()
 
@@ -86,15 +98,18 @@ class WeatherRedisManager:
 
     def _get_weather_key(self, area_code: str) -> str:
         """気象データキーを生成"""
-        return f"weather:{area_code}"
+        prefix = getattr(self, "key_prefix", "") or ""
+        return f"{prefix}weather:{area_code}"
 
     def _create_default_weather_data(self) -> Dict[str, Any]:
         """デフォルト気象データ構造を作成"""
+        # 週次データは要素数7・null埋め、リアルタイム系は空配列で初期化
         return {
-            "area_name": "",
-            "weather": [],
-            "temperature": [],
-            "precipitation_prob": [],
+            "weather": [None] * 7,
+            "temperature": [None] * 7,
+            "precipitation_prob": [None] * 7,
+            "warnings": [],
+            "disaster": [],
         }
 
     def get_weather_data(self, area_code: str) -> Optional[Dict[str, Any]]:
@@ -117,8 +132,16 @@ class WeatherRedisManager:
         try:
             weather_key = self._get_weather_key(area_code)
             data = self.redis_client.json().get(weather_key, ".")
-
-            return data
+            if data is not None:
+                return data
+            # Fallback: 通常キーにJSON文字列として保存されている場合
+            raw = self.redis_client.get(weather_key)
+            if raw:
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return None
+            return None
 
         except Exception as e:
             if self.debug:
@@ -145,22 +168,42 @@ class WeatherRedisManager:
 
         try:
             weather_key = self._get_weather_key(area_code)
-            # RedisにJSONデータをセット
-            self.redis_client.json().set(weather_key, ".", data)
+            # precipitation_prob に正規化して保存（新旧キーの混在を解消）
+            normalized = dict(data)
+            if "precipitation_prob" not in normalized and "precipitationProbability" in normalized:
+                normalized["precipitation_prob"] = normalized.get("precipitationProbability")
+                # 旧フィールド（camelCase）は保存しない
+                if "precipitationProbability" in normalized:
+                    try:
+                        del normalized["precipitationProbability"]
+                    except Exception:
+                        pass
+
+            self.redis_client.json().set(weather_key, ".", normalized)
 
             if self.debug:
                 print(
-                    f"更新成功: {weather_key}, データ: {json.dumps(data, ensure_ascii=False)}"
+                    f"更新成功(JSON): {weather_key}, データ: {json.dumps(normalized, ensure_ascii=False)}"
                 )
 
             return True
 
         except Exception as e:
-            if self.debug:
-                print(
-                    f"データ更新エラー ({area_code}): {str(e)}, データ型: {type(data)}, データ: {data}"
-                )
-            return False
+            # Fallback: RedisJSONが無い環境では通常のStringとして保存
+            try:
+                weather_key = self._get_weather_key(area_code)
+                self.redis_client.set(weather_key, json.dumps(normalized, ensure_ascii=False))
+                if self.debug:
+                    print(
+                        f"更新成功(STRING): {weather_key}, データ: {json.dumps(normalized, ensure_ascii=False)}"
+                    )
+                return True
+            except Exception as e2:
+                if self.debug:
+                    print(
+                        f"データ更新エラー ({area_code}): {str(e2)}, データ型: {type(data)}, データ: {data}"
+                    )
+                return False
 
     def update_alerts(self, alert_data: Union[str, Dict[str, Any]]) -> Dict[str, int]:
         """
@@ -411,10 +454,11 @@ class WeatherRedisManager:
                     update_pipe.json().set(
                         weather_key, ".temperature", data.get("temperature", [])
                     )
+                    # precipitation_prob を使用（camelCaseからフォールバック）
                     update_pipe.json().set(
                         weather_key,
                         ".precipitation_prob",
-                        data.get("precipitation_prob", []),
+                        data.get("precipitation_prob", data.get("precipitationProbability", [])),
                     )
                     update_pipe.json().set(
                         weather_key, ".parent_code", data["parent_code"]
@@ -423,10 +467,27 @@ class WeatherRedisManager:
                     if self.debug:
                         print(f"部分更新: {weather_key}")
                 else:
-                    # 既存データがない場合は全体を新規作成
-                    new_data = self._create_default_weather_data()
-                    new_data.update(data)
-                    update_pipe.json().set(weather_key, ".", new_data)
+                    # 既存データがない場合は全体を新規作成（snake_caseで統一）
+                    base = self._create_default_weather_data()
+                    # 上書き（必要フィールドのみマッピング）
+                    if "weather" in data:
+                        base["weather"] = data.get("weather", base["weather"])
+                    if "temperature" in data:
+                        base["temperature"] = data.get("temperature", base["temperature"])
+                    # 降水確率は precipitation_prob に正規化
+                    base["precipitation_prob"] = data.get(
+                        "precipitation_prob", data.get("precipitationProbability", base["precipitation_prob"])
+                    )
+                    # 任意フィールド（下位互換維持）
+                    if "area_name" in data:
+                        base["area_name"] = data.get("area_name")
+                    if "parent_code" in data:
+                        base["parent_code"] = data.get("parent_code")
+                    if "warnings" in data:
+                        base["warnings"] = data.get("warnings") or []
+                    if "disaster" in data:
+                        base["disaster"] = data.get("disaster") or []
+                    update_pipe.json().set(weather_key, ".", base)
 
                     if self.debug:
                         print(f"新規作成: {weather_key}")
@@ -443,6 +504,116 @@ class WeatherRedisManager:
             error_count = len(weather_data)
 
         return {"updated": updated_count, "errors": error_count}
+
+    def update_timestamp(self, area_code: str, source_time: str, source_type: str) -> bool:
+        """
+        指定地域のタイムスタンプを更新
+        
+        Args:
+            area_code: 地域コード
+            source_time: データ元時刻（JMAならreportdatetime、レポートクライアントなら現在時刻）
+            source_type: "jma_api" または "report_client"
+        
+        Returns:
+            bool: 更新成功時True
+        """
+        try:
+            # 現在のタイムスタンプデータを取得
+            timestamps_key = "weather:timestamps"
+            current_data = self.redis_client.json().get(timestamps_key)
+            if current_data is None:
+                current_data = {}
+            
+            # 新しいタイムスタンプデータを作成
+            saved_at = datetime.now().isoformat()
+            timestamp_data = {
+                "saved_at": saved_at,
+                "source_time": source_time,
+                "source_type": source_type
+            }
+            
+            # データを更新
+            current_data[area_code] = timestamp_data
+            
+            # Redisに保存
+            self.redis_client.json().set(timestamps_key, ".", current_data)
+            
+            if self.debug:
+                print(f"タイムスタンプ更新: {area_code} ({source_type}) - {source_time}")
+            
+            return True
+            
+        except Exception as e:
+            if self.debug:
+                print(f"タイムスタンプ更新エラー ({area_code}): {e}")
+            return False
+
+    def bulk_update_timestamps(self, timestamp_data: Dict[str, Dict[str, str]]) -> int:
+        """
+        複数地域のタイムスタンプを一括更新
+        
+        Args:
+            timestamp_data: {area_code: {"source_time": str, "source_type": str}} 形式
+        
+        Returns:
+            int: 更新成功数
+        """
+        try:
+            timestamps_key = "weather:timestamps"
+            current_data = self.redis_client.json().get(timestamps_key)
+            if current_data is None:
+                current_data = {}
+            
+            saved_at = datetime.now().isoformat()
+            updated_count = 0
+            
+            for area_code, data in timestamp_data.items():
+                current_data[area_code] = {
+                    "saved_at": saved_at,
+                    "source_time": data["source_time"],
+                    "source_type": data["source_type"]
+                }
+                updated_count += 1
+            
+            self.redis_client.json().set(timestamps_key, ".", current_data)
+            
+            if self.debug:
+                print(f"一括タイムスタンプ更新: {updated_count}件")
+            
+            return updated_count
+            
+        except Exception as e:
+            if self.debug:
+                print(f"一括タイムスタンプ更新エラー: {e}")
+            return 0
+
+    def get_timestamps(self, area_codes: Optional[list] = None) -> Dict[str, Dict[str, str]]:
+        """
+        タイムスタンプデータを取得
+        
+        Args:
+            area_codes: 取得対象の地域コードリスト（Noneで全取得）
+        
+        Returns:
+            dict: タイムスタンプデータ
+        """
+        try:
+            timestamps_key = "weather:timestamps"
+            all_data = self.redis_client.json().get(timestamps_key)
+            
+            if all_data is None:
+                return {}
+            
+            if area_codes is None:
+                return all_data
+            
+            # 指定された地域コードのみ返す
+            return {code: all_data.get(code, {}) for code in area_codes if code in all_data}
+            
+        except Exception as e:
+            if self.debug:
+                print(f"タイムスタンプ取得エラー: {e}")
+            return {}
 
     def close(self):
         """Redis接続を閉じる"""

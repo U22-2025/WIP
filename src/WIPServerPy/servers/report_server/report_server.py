@@ -82,9 +82,21 @@ class ReportServer(BaseServer):
             "processing", "enable_disaster_processing", True
         )
         # ファイルログ機能は削除
+        # DB保存の有効化設定
         self.enable_database = self.config.getboolean(
             "database", "enable_database", False
         )
+        # 互換: 古い設定ファイルでは [storage].enable_database を使っている場合がある
+        if not self.enable_database:
+            self.enable_database = self.config.getboolean(
+                "storage", "enable_database", False
+            )
+        # 環境変数での強制有効化/無効化 (REPORT_SERVER_ENABLE_DATABASE)
+        env_db = os.getenv("REPORT_SERVER_ENABLE_DATABASE")
+        if env_db is not None:
+            self.enable_database = str(env_db).lower() == "true"
+        if self.debug:
+            print(f"[{self.server_name}] DB保存有効: {self.enable_database}")
 
         # レポートサイズ制限
         self.max_report_size = self.config.getint("validation", "max_report_size", 4096)
@@ -99,6 +111,75 @@ class ReportServer(BaseServer):
 
         # 統一デバッグロガーの初期化
         self.packet_debug_logger = PacketDebugLogger("ReportServer")
+
+        # 転送（レポートクライアントとして送信）設定
+        self._init_forward_config()
+
+    def _init_forward_config(self):
+        """レポートクライアントとしての転送設定を読み込み"""
+        try:
+            # Config優先、未指定は環境変数/デフォルトへ
+            self.forward_enabled = self.config.getboolean(
+                "forwarding", "enable_client_forward", False
+            )
+            self.forward_host = self.config.get(
+                "forwarding", "forward_host", ""
+            )
+            self.forward_port = self.config.getint(
+                "forwarding", "forward_port", 0
+            )
+            self.forward_async = self.config.getboolean(
+                "forwarding", "forward_async", True
+            )
+
+            # バリデーション軽微実施
+            if self.forward_enabled:
+                if not self.forward_host or not self.forward_port:
+                    print(
+                        f"[{self.server_name}] Forwarding enabled but destination is not set"
+                    )
+                    self.forward_enabled = False
+        except Exception:
+            # 失敗時は無効化（安全側）
+            self.forward_enabled = False
+            self.forward_host = ""
+            self.forward_port = 0
+            self.forward_async = True
+
+    def _forward_report_as_client(self, sensor_data):
+        """受信したセンサーデータをレポートクライアントとして転送"""
+        try:
+            # 遅延インポートで依存を局所化
+            from WIPCommonPy.clients.report_client import ReportClient
+
+            if not sensor_data:
+                return
+
+            area_code = sensor_data.get("area_code")
+            if not area_code:
+                if self.debug:
+                    print(f"[{self.server_name}] Forward skipped: no area_code")
+                return
+
+            client = ReportClient(
+                host=self.forward_host, port=int(self.forward_port), debug=self.debug
+            )
+            try:
+                client.set_sensor_data(
+                    area_code=area_code,
+                    weather_code=sensor_data.get("weather_code"),
+                    temperature=sensor_data.get("temperature"),
+                    precipitation_prob=sensor_data.get("precipitation_prob"),
+                    alert=sensor_data.get("alert"),
+                    disaster=sensor_data.get("disaster"),
+                )
+                # 送信（内部でACK待ち）。非同期実行なら呼び出し元はブロックしない
+                client.send_report_data()
+            finally:
+                client.close()
+        except Exception as e:
+            if self.debug:
+                print(f"[{self.server_name}] Forwarding error: {e}")
 
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み（ReportServer固有）"""
@@ -348,13 +429,101 @@ class ReportServer(BaseServer):
     # _log_report_data method removed
 
     def _save_to_database(self, request, sensor_data, source_addr=None):
-        """データベースに保存（実装予定）"""
-        if self.debug:
-            print(
-                f"  [{self.server_name}] データベース保存: {sensor_data['area_code']} (未実装)"
+        """Redisに直接保存（QueryServer参照用のDB）。"""
+        try:
+            # 遅延インポートで依存を局所化
+            from WIPServerPy.data.redis_manager import WeatherRedisManager
+
+            # キープレフィックス（テスト検証用）を環境変数/設定から取得
+            # 優先順位: REPORT_DB_KEY_PREFIX > [database].key_prefix > REDIS_KEY_PREFIX
+            key_prefix = (
+                os.getenv("REPORT_DB_KEY_PREFIX")
+                or self.config.get("database", "key_prefix", None)
+                or os.getenv("REDIS_KEY_PREFIX")
+                or ""
             )
-        # TODO: データベース保存機能を実装
-        pass
+
+            rm = WeatherRedisManager(debug=self.debug, key_prefix=key_prefix)
+
+            # エリアコードはRequestから直接正規化して取得（内部値優先）
+            def _normalize_area_code(val):
+                try:
+                    return f"{int(val):06d}"
+                except Exception:
+                    return str(val).zfill(6)
+
+            # 内部整数 (_area_code) を最優先で使用
+            area_internal = getattr(request, "_area_code", None)
+            if area_internal is not None:
+                area_code = _normalize_area_code(area_internal)
+            else:
+                area_code = _normalize_area_code(getattr(request, "area_code", None))
+            if not area_code:
+                return
+
+            # 既存データを取得してマージ
+            existing = rm.get_weather_data(area_code) or {
+                "area_name": "",
+                "weather": [],
+                "temperature": [],
+                "precipitation_prob": [],
+            }
+
+            new_data = existing.copy()
+
+            # 単一値（現在値）の場合はスカラで保持。QueryServer側はlist/スカラ両対応。
+            if "weather_code" in sensor_data:
+                new_data["weather"] = sensor_data["weather_code"]
+            if "temperature" in sensor_data:
+                new_data["temperature"] = sensor_data["temperature"]
+            if "precipitation_prob" in sensor_data:
+                new_data["precipitation_prob"] = sensor_data["precipitation_prob"]
+
+            # 警報・災害は配列をマージ（重複除去）
+            if "alert" in sensor_data:
+                alert_data = sensor_data.get("alert")
+                if isinstance(alert_data, str):
+                    # 文字列の場合はカンマ区切りでリストに変換
+                    alerts = [item.strip() for item in alert_data.split(",") if item.strip()]
+                elif isinstance(alert_data, list):
+                    alerts = alert_data
+                else:
+                    alerts = []
+                
+                # 重複除去
+                alerts = list(dict.fromkeys(alerts))
+                if alerts:
+                    new_data["warnings"] = alerts
+            if "disaster" in sensor_data:
+                disaster_data = sensor_data.get("disaster")
+                if isinstance(disaster_data, str):
+                    # 文字列の場合はカンマ区切りでリストに変換
+                    disasters = [item.strip() for item in disaster_data.split(",") if item.strip()]
+                elif isinstance(disaster_data, list):
+                    disasters = disaster_data
+                else:
+                    disasters = []
+                
+                # 重複除去
+                disasters = list(dict.fromkeys(disasters))
+                if disasters:
+                    new_data["disaster"] = disasters
+
+            rm.update_weather_data(area_code, new_data)
+            
+            # タイムスタンプを更新（レポートクライアント経由）
+            current_time = datetime.now().isoformat()
+            rm.update_timestamp(area_code, current_time, "report_client")
+            
+            if self.debug:
+                ac_prop = getattr(request, "area_code", None)
+                print(
+                    f"  [{self.server_name}] DB保存: key_prefix='{key_prefix}' area='{area_code}' (prop={ac_prop})"
+                )
+                print(f"  [{self.server_name}] タイムスタンプ更新: {area_code} - {current_time}")
+        except Exception as e:
+            if self.debug:
+                print(f"  [{self.server_name}] DB保存失敗: {e}")
 
     def create_response(self, request):
         """
@@ -399,6 +568,23 @@ class ReportServer(BaseServer):
                 db_start = time.time()
                 self._save_to_database(request, sensor_data, None)
                 timing_info["database"] = time.time() - db_start
+
+            # 受信データのクライアント転送（オプション）
+            if getattr(self, "forward_enabled", False):
+                if self.forward_async:
+                    # スレッドプールで非同期転送（ACKはバックグラウンドで待機）
+                    try:
+                        self.thread_pool.submit(self._forward_report_as_client, sensor_data)
+                        if self.debug:
+                            print(
+                                f"[{self.server_name}] Forward submitted to {self.forward_host}:{self.forward_port}"
+                            )
+                    except Exception as e:
+                        if self.debug:
+                            print(f"[{self.server_name}] Forward submit failed: {e}")
+                else:
+                    # 同期転送（必要な場合のみ）
+                    self._forward_report_as_client(sensor_data)
 
             # ACKレスポンス（Type 5）を作成（時間計測）
             response_start = time.time()
@@ -482,11 +668,21 @@ class ReportServer(BaseServer):
         Returns:
             ReportRequestインスタンス
         """
+        # パケットサイズの事前チェック
+        if len(data) < 16:
+            from WIPCommonPy.packet.core.exceptions import BitFieldError
+            raise BitFieldError(f"パケットサイズが不足しています。最小16バイト必要ですが、{len(data)}バイトしか受信していません。")
+        
         # まず基本的なパケットを解析してタイプを確認
         from WIPCommonPy.packet import Request
 
-        temp_request = Request.from_bytes(data)
-        packet_type = temp_request.type
+        try:
+            temp_request = Request.from_bytes(data)
+            packet_type = temp_request.type
+        except Exception as e:
+            if self.debug:
+                print(f"  [Debug] パケット解析エラー: {e}")
+            raise
 
         # Type 4のみサポート
         if packet_type == 4:
@@ -494,7 +690,7 @@ class ReportServer(BaseServer):
         else:
             raise ValueError(f"サポートされていないパケットタイプ: {packet_type}")
 
-    def _debug_print_request(self, data, parsed):
+    def _debug_print_request(self, data, parsed, addr=None):
         """リクエストのデバッグ情報を出力（統一フォーマット）"""
         if not self.debug:
             return
@@ -518,8 +714,8 @@ class ReportServer(BaseServer):
         log = UnifiedLogFormatter.format_communication_log(
             server_name=self.server_name,
             direction="recv from",
-            remote_addr="unknown",
-            remote_port=0,
+            remote_addr=addr[0] if addr else "unknown",
+            remote_port=addr[1] if addr else 0,
             packet_size=len(data),
             packet_details=details,
         )

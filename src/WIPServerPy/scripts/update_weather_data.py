@@ -250,11 +250,42 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
             # エリアごとの気象データを一括保存
             result = redis_manager.bulk_update_weather_data(output)
 
-            # weather_reportdatetime を個別に保存
+            # 新しいタイムスタンプ構造でタイムスタンプを保存
             if report_datetimes_data:
-                redis_manager.update_weather_data(
-                    "weather_reportdatetime", report_datetimes_data
-                )
+                # 都道府県コードから地域コードへのマッピングを作成
+                timestamp_updates = {}
+                
+                # area_codes.jsonを読み込んで都道府県→地域のマッピングを取得
+                import json
+                try:
+                    script_dir = Path(__file__).resolve().parent.parent.parent.parent
+                    area_codes_file = script_dir / "docs" / "area_codes.json"
+                    if area_codes_file.exists():
+                        with open(area_codes_file, 'r', encoding='utf-8') as f:
+                            area_mapping = json.load(f)
+                        
+                        # 都道府県コードごとに地域コードのタイムスタンプを更新
+                        for prefecture_code, report_time in report_datetimes_data.items():
+                            if prefecture_code in area_mapping:
+                                # この都道府県内の全地域コードを取得
+                                for area_code in area_mapping[prefecture_code].keys():
+                                    timestamp_updates[area_code] = {
+                                        "source_time": report_time,
+                                        "source_type": "jma_api"
+                                    }
+                        
+                        # 一括でタイムスタンプを更新
+                        if timestamp_updates:
+                            redis_manager.bulk_update_timestamps(timestamp_updates)
+                            if debug:
+                                print(f"タイムスタンプ更新: {len(timestamp_updates)}地域")
+                                
+                except Exception as e:
+                    if debug:
+                        print(f"タイムスタンプ更新エラー: {e}")
+
+                # 旧形式の削除（後方互換性のため一時的に残す場合はコメントアウト）
+                # redis_manager.update_weather_data("weather_reportdatetime", report_datetimes_data)
 
             redis_manager.close()
 

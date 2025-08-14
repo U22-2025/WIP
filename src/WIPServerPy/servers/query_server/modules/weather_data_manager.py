@@ -10,6 +10,10 @@ from WIPServerPy.data import redis_manager
 import dateutil.parser
 
 
+class MissingDataError(Exception):
+    """要求された日付のデータがnull（未取得）の場合の例外"""
+
+
 class WeatherDataManager:
     """気象データマネージャー"""
 
@@ -102,31 +106,40 @@ class WeatherDataManager:
             result = {}
 
             # 天気コード
-            if weather_flag and "weather" in weather_data:
-                weather_codes = weather_data["weather"]
+            if weather_flag:
+                weather_codes = weather_data.get("weather")
+                value = None
                 if isinstance(weather_codes, list) and len(weather_codes) > day:
-                    result["weather"] = weather_codes[day]
-                else:
-                    result["weather"] = weather_codes
+                    value = weather_codes[day]
+                elif not isinstance(weather_codes, list):
+                    value = weather_codes
+                result["weather"] = value
+                if value is None:
+                    raise MissingDataError("weather is null for requested day")
 
             # 気温
-            if temperature_flag and "temperature" in weather_data:
-                temperatures = weather_data["temperature"]
+            if temperature_flag:
+                temperatures = weather_data.get("temperature")
+                tval = None
                 if isinstance(temperatures, list) and len(temperatures) > day:
-                    result["temperature"] = temperatures[day]
-                else:
-                    result["temperature"] = temperatures
+                    tval = temperatures[day]
+                elif not isinstance(temperatures, list):
+                    tval = temperatures
+                result["temperature"] = tval
+                if tval is None:
+                    raise MissingDataError("temperature is null for requested day")
 
-            # 降水確率
-            if pop_flag and "precipitation_prob" in weather_data:
-                precipitation_prob = weather_data["precipitation_prob"]
-                if (
-                    isinstance(precipitation_prob, list)
-                    and len(precipitation_prob) > day
-                ):
-                    result["precipitation_prob"] = precipitation_prob[day]
-                else:
-                    result["precipitation_prob"] = precipitation_prob
+            # 降水確率（snake_caseで統一）
+            if pop_flag:
+                precipitation_prob = weather_data.get("precipitation_prob")
+                pval = None
+                if isinstance(precipitation_prob, list) and len(precipitation_prob) > day:
+                    pval = precipitation_prob[day]
+                elif not isinstance(precipitation_prob, list):
+                    pval = precipitation_prob
+                result["precipitation_prob"] = pval
+                if pval is None:
+                    raise MissingDataError("precipitation_prob is null for requested day")
 
             # 警報
             if alert_flag and "warnings" in weather_data:
@@ -150,6 +163,7 @@ class WeatherDataManager:
 
                 traceback.print_exc()
             return None
+
 
     def save_weather_data(
         self,
