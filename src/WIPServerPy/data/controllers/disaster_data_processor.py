@@ -267,8 +267,14 @@ class DisasterDataProcessor:
                                 "error": "Location resolution failed",
                             }
 
-                        # 火山データの削除（成功・失敗に関わらず）
+                        # 火山データの削除
+                        # 座標解決の成功・失敗に関わらず、無効な火山キーデータは削除
+                        # （ありえない地域コードとしてデータが格納されることを防ぐ）
                         if volcano_key in disaster_data["area_kind_mapping"]:
+                            # 座標解決に失敗した場合のデータは破棄される
+                            # （全くありえない地域コードでの格納を防ぐための措置）
+                            if not response:
+                                print(f"⚠️  Warning: Volcano {volcano_key} data will be discarded due to location resolution failure")
                             del disaster_data["area_kind_mapping"][volcano_key]
                         if volcano_key in disaster_data["volcano_coordinates"]:
                             del disaster_data["volcano_coordinates"][volcano_key]
