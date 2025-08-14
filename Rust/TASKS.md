@@ -10,46 +10,46 @@ Python版WIPCommonPyと完全に同等の機能をRustで実装するための�
 ### 1.1 パケット基盤の完全実装
 
 #### 1.1.1 チェックサムとビット操作ユーティリティ
-- [ ] `src/wip_common_rs/packet/core/checksum.rs`
-  - [ ] `calc_checksum12()` - 12ビットチェックサム計算
-  - [ ] `verify_checksum12()` - チェックサム検証
-  - [ ] キャリーフォールド実装の最適化
-- [ ] `src/wip_common_rs/packet/core/bit_utils.rs`
-  - [ ] `extract_bits()` - ビット範囲抽出
-  - [ ] `set_bits()` - ビット範囲設定
-  - [ ] リトルエンディアン/LSBユーティリティ
-- [ ] `src/wip_common_rs/packet/core/exceptions.rs`
-  - [ ] `PacketParseError` - パケット解析エラー
-  - [ ] `ChecksumError` - チェックサム不一致エラー
-  - [ ] `InvalidFieldError` - フィールド値エラー
+- [x] `src/wip_common_rs/packet/core/checksum.rs`
+  - [x] `calc_checksum12()` - 12ビットチェックサム計算
+  - [x] `verify_checksum12()` - チェックサム検証
+  - [x] キャリーフォールド実装の最適化
+- [x] `src/wip_common_rs/packet/core/bit_utils.rs`
+  - [x] `extract_bits()` - ビット範囲抽出
+  - [x] `set_bits()` - ビット範囲設定
+  - [x] リトルエンディアン/LSBユーティリティ
+- [x] `src/wip_common_rs/packet/core/exceptions.rs`
+  - [x] `PacketParseError` - パケット解析エラー
+  - [x] `ChecksumError` - チェックサム不一致エラー
+  - [x] `InvalidFieldError` - フィールド値エラー
 
 #### 1.1.2 パケットフォーマット基盤クラス
-- [ ] `src/wip_common_rs/packet/core/format_base.rs`
-  - [ ] `PacketFormat` trait - 基本パケット操作
-  - [ ] フィールド定義とビット位置管理
-  - [ ] 自動チェックサム計算機能
-  - [ ] バリデーション機能
-- [ ] `src/wip_common_rs/packet/format_spec/`
-  - [ ] `request_fields.json` の読み込み
-  - [ ] `response_fields.json` の読み込み
-  - [ ] `extended_fields.json` の読み込み
-  - [ ] JSONベースのパケット仕様パーサー
+- [x] `src/wip_common_rs/packet/core/format_base.rs`
+  - [x] `PacketFormat` trait - 基本パケット操作
+  - [x] フィールド定義とビット位置管理
+  - [x] 自動チェックサム計算機能
+  - [x] バリデーション機能
+- [x] `src/wip_common_rs/packet/format_spec/`
+  - [x] `request_fields.json` の読み込み
+  - [x] `response_fields.json` の読み込み
+  - [x] `extended_fields.json` の読み込み
+  - [x] JSONベースのパケット仕様パーサー
 
 ### 1.2 全パケット型の実装
 
 #### 1.2.1 基本パケット型
-- [ ] `src/wip_common_rs/packet/types/location_packet.rs`
-  - [ ] `LocationRequest` - 座標→エリアコード変換要求
-  - [ ] `LocationResponse` - 座標解決結果応答
-  - [ ] 座標データの精度管理
-- [ ] `src/wip_common_rs/packet/types/report_packet.rs`
-  - [ ] `ReportRequest` - データ送信要求
-  - [ ] `ReportResponse` - 送信結果応答
-  - [ ] バイナリデータの取り扱い
-- [ ] `src/wip_common_rs/packet/types/error_response.rs`
-  - [ ] `ErrorResponse` - エラー応答
-  - [ ] エラーコード管理
-  - [ ] エラーメッセージ処理
+- [x] `src/wip_common_rs/packet/types/location_packet.rs`
+  - [x] `LocationRequest` - 座標→エリアコード変換要求
+  - [x] `LocationResponse` - 座標解決結果応答
+  - [x] 座標データの精度管理
+- [x] `src/wip_common_rs/packet/types/report_packet.rs`
+  - [x] `ReportRequest` - データ送信要求
+  - [x] `ReportResponse` - 送信結果応答
+  - [x] バイナリデータの取り扱い
+- [x] `src/wip_common_rs/packet/types/error_response.rs`
+  - [x] `ErrorResponse` - エラー応答
+  - [x] エラーコード管理
+  - [x] エラーメッセージ処理
 
 #### 1.2.2 拡張パケット機能
 - [ ] `src/wip_common_rs/packet/models/request.rs`

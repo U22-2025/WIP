@@ -1,3 +1,7 @@
+use std::sync::Mutex;
+use std::sync::OnceLock;
+use rand::Rng;
+
 /// 12ビットパケットIDを生成する
 #[derive(Debug)]
 pub struct PacketIDGenerator12Bit {
@@ -7,7 +11,10 @@ pub struct PacketIDGenerator12Bit {
 impl PacketIDGenerator12Bit {
     /// 新しいパケットIDジェネレーターを作成
     pub fn new() -> Self {
-        Self { current_id: 1 }
+        let mut rng = rand::thread_rng();
+        Self { 
+            current_id: rng.gen_range(1..=4095) // 初期値をランダムに設定
+        }
     }
 
     /// 次のパケットIDを生成（12ビット範囲内で循環）
@@ -18,6 +25,23 @@ impl PacketIDGenerator12Bit {
             self.current_id = 1; // 0は避ける
         }
         id
+    }
+}
+
+/// グローバルなPacketIdGeneratorのシングルトン実装
+pub struct PacketIdGenerator;
+
+impl PacketIdGenerator {
+    /// 次のパケットIDを生成（スレッドセーフ）
+    pub fn next_id() -> u16 {
+        static GENERATOR: OnceLock<Mutex<PacketIDGenerator12Bit>> = OnceLock::new();
+        
+        let generator = GENERATOR.get_or_init(|| {
+            Mutex::new(PacketIDGenerator12Bit::new())
+        });
+        
+        let mut gen = generator.lock().unwrap();
+        gen.next_id()
     }
 }
 
