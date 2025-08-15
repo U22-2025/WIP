@@ -104,6 +104,20 @@ Python版WIPCommonPyと完全に同等の機能をRustで実装するための�
   - [x] UDPソケット接続プール
   - [x] 接続状態管理
 
+#### 2.2.2 Python拡張フィールド互換（追記）
+- [ ] `src/wip_common_rs/packet/core/extended_field.rs`
+  - [ ] pack/unpack 実装（Python準拠のワイヤフォーマット）
+    - [ ] 10bit length + 6bit key ヘッダ
+    - [ ] `extended_fields.json` に基づく ID↔名前マッピング
+    - [ ] 値の型別エンコード（string/list/coordinate/source 等）
+- [ ] `src/wip_common_rs/packet/types/location_packet.rs`
+  - [ ] `latitude`/`longitude` を ex_field にエンコード（pack）
+- [ ] `src/wip_common_rs/packet/types/report_packet.rs`
+  - [ ] `alert`/`disaster`/`source` を ex_field にエンコード（pack）
+- [ ] テスト
+  - [ ] 固定ベクトルによる pack のゴールデンテスト（最小）
+  - [ ] to_bytes → verify_checksum12 → ex_field 領域の簡易検証
+
 ---
 
 ## 🔧 Phase 3: ユーティリティと共通機能

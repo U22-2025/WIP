@@ -7,8 +7,9 @@ use crate::wip_common_rs::packet::core::{
 };
 use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, embed_checksum12_le};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
-use crate::wip_common_rs::packet::core::extended_field::{ExtendedFieldManager, FieldDefinition, FieldType, FieldValue};
+use crate::wip_common_rs::packet::core::extended_field::{ExtendedFieldManager, FieldDefinition, FieldType, FieldValue, unpack_ext_fields, pack_ext_fields};
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use bitvec::prelude::*;
 use crate::wip_common_rs::packet::core::checksum::verify_checksum12;
@@ -97,13 +98,11 @@ impl LocationRequest {
         // チェックサムを固定位置(116..128)へ埋込
         embed_checksum12_le(&mut head);
 
-        // 拡張フィールド（latitude/longitude）を直列化
-        let mut efm = ExtendedFieldManager::new();
-        efm.add_definition(FieldDefinition::new("latitude".to_string(), FieldType::F64));
-        efm.add_definition(FieldDefinition::new("longitude".to_string(), FieldType::F64));
-        let _ = efm.set_value("latitude".to_string(), FieldValue::F64(self.latitude));
-        let _ = efm.set_value("longitude".to_string(), FieldValue::F64(self.longitude));
-        let ext = efm.serialize().unwrap_or_default();
+        // 拡張フィールド（latitude/longitude）をPython準拠でpack
+        let mut map = HashMap::new();
+        map.insert("latitude".to_string(), FieldValue::F64(self.latitude));
+        map.insert("longitude".to_string(), FieldValue::F64(self.longitude));
+        let ext = pack_ext_fields(&map);
 
         // 出力
         let mut out = Vec::with_capacity(16 + ext.len());
@@ -168,13 +167,10 @@ impl PacketFormat for LocationRequest {
 
         embed_checksum12_le(&mut head);
 
-        // 拡張フィールド（latitude/longitude）を直列化
-        let mut efm = ExtendedFieldManager::new();
-        efm.add_definition(FieldDefinition::new("latitude".to_string(), FieldType::F64));
-        efm.add_definition(FieldDefinition::new("longitude".to_string(), FieldType::F64));
-        let _ = efm.set_value("latitude".to_string(), FieldValue::F64(self.latitude));
-        let _ = efm.set_value("longitude".to_string(), FieldValue::F64(self.longitude));
-        let ext = efm.serialize().unwrap_or_default();
+        let mut map = HashMap::new();
+        map.insert("latitude".to_string(), FieldValue::F64(self.latitude));
+        map.insert("longitude".to_string(), FieldValue::F64(self.longitude));
+        let ext = pack_ext_fields(&map);
 
         // 出力
         let mut out = Vec::with_capacity(16 + ext.len());
@@ -465,18 +461,16 @@ impl LocationResponseEx {
         };
         if packet_type != 1 { return None; }
 
-        // 拡張フィールド（任意）
+        // 拡張フィールド（任意）: Python準拠の unpack_ext_fields で復号
         let mut latitude: Option<f64> = None;
         let mut longitude: Option<f64> = None;
         let mut source: Option<(String, u16)> = None;
         if data.len() > header_len {
-            let mut efm = ExtendedFieldManager::new();
-            if efm.deserialize(&data[header_len..]).is_ok() {
-                if let Some(FieldValue::F64(v)) = efm.get_value("latitude").cloned() { latitude = Some(v); }
-                if let Some(FieldValue::F64(v)) = efm.get_value("longitude").cloned() { longitude = Some(v); }
-                if let Some(FieldValue::String(s)) = efm.get_value("source").cloned() {
-                    if let Some((ip, port)) = parse_source_str(&s) { source = Some((ip, port)); }
-                }
+            let map = unpack_ext_fields(&data[header_len..]);
+            if let Some(FieldValue::F64(v)) = map.get("latitude") { latitude = Some(*v); }
+            if let Some(FieldValue::F64(v)) = map.get("longitude") { longitude = Some(*v); }
+            if let Some(FieldValue::String(s)) = map.get("source") {
+                if let Some((ip, port)) = parse_source_str(s) { source = Some((ip, port)); }
             }
         }
 
@@ -547,15 +541,12 @@ mod tests {
         head.copy_from_slice(head_bits.as_raw_slice());
         data[..16].copy_from_slice(&head);
 
-        // Extended fields: latitude, longitude, source
-        let mut efm = ExtendedFieldManager::new();
-        efm.add_definition(FieldDefinition::new("latitude".to_string(), FieldType::F64));
-        efm.add_definition(FieldDefinition::new("longitude".to_string(), FieldType::F64));
-        efm.add_definition(FieldDefinition::new("source".to_string(), FieldType::String));
-        let _ = efm.set_value("latitude".to_string(), FieldValue::F64(35.0));
-        let _ = efm.set_value("longitude".to_string(), FieldValue::F64(139.0));
-        let _ = efm.set_value("source".to_string(), FieldValue::String("127.0.0.1:12345".to_string()));
-        let ext = efm.serialize().unwrap();
+        // Extended fields: latitude, longitude, source (Python準拠のpackで付加)
+        let mut map = std::collections::HashMap::new();
+        map.insert("latitude".to_string(), FieldValue::F64(35.0));
+        map.insert("longitude".to_string(), FieldValue::F64(139.0));
+        map.insert("source".to_string(), FieldValue::String("127.0.0.1:12345".to_string()));
+        let ext = pack_ext_fields(&map);
 
         // Build full packet
         let mut packet = Vec::with_capacity(20 + ext.len());

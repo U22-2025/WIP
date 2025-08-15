@@ -1,6 +1,38 @@
 use crate::wip_common_rs::packet::core::exceptions::PacketParseError;
 use std::collections::HashMap;
 use std::fmt;
+use serde_json::Value;
+use once_cell::sync::Lazy;
+use bitvec::prelude::*;
+
+static EXTENDED_SPEC_JSON: &str = include_str!("../format_spec/extended_fields.json");
+
+#[derive(Debug, Clone)]
+struct ExtSpecEntry {
+    id: u8,
+    ty: String,
+}
+
+static EXT_MAP: Lazy<HashMap<String, ExtSpecEntry>> = Lazy::new(|| {
+    let mut map = HashMap::new();
+    let v: Value = serde_json::from_str(EXTENDED_SPEC_JSON).expect("extended_fields.json parse");
+    if let Value::Object(obj) = v {
+        for (name, def) in obj {
+            let id = def.get("id").and_then(|x| x.as_u64()).unwrap_or(0) as u8;
+            let ty = def.get("type").and_then(|x| x.as_str()).unwrap_or("str").to_string();
+            map.insert(name, ExtSpecEntry { id, ty });
+        }
+    }
+    map
+});
+
+static EXT_MAP_REV: Lazy<HashMap<u8, String>> = Lazy::new(|| {
+    let mut rev = HashMap::new();
+    for (k, v) in EXT_MAP.iter() {
+        rev.insert(v.id, k.clone());
+    }
+    rev
+});
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldType {
@@ -293,6 +325,206 @@ impl FieldValue {
             }
         }
         Ok(())
+    }
+}
+
+/// Python準拠の拡張フィールドpack（10bit length + 6bit key ヘッダ）
+pub fn pack_ext_fields(fields: &HashMap<String, FieldValue>) -> Vec<u8> {
+    let mut out_bits = bitvec![u8, Lsb0; 0; 0];
+
+    for (k, v) in fields {
+        if let Some(spec) = EXT_MAP.get(k) {
+            let (payload, _ty) = encode_value(k, v);
+            let len = payload.len();
+            if len > ((1 << 10) - 1) { continue; }
+            let mut header = BitVec::<u16, Lsb0>::with_capacity(16);
+            // 10bit length（バイト長）
+            let len_u16 = len as u16 & 0x03FF;
+            for i in 0..10 { header.push(((len_u16 >> i) & 1) != 0); }
+            // 6bit key（拡張ID）
+            let id = spec.id as u16 & 0x003F;
+            for i in 0..6 { header.push(((id >> i) & 1) != 0); }
+            // append header bits
+            out_bits.extend(header);
+            // append payload bytes
+            let mut payload_bits = BitVec::<u8, Lsb0>::with_capacity(len * 8);
+            for b in payload { payload_bits.extend_from_bitslice(BitSlice::<u8, Lsb0>::from_element(&b)); }
+            out_bits.extend(payload_bits);
+        }
+    }
+
+    // to bytes
+    out_bits.into_vec()
+}
+
+fn encode_value(key: &str, v: &FieldValue) -> (Vec<u8>, String) {
+    match key {
+        // 座標は1e6倍の整数（LE, i32）
+        "latitude" => {
+            if let FieldValue::F64(f) = v { let scaled = (*f * 1_000_000f64).round() as i32; return (scaled.to_le_bytes().to_vec(), "coord".into()); }
+        }
+        "longitude" => {
+            if let FieldValue::F64(f) = v { let scaled = (*f * 1_000_000f64).round() as i32; return (scaled.to_le_bytes().to_vec(), "coord".into()); }
+        }
+        // alert/disaster はCSV文字列
+        "alert" | "disaster" => {
+            if let FieldValue::String(s) = v { return (s.as_bytes().to_vec(), "str".into()); }
+        }
+        // source は "ip:port" をPython準拠の整数に変換してLE u32/u64で送る（安全のためu64）
+        "source" => {
+            if let FieldValue::String(s) = v {
+                if let Some((ip, port)) = s.split_once(':') {
+                    let encoded = encode_source_to_int(ip, port.parse().unwrap_or(0));
+                    return (encoded.to_le_bytes().to_vec(), "source".into());
+                }
+            }
+        }
+        _ => {}
+    }
+    // fallback: serialize as bytes if possible
+    match v {
+        FieldValue::String(s) => (s.as_bytes().to_vec(), "str".into()),
+        FieldValue::U8(n) => (vec![*n], "u8".into()),
+        FieldValue::U16(n) => (n.to_le_bytes().to_vec(), "u16".into()),
+        FieldValue::U32(n) => (n.to_le_bytes().to_vec(), "u32".into()),
+        FieldValue::I8(n) => (vec![*n as u8], "i8".into()),
+        FieldValue::I16(n) => (n.to_le_bytes().to_vec(), "i16".into()),
+        FieldValue::I32(n) => (n.to_le_bytes().to_vec(), "i32".into()),
+        FieldValue::F32(n) => (n.to_le_bytes().to_vec(), "f32".into()),
+        FieldValue::F64(n) => (n.to_le_bytes().to_vec(), "f64".into()),
+        FieldValue::Bool(b) => (vec![if *b {1} else {0}], "bool".into()),
+        FieldValue::Bytes(b) => (b.clone(), "bytes".into()),
+    }
+}
+
+fn encode_source_to_int(ip: &str, port: u16) -> u64 {
+    // Pythonの _source_to_int と互換のdecimal concat方式
+    let parts: Vec<&str> = ip.split('.').collect();
+    if parts.len() != 4 { return 0; }
+    let p1 = format!("{}", parts[0].parse::<u16>().unwrap_or(0));
+    let p2 = format!("{:03}", parts[1].parse::<u16>().unwrap_or(0));
+    let p3 = format!("{:03}", parts[2].parse::<u16>().unwrap_or(0));
+    let p4 = format!("{:03}", parts[3].parse::<u16>().unwrap_or(0));
+    let port_s = format!("{:05}", port);
+    format!("{}{}{}{}{}", p1, p2, p3, p4, port_s).parse::<u64>().unwrap_or(0)
+}
+
+fn decode_source_from_int(val: u64) -> String {
+    let s = val.to_string();
+    if s.len() < 14 { return "0.0.0.0:0".into(); }
+    let port: u16 = s[s.len()-5..].parse().unwrap_or(0);
+    let p4 = s[s.len()-8..s.len()-5].parse::<u16>().unwrap_or(0);
+    let p3 = s[s.len()-11..s.len()-8].parse::<u16>().unwrap_or(0);
+    let p2 = s[s.len()-14..s.len()-11].parse::<u16>().unwrap_or(0);
+    let p1 = s[..s.len()-14].parse::<u16>().unwrap_or(0);
+    format!("{}.{}.{}.{}:{}", p1, p2, p3, p4, port)
+}
+
+/// Python準拠の拡張フィールドunpack（10bit length + 6bit key ヘッダ）
+pub fn unpack_ext_fields(data: &[u8]) -> HashMap<String, FieldValue> {
+    let mut out = HashMap::new();
+    if data.is_empty() { return out; }
+    let bits = BitSlice::<u8, Lsb0>::from_slice(data);
+    let mut idx: usize = 0;
+    while idx + 16 <= bits.len() {
+        // read 10-bit length
+        let mut len: u16 = 0;
+        for i in 0..10 { if bits.get(idx + i).copied().unwrap_or(false) { len |= 1 << i; } }
+        idx += 10;
+        // read 6-bit key
+        let mut key: u8 = 0;
+        for i in 0..6 { if bits.get(idx + i).copied().unwrap_or(false) { key |= 1 << i; } }
+        idx += 6;
+        let byte_len = len as usize;
+        if idx + byte_len * 8 > bits.len() { break; }
+        // read payload bytes
+        let mut payload = vec![0u8; byte_len];
+        for b in 0..byte_len {
+            let mut v: u8 = 0;
+            for i in 0..8 { if bits[idx + b*8 + i] { v |= 1 << i; } }
+            payload[b] = v;
+        }
+        idx += byte_len * 8;
+
+        if let Some(name) = EXT_MAP_REV.get(&key).cloned() {
+            let fv = decode_value(&name, &payload);
+            out.insert(name, fv);
+        }
+    }
+    out
+}
+
+fn decode_value(name: &str, payload: &[u8]) -> FieldValue {
+    match name {
+        "latitude" | "longitude" => {
+            if payload.len() >= 4 {
+                let mut arr = [0u8;4];
+                arr.copy_from_slice(&payload[..4]);
+                let v = i32::from_le_bytes(arr) as f64 / 1_000_000f64;
+                FieldValue::F64(v)
+            } else { FieldValue::Bytes(payload.to_vec()) }
+        }
+        "source" => {
+            // assume u64 le
+            if payload.len() >= 8 {
+                let mut arr = [0u8;8];
+                arr.copy_from_slice(&payload[..8]);
+                let n = u64::from_le_bytes(arr);
+                FieldValue::String(decode_source_from_int(n))
+            } else { FieldValue::Bytes(payload.to_vec()) }
+        }
+        _ => {
+            // default to string (utf-8) if possible
+            if let Ok(s) = String::from_utf8(payload.to_vec()) {
+                FieldValue::String(s)
+            } else {
+                FieldValue::Bytes(payload.to_vec())
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_pack {
+    use super::*;
+
+    #[test]
+    fn pack_unpack_lat_lon() {
+        let mut map = HashMap::new();
+        map.insert("latitude".to_string(), FieldValue::F64(35.123456));
+        map.insert("longitude".to_string(), FieldValue::F64(139.654321));
+        let bytes = pack_ext_fields(&map);
+        let out = unpack_ext_fields(&bytes);
+        match out.get("latitude").unwrap() { FieldValue::F64(v) => assert!((*v-35.123456).abs() < 1e-6), _=>panic!() }
+        match out.get("longitude").unwrap() { FieldValue::F64(v) => assert!((*v-139.654321).abs() < 1e-6), _=>panic!() }
+    }
+
+    #[test]
+    fn pack_unpack_alert() {
+        let mut map = HashMap::new();
+        map.insert("alert".to_string(), FieldValue::String("A,B".into()));
+        let bytes = pack_ext_fields(&map);
+        let out = unpack_ext_fields(&bytes);
+        assert_eq!(out.get("alert"), Some(&FieldValue::String("A,B".into())));
+    }
+
+    #[test]
+    fn pack_unpack_source() {
+        let mut map = HashMap::new();
+        map.insert("source".to_string(), FieldValue::String("127.0.0.1:12345".into()));
+        let bytes = pack_ext_fields(&map);
+        let out = unpack_ext_fields(&bytes);
+        assert_eq!(out.get("source"), Some(&FieldValue::String("127.0.0.1:12345".into())));
+    }
+
+    #[test]
+    fn golden_pack_latitude_35_0() {
+        // latitude=35.0 -> scaled 35_000_000 -> LE i32 = [0xC0,0x0E,0x16,0x02]
+        // header: len=4 (10bit), id=33 (6bit) -> bytes [0x04, 0x84]
+        let mut map = HashMap::new();
+        map.insert("latitude".to_string(), FieldValue::F64(35.0));
+        let bytes = pack_ext_fields(&map);
+        assert_eq!(bytes, vec![0x04, 0x84, 0xC0, 0x0E, 0x16, 0x02]);
     }
 }
 
