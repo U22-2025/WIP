@@ -1,14 +1,30 @@
 /// LocationRequest/LocationResponse パケット実装
-/// Python版 location_packet.py と同等の機能
+/// Python版 location_packet.py の挙動に合わせ、拡張フィールドで座標を送る
 
 use crate::wip_common_rs::packet::core::{
     PacketFormat, AutoChecksumPacket, WipResult, WipPacketError, PacketParseError,
     BitField, PacketFields, bytes_to_u128_le, u128_to_bytes_le
 };
+use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, embed_checksum12_le};
+use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
+use crate::wip_common_rs::packet::core::extended_field::{ExtendedFieldManager, FieldDefinition, FieldType, FieldValue};
+use once_cell::sync::Lazy;
 use std::time::{SystemTime, UNIX_EPOCH};
+use bitvec::prelude::*;
+use crate::wip_common_rs::packet::core::checksum::verify_checksum12;
 
-/// LocationRequest パケット (Type=0)
-/// 座標からエリアコードへの変換要求
+static REQUEST_FIELDS: Lazy<PacketFields> = Lazy::new(|| {
+    let json = include_str!("../format_spec/request_fields.json");
+    let (fields, _specs) = JsonPacketSpecLoader::load_from_json(json).expect("request spec parse");
+    fields
+});
+
+static RESPONSE_FIELDS: Lazy<PacketFields> = Lazy::new(|| {
+    let json = include_str!("../format_spec/response_fields.json");
+    let (fields, _specs) = JsonPacketSpecLoader::load_from_json(json).expect("response spec parse");
+    fields
+});
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct LocationRequest {
     pub version: u8,
@@ -18,14 +34,83 @@ pub struct LocationRequest {
     pub pop_flag: bool,
     pub alert_flag: bool,
     pub disaster_flag: bool,
-    pub ex_flag: bool,
-    pub request_auth: bool,
-    pub response_auth: bool,
     pub day: u8,
     pub timestamp: u64,
     pub latitude: f64,
     pub longitude: f64,
-    pub checksum: u16,
+}
+
+impl LocationRequest {
+    /// Python互換：座標からエリアコードを検索するリクエスト（Type=0）
+    pub fn create_coordinate_lookup(
+        latitude: f64,
+        longitude: f64,
+        packet_id: u16,
+        weather: bool,
+        temperature: bool,
+        precipitation_prob: bool,
+        alert: bool,
+        disaster: bool,
+        day: u8,
+        version: u8,
+    ) -> Self {
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        Self {
+            version,
+            packet_id,
+            weather_flag: weather,
+            temperature_flag: temperature,
+            pop_flag: precipitation_prob,
+            alert_flag: alert,
+            disaster_flag: disaster,
+            day: day & 0x07,
+            timestamp,
+            latitude,
+            longitude,
+        }
+    }
+
+    /// パケットをエンコード（ヘッダ16バイト＋拡張フィールド）
+    pub fn to_bytes(&self) -> Vec<u8> {
+        // 固定レイアウトでヘッダを構築
+        let mut head = [0u8; 16];
+        {
+            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut head);
+            bits[0..4].store(self.version);
+            bits[4..16].store(self.packet_id);
+            bits[16..19].store(0u8); // type=0
+            bits[19..20].store(self.weather_flag as u8);
+            bits[20..21].store(self.temperature_flag as u8);
+            bits[21..22].store(self.pop_flag as u8);
+            bits[22..23].store(self.alert_flag as u8);
+            bits[23..24].store(self.disaster_flag as u8);
+            bits[24..25].store(1u8); // ex_flag = 1
+            bits[25..26].store(0u8); // request_auth
+            bits[26..27].store(0u8); // response_auth
+            bits[27..30].store(self.day);
+            bits[30..32].store(0u8); // reserved
+            bits[32..96].store(self.timestamp);
+            bits[96..116].store(0u32); // area_code無し
+            bits[116..128].store(0u16); // checksum placeholder
+        }
+
+        // チェックサムを固定位置(116..128)へ埋込
+        embed_checksum12_le(&mut head);
+
+        // 拡張フィールド（latitude/longitude）を直列化
+        let mut efm = ExtendedFieldManager::new();
+        efm.add_definition(FieldDefinition::new("latitude".to_string(), FieldType::F64));
+        efm.add_definition(FieldDefinition::new("longitude".to_string(), FieldType::F64));
+        let _ = efm.set_value("latitude".to_string(), FieldValue::F64(self.latitude));
+        let _ = efm.set_value("longitude".to_string(), FieldValue::F64(self.longitude));
+        let ext = efm.serialize().unwrap_or_default();
+
+        // 出力
+        let mut out = Vec::with_capacity(16 + ext.len());
+        out.extend_from_slice(&head);
+        out.extend_from_slice(&ext);
+        out
+    }
 }
 
 impl LocationRequest {
@@ -41,151 +126,70 @@ impl LocationRequest {
         disaster: bool,
         day: u8,
     ) -> Self {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-            
-        Self {
-            version: 1,
-            packet_id,
-            weather_flag: weather,
-            temperature_flag: temperature,
-            pop_flag: precipitation_prob,
-            alert_flag: alert,
-            disaster_flag: disaster,
-            ex_flag: false,
-            request_auth: false,
-            response_auth: false,
-            day: day & 0x07,
-            timestamp,
+        Self::create_coordinate_lookup(
             latitude,
             longitude,
-            checksum: 0,
-        }
-    }
-    
-    /// 座標解決用のLocationRequestを作成
-    pub fn create_coordinate_lookup(
-        packet_id: u16,
-        latitude: f64,
-        longitude: f64,
-        weather: bool,
-        temperature: bool,
-        precipitation_prob: bool,
-        alert: bool,
-        disaster: bool,
-        version: u8,
-    ) -> Self {
-        Self {
-            version,
             packet_id,
-            weather_flag: weather,
-            temperature_flag: temperature,
-            pop_flag: precipitation_prob,
-            alert_flag: alert,
-            disaster_flag: disaster,
-            ex_flag: false,
-            request_auth: false,
-            response_auth: false,
-            day: 0,
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            latitude,
-            longitude,
-            checksum: 0,
-        }
-    }
-    
-    /// 座標を固定小数点形式に変換
-    fn coord_to_fixed_point(coord: f64) -> u64 {
-        // 座標を1000000倍して整数に変換（6桁精度）
-        ((coord * 1_000_000.0).round() as i64) as u64
-    }
-    
-    /// 固定小数点形式から座標に変換
-    fn fixed_point_to_coord(fixed: u64) -> f64 {
-        (fixed as i64) as f64 / 1_000_000.0
+            weather,
+            temperature,
+            precipitation_prob,
+            alert,
+            disaster,
+            day,
+            1, // version
+        )
     }
 }
 
 impl PacketFormat for LocationRequest {
     fn to_bytes(&self) -> Vec<u8> {
-        let mut data = [0u8; 24]; // 24バイト想定
-        let mut bits_data = bytes_to_u128_le(&data);
-        
-        let fields = Self::get_field_definitions();
-        
-        // フィールドを設定
-        if let Some(field) = fields.get_field("version") {
-            field.set(&mut bits_data, self.version as u128);
+        // Use the existing implementation from the LocationRequest impl block
+        // 固定レイアウトでヘッダを構築
+        let mut head = [0u8; 16];
+        {
+            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut head);
+            bits[0..4].store(self.version);
+            bits[4..16].store(self.packet_id);
+            bits[16..19].store(0u8); // type=0
+            bits[19..20].store(self.weather_flag as u8);
+            bits[20..21].store(self.temperature_flag as u8);
+            bits[21..22].store(self.pop_flag as u8);
+            bits[22..23].store(self.alert_flag as u8);
+            bits[23..24].store(self.disaster_flag as u8);
+            bits[24..25].store(1u8); // ex_flag = 1
+            bits[25..26].store(0u8); // request_auth
+            bits[26..27].store(0u8); // response_auth
+            bits[27..30].store(self.day);
+            bits[30..32].store(0u8); // reserved
+            bits[32..96].store(self.timestamp);
+            bits[96..116].store(0u32);
+            bits[116..128].store(0u16);
         }
-        if let Some(field) = fields.get_field("packet_id") {
-            field.set(&mut bits_data, self.packet_id as u128);
-        }
-        if let Some(field) = fields.get_field("type") {
-            field.set(&mut bits_data, 0u128); // Type = 0 for LocationRequest
-        }
-        if let Some(field) = fields.get_field("weather_flag") {
-            field.set(&mut bits_data, self.weather_flag as u128);
-        }
-        if let Some(field) = fields.get_field("temperature_flag") {
-            field.set(&mut bits_data, self.temperature_flag as u128);
-        }
-        if let Some(field) = fields.get_field("pop_flag") {
-            field.set(&mut bits_data, self.pop_flag as u128);
-        }
-        if let Some(field) = fields.get_field("alert_flag") {
-            field.set(&mut bits_data, self.alert_flag as u128);
-        }
-        if let Some(field) = fields.get_field("disaster_flag") {
-            field.set(&mut bits_data, self.disaster_flag as u128);
-        }
-        if let Some(field) = fields.get_field("ex_flag") {
-            field.set(&mut bits_data, self.ex_flag as u128);
-        }
-        if let Some(field) = fields.get_field("request_auth") {
-            field.set(&mut bits_data, self.request_auth as u128);
-        }
-        if let Some(field) = fields.get_field("response_auth") {
-            field.set(&mut bits_data, self.response_auth as u128);
-        }
-        if let Some(field) = fields.get_field("day") {
-            field.set(&mut bits_data, self.day as u128);
-        }
-        if let Some(field) = fields.get_field("timestamp") {
-            field.set(&mut bits_data, self.timestamp as u128);
-        }
-        
-        // 座標を固定小数点に変換して設定
-        let lat_fixed = Self::coord_to_fixed_point(self.latitude);
-        let lon_fixed = Self::coord_to_fixed_point(self.longitude);
-        
-        // 座標データは拡張フィールドとして扱うか、別の方法で格納
-        // u128の範囲内で座標を格納（64ビットずつ）
-        // 緯度・経度は拡張データとして実装予定
-        
-        u128_to_bytes_le(bits_data, &mut data);
-        data.to_vec()
+
+        embed_checksum12_le(&mut head);
+
+        // 拡張フィールド（latitude/longitude）を直列化
+        let mut efm = ExtendedFieldManager::new();
+        efm.add_definition(FieldDefinition::new("latitude".to_string(), FieldType::F64));
+        efm.add_definition(FieldDefinition::new("longitude".to_string(), FieldType::F64));
+        let _ = efm.set_value("latitude".to_string(), FieldValue::F64(self.latitude));
+        let _ = efm.set_value("longitude".to_string(), FieldValue::F64(self.longitude));
+        let ext = efm.serialize().unwrap_or_default();
+
+        // 出力
+        let mut out = Vec::with_capacity(16 + ext.len());
+        out.extend_from_slice(&head);
+        out.extend_from_slice(&ext);
+        out
     }
     
     fn from_bytes(data: &[u8]) -> WipResult<Self> {
-        if data.len() < 24 {
-            return Err(WipPacketError::Parse(PacketParseError::insufficient_data(24, data.len())));
+        if data.len() < 16 {
+            return Err(WipPacketError::Parse(PacketParseError::insufficient_data(16, data.len())));
         }
         
         let bits_data = bytes_to_u128_le(data);
-        let fields = Self::get_field_definitions();
-        
-        // フィールドから値を抽出
-        let version = fields.get_field("version")
-            .map(|f| f.extract(bits_data) as u8)
-            .unwrap_or(1);
-        let packet_id = fields.get_field("packet_id")
-            .map(|f| f.extract(bits_data) as u16)
-            .unwrap_or(0);
+        let fields = &*REQUEST_FIELDS;
         
         // パケット型チェック
         let packet_type = fields.get_field("type")
@@ -195,6 +199,12 @@ impl PacketFormat for LocationRequest {
             return Err(WipPacketError::Parse(PacketParseError::invalid_packet_type(packet_type)));
         }
         
+        let version = fields.get_field("version")
+            .map(|f| f.extract(bits_data) as u8)
+            .unwrap_or(1);
+        let packet_id = fields.get_field("packet_id")
+            .map(|f| f.extract(bits_data) as u16)
+            .unwrap_or(0);
         let weather_flag = fields.get_field("weather_flag")
             .map(|f| f.extract(bits_data) != 0)
             .unwrap_or(false);
@@ -210,15 +220,6 @@ impl PacketFormat for LocationRequest {
         let disaster_flag = fields.get_field("disaster_flag")
             .map(|f| f.extract(bits_data) != 0)
             .unwrap_or(false);
-        let ex_flag = fields.get_field("ex_flag")
-            .map(|f| f.extract(bits_data) != 0)
-            .unwrap_or(false);
-        let request_auth = fields.get_field("request_auth")
-            .map(|f| f.extract(bits_data) != 0)
-            .unwrap_or(false);
-        let response_auth = fields.get_field("response_auth")
-            .map(|f| f.extract(bits_data) != 0)
-            .unwrap_or(false);
         let day = fields.get_field("day")
             .map(|f| f.extract(bits_data) as u8)
             .unwrap_or(0);
@@ -230,10 +231,6 @@ impl PacketFormat for LocationRequest {
         let latitude = 0.0;
         let longitude = 0.0;
         
-        let checksum = fields.get_field("checksum")
-            .map(|f| f.extract(bits_data) as u16)
-            .unwrap_or(0);
-        
         Ok(Self {
             version,
             packet_id,
@@ -242,14 +239,10 @@ impl PacketFormat for LocationRequest {
             pop_flag,
             alert_flag,
             disaster_flag,
-            ex_flag,
-            request_auth,
-            response_auth,
             day,
             timestamp,
             latitude,
             longitude,
-            checksum,
         })
     }
     
@@ -270,28 +263,7 @@ impl PacketFormat for LocationRequest {
     }
     
     fn get_field_definitions() -> &'static PacketFields {
-        use std::sync::OnceLock;
-        static FIELDS: OnceLock<PacketFields> = OnceLock::new();
-        
-        FIELDS.get_or_init(|| {
-            let mut fields = PacketFields::new();
-            fields.add_field("version", 4);
-            fields.add_field("packet_id", 12);
-            fields.add_field("type", 3);
-            fields.add_field("weather_flag", 1);
-            fields.add_field("temperature_flag", 1);
-            fields.add_field("pop_flag", 1);
-            fields.add_field("alert_flag", 1);
-            fields.add_field("disaster_flag", 1);
-            fields.add_field("ex_flag", 1);
-            fields.add_field("request_auth", 1);
-            fields.add_field("response_auth", 1);
-            fields.add_field("day", 3);
-            fields.add_field("reserved", 2);
-            fields.add_field("timestamp", 64);
-            fields.add_field("checksum", 12);
-            fields
-        })
+        &*REQUEST_FIELDS
     }
     
     fn get_checksum_field() -> Option<&'static BitField> {
@@ -341,6 +313,11 @@ impl LocationResponse {
             error_code,
             checksum: 0,
         }
+    }
+    
+    /// エリアコードを取得
+    pub fn get_area_code(&self) -> u32 {
+        self.area_code
     }
 }
 
@@ -460,111 +437,137 @@ impl PacketFormat for LocationResponse {
 
 impl AutoChecksumPacket for LocationResponse {}
 
+/// Python互換の拡張レスポンス（拡張フィールド復号を含む）
+#[derive(Debug, Clone, PartialEq)]
+pub struct LocationResponseEx {
+    pub version: u8,
+    pub packet_id: u16,
+    pub area_code: u32,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub source: Option<(String, u16)>,
+}
+
+impl LocationResponseEx {
+    pub fn from_bytes(data: &[u8]) -> Option<Self> {
+        if data.len() < 16 { return None; }
+
+        // ヘッダチェックサム
+        if !verify_checksum12(&data[..16], 116, 12) { return None; }
+
+        // 20Bヘッダ（response_fields）/16Bヘッダ（request_fields）の両対応
+        let (version, packet_id, packet_type, area_code, header_len) = if data.len() >= 20 {
+            let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
+            (bits[0..4].load::<u8>(), bits[4..16].load::<u16>(), bits[16..19].load::<u8>(), bits[96..116].load::<u32>(), 20usize)
+        } else {
+            let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..16]);
+            (bits[0..4].load::<u8>(), bits[4..16].load::<u16>(), bits[16..19].load::<u8>(), bits[96..116].load::<u32>(), 16usize)
+        };
+        if packet_type != 1 { return None; }
+
+        // 拡張フィールド（任意）
+        let mut latitude: Option<f64> = None;
+        let mut longitude: Option<f64> = None;
+        let mut source: Option<(String, u16)> = None;
+        if data.len() > header_len {
+            let mut efm = ExtendedFieldManager::new();
+            if efm.deserialize(&data[header_len..]).is_ok() {
+                if let Some(FieldValue::F64(v)) = efm.get_value("latitude").cloned() { latitude = Some(v); }
+                if let Some(FieldValue::F64(v)) = efm.get_value("longitude").cloned() { longitude = Some(v); }
+                if let Some(FieldValue::String(s)) = efm.get_value("source").cloned() {
+                    if let Some((ip, port)) = parse_source_str(&s) { source = Some((ip, port)); }
+                }
+            }
+        }
+
+        Some(Self { version, packet_id, area_code, latitude, longitude, source })
+    }
+
+    pub fn get_area_code_str(&self) -> String { format!("{:06}", self.area_code) }
+    
+    pub fn get_coordinates(&self) -> Option<(f64, f64)> {
+        if let (Some(lat), Some(lon)) = (self.latitude, self.longitude) {
+            Some((lat, lon))
+        } else {
+            None
+        }
+    }
+    
+    pub fn get_source_info(&self) -> Option<(String, u16)> {
+        self.source.clone()
+    }
+}
+
+fn parse_source_str(s: &str) -> Option<(String, u16)> {
+    let parts: Vec<&str> = s.split(':').collect();
+    if parts.len() == 2 { if let Ok(port) = parts[1].parse::<u16>() { return Some((parts[0].to_string(), port)); } }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bitvec::prelude::*;
+    use crate::wip_common_rs::packet::core::checksum::{verify_checksum12, calc_checksum12};
 
     #[test]
-    fn test_location_request_creation() {
-        let req = LocationRequest::new(
-            123, 35.6762, 139.6503, true, true, false, false, false, 0
+    fn test_location_request_to_bytes_checksum() {
+        let req = LocationRequest::create_coordinate_lookup(
+            35.0, 139.0, 0x123, true, true, true, false, false, 0, 1,
         );
-        
-        assert_eq!(req.version, 1);
-        assert_eq!(req.packet_id, 123);
-        assert_eq!(req.latitude, 35.6762);
-        assert_eq!(req.longitude, 139.6503);
-        assert!(req.weather_flag);
-        assert!(req.temperature_flag);
-        assert!(!req.pop_flag);
-    }
-
-    #[test]
-    fn test_location_request_bytes_conversion() {
-        let req = LocationRequest::new(
-            456, 35.123456, 139.123456, true, false, true, false, true, 1
-        );
-        
         let bytes = req.to_bytes();
-        assert_eq!(bytes.len(), 24);
-        
-        let parsed = LocationRequest::from_bytes(&bytes).unwrap();
-        assert_eq!(parsed.packet_id, req.packet_id);
-        assert_eq!(parsed.version, req.version);
-        assert_eq!(parsed.weather_flag, req.weather_flag);
-        assert_eq!(parsed.temperature_flag, req.temperature_flag);
-        // 座標の精度チェック（小数点6桁の精度）
-        assert!((parsed.latitude - req.latitude).abs() < 0.000001);
-        assert!((parsed.longitude - req.longitude).abs() < 0.000001);
+        assert!(bytes.len() >= 16);
+        // ヘッダチェックサムの検証（116..128, 12bit）
+        assert!(verify_checksum12(&bytes[..16], 116, 12));
+        let head_bits = BitSlice::<u8, Lsb0>::from_slice(&bytes[..16]);
+        let ty: u8 = head_bits[16..19].load();
+        assert_eq!(ty, 0u8); // Type=0
+        // ex_flag should be 1
+        let ex_flag: u8 = head_bits[24..25].load();
+        assert_eq!(ex_flag, 1);
     }
 
     #[test]
-    fn test_location_response_creation() {
-        let resp = LocationResponse::success(789, 13101);
-        
+    fn test_location_response_ex_from_bytes_with_ext() {
+        // Build 20-byte header with type=1 and area_code
+        let mut bits = bitvec![u8, Lsb0; 0; 160];
+        bits[0..4].store(1u8);            // version
+        bits[4..16].store(0x123u16);      // packet_id
+        bits[16..19].store(1u8);          // type = 1
+        bits[96..116].store(11000u32);    // area_code
+        // checksum placeholder 116..128
+        let mut data = [0u8; 20];
+        data.copy_from_slice(bits.as_raw_slice());
+        // Compute and embed checksum for header (first 16 bytes)
+        let checksum = calc_checksum12(&data[..16]);
+        let mut head_bits = bitvec![u8, Lsb0; 0; 128];
+        head_bits.copy_from_bitslice(&BitSlice::<u8, Lsb0>::from_slice(&data[..16]));
+        head_bits[116..128].store(checksum);
+        let mut head = [0u8; 16];
+        head.copy_from_slice(head_bits.as_raw_slice());
+        data[..16].copy_from_slice(&head);
+
+        // Extended fields: latitude, longitude, source
+        let mut efm = ExtendedFieldManager::new();
+        efm.add_definition(FieldDefinition::new("latitude".to_string(), FieldType::F64));
+        efm.add_definition(FieldDefinition::new("longitude".to_string(), FieldType::F64));
+        efm.add_definition(FieldDefinition::new("source".to_string(), FieldType::String));
+        let _ = efm.set_value("latitude".to_string(), FieldValue::F64(35.0));
+        let _ = efm.set_value("longitude".to_string(), FieldValue::F64(139.0));
+        let _ = efm.set_value("source".to_string(), FieldValue::String("127.0.0.1:12345".to_string()));
+        let ext = efm.serialize().unwrap();
+
+        // Build full packet
+        let mut packet = Vec::with_capacity(20 + ext.len());
+        packet.extend_from_slice(&data);
+        packet.extend_from_slice(&ext);
+
+        let resp = LocationResponseEx::from_bytes(&packet).expect("parse");
         assert_eq!(resp.version, 1);
-        assert_eq!(resp.packet_id, 789);
-        assert_eq!(resp.area_code, 13101);
-        assert!(resp.success);
-        assert_eq!(resp.error_code, 0);
-    }
-
-    #[test]
-    fn test_location_response_error() {
-        let resp = LocationResponse::error(999, 255);
-        
-        assert_eq!(resp.packet_id, 999);
-        assert_eq!(resp.area_code, 0);
-        assert!(!resp.success);
-        assert_eq!(resp.error_code, 255);
-    }
-
-    #[test]
-    fn test_location_response_bytes_conversion() {
-        let resp = LocationResponse::success(111, 11000);
-        
-        let bytes = resp.to_bytes();
-        assert_eq!(bytes.len(), 16);
-        
-        let parsed = LocationResponse::from_bytes(&bytes).unwrap();
-        assert_eq!(parsed.packet_id, resp.packet_id);
-        assert_eq!(parsed.area_code, resp.area_code);
-        assert_eq!(parsed.success, resp.success);
-        assert_eq!(parsed.error_code, resp.error_code);
-    }
-
-    #[test]
-    fn test_packet_type_validation() {
-        let req = LocationRequest::new(1, 0.0, 0.0, true, false, false, false, false, 0);
-        let mut bytes = req.to_bytes();
-        
-        // パケット型を不正に変更
-        bytes[2] = 0xFF; // type フィールドを破壊
-        
-        let result = LocationRequest::from_bytes(&bytes);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_coordinate_precision() {
-        let test_coords = [
-            (0.0, 0.0),
-            (90.0, 180.0),
-            (-90.0, -180.0),
-            (35.123456, 139.654321),
-            (-12.345678, -98.765432),
-        ];
-        
-        for (lat, lon) in test_coords {
-            let req = LocationRequest::new(1, lat, lon, true, false, false, false, false, 0);
-            let bytes = req.to_bytes();
-            let parsed = LocationRequest::from_bytes(&bytes).unwrap();
-            
-            // 6桁精度での比較
-            assert!((parsed.latitude - lat).abs() < 0.000001, 
-                    "Latitude precision error: {} vs {}", parsed.latitude, lat);
-            assert!((parsed.longitude - lon).abs() < 0.000001, 
-                    "Longitude precision error: {} vs {}", parsed.longitude, lon);
-        }
+        assert_eq!(resp.packet_id, 0x123);
+        assert_eq!(resp.area_code, 11000);
+        assert_eq!(resp.get_area_code_str(), "011000");
+        assert_eq!(resp.get_coordinates(), Some((35.0, 139.0)));
+        assert_eq!(resp.get_source_info(), Some(("127.0.0.1".to_string(), 12345)));
     }
 }

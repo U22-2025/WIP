@@ -1,5 +1,22 @@
 use bitvec::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, verify_checksum12};
+use crate::wip_common_rs::packet::core::bit_utils::{bytes_to_u128_le, u128_to_bytes_le, PacketFields};
+use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
+use once_cell::sync::Lazy;
+
+// JSON仕様からフィールド定義を構築（コンパイル時埋め込み）
+static REQUEST_FIELDS: Lazy<PacketFields> = Lazy::new(|| {
+    let json = include_str!("../format_spec/request_fields.json");
+    let (fields, _specs) = JsonPacketSpecLoader::load_from_json(json).expect("request spec parse");
+    fields
+});
+
+static RESPONSE_FIELDS: Lazy<PacketFields> = Lazy::new(|| {
+    let json = include_str!("../format_spec/response_fields.json");
+    let (fields, _specs) = JsonPacketSpecLoader::load_from_json(json).expect("response spec parse");
+    fields
+});
 
 /// Query パケット(Type=2) を表す構造体
 /// Python 実装の `QueryRequest.create_query_request` を参考に実装
@@ -49,61 +66,85 @@ impl QueryRequest {
         }
     }
 
-    /// 12ビットチェックサムを計算する
-    fn calc_checksum12(data: &[u8]) -> u16 {
-        let mut total = 0u32;
-        
-        // 1バイトずつ加算
-        for &byte in data {
-            total += byte as u32;
-        }
-        
-        // キャリーを12ビットに折り返し
-        while total >> 12 != 0 {
-            total = (total & 0xFFF) + (total >> 12);
-        }
-        
-        // 1の補数を返す（12ビットマスク）
-        let checksum = (!total) & 0xFFF;
-        checksum as u16
+    /// Python実装に合わせた外部API（エリアコードを6桁文字列で受け取る）
+    pub fn create_query_request(
+        area_code_str: &str,
+        packet_id: u16,
+        weather: bool,
+        temperature: bool,
+        precipitation_prob: bool,
+        alert: bool,
+        disaster: bool,
+        day: u8,
+        version: u8,
+    ) -> Self {
+        let normalized = if area_code_str.len() >= 6 {
+            area_code_str[..6].to_string()
+        } else {
+            format!("{:0>6}", area_code_str)
+        };
+        let area_num = normalized.parse::<u32>().unwrap_or(0) & 0xFFFFF;
+        let mut s = Self::new(
+            area_num,
+            packet_id,
+            weather,
+            temperature,
+            precipitation_prob,
+            alert,
+            disaster,
+            day,
+        );
+        s.version = version;
+        s
+    }
+
+    pub fn get_packet_id(&self) -> u16 {
+        self.packet_id
+    }
+
+    pub fn set_packet_id(&mut self, id: u16) {
+        self.packet_id = id;
+    }
+
+    pub fn get_packet_type(&self) -> u8 {
+        2  // Query packet type
     }
 
     /// パケットをバイト列に変換する (Little Endian)
     pub fn to_bytes(&self) -> [u8; 16] {
-        println!("Creating packet with ID: {} (0x{:03X})", self.packet_id, self.packet_id);
-        
-        let mut bits = bitvec![u8, Lsb0; 0; 128];
-
-        // 16バイト (128bit) パケット用フィールド配置
-        bits[0..4].store(self.version);                    // version (4bit) -> 0-3
-        bits[4..16].store(self.packet_id);                 // packet_id (12bit) -> 4-15
-        bits[16..19].store(2u8);                           // type=2 (3bit) -> 16-18
-        bits[19..20].store(self.weather_flag as u8);       // weather_flag (1bit) -> 19
-        bits[20..21].store(self.temperature_flag as u8);   // temperature_flag (1bit) -> 20
-        bits[21..22].store(self.pop_flag as u8);           // pop_flag (1bit) -> 21
-        bits[22..23].store(self.alert_flag as u8);         // alert_flag (1bit) -> 22
-        bits[23..24].store(self.disaster_flag as u8);      // disaster_flag (1bit) -> 23
-        bits[24..25].store(self.ex_flag as u8);            // ex_flag (1bit) -> 24
-        bits[25..26].store(0u8);                           // request_auth (1bit) -> 25
-        bits[26..27].store(0u8);                           // response_auth (1bit) -> 26
-        bits[27..30].store(self.day);                      // day (3bit) -> 27-29
-        bits[30..32].store(0u8);                           // reserved (2bit) -> 30-31
-        bits[32..96].store(self.timestamp);                // timestamp (64bit) -> 32-95
-        bits[96..116].store(self.area_code);               // area_code (20bit) -> 96-115  
-        bits[116..128].store(0u16);                        // checksum (12bit) -> 116-127
-
+        let fields = &*REQUEST_FIELDS;
         let mut out = [0u8; 16];
-        out.copy_from_slice(bits.as_raw_slice());
-        
-        // チェックサム部分を0にしたデータでチェックサムを計算
-        let checksum = Self::calc_checksum12(&out);
-        
-        // 計算されたチェックサムを設定
-        let mut bits = bitvec![u8, Lsb0; 0; 128];
-        bits.copy_from_bitslice(&BitSlice::<u8, Lsb0>::from_slice(&out));
-        bits[116..128].store(checksum);  // チェックサム位置 (16バイト用)
-        out.copy_from_slice(bits.as_raw_slice());
-        
+        let mut bits_u128 = bytes_to_u128_le(&out);
+
+        // 仕様に基づく各フィールド設定
+        if let Some(f) = fields.get_field("version") { f.set(&mut bits_u128, self.version as u128); }
+        if let Some(f) = fields.get_field("packet_id") { f.set(&mut bits_u128, self.packet_id as u128); }
+        if let Some(f) = fields.get_field("type") { f.set(&mut bits_u128, 2u128); }
+        if let Some(f) = fields.get_field("weather_flag") { f.set(&mut bits_u128, self.weather_flag as u128); }
+        if let Some(f) = fields.get_field("temperature_flag") { f.set(&mut bits_u128, self.temperature_flag as u128); }
+        if let Some(f) = fields.get_field("pop_flag") { f.set(&mut bits_u128, self.pop_flag as u128); }
+        if let Some(f) = fields.get_field("alert_flag") { f.set(&mut bits_u128, self.alert_flag as u128); }
+        if let Some(f) = fields.get_field("disaster_flag") { f.set(&mut bits_u128, self.disaster_flag as u128); }
+        if let Some(f) = fields.get_field("ex_flag") { f.set(&mut bits_u128, self.ex_flag as u128); }
+        if let Some(f) = fields.get_field("request_auth") { f.set(&mut bits_u128, 0); }
+        if let Some(f) = fields.get_field("response_auth") { f.set(&mut bits_u128, 0); }
+        if let Some(f) = fields.get_field("day") { f.set(&mut bits_u128, (self.day & 0x07) as u128); }
+        if let Some(f) = fields.get_field("reserved") { f.set(&mut bits_u128, 0); }
+        if let Some(f) = fields.get_field("timestamp") { f.set(&mut bits_u128, self.timestamp as u128); }
+        if let Some(f) = fields.get_field("area_code") { f.set(&mut bits_u128, (self.area_code & 0xFFFFF) as u128); }
+        if let Some(f) = fields.get_field("checksum") { f.set(&mut bits_u128, 0); }
+
+        // 一旦書き出し
+        u128_to_bytes_le(bits_u128, &mut out);
+
+        // チェックサム計算（ヘッダ16バイト）
+        let checksum = calc_checksum12(&out);
+
+        // チェックサム設定
+        let mut bits_u128 = bytes_to_u128_le(&out);
+        if let Some(f) = fields.get_field("checksum") { f.set(&mut bits_u128, checksum as u128); }
+        u128_to_bytes_le(bits_u128, &mut out);
+
         out
     }
 }
@@ -126,28 +167,25 @@ impl QueryResponse {
             return None;
         }
         let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
+        let header = &data[..16];
 
-        println!("Parsing response packet: {:02X?}", &data[..20]);
+        // ヘッダのチェックサム検証（固定 116..128）
+        if !verify_checksum12(header, 116, 12) {
+            return None;
+        }
 
-        // レスポンス仕様に基づくフィールド位置 (20バイト/160bit)
-        let version: u8 = bits[0..4].load();                      // version (4bit) -> 0-3
-        let packet_id: u16 = bits[4..16].load();                  // packet_id (12bit) -> 4-15
-        // type (3bit) -> 16-18
-        // flags (8bit) -> 19-26  
-        // day (3bit) -> 27-29
-        // reserved (2bit) -> 30-31
-        // timestamp (64bit) -> 32-95
-        let area_code: u32 = bits[96..116].load();                // area_code (20bit) -> 96-115
-        // checksum (12bit) -> 116-127
-        let weather_code: u16 = bits[128..144].load();            // weather_code (16bit) -> 128-143
-        let temp_raw: u8 = bits[144..152].load();                 // temperature (8bit) -> 144-151
-        let precip: u8 = bits[152..160].load();                   // precipitation (8bit) -> 152-159
+        // 固定レイアウトで抽出（JSON順序差異の影響を排除）
+        let version: u8  = bits[0..4].load();
+        let packet_id: u16 = bits[4..16].load();
+        let area_code: u32 = bits[96..116].load();
+        let weather_code: u16 = bits[128..144].load();
+        let temp_raw: u8    = bits[144..152].load();
+        let precip: u8      = bits[152..160].load();
 
-        println!("Parsed: version={}, packet_id={}, area_code={}, weather_code={}, temp={}, precip={}", 
-                version, packet_id, area_code, weather_code, temp_raw, precip);
-
+        // 温度は+100オフセットで格納される仕様（Python実装準拠）
         let temperature = if temp_raw != 0 {
-            Some(temp_raw as i8)
+            let val = (temp_raw as i16) - 100;
+            Some(val as i8)
         } else {
             None
         };
@@ -191,11 +229,20 @@ mod tests {
         bits[152..160].store(80u8);
         let mut data = [0u8; 20];
         data.copy_from_slice(bits.as_raw_slice());
+
+        // ヘッダ部（最初の16バイト）にチェックサムを埋め込む
+        let checksum = calc_checksum12(&data[..16]);
+        let mut head_bits = bitvec![u8, Lsb0; 0; 128];
+        head_bits.copy_from_bitslice(&BitSlice::<u8, Lsb0>::from_slice(&data[..16]));
+        head_bits[116..128].store(checksum);
+        let mut head = [0u8; 16];
+        head.copy_from_slice(head_bits.as_raw_slice());
+        data[..16].copy_from_slice(&head);
         let resp = QueryResponse::from_bytes(&data).unwrap();
         assert_eq!(resp.packet_id, 1);
         assert_eq!(resp.area_code, 123);
         assert_eq!(resp.weather_code, Some(10));
-        assert_eq!(resp.temperature, Some(120i8));
+        assert_eq!(resp.temperature, Some(20i8));
         assert_eq!(resp.precipitation, Some(80u8));
     }
 }

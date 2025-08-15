@@ -84,6 +84,24 @@ pub fn calc_checksum12_optimized(data: &[u8]) -> u16 {
     (!total & 0xFFF) as u16
 }
 
+/// ヘッダ（16バイト）に12ビットチェックサムを埋め込む（固定位置 116..128）
+pub fn embed_checksum12_le(header: &mut [u8]) {
+    use bitvec::prelude::*;
+    // ゼロ化したコピーでチェックサムを計算
+    let mut tmp = header.to_vec();
+    if tmp.len() >= 16 {
+        let tmp_head = &mut tmp[..16];
+        let tmp_bits = BitSlice::<u8, Lsb0>::from_slice_mut(tmp_head);
+        tmp_bits[116..128].store(0u16);
+    }
+    let checksum = calc_checksum12(&tmp[..16]);
+    // 元のヘッダに埋め込み
+    if header.len() >= 16 {
+        let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut header[..16]);
+        bits[116..128].store(checksum);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

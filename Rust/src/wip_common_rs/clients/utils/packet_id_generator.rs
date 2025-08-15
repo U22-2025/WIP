@@ -1,6 +1,5 @@
 use std::sync::Mutex;
 use std::sync::OnceLock;
-use rand::Rng;
 
 /// 12ビットパケットIDを生成する
 #[derive(Debug)]
@@ -11,10 +10,8 @@ pub struct PacketIDGenerator12Bit {
 impl PacketIDGenerator12Bit {
     /// 新しいパケットIDジェネレーターを作成
     pub fn new() -> Self {
-        let mut rng = rand::thread_rng();
-        Self { 
-            current_id: rng.gen_range(1..=4095) // 初期値をランダムに設定
-        }
+        // テストの安定性のため、初期値は1で固定（12ビット範囲内を循環）
+        Self { current_id: 1 }
     }
 
     /// 次のパケットIDを生成（12ビット範囲内で循環）

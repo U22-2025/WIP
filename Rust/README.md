@@ -19,7 +19,9 @@ src/
     │   ├── mod.rs
     │   ├── types/                      # パケット型定義
     │   │   ├── mod.rs
-    │   │   └── query_packet.rs         # QueryRequest/QueryResponse
+    │   │   ├── query_packet.rs         # QueryRequest/QueryResponse（仕様駆動）
+    │   │   ├── location_packet.rs      # LocationRequest/LocationResponse（Ex対応）
+    │   │   └── report_packet.rs        # ReportRequest/ReportResponse
     │   ├── core/                       # コア機能（チェックサム等）
     │   │   └── mod.rs
     │   └── models/                     # データモデル
@@ -59,20 +61,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### サンプル実行
 
 ```bash
-# 新しい構造化されたクライアント
+# 新しい構造化されたクライアント（推奨）
 cargo run --example structured_client
 
-# 旧クライアント（後方互換性）
+# シンプルなクライアント（Weatherのみの最小例）
 cargo run --example client
+
+# パケット生成/復号のショーケース（Query/Location/Report）
+cargo run --example packet_showcase
 ```
 
 ## 機能
 
-- ✅ QueryRequest/QueryResponse パケット処理
-- ✅ 12ビットチェックサム計算
-- ✅ パケットIDマッチング
-- ✅ UDP通信（リトルエンディアン/LSB）
-- ✅ WeatherServer統合
+- ✅ QueryRequest/Response（仕様駆動・JSONフィールド定義）
+- ✅ LocationRequest/Response（座標は拡張フィールド、Exレスポンス対応）
+- ✅ ReportRequest/Response（Type4/5、温度+100オフセット、拡張フィールド）
+- ✅ 12ビットチェックサム（calc/verify）
+- ✅ パケットIDマッチング（version 4bit + id 12bit）
+- ✅ UDP通信（Little Endian / LSB）
 
 ## Python版との対応
 
@@ -81,6 +87,10 @@ cargo run --example client
 | `WIPCommonPy/clients/weather_client.py` | `wip_common_rs/clients/weather_client.rs` |
 | `WIPCommonPy/clients/utils/packet_id_generator.py` | `wip_common_rs/clients/utils/packet_id_generator.rs` |
 | `WIPCommonPy/packet/types/query_packet.py` | `wip_common_rs/packet/types/query_packet.rs` |
+| `WIPCommonPy/packet/types/location_packet.py` | `wip_common_rs/packet/types/location_packet.rs` |
+| `WIPCommonPy/packet/types/report_packet.py` | `wip_common_rs/packet/types/report_packet.rs` |
+
+> Note: `Rust/common/*` は旧構成として残していますが非推奨です。新規実装・サンプルは `src/wip_common_rs/*` を参照してください。
 
 ## 開発
 
@@ -93,6 +103,9 @@ cargo test
 
 # サンプル実行
 cargo run --example structured_client
+
+# 追加サンプル（例）
+# - Location/Report の使い方は `src/wip_common_rs/packet/types/*.rs` のテストを参照
 ```
 
 ## パケット仕様

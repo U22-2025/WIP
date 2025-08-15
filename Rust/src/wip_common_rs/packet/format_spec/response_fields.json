@@ -13,7 +13,7 @@
     "day": {"length": 3, "type": "int"},
     "reserved": {"length": 2, "type": "int"},
     "timestamp": {"length": 64, "type": "int"},
-    "area_code": {"length": 20, "type": "str"},
+    "area_code": {"length": 20, "type": "int"},
     "checksum": {"length": 12, "type": "int"},
     "weather_code": {"length": 16, "type": "int"},
     "temperature": {"length": 8, "type": "int"},

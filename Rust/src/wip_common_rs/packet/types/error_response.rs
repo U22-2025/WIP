@@ -293,10 +293,12 @@ mod tests {
     fn test_packet_type_validation() {
         let error_resp = ErrorResponse::simple_error(1, 400);
         let mut bytes = error_resp.to_bytes();
-        
-        // パケット型を不正に変更
-        bytes[2] = 0xFF; // type フィールドを破壊
-        
+        // パケット型(Type)はヘッダ内の 16..19bit（3bit）
+        {
+            use bitvec::prelude::*;
+            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut bytes[..16]);
+            bits[16..19].store(0u8); // 不正タイプに書き換え
+        }
         let result = ErrorResponse::from_bytes(&bytes);
         assert!(result.is_err());
     }

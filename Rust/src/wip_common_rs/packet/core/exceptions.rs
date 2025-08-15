@@ -17,6 +17,8 @@ pub enum PacketParseError {
     FieldOutOfRange { field: String, value: u128, max: u128 },
     /// 予期しないデータ形式
     UnexpectedFormat(String),
+    /// カスタムエラーメッセージ
+    Custom(String),
 }
 
 impl fmt::Display for PacketParseError {
@@ -36,6 +38,9 @@ impl fmt::Display for PacketParseError {
             }
             PacketParseError::UnexpectedFormat(msg) => {
                 write!(f, "予期しないデータ形式: {}", msg)
+            }
+            PacketParseError::Custom(msg) => {
+                write!(f, "{}", msg)
             }
         }
     }
@@ -191,6 +196,11 @@ impl PacketParseError {
             value,
             max,
         }
+    }
+    
+    /// 汎用エラーメッセージでエラーを作成
+    pub fn new(message: &str) -> Self {
+        PacketParseError::Custom(message.to_string())
     }
 }
 

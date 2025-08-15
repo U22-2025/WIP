@@ -15,6 +15,11 @@ pub fn extract_bits(data: u128, start_bit: usize, length: usize) -> u128 {
         return 0;
     }
     
+    // 範囲チェック: start_bit + length が128を超えてはいけない
+    if start_bit >= 128 || start_bit + length > 128 {
+        return 0;
+    }
+    
     let mask = if length >= 128 {
         u128::MAX
     } else {
@@ -33,6 +38,11 @@ pub fn extract_bits(data: u128, start_bit: usize, length: usize) -> u128 {
 ///     value: 設定する値
 pub fn set_bits(data: &mut u128, start_bit: usize, length: usize, value: u128) {
     if length == 0 || length > 128 {
+        return;
+    }
+    
+    // 範囲チェック: start_bit + length が128を超えてはいけない
+    if start_bit >= 128 || start_bit + length > 128 {
         return;
     }
     
@@ -172,8 +182,8 @@ mod tests {
         // 下位4ビットを抽出 (0110 = 6)
         assert_eq!(extract_bits(data, 0, 4), 6);
         
-        // 2-5ビット目を抽出 (1011 = 11)
-        assert_eq!(extract_bits(data, 2, 4), 11);
+        // 2-5ビット目を抽出 (LSB基準で0101 = 5)
+        assert_eq!(extract_bits(data, 2, 4), 5);
         
         // 上位4ビットを抽出 (1101 = 13)
         assert_eq!(extract_bits(data, 4, 4), 13);
