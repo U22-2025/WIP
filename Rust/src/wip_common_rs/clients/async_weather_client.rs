@@ -220,7 +220,8 @@ impl WeatherClientAsync {
                 let data = &buf[..len];
                 
                 if data.len() >= 2 {
-                    let packet_id = u16::from_le_bytes([data[0], data[1]]);
+                    let raw = u16::from_le_bytes([data[0], data[1]]);
+                    let packet_id = (raw >> 4) & 0x0FFF; // version(4bit) + packet_id(12bit)
                     if packet_id == expected_id {
                         return Ok(data.to_vec());
                     }

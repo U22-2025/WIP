@@ -228,7 +228,8 @@ impl LocationClientImpl {
                 let response_data = &buf[..len];
                 
                 if response_data.len() >= 2 {
-                    let response_packet_id = u16::from_le_bytes([response_data[0], response_data[1]]);
+                    let raw = u16::from_le_bytes([response_data[0], response_data[1]]);
+                    let response_packet_id = (raw >> 4) & 0x0FFF; // version(4bit) + packet_id(12bit)
                     if response_packet_id == packet_id {
                         let response = LocationResponse::from_bytes(response_data).map_err(|e| format!("Failed to parse LocationResponse: {:?}", e))?;
                         return Ok(response.get_area_code());

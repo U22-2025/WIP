@@ -429,11 +429,11 @@ pub fn unpack_ext_fields(data: &[u8]) -> HashMap<String, FieldValue> {
     while idx + 16 <= bits.len() {
         // read 10-bit length
         let mut len: u16 = 0;
-        for i in 0..10 { if bits.get(idx + i).copied().unwrap_or(false) { len |= 1 << i; } }
+        for i in 0..10 { if bits.get(idx + i).map(|b| *b).unwrap_or(false) { len |= 1 << i; } }
         idx += 10;
         // read 6-bit key
         let mut key: u8 = 0;
-        for i in 0..6 { if bits.get(idx + i).copied().unwrap_or(false) { key |= 1 << i; } }
+        for i in 0..6 { if bits.get(idx + i).map(|b| *b).unwrap_or(false) { key |= 1 << i; } }
         idx += 6;
         let byte_len = len as usize;
         if idx + byte_len * 8 > bits.len() { break; }
