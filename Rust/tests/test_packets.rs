@@ -22,8 +22,8 @@ fn test_location_request_serialization() {
     let bytes = request.to_bytes();
     assert!(!bytes.is_empty());
     
-    // Verify that packet has valid checksum
-    assert!(verify_checksum12(&bytes).is_ok());
+    // Verify that packet has valid checksum (standard 116-bit position)
+    assert!(verify_checksum12(&bytes, 116, 12));
 }
 
 #[test]
@@ -58,8 +58,8 @@ fn test_report_request_serialization() {
     let bytes = request.to_bytes();
     assert!(!bytes.is_empty());
     
-    // Verify that packet has valid checksum
-    assert!(verify_checksum12(&bytes).is_ok());
+    // Verify that packet has valid checksum (standard 116-bit position)
+    assert!(verify_checksum12(&bytes, 116, 12));
 }
 
 #[test]
@@ -81,8 +81,8 @@ fn test_query_request_serialization() {
     let bytes = request.to_bytes();
     assert!(!bytes.is_empty());
     
-    // Verify that packet has valid checksum
-    assert!(verify_checksum12(&bytes).is_ok());
+    // Verify that packet has valid checksum (standard 116-bit position)
+    assert!(verify_checksum12(&bytes, 116, 12));
 }
 
 #[test]
