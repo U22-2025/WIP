@@ -1,9 +1,15 @@
 ﻿#include "wiplib/client/location_client.hpp"
 
 #include "wiplib/packet/codec.hpp"
+#include "wiplib/packet/location_packet.hpp"
+#include "wiplib/packet/extended_field.hpp"
+#include "wiplib/packet/request.hpp"
+#include "wiplib/packet/response.hpp"
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <cmath>
+#include <algorithm>
 
 #if defined(_WIN32)
 #  include <winsock2.h>

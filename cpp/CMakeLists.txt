@@ -16,10 +16,16 @@ set(WIPLIB_SRC
     src/packet/bit_utils.cpp
     src/packet/format_base.cpp
     src/packet/extended_field.cpp
+    src/packet/request.cpp
+    src/packet/response.cpp
     src/client/weather_client.cpp
     src/client/wip_client.cpp
     src/client/location_client.cpp
     src/client/query_client.cpp
+    src/client/async_weather_client.cpp
+    src/client/utils/safe_sock_sendto.cpp
+    src/client/utils/receive_with_id.cpp
+    src/client/utils/connection_pool.cpp
 )
 
 if(WIPLIB_BUILD_SHARED)
@@ -32,6 +38,15 @@ target_include_directories(wiplib
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+# Link required libraries
+find_package(Threads REQUIRED)
+target_link_libraries(wiplib PRIVATE Threads::Threads)
+
+# Platform-specific socket libraries
+if(WIN32)
+    target_link_libraries(wiplib PRIVATE ws2_32 wsock32)
+endif()
 
 target_compile_definitions(wiplib PRIVATE $<$<CONFIG:Debug>:WIPLIB_DEBUG=1>)
 
@@ -65,3 +80,7 @@ target_include_directories(wip_packet_decode PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 add_executable(wip_packet_roundtrip tools/wip_packet_roundtrip.cpp)
 target_link_libraries(wip_packet_roundtrip PRIVATE wiplib)
 target_include_directories(wip_packet_roundtrip PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(async_weather_cli tools/async_weather_cli.cpp)
+target_link_libraries(async_weather_cli PRIVATE wiplib)
+target_include_directories(async_weather_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
