@@ -26,6 +26,12 @@ set(WIPLIB_SRC
     src/client/utils/safe_sock_sendto.cpp
     src/client/utils/receive_with_id.cpp
     src/client/utils/connection_pool.cpp
+    src/utils/log_config.cpp
+    src/utils/auth.cpp
+    src/utils/config_loader.cpp
+    src/utils/file_cache.cpp
+    src/utils/network.cpp
+    src/packet/debug/debug_logger.cpp
 )
 
 if(WIPLIB_BUILD_SHARED)
