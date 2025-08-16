@@ -31,12 +31,12 @@ static void usage() {
 }
 
 static bool parse_args(int argc, char** argv, GenArgs& args) {
+  int i = 1;
   auto next = [&](const char* err) -> const char* {
-    static int i = 1;
-    if (i+1 >= argc) { std::cerr << err << "\n"; return static_cast<const char*>(nullptr); }
+    if (i + 1 >= argc) { std::cerr << err << "\n"; return static_cast<const char*>(nullptr); }
     return argv[++i];
   };
-  for (int i = 1; i < argc; ++i) {
+  for (; i < argc; ++i) {
     std::string a = argv[i];
     if (a == "--type") { const char* v = next("--type needs value"); if (!v) return false; args.type = v; }
     else if (a == "--area") { const char* v = next("--area needs value"); if (!v) return false; args.area = std::string(v); }

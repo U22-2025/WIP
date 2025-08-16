@@ -7,20 +7,15 @@
 namespace wiplib::proto {
 
 static uint16_t compute_checksum12_le(std::array<std::uint8_t, 16> bytes_le) noexcept {
-  // チェックサムビット(116-127)を0にした状態で12ビット1の補数和
-  // 位置116-127 -> バイト 14ビット目以降ではなく、ビット単位で消す
-  // 簡便に: 対象ビット範囲を0にするマスク適用
-  // ここではビット演算で直接0化する
+  // チェックサムビット(116-127)を0にした状態で12ビット1の補数和（キャリーフォールド）
   auto clear_bit = [&](size_t bitpos){ bytes_le[bitpos/8] &= static_cast<uint8_t>(~(1u << (bitpos%8))); };
   for (size_t i = 116; i < 128; ++i) clear_bit(i);
-
   uint32_t total = 0;
-  for (auto b : bytes_le) total += b;
+  for (auto b : bytes_le) total += static_cast<uint32_t>(b);
   while (total >> 12) {
     total = (total & 0x0FFFu) + (total >> 12);
   }
-  uint16_t checksum = static_cast<uint16_t>((~total) & 0x0FFFu);
-  return checksum;
+  return static_cast<uint16_t>((~total) & 0x0FFFu);
 }
 
 static inline void set_bits_le(std::array<std::uint8_t, 16>& out, size_t start, size_t length, uint64_t value) noexcept {
@@ -44,6 +39,34 @@ static inline uint64_t get_bits_le(std::span<const std::uint8_t> in, size_t star
     value |= (static_cast<uint64_t>(bit) << i);
   }
   return value;
+}
+
+static inline void set_bits_le_vec(std::vector<std::uint8_t>& out, size_t start, size_t length, uint64_t value) noexcept {
+  for (size_t i = 0; i < length; ++i) {
+    size_t bitpos = start + i;
+    size_t byte_index = bitpos / 8;
+    size_t bit_index = bitpos % 8; // LSB-first
+    uint8_t bit = static_cast<uint8_t>((value >> i) & 0x1u);
+    if (bit) out[byte_index] |= static_cast<uint8_t>(1u << bit_index);
+    else out[byte_index] &= static_cast<uint8_t>(~(1u << bit_index));
+  }
+}
+
+static uint16_t compute_checksum12_over_packet(std::span<const std::uint8_t> bytes) noexcept {
+  if (bytes.size() < kFixedHeaderSize) return 0;
+  std::vector<std::uint8_t> copy(bytes.begin(), bytes.end());
+  // clear checksum bits 116..127 (12 bits) in-place (LSB-first within byte)
+  for (size_t i = 116; i < 128; ++i) {
+    size_t byte_index = i / 8;
+    size_t bit_index = i % 8;
+    copy[byte_index] &= static_cast<uint8_t>(~(1u << bit_index));
+  }
+  uint32_t total = 0;
+  for (auto b : copy) total += static_cast<uint32_t>(b);
+  while (total >> 12) {
+    total = (total & 0x0FFFu) + (total >> 12);
+  }
+  return static_cast<uint16_t>((~total) & 0x0FFFu);
 }
 
 wiplib::Result<HeaderBytes> encode_header(const Header& h) noexcept {
@@ -79,11 +102,9 @@ wiplib::Result<Header> decode_header(std::span<const std::uint8_t> bytes) noexce
     return make_error_code(WipErrc::invalid_packet);
   }
   Header h{};
-  // チェックサム検証
-  HeaderBytes hb{};
-  std::memcpy(hb.data(), bytes.data(), kFixedHeaderSize);
+  // チェックサム検証（パケット全体を対象）
   uint16_t stored = static_cast<uint16_t>(get_bits_le(bytes, 116, 12));
-  uint16_t calc = compute_checksum12_le(hb);
+  uint16_t calc = compute_checksum12_over_packet(bytes);
   if (calc != stored) {
     return make_error_code(WipErrc::checksum_mismatch);
   }
@@ -120,14 +141,14 @@ wiplib::Result<std::vector<std::uint8_t>> encode_packet(const Packet& p) noexcep
   // レスポンスフィールド（クライアント送信では通常含めない）
   if (p.response_fields.has_value()) {
     const auto& rf = p.response_fields.value();
-    // little-endian 全体方針に従い、下位バイトから格納
+    // little-endian: 下位バイトから格納
     out.push_back(static_cast<uint8_t>(rf.weather_code & 0xFF));
     out.push_back(static_cast<uint8_t>((rf.weather_code >> 8) & 0xFF));
     out.push_back(static_cast<uint8_t>(static_cast<uint8_t>(rf.temperature)));
     out.push_back(static_cast<uint8_t>(rf.precipitation_prob));
   }
 
-  // 拡張フィールド
+  // 拡張フィールド（ヘッダーは 2B LE, 値バイト列）
   for (const auto& ext : p.extensions) {
     if (ext.data.size() > 0x3FFu) { // 10-bit length 上限
       return make_error_code(WipErrc::invalid_packet);
@@ -141,6 +162,9 @@ wiplib::Result<std::vector<std::uint8_t>> encode_packet(const Packet& p) noexcep
     out.insert(out.end(), ext.data.begin(), ext.data.end());
   }
 
+  // パケット全体でチェックサムを再計算し、ヘッダーに反映
+  uint16_t cs = compute_checksum12_over_packet(out);
+  set_bits_le_vec(out, 116, 12, cs);
   return out;
 }
 
@@ -155,7 +179,7 @@ wiplib::Result<Packet> decode_packet(std::span<const std::uint8_t> bytes) noexce
   // レスポンスフィールド（4バイト分存在すれば読む）
   if (n >= offset + 4 && (p.header.type == PacketType::WeatherResponse || p.header.type == PacketType::CoordinateResponse)) {
     ResponseFields rf{};
-    // little-endian
+    // little-endian 16bit + int8 + uint8
     rf.weather_code = static_cast<uint16_t>(bytes[offset] | (bytes[offset + 1] << 8));
     rf.temperature = static_cast<int8_t>(bytes[offset + 2]);
     rf.precipitation_prob = static_cast<uint8_t>(bytes[offset + 3]);
@@ -183,4 +207,3 @@ wiplib::Result<Packet> decode_packet(std::span<const std::uint8_t> bytes) noexce
 }
 
 } // namespace wiplib::proto
-

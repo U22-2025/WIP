@@ -28,7 +28,7 @@ wiplib::Result<WeatherResult> WeatherClient::get_weather_by_coordinates(double l
   // packet_id: ランダム12bit
   std::mt19937 rng{std::random_device{}()};
   p.header.packet_id = static_cast<uint16_t>(rng() & 0x0FFFu);
-  p.header.type = PacketType::CoordinateRequest;
+  p.header.type = PacketType::WeatherRequest;
   p.header.flags.weather = opt.weather;
   p.header.flags.temperature = opt.temperature;
   p.header.flags.precipitation_prob = opt.precipitation_prob;

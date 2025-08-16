@@ -12,6 +12,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(WIPLIB_SRC
     src/packet/codec.cpp
+    src/packet/checksum.cpp
+    src/packet/bit_utils.cpp
+    src/packet/format_base.cpp
+    src/packet/extended_field.cpp
     src/client/weather_client.cpp
     src/client/wip_client.cpp
     src/client/location_client.cpp

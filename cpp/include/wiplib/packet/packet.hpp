@@ -33,7 +33,7 @@ struct ResponseFields {
 // 拡張フィールド（可変長）
 struct ExtendedField {
   uint8_t data_type = 0; // 6bit想定（0-63）。実際は下位6bit。
-  std::vector<std::uint8_t> data; // 生データ（ビッグエンディアン）
+  std::vector<std::uint8_t> data; // 値データ（little-endian表現のバイト列を想定）
 };
 
 struct Packet {
