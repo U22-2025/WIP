@@ -23,6 +23,12 @@ gethostname = "0.4"
 lazy_static = "1.4"
 fastrand = "2.0"
 
+[dev-dependencies]
+tokio-test = "0.4"
+criterion = "0.5"
+tempfile = "3.8"
+mockall = "0.11"
+
 [features]
 default = []
 redis-logging = ["redis"]
@@ -41,3 +47,7 @@ test = false
 name = "packet_showcase"
 path = "examples/packet_showcase.rs"
 test = false
+
+[[bench]]
+name = "simple_performance"
+harness = false
