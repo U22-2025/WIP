@@ -151,7 +151,7 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
 #if defined(_WIN32)
       closesocket(sock); WSACleanup();
 #else
-      close(sock);
+      ::close(sock);
 #endif
       return make_error_code(WipErrc::io_error);
     }
@@ -163,7 +163,7 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
 #if defined(_WIN32)
     closesocket(sock); WSACleanup();
 #else
-    close(sock);
+    ::close(sock);
 #endif
     return make_error_code(WipErrc::io_error);
   }
@@ -206,7 +206,7 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
 #if defined(_WIN32)
           closesocket(sock); WSACleanup();
 #else
-          close(sock);
+          ::close(sock);
 #endif
           return dec;
         }
@@ -218,7 +218,7 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
 #if defined(_WIN32)
   closesocket(sock); WSACleanup();
 #else
-  close(sock);
+  ::close(sock);
 #endif
   return make_error_code(WipErrc::timeout);
 }

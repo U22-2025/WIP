@@ -4,6 +4,7 @@
 # OS/IDE
 /.vscode/
 /.vs/
+/.mcp.json
 /.idea/
 *.VC.db
 *.opendb
