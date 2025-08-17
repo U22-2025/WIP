@@ -3,6 +3,7 @@
 #include "wiplib/packet/codec.hpp"
 #include "wiplib/client/location_client.hpp"
 #include "wiplib/client/query_client.hpp"
+#include "wiplib/client/auth_config.hpp"
 #include <chrono>
 #include <cstring>
 #include <random>
@@ -46,6 +47,8 @@ void WipClient::update_server(std::string host, uint16_t port) {
   cfg_.host = std::move(host);
   cfg_.port = port;
   proxy_client_ = WeatherClient(cfg_.host, cfg_.port);
+  // re-apply auth config to new proxy client instance
+  proxy_client_.set_auth_config(auth_cfg_);
 }
 
 void WipClient::set_direct_endpoints(std::string location_host, uint16_t location_port,
@@ -114,11 +117,13 @@ Result<WeatherData> WipClient::get_weather_by_area_code(std::string_view area_co
 
 Result<std::string> WipClient::resolve_area_code_direct(double lat, double lon, const WeatherOptions& opt) noexcept {
   LocationClient lc(location_host_, location_port_);
+  lc.set_auth_config(auth_cfg_);
   return lc.get_area_code_simple(lat, lon);
 }
 
 Result<WeatherData> WipClient::query_weather_direct(std::string_view area_code, const WeatherOptions& opt) noexcept {
   QueryClient qc(query_host_, query_port_);
+  qc.set_auth_config(auth_cfg_);
   QueryOptions qo{}; qo.weather=opt.weather; qo.temperature=opt.temperature; qo.precipitation_prob=opt.precipitation_prob; qo.alerts=opt.alert; qo.disaster=opt.disaster; qo.day=opt.day;
   auto r = qc.get_weather_data(area_code, qo);
   if (!r) return r.error();
@@ -254,6 +259,11 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
   ::close(sock);
 #endif
   return make_error_code(WipErrc::timeout);
+}
+
+void WipClient::set_auth_config(const AuthConfig& cfg) {
+  auth_cfg_ = cfg;
+  proxy_client_.set_auth_config(auth_cfg_);
 }
 
 } // namespace wiplib::client

@@ -9,6 +9,7 @@
 #include <atomic>
 #include <optional>
 #include <functional>
+#include "wiplib/packet/packet.hpp"
 
 namespace wiplib::utils {
 
@@ -288,6 +289,16 @@ public:
         const std::string& passphrase,
         const std::vector<uint8_t>& received_hash,
         const std::string& algo_name);
+
+    /**
+     * @brief パケットに Python 互換の認証ハッシュを付与
+     * @details AUTH_SPEC に基づき、HMAC-SHA256 を hex 文字列化して拡張フィールド(ID=4)へ格納し、
+     *          header.flags.extended を立てます。
+     * @param packet 対象パケット（packet_id, timestamp を設定済みであること）
+     * @param passphrase 共有パスフレーズ（空の場合は何もせず false）
+     * @return 付与に成功した場合 true
+     */
+    static bool attach_auth_hash(wiplib::proto::Packet& packet, const std::string& passphrase);
 
     // Helpers
     static HashAlgorithm parse_hash_algorithm(const std::string& name);

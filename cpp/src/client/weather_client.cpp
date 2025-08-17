@@ -1,6 +1,7 @@
 ﻿#include "wiplib/client/weather_client.hpp"
 
 #include "wiplib/packet/codec.hpp"
+#include "wiplib/utils/auth.hpp"
 #include <chrono>
 #include <random>
 #include <cstring>
@@ -89,8 +90,15 @@ wiplib::Result<WeatherResult> WeatherClient::get_weather_by_area_code(std::strin
 
 wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::proto::Packet& req) noexcept {
   using namespace wiplib::proto;
-  // Client does not use 'source' extended field. Encode and send as-is.
-  auto enc = encode_packet(req);
+  // Prepare packet and attach auth if configured
+  Packet send_pkt = req;
+  if (auth_cfg_.enabled) {
+    // Attach auth for proxy WeatherServer request when passphrase provided
+    if (auth_cfg_.weather && !auth_cfg_.weather->empty()) {
+      wiplib::utils::WIPAuth::attach_auth_hash(send_pkt, *auth_cfg_.weather);
+    }
+  }
+  auto enc = encode_packet(send_pkt);
   if (!enc) return enc.error();
   const auto& payload = enc.value();
 
@@ -228,6 +236,35 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
             // 座標リクエストの場合: LocationResponse(1) を受けたら、クライアントが QueryRequest(2) を送信し、WeatherResponse(3) を待つ
             if (req.header.type == PacketType::CoordinateRequest) {
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::CoordinateResponse)) {
+                // Verify only when response_auth flag set
+                if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+                  const std::string* pass = nullptr;
+                  if (auth_cfg_.location && !auth_cfg_.location->empty()) pass = &*auth_cfg_.location;
+                  if (pass) {
+                    std::vector<uint8_t> recv_hash;
+                    for (const auto& ef : rp.extensions) {
+                      if (ef.data_type == 4) {
+                        const auto& d = ef.data; if (d.size()==64) {
+                          recv_hash.reserve(32);
+                          auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };
+                          bool ok=true; for (size_t i=0;i<64;i+=2){ int hi=hexval(d[i]); int lo=hexval(d[i+1]); if (hi<0||lo<0){ok=false;break;} recv_hash.push_back(static_cast<uint8_t>((hi<<4)|lo)); }
+                          if (!ok) recv_hash.clear();
+                        }
+                        break;
+                      }
+                    }
+                    if (!recv_hash.empty()) {
+                      if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
+#if defined(_WIN32)
+                        closesocket(sock); WSACleanup();
+#else
+                        close(sock);
+#endif
+                        return make_error_code(WipErrc::invalid_packet);
+                      }
+                    }
+                  }
+                }
                 saw_location_response = true;
                 result.area_code = rp.header.area_code; // 受領エリアコード
                 // 直ちに QueryRequest を送信（常にクライアントが2回目を送る）
@@ -271,7 +308,12 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                     std::chrono::system_clock::now().time_since_epoch()).count());
                 qreq.header.area_code = rp.header.area_code;
 
-                // no source extended field
+                // Attach auth for QueryRequest if configured
+                if (auth_cfg_.enabled) {
+                  if (auth_cfg_.query && !auth_cfg_.query->empty()) {
+                    wiplib::utils::WIPAuth::attach_auth_hash(qreq, *auth_cfg_.query);
+                  }
+                }
 
                 auto enc2 = encode_packet(qreq);
                 if (!enc2) {
@@ -297,6 +339,39 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                 continue;
               }
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
+                // Verify only when response_auth flag set
+                if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+                  const std::string* pass = nullptr;
+                  if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
+                  if (pass) {
+                    // find ext id=4 hex64
+                    std::vector<uint8_t> recv_hash;
+                    for (const auto& ef : rp.extensions) {
+                      if (ef.data_type == 4) {
+                        const auto& d = ef.data;
+                        if (d.size() == 64) {
+                          // hex to bytes
+                          recv_hash.reserve(32);
+                          auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };
+                          bool ok=true;
+                          for (size_t i=0;i<64;i+=2) { int hi=hexval(d[i]); int lo=hexval(d[i+1]); if (hi<0||lo<0){ ok=false; break;} recv_hash.push_back(static_cast<uint8_t>((hi<<4)|lo)); }
+                          if (!ok) recv_hash.clear();
+                        }
+                        break;
+                      }
+                    }
+                    if (!recv_hash.empty()) {
+                      if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
+#if defined(_WIN32)
+                        closesocket(sock); WSACleanup();
+#else
+                        close(sock);
+#endif
+                        return make_error_code(WipErrc::invalid_packet);
+                      }
+                    }
+                  }
+                }
                 // 最終レスポンス
                 if (rp.response_fields.has_value()) {
                   result.weather_code = rp.response_fields->weather_code;
@@ -316,6 +391,35 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
             } else {
               // エリアコード指定（WeatherRequest→WeatherResponse 1段階）
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
+                // Verify only when response_auth flag set
+                if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+                  const std::string* pass = nullptr;
+                  if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
+                  if (pass) {
+                    std::vector<uint8_t> recv_hash;
+                    for (const auto& ef : rp.extensions) {
+                      if (ef.data_type == 4) {
+                        const auto& d = ef.data; if (d.size()==64) {
+                          recv_hash.reserve(32);
+                          auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };
+                          bool ok=true; for (size_t i=0;i<64;i+=2){ int hi=hexval(d[i]); int lo=hexval(d[i+1]); if (hi<0||lo<0){ok=false;break;} recv_hash.push_back(static_cast<uint8_t>((hi<<4)|lo)); }
+                          if (!ok) recv_hash.clear();
+                        }
+                        break;
+                      }
+                    }
+                    if (!recv_hash.empty()) {
+                      if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
+#if defined(_WIN32)
+                        closesocket(sock); WSACleanup();
+#else
+                        close(sock);
+#endif
+                        return make_error_code(WipErrc::invalid_packet);
+                      }
+                    }
+                  }
+                }
                 result.area_code = rp.header.area_code;
                 if (rp.response_fields.has_value()) {
                   result.weather_code = rp.response_fields->weather_code;

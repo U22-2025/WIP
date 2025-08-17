@@ -8,6 +8,7 @@
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
 #include "wiplib/client/weather_client.hpp" // reuse QueryOptions and WeatherResult
+#include "wiplib/client/auth_config.hpp"
 
 namespace wiplib::client {
 
@@ -21,10 +22,12 @@ public:
 
   void set_server(std::string host, uint16_t port) { host_ = std::move(host); port_ = port; }
 
+  void set_auth_config(const AuthConfig& cfg) { auth_cfg_ = cfg; }
+
 private:
   std::string host_;
   uint16_t port_;
+  AuthConfig auth_cfg_{};
 };
 
 } // namespace wiplib::client
-

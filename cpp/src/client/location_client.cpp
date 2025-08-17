@@ -1,6 +1,7 @@
 ﻿#include "wiplib/client/location_client.hpp"
 
 #include "wiplib/packet/codec.hpp"
+#include "wiplib/utils/auth.hpp"
 #include "wiplib/packet/location_packet.hpp"
 #include "wiplib/packet/extended_field.hpp"
 #include "wiplib/packet/request.hpp"
@@ -49,11 +50,21 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
   p.header.type = PacketType::CoordinateRequest;
   p.header.flags.extended = true;
   p.header.area_code = 0;
-  p.header.timestamp = 0; // 任意
+  // timestamp is used in auth hash; set when auth enabled
+  p.header.timestamp = 0; // default when auth disabled
   ExtendedField lat; lat.data_type = 33; lat.data = coord_to_le(latitude);
   ExtendedField lon; lon.data_type = 34; lon.data = coord_to_le(longitude);
   p.extensions.push_back(std::move(lat));
   p.extensions.push_back(std::move(lon));
+
+  // Attach auth if configured
+  if (auth_cfg_.enabled) {
+    if (auth_cfg_.location && !auth_cfg_.location->empty()) {
+      p.header.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+          std::chrono::system_clock::now().time_since_epoch()).count());
+      wiplib::utils::WIPAuth::attach_auth_hash(p, *auth_cfg_.location);
+    }
+  }
 
   auto enc = encode_packet(p);
   if (!enc) return enc.error();
@@ -145,6 +156,35 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
       }
       const Packet& rp = dec.value();
       if (rp.header.type == PacketType::CoordinateResponse) {
+        // Verify only when response_auth flag set
+        if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+          const std::string* pass = nullptr;
+          if (auth_cfg_.location && !auth_cfg_.location->empty()) pass = &*auth_cfg_.location;
+          if (pass) {
+            std::vector<uint8_t> recv_hash;
+            for (const auto& ef : rp.extensions) {
+              if (ef.data_type == 4) {
+                const auto& d = ef.data; if (d.size()==64) {
+                  recv_hash.reserve(32);
+                  auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };
+                  bool ok=true; for (size_t i=0;i<64;i+=2){ int hi=hexval(d[i]); int lo=hexval(d[i+1]); if (hi<0||lo<0){ok=false;break;} recv_hash.push_back(static_cast<uint8_t>((hi<<4)|lo)); }
+                  if (!ok) recv_hash.clear();
+                }
+                break;
+              }
+            }
+            if (!recv_hash.empty()) {
+              if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
+#if defined(_WIN32)
+                closesocket(sock); WSACleanup();
+#else
+                close(sock);
+#endif
+                return make_error_code(WipErrc::invalid_packet);
+              }
+            }
+          }
+        }
 #if defined(_WIN32)
         closesocket(sock); WSACleanup();
 #else

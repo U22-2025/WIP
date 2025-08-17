@@ -1,4 +1,5 @@
 #include "wiplib/utils/auth.hpp"
+#include "wiplib/packet/packet.hpp"
 #include <random>
 #include <sstream>
 
@@ -278,5 +279,36 @@ std::unique_ptr<WIPAuth> AuthFactory::create_basic_auth() { return std::make_uni
 std::unique_ptr<WIPAuth> AuthFactory::create_high_security_auth() { SecurityPolicy p; p.minimum_auth_level = AuthLevel::Advanced; return std::make_unique<WIPAuth>(p); }
 std::unique_ptr<WIPAuth> AuthFactory::create_development_auth() { SecurityPolicy p; p.require_token_renewal = false; return std::make_unique<WIPAuth>(p); }
 std::unique_ptr<WIPAuth> AuthFactory::create_custom_auth(const SecurityPolicy& p) { return std::make_unique<WIPAuth>(p); }
+
+} // namespace wiplib::utils
+
+// Phase 1 helper: attach Python-compatible auth_hash extended field
+namespace wiplib::utils {
+
+static inline std::string to_hex_lower(const std::vector<uint8_t>& bytes){
+    static const char* hex = "0123456789abcdef";
+    std::string out;
+    out.resize(bytes.size()*2);
+    for (size_t i=0;i<bytes.size();++i){
+        out[i*2] = hex[(bytes[i] >> 4) & 0xF];
+        out[i*2+1] = hex[bytes[i] & 0xF];
+    }
+    return out;
+}
+
+bool WIPAuth::attach_auth_hash(wiplib::proto::Packet& packet, const std::string& passphrase){
+    if (passphrase.empty()) return false;
+    // packet_id は 12bit 値だが、ヘッダへの格納値をそのまま使用（Python 実装互換）
+    auto mac = calculate_auth_hash(packet.header.packet_id, packet.header.timestamp, passphrase, HashAlgorithm::SHA256);
+    auto hex = to_hex_lower(mac);
+    wiplib::proto::ExtendedField f{};
+    // Python の extended_fields.json で auth_hash は id=4, type=str
+    f.data_type = 4; // auth_hash
+    f.data.assign(hex.begin(), hex.end());
+    packet.extensions.push_back(std::move(f));
+    packet.header.flags.extended = true;
+    packet.header.flags.request_auth = true; // リクエスト側の被認証フラグ
+    return true;
+}
 
 } // namespace wiplib::utils

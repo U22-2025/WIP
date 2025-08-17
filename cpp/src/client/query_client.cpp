@@ -1,6 +1,8 @@
 ﻿#include "wiplib/client/query_client.hpp"
 
 #include "wiplib/packet/codec.hpp"
+#include "wiplib/utils/auth.hpp"
+#include <chrono>
 #include <random>
 
 #if defined(_WIN32)
@@ -39,6 +41,15 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   uint32_t ac = 0; for (char c : area_code) if (c>='0' && c<='9') ac = ac*10u + static_cast<uint32_t>(c-'0');
   p.header.area_code = ac & 0xFFFFFu;
   // client does not use source; no extended fields for direct query
+
+  // Attach auth if configured
+  if (auth_cfg_.enabled) {
+    if (auth_cfg_.query && !auth_cfg_.query->empty()) {
+      p.header.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+          std::chrono::system_clock::now().time_since_epoch()).count());
+      wiplib::utils::WIPAuth::attach_auth_hash(p, *auth_cfg_.query);
+    }
+  }
 
   auto enc = encode_packet(p);
   if (!enc) return enc.error();
@@ -92,6 +103,31 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   if (!dec) return dec.error();
   const Packet& rp = dec.value();
   if (rp.header.type != PacketType::WeatherResponse) return make_error_code(WipErrc::invalid_packet);
+
+  // Verify only when response_auth flag set
+  if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+    const std::string* pass = nullptr;
+    if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
+    if (pass) {
+      std::vector<uint8_t> recv_hash;
+      for (const auto& ef : rp.extensions) {
+        if (ef.data_type == 4) {
+          const auto& d = ef.data; if (d.size()==64) {
+            recv_hash.reserve(32);
+            auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };
+            bool ok=true; for (size_t i=0;i<64;i+=2){ int hi=hexval(d[i]); int lo=hexval(d[i+1]); if (hi<0||lo<0){ok=false;break;} recv_hash.push_back(static_cast<uint8_t>((hi<<4)|lo)); }
+            if (!ok) recv_hash.clear();
+          }
+          break;
+        }
+      }
+      if (!recv_hash.empty()) {
+        if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
+          return make_error_code(WipErrc::invalid_packet);
+        }
+      }
+    }
+  }
 
   WeatherResult out{}; out.area_code = rp.header.area_code;
   if (rp.response_fields) {

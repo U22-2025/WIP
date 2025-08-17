@@ -12,6 +12,7 @@
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
 #include "wiplib/packet/location_packet.hpp"
+#include "wiplib/client/auth_config.hpp"
 
 namespace wiplib::client {
 
@@ -170,9 +171,12 @@ public:
       port_ = port; 
   }
 
+  void set_auth_config(const AuthConfig& cfg) { auth_cfg_ = cfg; }
+
 private:
   std::string host_;
   uint16_t port_;
+  AuthConfig auth_cfg_{};
   
   // 地理的境界
   GeographicBounds geographic_bounds_;
@@ -231,4 +235,3 @@ public:
 };
 
 } // namespace wiplib::client
-

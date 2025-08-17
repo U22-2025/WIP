@@ -7,6 +7,7 @@
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
 #include "wiplib/packet/packet.hpp"
+#include "wiplib/client/auth_config.hpp"
 
 namespace wiplib::client {
 
@@ -35,9 +36,12 @@ public:
   wiplib::Result<WeatherResult> get_weather_by_coordinates(double lat, double lon, const QueryOptions& opt) noexcept;
   wiplib::Result<WeatherResult> get_weather_by_area_code(std::string_view area_code, const QueryOptions& opt) noexcept;
 
+  void set_auth_config(const AuthConfig& cfg) { auth_cfg_ = cfg; }
+
 private:
   std::string host_;
   uint16_t port_ = 4110;
+  AuthConfig auth_cfg_{};
   wiplib::Result<WeatherResult> request_and_parse(const wiplib::proto::Packet& req) noexcept;
 };
 

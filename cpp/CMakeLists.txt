@@ -30,6 +30,7 @@ set(WIPLIB_SRC
     src/client/utils/connection_pool.cpp
     src/utils/log_config.cpp
     src/utils/auth.cpp
+    src/utils/auth_config.cpp
     src/utils/config_loader.cpp
     src/utils/file_cache.cpp
     src/utils/network.cpp

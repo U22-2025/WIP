@@ -6,6 +6,7 @@
 
 #include "wiplib/client/weather_client.hpp"
 #include "wiplib/client/wip_client.hpp"
+#include "wiplib/client/auth_config.hpp"
 
 struct Args {
   std::string host = "127.0.0.1";
@@ -13,24 +14,35 @@ struct Args {
   std::optional<std::pair<double,double>> coords;
   std::optional<std::string> area;
   wiplib::client::QueryOptions opt{};
-  bool direct = false; // when true, bypass WeatherServer and send two requests
+  bool proxy = false; // when true, use WeatherServer (proxy mode); default is direct
   // direct endpoints (optional overrides)
   std::optional<std::string> location_host;
   std::optional<uint16_t> location_port;
   std::optional<std::string> query_host;
   std::optional<uint16_t> query_port;
+  // auth
+  std::optional<bool> auth_enabled; // if not set, falls back to env
+  std::optional<bool> verify_response; // if not set, falls back to env
+  std::optional<std::string> auth_weather;
+  std::optional<std::string> auth_location;
+  std::optional<std::string> auth_query;
+  std::optional<std::string> auth_report;
 };
 
 static void print_usage() {
   std::cout << "Usage:\n"
-               "  wip_client_cli --host <HOST> --port <PORT> --coords <LAT> <LON> [flags]\n"
-               "  wip_client_cli --host <HOST> --port <PORT> --area <AREA_CODE> [flags]\n"
-               "  wip_client_cli --direct [--location-host H --location-port P --query-host H --query-port P] (--coords LAT LON | --area CODE) [flags]\n\n"
+               "  wip_client_cli [--proxy --host <HOST> --port <PORT>] (--coords <LAT> <LON> | --area <AREA_CODE>) [flags]\n"
+               "  (default is direct mode; use --proxy to go via WeatherServer)\n\n"
                "Flags:\n"
                "  --weather (default on), --no-weather\n"
                "  --temperature (default on), --no-temperature\n"
                "  --precipitation, --alerts, --disaster\n"
-               "  --day <0-7>\n";
+               "  --day <0-7>\n"
+               "  --location-host H, --location-port P (direct mode)\n"
+               "  --query-host H, --query-port P (direct mode)\n"
+               "  --auth-enabled, --no-auth-enabled\n"
+               "  --auth-weather <PASS>, --auth-location <PASS>, --auth-query <PASS>, --auth-report <PASS>\n"
+               "  --verify-response, --no-verify-response\n";
 }
 
 static bool parse_args(int argc, char** argv, Args& args) {
@@ -49,8 +61,8 @@ static bool parse_args(int argc, char** argv, Args& args) {
       args.coords = std::make_pair(std::stod(v1), std::stod(v2));
     } else if (a == "--area") {
       const char* v = next("--area needs value"); if (!v) return false; args.area = std::string(v);
-    } else if (a == "--direct") {
-      args.direct = true;
+    } else if (a == "--proxy") {
+      args.proxy = true;
     } else if (a == "--location-host") {
       const char* v = next("--location-host needs value"); if (!v) return false; args.location_host = std::string(v);
     } else if (a == "--location-port") {
@@ -75,6 +87,22 @@ static bool parse_args(int argc, char** argv, Args& args) {
       args.opt.disaster = true;
     } else if (a == "--day") {
       const char* v = next("--day needs value"); if (!v) return false; args.opt.day = static_cast<uint8_t>(std::stoi(v));
+    } else if (a == "--auth-enabled") {
+      args.auth_enabled = true;
+    } else if (a == "--no-auth-enabled") {
+      args.auth_enabled = false;
+    } else if (a == "--auth-weather") {
+      const char* v = next("--auth-weather needs value"); if (!v) return false; args.auth_weather = std::string(v);
+    } else if (a == "--auth-location") {
+      const char* v = next("--auth-location needs value"); if (!v) return false; args.auth_location = std::string(v);
+    } else if (a == "--auth-query") {
+      const char* v = next("--auth-query needs value"); if (!v) return false; args.auth_query = std::string(v);
+    } else if (a == "--auth-report") {
+      const char* v = next("--auth-report needs value"); if (!v) return false; args.auth_report = std::string(v);
+    } else if (a == "--verify-response") {
+      args.verify_response = true;
+    } else if (a == "--no-verify-response") {
+      args.verify_response = false;
     } else if (a == "-h" || a == "--help") {
       print_usage(); return false;
     } else {
@@ -96,9 +124,19 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  if (!args.direct) {
+  // Build AuthConfig from env and override with CLI flags if provided
+  wiplib::client::AuthConfig auth_cfg = wiplib::client::AuthConfig::from_env();
+  if (args.auth_enabled.has_value()) auth_cfg.enabled = args.auth_enabled.value();
+  if (args.verify_response.has_value()) auth_cfg.verify_response = args.verify_response.value();
+  if (args.auth_weather.has_value()) auth_cfg.weather = args.auth_weather.value();
+  if (args.auth_location.has_value()) auth_cfg.location = args.auth_location.value();
+  if (args.auth_query.has_value()) auth_cfg.query = args.auth_query.value();
+  if (args.auth_report.has_value()) auth_cfg.report = args.auth_report.value();
+
+  if (args.proxy) {
     // Proxy mode via WeatherServer
     wiplib::client::WeatherClient cli(args.host, args.port);
+    cli.set_auth_config(auth_cfg);
     wiplib::Result<wiplib::client::WeatherResult> res = [&]() {
       if (args.coords) {
         return cli.get_weather_by_coordinates(args.coords->first, args.coords->second, args.opt);
@@ -120,9 +158,10 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  // Direct mode: client sends 2 requests (Location -> Query)
+  // Direct mode (default): client sends 2 requests (Location -> Query)
   wiplib::client::ServerConfig cfg; // proxy config not used in direct mode
   wiplib::client::WipClient wcli(cfg, /*debug=*/false);
+  wcli.set_auth_config(auth_cfg);
   if (args.location_host || args.location_port || args.query_host || args.query_port) {
     std::string lhost = args.location_host.value_or("127.0.0.1");
     uint16_t lport = args.location_port.value_or(4109);

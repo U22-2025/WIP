@@ -9,6 +9,7 @@
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
 #include "wiplib/client/weather_client.hpp"
+#include "wiplib/client/auth_config.hpp"
 #include "wiplib/packet/packet.hpp"
 
 namespace wiplib::client {
@@ -53,6 +54,7 @@ public:
   void set_direct_endpoints(std::string location_host, uint16_t location_port,
                             std::string query_host, uint16_t query_port);
   void close();
+  void set_auth_config(const AuthConfig& cfg);
 
   // High-level API (proxy=false -> direct mode)
   wiplib::Result<WeatherData> get_weather(const WeatherOptions& opt, bool proxy = false) noexcept;
@@ -72,6 +74,7 @@ private:
   ClientState state_{};
   bool debug_ = false;
   WeatherClient proxy_client_;
+  AuthConfig auth_cfg_{};
 
   // direct mode endpoints (default localhost)
   std::string location_host_ = "127.0.0.1"; // LOCATION_RESOLVER_HOST

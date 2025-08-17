@@ -84,3 +84,44 @@ Python版との対応
 ヘッダ/リンク
 - 追加インクルード: `-I cpp/include`
 - リンク: `wiplib`（静的/共有はCMakeオプションで切替）
+
+認証設定
+- 概要: Pythonクライアントの認証挙動を再現。HMAC-SHA256 を拡張フィールド(ID=4)へ hex64 で付与（`flags.extended=true`）。
+- 環境変数:
+  - `WIP_CLIENT_AUTH_ENABLED=1`（認証付与を有効化）
+  - `WIP_CLIENT_VERIFY_RESPONSE_AUTH=1`（受信パケットの検証を有効化）
+  - `WEATHER_SERVER_PASSPHRASE`（WeatherServer 宛の共有パスフレーズ）
+  - `LOCATION_SERVER_PASSPHRASE`（LocationResolver 宛の共有パスフレーズ）
+  - `QUERY_SERVER_PASSPHRASE`（QueryGenerator 宛の共有パスフレーズ）
+  - `REPORT_SERVER_PASSPHRASE`（Report 宛の共有パスフレーズ）
+- CLI フラグ（`wip_client_cli`）:
+  - `--auth-enabled` / `--no-auth-enabled`
+  - `--auth-weather <PASS>` `--auth-location <PASS>` `--auth-query <PASS>` `--auth-report <PASS>`
+  - `--verify-response` / `--no-verify-response`
+  - 例（プロキシ経由）:
+    - `./cpp/build/wip_client_cli --proxy --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature --auth-enabled --auth-weather secret`
+  - 例（ダイレクト: デフォルト）:
+    - `./cpp/build/wip_client_cli --coords 35.6895 139.6917 --auth-enabled --auth-location locpass --auth-query qpass`
+- API からの設定例:
+```
+#include "wiplib/client/weather_client.hpp"
+#include "wiplib/client/wip_client.hpp"
+#include "wiplib/client/auth_config.hpp"
+using namespace wiplib::client;
+
+// WeatherClient（プロキシ）
+WeatherClient wc{"127.0.0.1", 4110};
+AuthConfig ac = AuthConfig::from_env();
+ac.enabled = true;
+ac.weather = std::string("secret");
+ac.verify_response = true; // 任意
+wc.set_auth_config(ac);
+
+// WipClient（ダイレクト/プロキシ両対応）
+WipClient c{{"127.0.0.1", 4110}};
+c.set_auth_config(ac);
+```
+
+注意
+- ログにはパスフレーズや HMAC 値を出力しません。
+- 受信検証はレスポンス側が `response_auth` フラグと拡張(ID=4, hex64)を付与する場合のみ実施します。
