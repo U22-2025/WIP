@@ -2,6 +2,7 @@
 #include "wiplib/packet/packet.hpp"
 #include <random>
 #include <sstream>
+#include <iostream>
 
 namespace wiplib::utils {
 
@@ -297,10 +298,18 @@ static inline std::string to_hex_lower(const std::vector<uint8_t>& bytes){
 }
 
 bool WIPAuth::attach_auth_hash(wiplib::proto::Packet& packet, const std::string& passphrase){
-    if (passphrase.empty()) return false;
+    if (passphrase.empty()) {
+        std::cerr << "DEBUG: WIPAuth::attach_auth_hash - passphrase is empty" << std::endl;
+        return false;
+    }
+    std::cerr << "DEBUG: WIPAuth::attach_auth_hash called with passphrase: " << passphrase << std::endl;
+    std::cerr << "DEBUG: packet_id: " << packet.header.packet_id << ", timestamp: " << packet.header.timestamp << std::endl;
+    
     // packet_id は 12bit 値だが、ヘッダへの格納値をそのまま使用（Python 実装互換）
     auto mac = calculate_auth_hash(packet.header.packet_id, packet.header.timestamp, passphrase, HashAlgorithm::SHA256);
     auto hex = to_hex_lower(mac);
+    std::cerr << "DEBUG: generated hash: " << hex << std::endl;
+    
     wiplib::proto::ExtendedField f{};
     // Python の extended_fields.json で auth_hash は id=4, type=str
     f.data_type = 4; // auth_hash
@@ -308,6 +317,9 @@ bool WIPAuth::attach_auth_hash(wiplib::proto::Packet& packet, const std::string&
     packet.extensions.push_back(std::move(f));
     packet.header.flags.extended = true;
     packet.header.flags.auth_enabled = true; // リクエスト側の被認証フラグ
+    
+    std::cerr << "DEBUG: Extension added, total extensions: " << packet.extensions.size() << std::endl;
+    std::cerr << "DEBUG: flags.extended: " << packet.header.flags.extended << ", flags.auth_enabled: " << packet.header.flags.auth_enabled << std::endl;
     return true;
 }
 

@@ -36,9 +36,10 @@ set(WIPLIB_SRC
     src/utils/file_cache.cpp
     src/utils/network.cpp
     src/packet/debug/debug_logger.cpp
-    src/compatibility/python_errors.cpp
-    src/compatibility/python_config.cpp
-    src/compatibility/python_protocol.cpp
+    # Temporarily disabled due to build errors
+    # src/compatibility/python_errors.cpp
+    # src/compatibility/python_config.cpp
+    # src/compatibility/python_protocol.cpp
 )
 
 if(WIPLIB_BUILD_SHARED)

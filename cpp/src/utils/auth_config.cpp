@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <string>
 #include <algorithm>
+#include <iostream>
 
 namespace wiplib::client {
 
@@ -14,8 +15,20 @@ static bool env_truthy(const char* v){
 
 AuthConfig AuthConfig::from_env(){
     AuthConfig cfg{};
-    cfg.enabled = env_truthy(std::getenv("WIP_CLIENT_AUTH_ENABLED"));
+    
+    // Debug: Print environment variable values
+    const char* auth_enabled = std::getenv("QUERY_GENERATOR_REQUEST_AUTH_ENABLED");
+    const char* query_pass = std::getenv("QUERY_SERVER_PASSPHRASE");
+    std::cerr << "DEBUG: QUERY_GENERATOR_REQUEST_AUTH_ENABLED = " << (auth_enabled ? auth_enabled : "NULL") << std::endl;
+    std::cerr << "DEBUG: QUERY_SERVER_PASSPHRASE = " << (query_pass ? query_pass : "NULL") << std::endl;
+    
+    // Python互換の環境変数のみを使用
+    cfg.enabled = env_truthy(std::getenv("QUERY_GENERATOR_REQUEST_AUTH_ENABLED"));
     cfg.verify_response = env_truthy(std::getenv("WIP_CLIENT_VERIFY_RESPONSE_AUTH"));
+    
+    std::cerr << "DEBUG: env_truthy result = " << (cfg.enabled ? "true" : "false") << std::endl;
+    
+    // パスフレーズはPython互換の環境変数名を使用
     if (const char* p = std::getenv("WEATHER_SERVER_PASSPHRASE")) cfg.weather = std::string(p);
     if (const char* p = std::getenv("LOCATION_SERVER_PASSPHRASE")) cfg.location = std::string(p);
     if (const char* p = std::getenv("QUERY_SERVER_PASSPHRASE"))   cfg.query = std::string(p);

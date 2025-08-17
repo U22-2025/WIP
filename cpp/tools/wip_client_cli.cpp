@@ -133,6 +133,14 @@ int main(int argc, char** argv) {
   if (args.auth_query.has_value()) auth_cfg.query = args.auth_query.value();
   if (args.auth_report.has_value()) auth_cfg.report = args.auth_report.value();
 
+  // Debug: Print auth config
+  std::cout << "Auth config - enabled: " << (auth_cfg.enabled ? "true" : "false") << std::endl;
+  if (auth_cfg.query.has_value()) {
+    std::cout << "Auth config - query passphrase: " << auth_cfg.query.value() << std::endl;
+  } else {
+    std::cout << "Auth config - query passphrase: not set" << std::endl;
+  }
+
   if (args.proxy) {
     // Proxy mode via WeatherServer
     wiplib::client::WeatherClient cli(args.host, args.port);
