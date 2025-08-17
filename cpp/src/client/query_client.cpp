@@ -14,6 +14,8 @@ using socklen_t = int;
 #  include <arpa/inet.h>
 #  include <netdb.h>
 #  include <unistd.h>
+#  include <cerrno>
+#  include <cstring>
 #endif
 
 namespace wiplib::client {
@@ -36,6 +38,7 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   p.header.timestamp = 0;
   uint32_t ac = 0; for (char c : area_code) if (c>='0' && c<='9') ac = ac*10u + static_cast<uint32_t>(c-'0');
   p.header.area_code = ac & 0xFFFFFu;
+  // client does not use source; no extended fields for direct query
 
   auto enc = encode_packet(p);
   if (!enc) return enc.error();

@@ -24,6 +24,8 @@ using socklen_t = int;
 #  include <arpa/inet.h>
 #  include <netdb.h>
 #  include <unistd.h>
+#  include <cerrno>
+#  include <cstring>
 #endif
 
 namespace wiplib::client {
@@ -55,6 +57,15 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
 
   auto enc = encode_packet(p);
   if (!enc) return enc.error();
+  const auto& payload = enc.value();
+
+  if (std::getenv("WIPLIB_DEBUG_LOG")) {
+    fprintf(stderr, "[wiplib] LOC dest %s:%u, payload %zu bytes\n", host_.c_str(), static_cast<unsigned>(port_), payload.size());
+    size_t dump = payload.size() < 32 ? payload.size() : 32;
+    fprintf(stderr, "[wiplib] LOC tx: ");
+    for (size_t i = 0; i < dump; ++i) fprintf(stderr, "%02X ", payload[i]);
+    fprintf(stderr, "\n");
+  }
 
 #if defined(_WIN32)
   WSADATA wsaData; if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return make_error_code(WipErrc::io_error);
@@ -82,9 +93,18 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
     auto* a = reinterpret_cast<sockaddr_in*>(res->ai_addr); addr.sin_addr = a->sin_addr; freeaddrinfo(res);
   }
 
-  const auto& payload = enc.value();
-  if (::sendto(sock, reinterpret_cast<const char*>(payload.data()), static_cast<int>(payload.size()), 0,
-               reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+  int sret = ::sendto(sock, reinterpret_cast<const char*>(payload.data()), static_cast<int>(payload.size()), 0,
+               reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+  if (std::getenv("WIPLIB_DEBUG_LOG")) {
+#if defined(_WIN32)
+    if (sret < 0) { fprintf(stderr, "[wiplib] LOC sendto failed, WSA errno=%d\n", WSAGetLastError()); }
+    else { fprintf(stderr, "[wiplib] LOC sendto ok (%d bytes)\n", sret); }
+#else
+    if (sret < 0) { fprintf(stderr, "[wiplib] LOC sendto failed, errno=%d (%s)\n", errno, strerror(errno)); }
+    else { fprintf(stderr, "[wiplib] LOC sendto ok (%d bytes)\n", sret); }
+#endif
+  }
+  if (sret < 0) {
 #if defined(_WIN32)
     closesocket(sock); WSACleanup();
 #else
@@ -92,24 +112,60 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
 #endif
     return make_error_code(WipErrc::io_error);
   }
-
-  std::uint8_t buf[2048]; sockaddr_in from{}; socklen_t fromlen = sizeof(from);
-  int rlen = static_cast<int>(::recvfrom(sock, reinterpret_cast<char*>(buf), sizeof(buf), 0,
-                               reinterpret_cast<sockaddr*>(&from), &fromlen));
+  // set short timeout and loop up to ~10s
+#if defined(_WIN32)
+  DWORD tv = 500; setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+#else
+  struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000; setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+  if (std::getenv("WIPLIB_DEBUG_LOG")) {
+    fprintf(stderr, "[wiplib] LOC waiting for CoordinateResponse up to 10s...\n");
+  }
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  for (;;) {
+    std::uint8_t buf[2048]; sockaddr_in from{}; socklen_t fromlen = sizeof(from);
+    int rlen = static_cast<int>(::recvfrom(sock, reinterpret_cast<char*>(buf), sizeof(buf), 0,
+                                 reinterpret_cast<sockaddr*>(&from), &fromlen));
+    if (rlen > 0) {
+      if (std::getenv("WIPLIB_DEBUG_LOG")) {
+        char addrstr[64] = {0};
+#if defined(_WIN32)
+        ::InetNtopA(AF_INET, &from.sin_addr, addrstr, sizeof(addrstr));
+#else
+        ::inet_ntop(AF_INET, &from.sin_addr, addrstr, sizeof(addrstr));
+#endif
+        fprintf(stderr, "[wiplib] LOC recv %dB from %s:%u\n", rlen, addrstr, ntohs(from.sin_port));
+        size_t dump = static_cast<size_t>(rlen < 16 ? rlen : 16);
+        fprintf(stderr, "[wiplib] LOC hdr: "); for (size_t i=0;i<dump;++i) fprintf(stderr, "%02X ", buf[i]); fprintf(stderr, "\n");
+      }
+      auto dec = decode_packet(std::span<const std::uint8_t>(buf, static_cast<size_t>(rlen)));
+      if (!dec) {
+        if (std::getenv("WIPLIB_DEBUG_LOG")) fprintf(stderr, "[wiplib] LOC decode error: %s\n", dec.error().message().c_str());
+        continue;
+      }
+      const Packet& rp = dec.value();
+      if (rp.header.type == PacketType::CoordinateResponse) {
+#if defined(_WIN32)
+        closesocket(sock); WSACleanup();
+#else
+        close(sock);
+#endif
+        char out[16]; std::snprintf(out, sizeof(out), "%06u", rp.header.area_code);
+        return std::string(out);
+      }
+      // ignore other packet types and keep waiting
+    }
+    if (std::chrono::steady_clock::now() >= deadline) {
+      if (std::getenv("WIPLIB_DEBUG_LOG")) fprintf(stderr, "[wiplib] LOC timeout waiting for response\n");
+      break;
+    }
+  }
 #if defined(_WIN32)
   closesocket(sock); WSACleanup();
 #else
   close(sock);
 #endif
-  if (rlen <= 0) return make_error_code(WipErrc::timeout);
-
-  auto dec = decode_packet(std::span<const std::uint8_t>(buf, static_cast<size_t>(rlen)));
-  if (!dec) return dec.error();
-  const Packet& rp = dec.value();
-  // type 1 を期待
-  if (rp.header.type != PacketType::CoordinateResponse) return make_error_code(WipErrc::invalid_packet);
-  char out[16]; std::snprintf(out, sizeof(out), "%06u", rp.header.area_code);
-  return std::string(out);
+  return make_error_code(WipErrc::timeout);
 }
 
 } // namespace wiplib::client

@@ -28,7 +28,9 @@ wiplib::Result<WeatherResult> WeatherClient::get_weather_by_coordinates(double l
   // packet_id: ランダム12bit
   std::mt19937 rng{std::random_device{}()};
   p.header.packet_id = static_cast<uint16_t>(rng() & 0x0FFFu);
-  p.header.type = PacketType::WeatherRequest;
+  // 座標指定は LocationRequest(Type=0) を送信し、
+  // LocationResponse(Type=1) の後に WeatherResponse(Type=3) を待つ（Python実装準拠）
+  p.header.type = PacketType::CoordinateRequest;
   p.header.flags.weather = opt.weather;
   p.header.flags.temperature = opt.temperature;
   p.header.flags.precipitation_prob = opt.precipitation_prob;
@@ -87,6 +89,7 @@ wiplib::Result<WeatherResult> WeatherClient::get_weather_by_area_code(std::strin
 
 wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::proto::Packet& req) noexcept {
   using namespace wiplib::proto;
+  // Client does not use 'source' extended field. Encode and send as-is.
   auto enc = encode_packet(req);
   if (!enc) return enc.error();
   const auto& payload = enc.value();
@@ -98,17 +101,12 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
     fprintf(stderr, "[wiplib] tx: ");
     for (size_t i = 0; i < dump; ++i) fprintf(stderr, "%02X ", payload[i]);
     fprintf(stderr, "\n");
-    // Show interpreted packet_id from first 16 header bytes in both bit-orders
     if (payload.size() >= kFixedHeaderSize) {
       auto get_bits_le_dbg = [&](size_t start, size_t length)->uint32_t {
         uint32_t val = 0; for (size_t i=0;i<length;++i){ size_t bitpos=start+i; size_t byte_index=bitpos/8; size_t bit_index=bitpos%8; uint8_t bit=(payload[byte_index]>>bit_index)&0x1u; val |= (bit<<i);} return val;
       };
-      auto get_bits_msb_dbg = [&](size_t start, size_t length)->uint32_t {
-        uint32_t val = 0; for (size_t i=0;i<length;++i){ size_t bitpos=start+i; size_t byte_index=bitpos/8; size_t bit_index=bitpos%8; uint8_t bit=(payload[byte_index]>>(7-bit_index))&0x1u; val |= (bit<<i);} return val;
-      };
       uint32_t pid_le = get_bits_le_dbg(4, 12);
-      uint32_t pid_msb = get_bits_msb_dbg(4, 12);
-      fprintf(stderr, "[wiplib] tx pid_le=%u pid_msb=%u (req=%u)\n", pid_le, pid_msb, static_cast<unsigned>(req.header.packet_id));
+      fprintf(stderr, "[wiplib] tx pid=%u (req=%u)\n", pid_le, static_cast<unsigned>(req.header.packet_id));
     }
   }
 
@@ -182,6 +180,8 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
     if (std::getenv("WIPLIB_DEBUG_LOG")) {
       fprintf(stderr, "[wiplib] waiting for response up to 10s...\n");
     }
+    bool saw_location_response = false;
+    WeatherResult result{};
   for (;;) {
       std::uint8_t buf[2048];
       sockaddr_in from{}; socklen_t fromlen = sizeof(from);
@@ -224,19 +224,112 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
               break;
             }
             const Packet& rp = dec.value();
-            result.area_code = rp.header.area_code;
-            if (rp.response_fields.has_value()) {
-              result.weather_code = rp.response_fields->weather_code;
-              result.temperature = rp.response_fields->temperature;
-              result.precipitation_prob = rp.response_fields->precipitation_prob;
-            }
-            // クローズして返す
+
+            // 座標リクエストの場合: LocationResponse(1) を受けたら、クライアントが QueryRequest(2) を送信し、WeatherResponse(3) を待つ
+            if (req.header.type == PacketType::CoordinateRequest) {
+              if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::CoordinateResponse)) {
+                saw_location_response = true;
+                result.area_code = rp.header.area_code; // 受領エリアコード
+                // 直ちに QueryRequest を送信（常にクライアントが2回目を送る）
+                // 送信先は以下の優先順位で決定:
+                //  - LocationServer からの応答と判断した場合（応答元ポート=4109 もしくは初期送信ポート=4109）
+                //      → QueryServer (env QUERY_GENERATOR_HOST/PORT または host_:4111)
+                //  - それ以外（WeatherServer 経由想定）
+                //      → 初期送信先 host_:port_（WeatherServer が転送）
+                uint16_t from_port = ntohs(from.sin_port);
+                bool from_location = (from_port == 4109) || (port_ == 4109);
+                std::string qhost;
+                uint16_t qport = 0;
+                if (from_location) {
+                  const char* env_qh = std::getenv("QUERY_GENERATOR_HOST");
+                  const char* env_qp = std::getenv("QUERY_GENERATOR_PORT");
+                  qhost = env_qh ? std::string(env_qh) : host_;
+                  qport = env_qp ? static_cast<uint16_t>(std::stoi(env_qp)) : static_cast<uint16_t>(4111);
+                } else {
+                  qhost = host_;
+                  qport = port_;
+                }
+
+                sockaddr_in qaddr{}; qaddr.sin_family = AF_INET; qaddr.sin_port = htons(qport);
+                if (::inet_pton(AF_INET, qhost.c_str(), &qaddr.sin_addr) != 1) {
+                  struct addrinfo hints{}; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM; struct addrinfo* res2 = nullptr;
+                  if (getaddrinfo(qhost.c_str(), nullptr, &hints, &res2) == 0 && res2) {
+                    auto* a2 = reinterpret_cast<sockaddr_in*>(res2->ai_addr); qaddr.sin_addr = a2->sin_addr; freeaddrinfo(res2);
+                  } else if (std::getenv("WIPLIB_DEBUG_LOG")) {
+                    fprintf(stderr, "[wiplib] failed to resolve query host %s\n", qhost.c_str());
+                  }
+                }
+
+                Packet qreq{};
+                qreq.header.version = req.header.version;
+                qreq.header.packet_id = req.header.packet_id; // 同一ID
+                qreq.header.type = PacketType::WeatherRequest;
+                qreq.header.flags = req.header.flags; // weather/temperature等を引き継ぐ
+                qreq.header.flags.extended = false; // client does not include source
+                qreq.header.day = req.header.day;
+                qreq.header.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count());
+                qreq.header.area_code = rp.header.area_code;
+
+                // no source extended field
+
+                auto enc2 = encode_packet(qreq);
+                if (!enc2) {
+                  if (std::getenv("WIPLIB_DEBUG_LOG")) fprintf(stderr, "[wiplib] encode query request failed: %s\n", enc2.error().message().c_str());
+                } else {
+                  const auto& payload2 = enc2.value();
+                  int s2 = ::sendto(sock, reinterpret_cast<const char*>(payload2.data()), static_cast<int>(payload2.size()), 0,
+                                     reinterpret_cast<sockaddr*>(&qaddr), sizeof(qaddr));
+                  if (std::getenv("WIPLIB_DEBUG_LOG")) {
 #if defined(_WIN32)
-            closesocket(sock); WSACleanup();
+                    if (s2 < 0) { fprintf(stderr, "[wiplib] sent QueryRequest to %s:%u failed, WSA errno=%d\n", qhost.c_str(), static_cast<unsigned>(qport), WSAGetLastError()); }
+                    else { fprintf(stderr, "[wiplib] sent QueryRequest to %s:%u ok (%d bytes)\n", qhost.c_str(), static_cast<unsigned>(qport), s2); }
 #else
-            close(sock);
+                    if (s2 < 0) { fprintf(stderr, "[wiplib] sent QueryRequest to %s:%u failed, errno=%d (%s)\n", qhost.c_str(), static_cast<unsigned>(qport), errno, strerror(errno)); }
+                    else { fprintf(stderr, "[wiplib] sent QueryRequest to %s:%u ok (%d bytes)\n", qhost.c_str(), static_cast<unsigned>(qport), s2); }
 #endif
-            return result;
+                  }
+                }
+                if (std::getenv("WIPLIB_DEBUG_LOG")) {
+                  fprintf(stderr, "[wiplib] waiting for WeatherResponse...\n");
+                }
+                // 続けて待機
+                continue;
+              }
+              if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
+                // 最終レスポンス
+                if (rp.response_fields.has_value()) {
+                  result.weather_code = rp.response_fields->weather_code;
+                  result.temperature = rp.response_fields->temperature;
+                  result.precipitation_prob = rp.response_fields->precipitation_prob;
+                }
+                if (result.area_code == 0) result.area_code = rp.header.area_code;
+                // クローズして返す
+#if defined(_WIN32)
+                closesocket(sock); WSACleanup();
+#else
+                close(sock);
+#endif
+                return result;
+              }
+              // その他のタイプは無視して待機を継続
+            } else {
+              // エリアコード指定（WeatherRequest→WeatherResponse 1段階）
+              if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
+                result.area_code = rp.header.area_code;
+                if (rp.response_fields.has_value()) {
+                  result.weather_code = rp.response_fields->weather_code;
+                  result.temperature = rp.response_fields->temperature;
+                  result.precipitation_prob = rp.response_fields->precipitation_prob;
+                }
+#if defined(_WIN32)
+                closesocket(sock); WSACleanup();
+#else
+                close(sock);
+#endif
+                return result;
+              }
+            }
           }
         }
         // packet_id不一致 → 続行

@@ -50,6 +50,8 @@ public:
   const ClientState& state() const noexcept { return state_; }
 
   void update_server(std::string host, uint16_t port);
+  void set_direct_endpoints(std::string location_host, uint16_t location_port,
+                            std::string query_host, uint16_t query_port);
   void close();
 
   // High-level API (proxy=false -> direct mode)

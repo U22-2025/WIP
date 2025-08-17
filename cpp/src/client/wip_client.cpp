@@ -48,6 +48,14 @@ void WipClient::update_server(std::string host, uint16_t port) {
   proxy_client_ = WeatherClient(cfg_.host, cfg_.port);
 }
 
+void WipClient::set_direct_endpoints(std::string location_host, uint16_t location_port,
+                            std::string query_host, uint16_t query_port) {
+  location_host_ = std::move(location_host);
+  location_port_ = location_port;
+  query_host_ = std::move(query_host);
+  query_port_ = query_port;
+}
+
 void WipClient::close() {
   // nothing persistent to close in current implementation
 }
