@@ -156,8 +156,8 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
       }
       const Packet& rp = dec.value();
       if (rp.header.type == PacketType::CoordinateResponse) {
-        // Verify only when response_auth flag set
-        if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+        // Optional response verification (independent of response_auth flag)
+        if (auth_cfg_.verify_response) {
           const std::string* pass = nullptr;
           if (auth_cfg_.location && !auth_cfg_.location->empty()) pass = &*auth_cfg_.location;
           if (pass) {

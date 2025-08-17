@@ -307,7 +307,7 @@ bool WIPAuth::attach_auth_hash(wiplib::proto::Packet& packet, const std::string&
     f.data.assign(hex.begin(), hex.end());
     packet.extensions.push_back(std::move(f));
     packet.header.flags.extended = true;
-    packet.header.flags.request_auth = true; // リクエスト側の被認証フラグ
+    packet.header.flags.auth_enabled = true; // リクエスト側の被認証フラグ
     return true;
 }
 

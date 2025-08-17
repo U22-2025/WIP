@@ -33,8 +33,8 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   p.header.type = PacketType::WeatherRequest;
   p.header.flags.weather = opt.weather;
   p.header.flags.temperature = opt.temperature;
-  p.header.flags.precipitation_prob = opt.precipitation_prob;
-  p.header.flags.alerts = opt.alerts;
+  p.header.flags.precipitation = opt.precipitation_prob;
+  p.header.flags.alert = opt.alerts;
   p.header.flags.disaster = opt.disaster;
   p.header.day = opt.day;
   p.header.timestamp = 0;
@@ -104,8 +104,8 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   const Packet& rp = dec.value();
   if (rp.header.type != PacketType::WeatherResponse) return make_error_code(WipErrc::invalid_packet);
 
-  // Verify only when response_auth flag set
-  if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+  // Optional response verification (independent of response_auth flag)
+  if (auth_cfg_.verify_response) {
     const std::string* pass = nullptr;
     if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
     if (pass) {

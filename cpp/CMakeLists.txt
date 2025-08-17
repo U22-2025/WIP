@@ -18,6 +18,7 @@ set(WIPLIB_SRC
     src/packet/extended_field.cpp
     src/packet/request.cpp
     src/packet/response.cpp
+    src/packet/report_packet_compat.cpp
     src/client/weather_client.cpp
     src/client/wip_client.cpp
     src/client/location_client.cpp
@@ -35,6 +36,9 @@ set(WIPLIB_SRC
     src/utils/file_cache.cpp
     src/utils/network.cpp
     src/packet/debug/debug_logger.cpp
+    src/compatibility/python_errors.cpp
+    src/compatibility/python_config.cpp
+    src/compatibility/python_protocol.cpp
 )
 
 if(WIPLIB_BUILD_SHARED)
@@ -109,6 +113,7 @@ if(WIPLIB_BUILD_TESTS)
     tests/unit/test_packet_types.cpp
     tests/unit/test_extended_field.cpp
     tests/unit/test_auth.cpp
+    tests/unit/test_auth_compat.cpp
     tests/unit/test_cache.cpp
     tests/unit/test_config_loader.cpp
     tests/unit/test_log_config.cpp
@@ -119,6 +124,7 @@ if(WIPLIB_BUILD_TESTS)
     tests/integration/test_client_async.cpp
     tests/integration/test_location_client.cpp
     tests/integration/test_query_client.cpp
+    tests/compatibility/test_python_compatibility.cpp
     tests/utils/mock_server.cpp
     tests/utils/test_data_generator.cpp
   )
@@ -172,3 +178,16 @@ target_include_directories(wip_packet_roundtrip PRIVATE ${CMAKE_CURRENT_SOURCE_D
 add_executable(async_weather_cli tools/async_weather_cli.cpp)
 target_link_libraries(async_weather_cli PRIVATE wiplib)
 target_include_directories(async_weather_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Phase 6 development tools
+add_executable(wip_packet_analyzer tools/wip_packet_analyzer.cpp)
+target_link_libraries(wip_packet_analyzer PRIVATE wiplib)
+target_include_directories(wip_packet_analyzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(wip_config_validator tools/wip_config_validator.cpp)
+target_link_libraries(wip_config_validator PRIVATE wiplib)
+target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(wip_performance_test tools/wip_performance_test.cpp)
+target_link_libraries(wip_performance_test PRIVATE wiplib)
+target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

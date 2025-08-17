@@ -34,8 +34,8 @@ wiplib::Result<WeatherResult> WeatherClient::get_weather_by_coordinates(double l
   p.header.type = PacketType::CoordinateRequest;
   p.header.flags.weather = opt.weather;
   p.header.flags.temperature = opt.temperature;
-  p.header.flags.precipitation_prob = opt.precipitation_prob;
-  p.header.flags.alerts = opt.alerts;
+  p.header.flags.precipitation = opt.precipitation_prob;
+  p.header.flags.alert = opt.alerts;
   p.header.flags.disaster = opt.disaster;
   p.header.day = opt.day;
   p.header.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
@@ -71,8 +71,8 @@ wiplib::Result<WeatherResult> WeatherClient::get_weather_by_area_code(std::strin
   p.header.type = PacketType::WeatherRequest;
   p.header.flags.weather = opt.weather;
   p.header.flags.temperature = opt.temperature;
-  p.header.flags.precipitation_prob = opt.precipitation_prob;
-  p.header.flags.alerts = opt.alerts;
+  p.header.flags.precipitation = opt.precipitation_prob;
+  p.header.flags.alert = opt.alerts;
   p.header.flags.disaster = opt.disaster;
   p.header.day = opt.day;
   p.header.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
@@ -236,8 +236,8 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
             // 座標リクエストの場合: LocationResponse(1) を受けたら、クライアントが QueryRequest(2) を送信し、WeatherResponse(3) を待つ
             if (req.header.type == PacketType::CoordinateRequest) {
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::CoordinateResponse)) {
-                // Verify only when response_auth flag set
-                if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+                // Optional response verification (independent of response_auth flag)
+                if (auth_cfg_.verify_response) {
                   const std::string* pass = nullptr;
                   if (auth_cfg_.location && !auth_cfg_.location->empty()) pass = &*auth_cfg_.location;
                   if (pass) {
@@ -339,8 +339,8 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                 continue;
               }
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
-                // Verify only when response_auth flag set
-                if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+                // Optional response verification (independent of response_auth flag)
+                if (auth_cfg_.verify_response) {
                   const std::string* pass = nullptr;
                   if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
                   if (pass) {
@@ -391,8 +391,8 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
             } else {
               // エリアコード指定（WeatherRequest→WeatherResponse 1段階）
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
-                // Verify only when response_auth flag set
-                if (auth_cfg_.enabled && rp.header.flags.response_auth) {
+                // Optional response verification (independent of response_auth flag)
+                if (auth_cfg_.verify_response) {
                   const std::string* pass = nullptr;
                   if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
                   if (pass) {
