@@ -1,8 +1,8 @@
 {
   "metadata": {
     "description": "WIPプロトコルエラーコード定義",
-    "version": "1.0",
-    "last_updated": "2025-07-02"
+    "version": "1.1",
+    "last_updated": "2025-08-13"
   },
   "client_errors": {
     "400": {
@@ -28,6 +28,10 @@
     "405": {
       "message": "不正なパケットタイプ",
       "description": "クライアントエラー: 不正なパケットタイプ"
+    },
+    "406": {
+      "message": "指定したデータが見つからない",
+      "description": "クライアントエラー: 指定したデータが見つからない"
     }
   },
   "connection_errors": {

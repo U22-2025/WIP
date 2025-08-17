@@ -39,10 +39,13 @@ if __name__ == "__main__":
         )
         workers = 1
 
+    # 既定ポートを 80 に変更（環境変数で上書き可能）
+    port = int(os.getenv("MAP_HTTP_PORT", "80"))
+
     uvicorn.run(
         "fastapi_app:app",
         host="0.0.0.0",
-        port=5000,
+        port=port,
         loop="asyncio",
         reload=reload_opt,
         workers=workers,
