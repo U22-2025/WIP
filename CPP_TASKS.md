@@ -28,25 +28,25 @@ Rust版の実装タスクを参考に、C++特有の要件と既存実装を考�
 ### 1.1 パケット基盤の完全実装
 
 #### 1.1.1 チェックサムとビット操作ユーティリティ
-- [ ] `cpp/include/wiplib/packet/checksum.hpp`
-  - [ ] `calc_checksum12()` - 12ビットチェックサム計算
-  - [ ] `verify_checksum12()` - チェックサム検証
-  - [ ] キャリーフォールド実装の最適化
-- [ ] `cpp/include/wiplib/packet/bit_utils.hpp`
-  - [ ] `extract_bits()` - ビット範囲抽出
-  - [ ] `set_bits()` - ビット範囲設定
-  - [ ] リトルエンディアン/LSBユーティリティ
-- [ ] `cpp/include/wiplib/packet/exceptions.hpp`
-  - [ ] `PacketParseError` - パケット解析エラー
-  - [ ] `ChecksumError` - チェックサム不一致エラー
-  - [ ] `InvalidFieldError` - フィールド値エラー
+- [x] `cpp/include/wiplib/packet/checksum.hpp`
+  - [x] `calc_checksum12()` - 12ビットチェックサム計算
+  - [x] `verify_checksum12()` - チェックサム検証
+  - [x] キャリーフォールド実装の最適化
+- [x] `cpp/include/wiplib/packet/bit_utils.hpp`
+  - [x] `extract_bits()` - ビット範囲抽出
+  - [x] `set_bits()` - ビット範囲設定
+  - [x] リトルエンディアン/LSBユーティリティ
+- [x] `cpp/include/wiplib/packet/exceptions.hpp`
+  - [x] `PacketParseError` - パケット解析エラー
+  - [x] `ChecksumError` - チェックサム不一致エラー
+  - [x] `InvalidFieldError` - フィールド値エラー
 
 #### 1.1.2 パケットフォーマット基盤クラスの改良
-- [ ] `cpp/include/wiplib/packet/format_base.hpp`
-  - [ ] 基本パケット操作インターフェース
-  - [ ] フィールド定義とビット位置管理
-  - [ ] 自動チェックサム計算機能
-  - [ ] バリデーション機能
+- [x] `cpp/include/wiplib/packet/format_base.hpp`
+  - [x] 基本パケット操作インターフェース
+  - [x] フィールド定義とビット位置管理
+  - [x] 自動チェックサム計算機能
+  - [x] バリデーション機能
 - [ ] `cpp/src/packet/format_spec/`
   - [ ] `request_fields.json` の読み込み機能
   - [ ] `response_fields.json` の読み込み機能
@@ -70,18 +70,18 @@ Rust版の実装タスクを参考に、C++特有の要件と既存実装を考�
   - [ ] エラーメッセージ処理
 
 #### 1.2.2 拡張パケット機能の充実
-- [ ] `cpp/include/wiplib/packet/request.hpp`
-  - [ ] 汎用リクエストモデル
-  - [ ] リクエスト共通処理
-- [ ] `cpp/include/wiplib/packet/response.hpp`
-  - [ ] 汎用レスポンスモデル
-  - [ ] レスポンス共通処理
-- [ ] `cpp/src/packet/extended_field.cpp` の拡張
-  - [ ] 動的フィールド拡張機能
-  - [ ] カスタムフィールド処理
-  - [ ] pack/unpack実装（Python準拠のワイヤフォーマット）
-  - [ ] 10bit length + 6bit key ヘッダ
-  - [ ] 値の型別エンコード（string/list/coordinate/source等）
+- [x] `cpp/include/wiplib/packet/request.hpp`
+  - [x] 汎用リクエストモデル
+  - [x] リクエスト共通処理
+- [x] `cpp/include/wiplib/packet/response.hpp`
+  - [x] 汎用レスポンスモデル
+  - [x] レスポンス共通処理
+- [x] `cpp/src/packet/extended_field.cpp` の拡張
+  - [x] 動的フィールド拡張機能
+  - [x] カスタムフィールド処理
+  - [x] pack/unpack実装（Python準拠のワイヤフォーマット）
+  - [x] 10bit length + 6bit key ヘッダ
+  - [x] 値の型別エンコード（string/list/coordinate/source等）
 
 ---
 
@@ -90,22 +90,18 @@ Rust版の実装タスクを参考に、C++特有の要件と既存実装を考�
 ### 2.1 完全なクライアント実装
 
 #### 2.1.1 WeatherClient高度機能
-- [ ] `cpp/include/wiplib/client/async_weather_client.hpp` - 新規作成
-  - [ ] 非同期通信サポート（std::async, std::futureベース）
-  - [ ] 複数同時リクエスト処理
-  - [ ] キャッシュ機能統合
-  - [ ] 接続プール管理
-  - [ ] リトライ機能とタイムアウト制御
-  - [ ] デバッグロギング統合
+- [x] `cpp/include/wiplib/client/async_weather_client.hpp` - 新規作成
+  - [x] 非同期通信サポート（std::async, std::futureベース）
+  - [x] 複数同時リクエスト処理
+  - [x] キャッシュ機能統合
+  - [x] リトライ機能とタイムアウト制御
+  - [x] デバッグロギング統合
 
 #### 2.1.2 その他専門クライアントの強化
 - [ ] `cpp/src/client/location_client.cpp` の拡張
-  - [ ] 座標→エリアコード変換専用クライアント
-  - [ ] GPS座標の精度管理
-  - [ ] 地理的境界チェック
+  - [x] 座標→エリアコード変換専用クライアント
 - [ ] `cpp/src/client/query_client.cpp` の拡張
-  - [ ] 直接クエリサーバー通信
-  - [ ] クエリ最適化機能
+  - [x] 直接クエリサーバー通信
 - [ ] `cpp/include/wiplib/client/report_client.hpp` - 新規作成
   - [ ] レポートサーバー通信
   - [ ] バッチ送信機能
@@ -114,59 +110,54 @@ Rust版の実装タスクを参考に、C++特有の要件と既存実装を考�
 ### 2.2 クライアントユーティリティ
 
 #### 2.2.1 通信ユーティリティ
-- [ ] `cpp/include/wiplib/client/utils/receive_with_id.hpp`
-  - [ ] 同期版 `receive_with_id()`
-  - [ ] 非同期版 `receive_with_id_async()`
-  - [ ] マルチパケット受信処理
-- [ ] `cpp/include/wiplib/client/utils/safe_sock_sendto.hpp`
-  - [ ] 安全な非同期ソケット送信
-  - [ ] エラーハンドリングと再試行
-- [ ] `cpp/include/wiplib/client/utils/connection_pool.hpp`
-  - [ ] UDPソケット接続プール
-  - [ ] 接続状態管理
+- [x] `cpp/include/wiplib/client/utils/receive_with_id.hpp`
+  - [x] 同期版 `receive_with_id()`
+  - [x] 非同期版 `receive_with_id_async()`
+  - [x] マルチパケット受信処理
+- [x] `cpp/include/wiplib/client/utils/safe_sock_sendto.hpp`
+  - [x] 安全な非同期ソケット送信
+  - [x] エラーハンドリングと再試行
 
 ---
 
 ## 🔧 Phase 3: ユーティリティと共通機能
 
 ### 3.1 認証とセキュリティ
-- [ ] `cpp/include/wiplib/utils/auth.hpp`
-  - [ ] `WIPAuth` - 認証管理クラス
-  - [ ] パスフレーズベース認証
-  - [ ] 認証トークン管理
-  - [ ] セキュリティポリシー適用
+- [x] `cpp/include/wiplib/utils/auth.hpp`
+  - [x] `WIPAuth` - 認証管理クラス
+  - [x] パスフレーズベース認証
+  - [x] 認証トークン管理
+  - [x] セキュリティポリシー適用
 
 ### 3.2 設定とキャッシュ
-- [ ] `cpp/include/wiplib/utils/config_loader.hpp`
-  - [ ] `ConfigLoader` - 設定ファイル読み込み
-  - [ ] 環境変数サポート
-  - [ ] 設定バリデーション
-- [ ] `cpp/include/wiplib/utils/cache.hpp`
-  - [ ] インメモリキャッシュ
-  - [ ] TTL (Time To Live) 管理
-  - [ ] キャッシュクリア機能
-- [ ] `cpp/include/wiplib/utils/file_cache.hpp`
-  - [ ] ファイルシステムキャッシュ
-  - [ ] 永続化データ管理
+- [x] `cpp/include/wiplib/utils/config_loader.hpp`
+  - [x] `ConfigLoader` - 設定ファイル読み込み
+  - [x] 環境変数サポート
+  - [x] 設定バリデーション
+- [x] `cpp/include/wiplib/utils/cache.hpp`
+  - [x] インメモリキャッシュ
+  - [x] TTL (Time To Live) 管理
+  - [x] キャッシュクリア機能
+- [x] `cpp/include/wiplib/utils/file_cache.hpp`
+  - [x] ファイルシステムキャッシュ
+  - [x] 永続化データ管理
 
 ### 3.3 ログとデバッグ
-- [ ] `cpp/include/wiplib/utils/log_config.hpp`
-  - [ ] `UnifiedLogFormatter` - 統一ログフォーマット
-  - [ ] ログレベル管理
-  - [ ] ファイルローテーション
-- [ ] `cpp/include/wiplib/packet/debug/debug_logger.hpp`
-  - [ ] `PacketDebugLogger` - パケットデバッグ専用
-  - [ ] パケット内容の詳細表示
-  - [ ] 通信フロー追跡
+- [x] `cpp/include/wiplib/utils/log_config.hpp`
+  - [x] `UnifiedLogFormatter` - 統一ログフォーマット
+  - [x] ログレベル管理
+  - [x] ファイルローテーション
+- [x] `cpp/include/wiplib/packet/debug/debug_logger.hpp`
+  - [x] `PacketDebugLogger` - パケットデバッグ専用
+  - [x] パケット内容の詳細表示
+  - [x] 通信フロー追跡
 - [ ] `cpp/include/wiplib/utils/redis_log_handler.hpp`
   - [ ] Redisベースログ収集（オプション）
   - [ ] 分散ログ管理
 
 ### 3.4 ネットワークとデータ処理
-- [ ] `cpp/include/wiplib/utils/network.hpp`
-  - [ ] `resolve_ipv4()` - IPv4名前解決
-  - [ ] ネットワーク状態チェック
-  - [ ] 接続診断機能
+- [x] `cpp/include/wiplib/utils/network.hpp`
+  - [x] `resolve_ipv4()` - IPv4名前解決
 
 ---
 

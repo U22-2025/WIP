@@ -10,6 +10,8 @@
 #include <cstdio>
 #include <cmath>
 #include <algorithm>
+#include <future>
+#include <thread>
 
 #if defined(_WIN32)
 #  include <winsock2.h>

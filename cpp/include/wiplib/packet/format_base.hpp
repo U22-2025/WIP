@@ -15,12 +15,23 @@ namespace wiplib::packet {
  * @brief フィールド定義構造体
  */
 struct FieldDefinition {
+    enum class FieldType {
+        UInt,
+        Int,
+        Enum,
+        Flags,
+        Reserved,
+        Timestamp,
+        Checksum
+    };
+    
     std::string name;
     uint32_t bit_offset;
     uint8_t bit_length;
-    std::string type;
+    FieldType type = FieldType::UInt;
     std::string description;
     bool is_optional = false;
+    uint64_t default_value = 0;
 };
 
 /**
