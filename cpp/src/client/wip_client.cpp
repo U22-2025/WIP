@@ -125,6 +125,13 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
   auto enc = encode_packet(req);
   if (!enc) return enc.error();
   const auto& payload = enc.value();
+  if (std::getenv("WIPLIB_DEBUG_LOG")) {
+    fprintf(stderr, "[wiplib] dest %s:%u, payload %zu bytes\n", host.c_str(), static_cast<unsigned>(port), payload.size());
+    size_t dump = payload.size() < 32 ? payload.size() : 32;
+    fprintf(stderr, "[wiplib] tx: ");
+    for (size_t i = 0; i < dump; ++i) fprintf(stderr, "%02X ", payload[i]);
+    fprintf(stderr, "\n");
+  }
 
 #if defined(_WIN32)
   WSADATA wsaData; if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return make_error_code(WipErrc::io_error);
@@ -158,8 +165,18 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
     auto* a = reinterpret_cast<sockaddr_in*>(res->ai_addr); addr.sin_addr = a->sin_addr; freeaddrinfo(res);
   }
 
-  if (::sendto(sock, reinterpret_cast<const char*>(payload.data()), static_cast<int>(payload.size()), 0,
-               reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+  int sret = ::sendto(sock, reinterpret_cast<const char*>(payload.data()), static_cast<int>(payload.size()), 0,
+               reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+  if (std::getenv("WIPLIB_DEBUG_LOG")) {
+#if defined(_WIN32)
+    if (sret < 0) { fprintf(stderr, "[wiplib] sendto failed, WSA errno=%d\n", WSAGetLastError()); }
+    else { fprintf(stderr, "[wiplib] sendto ok (%d bytes)\n", sret); }
+#else
+    if (sret < 0) { fprintf(stderr, "[wiplib] sendto failed, errno=%d (%s)\n", errno, strerror(errno)); }
+    else { fprintf(stderr, "[wiplib] sendto ok (%d bytes)\n", sret); }
+#endif
+  }
+  if (sret < 0) {
 #if defined(_WIN32)
     closesocket(sock); WSACleanup();
 #else
@@ -169,6 +186,9 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
   }
 
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  if (std::getenv("WIPLIB_DEBUG_LOG")) {
+    fprintf(stderr, "[wiplib] waiting for response up to 10s...\n");
+  }
   for (;;) {
     std::uint8_t buf[2048]; sockaddr_in from{}; socklen_t fromlen = sizeof(from);
     int rlen = static_cast<int>(::recvfrom(sock, reinterpret_cast<char*>(buf), sizeof(buf), 0,
@@ -213,7 +233,12 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
       }
       // 不一致 → 継続
     }
-    if (std::chrono::steady_clock::now() >= deadline) break;
+    if (std::chrono::steady_clock::now() >= deadline) {
+      if (std::getenv("WIPLIB_DEBUG_LOG")) {
+        fprintf(stderr, "[wiplib] timeout: no matching response within 10s\n");
+      }
+      break;
+    }
   }
 #if defined(_WIN32)
   closesocket(sock); WSACleanup();

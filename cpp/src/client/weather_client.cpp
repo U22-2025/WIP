@@ -91,6 +91,27 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
   if (!enc) return enc.error();
   const auto& payload = enc.value();
 
+  // Optional debug: show destination and payload details before sending
+  if (std::getenv("WIPLIB_DEBUG_LOG")) {
+    fprintf(stderr, "[wiplib] dest %s:%u, payload %zu bytes\n", host_.c_str(), static_cast<unsigned>(port_), payload.size());
+    size_t dump = payload.size() < 32 ? payload.size() : 32;
+    fprintf(stderr, "[wiplib] tx: ");
+    for (size_t i = 0; i < dump; ++i) fprintf(stderr, "%02X ", payload[i]);
+    fprintf(stderr, "\n");
+    // Show interpreted packet_id from first 16 header bytes in both bit-orders
+    if (payload.size() >= kFixedHeaderSize) {
+      auto get_bits_le_dbg = [&](size_t start, size_t length)->uint32_t {
+        uint32_t val = 0; for (size_t i=0;i<length;++i){ size_t bitpos=start+i; size_t byte_index=bitpos/8; size_t bit_index=bitpos%8; uint8_t bit=(payload[byte_index]>>bit_index)&0x1u; val |= (bit<<i);} return val;
+      };
+      auto get_bits_msb_dbg = [&](size_t start, size_t length)->uint32_t {
+        uint32_t val = 0; for (size_t i=0;i<length;++i){ size_t bitpos=start+i; size_t byte_index=bitpos/8; size_t bit_index=bitpos%8; uint8_t bit=(payload[byte_index]>>(7-bit_index))&0x1u; val |= (bit<<i);} return val;
+      };
+      uint32_t pid_le = get_bits_le_dbg(4, 12);
+      uint32_t pid_msb = get_bits_msb_dbg(4, 12);
+      fprintf(stderr, "[wiplib] tx pid_le=%u pid_msb=%u (req=%u)\n", pid_le, pid_msb, static_cast<unsigned>(req.header.packet_id));
+    }
+  }
+
 #if defined(_WIN32)
   WSADATA wsaData;
   if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -137,8 +158,18 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
       freeaddrinfo(res);
     }
 
-    if (::sendto(sock, reinterpret_cast<const char*>(payload.data()), static_cast<int>(payload.size()), 0,
-                 reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+    int sret = ::sendto(sock, reinterpret_cast<const char*>(payload.data()), static_cast<int>(payload.size()), 0,
+                 reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    if (std::getenv("WIPLIB_DEBUG_LOG")) {
+#if defined(_WIN32)
+      if (sret < 0) { fprintf(stderr, "[wiplib] sendto failed, WSA errno=%d\n", WSAGetLastError()); }
+      else { fprintf(stderr, "[wiplib] sendto ok (%d bytes)\n", sret); }
+#else
+      if (sret < 0) { fprintf(stderr, "[wiplib] sendto failed, errno=%d (%s)\n", errno, strerror(errno)); }
+      else { fprintf(stderr, "[wiplib] sendto ok (%d bytes)\n", sret); }
+#endif
+    }
+    if (sret < 0) {
 #if defined(_WIN32)
       closesocket(sock); WSACleanup();
 #else
@@ -148,6 +179,9 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
     }
 
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    if (std::getenv("WIPLIB_DEBUG_LOG")) {
+      fprintf(stderr, "[wiplib] waiting for response up to 10s...\n");
+    }
   for (;;) {
       std::uint8_t buf[2048];
       sockaddr_in from{}; socklen_t fromlen = sizeof(from);
@@ -208,6 +242,9 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
         // packet_id不一致 → 続行
       }
       if (std::chrono::steady_clock::now() >= deadline) {
+        if (std::getenv("WIPLIB_DEBUG_LOG")) {
+          fprintf(stderr, "[wiplib] timeout: no matching response within 10s\n");
+        }
         break;
       }
       // ループ継続（SO_RCVTIMEOにより適度に戻る）
