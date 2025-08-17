@@ -11,7 +11,10 @@
 #include <functional>
 #include <queue>
 #include <thread>
-#include <condition_variable>
+// Optional: async logging. Define WIPLIB_NO_ASYNC_LOG to disable.
+#ifndef WIPLIB_NO_ASYNC_LOG
+# include <condition_variable>
+#endif
 
 namespace wiplib::utils {
 
@@ -341,16 +344,20 @@ private:
     std::mutex sinks_mutex_;
     LogLevel min_level_;
     
-    // 非同期ログ
+    // 非同期ログ（オプション）
     std::atomic<bool> async_enabled_{false};
+#ifndef WIPLIB_NO_ASYNC_LOG
     std::queue<LogEntry> log_queue_;
     std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
     std::unique_ptr<std::thread> async_thread_;
     std::atomic<bool> running_{true};
+#endif
     
-    void async_worker();
     void write_to_sinks(const LogEntry& entry);
+#ifndef WIPLIB_NO_ASYNC_LOG
+    void async_worker();
+#endif
     std::string get_thread_id() const;
 };
 

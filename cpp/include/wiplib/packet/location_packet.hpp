@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 #include <optional>
+#include <span>
 #include "wiplib/packet/packet.hpp"
 
 namespace wiplib::packet {

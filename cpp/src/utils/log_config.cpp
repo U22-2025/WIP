@@ -169,10 +169,18 @@ void Logger::critical(const std::string& m, const std::string& f, int l, const s
 
 void Logger::flush() { std::lock_guard<std::mutex> lk(sinks_mutex_); for (auto& s : sinks_) s->flush(); }
 
-void Logger::set_async_logging(bool enabled, size_t) { async_enabled_ = enabled; if (enabled && !async_thread_) { async_thread_ = std::make_unique<std::thread>(&Logger::async_worker, this); } }
+void Logger::set_async_logging(bool enabled, size_t) {
+#ifdef WIPLIB_NO_ASYNC_LOG
+    async_enabled_ = false;
+#else
+    async_enabled_ = enabled;
+    if (enabled && !async_thread_) { async_thread_ = std::make_unique<std::thread>(&Logger::async_worker, this); }
+#endif
+}
 
 std::string Logger::get_name() const { return name_; }
 
+#ifndef WIPLIB_NO_ASYNC_LOG
 void Logger::async_worker() {
     while (running_) {
         std::unique_lock<std::mutex> lk(queue_mutex_);
@@ -181,6 +189,7 @@ void Logger::async_worker() {
         while (!log_queue_.empty()) { auto e = log_queue_.front(); log_queue_.pop(); lk.unlock(); write_to_sinks(e); lk.lock(); }
     }
 }
+#endif
 
 // LogManager
 LogManager& LogManager::instance() { static LogManager inst; return inst; }

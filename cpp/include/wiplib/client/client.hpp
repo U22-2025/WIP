@@ -1,10 +1,14 @@
 ﻿#pragma once
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include "wiplib/client/wip_client.hpp"
+#include "wiplib/client/weather_client.hpp"
+#include "wiplib/client/location_client.hpp"
+#include "wiplib/client/query_client.hpp"
 
 namespace wiplib::client {
 
@@ -22,37 +26,50 @@ struct ClientSnapshot {
   uint16_t port{};
 };
 
-// Pythonの WIPClientPy.client.Client に対応する薄いラッパ
+/**
+ * @brief WIPクライアント（Python Clientに対応）
+ */
 class Client {
 public:
-  explicit Client(ServerConfig cfg = {}, bool debug = false)
-    : cfg_(cfg), core_(cfg, debug) {}
+  /**
+   * @brief コンストラクタ
+   * @param host サーバーホスト（nulloptの場合デフォルト）
+   * @param port サーバーポート（nulloptの場合デフォルト）
+   * @param server_config サーバー設定（nulloptの場合デフォルト）
+   * @param debug デバッグ有効
+   * @param latitude 初期緯度
+   * @param longitude 初期経度  
+   * @param area_code 初期エリアコード
+   */
+  explicit Client(
+      std::optional<std::string> host = std::nullopt,
+      std::optional<uint16_t> port = std::nullopt,
+      std::optional<ServerConfig> server_config = std::nullopt,
+      bool debug = false,
+      std::optional<double> latitude = std::nullopt,
+      std::optional<double> longitude = std::nullopt,
+      std::optional<std::string> area_code = std::nullopt
+  );
 
-  // 状態操作
-  void set_coordinates(double lat, double lon) { core_.set_coordinates(lat, lon); }
-  void set_area_code(std::string area) { core_.set_area_code(std::move(area)); }
-  const ClientState& state() const noexcept { return core_.state(); }
+  // プロパティアクセス（Python互換）
+  std::optional<double> latitude() const noexcept;
+  std::optional<double> longitude() const noexcept;
+  std::optional<std::string> area_code() const noexcept;
+
+  // 座標設定
+  void set_coordinates(double lat, double lon);
 
   // サーバ設定（Pythonと同名）
-  void set_server(const std::string& host) { cfg_.host = host; core_.update_server(cfg_.host, cfg_.port); }
-  void set_server(const std::string& host, uint16_t port) { cfg_.host = host; cfg_.port = port; core_.update_server(cfg_.host, cfg_.port); }
+  void set_server(const std::string& host);
+  void set_server(const std::string& host, uint16_t port);
 
   // 互換API
-  void close() { core_.close(); }
+  void close();
 
   // スナップショット
-  ClientSnapshot get_state() const noexcept {
-    ClientSnapshot s{};
-    const auto& st = core_.state();
-    s.latitude = st.latitude; s.longitude = st.longitude; s.area_code = st.area_code;
-    s.host = cfg_.host; s.port = cfg_.port;
-    return s;
-  }
+  ClientSnapshot get_state() const noexcept;
 
-  // 高水準API（Python関数名と引数順に揃えたオーバーロード）
-  Result<WeatherData> get_weather(const WeatherOptions& opt, bool proxy = false) noexcept {
-    return core_.get_weather(opt, proxy);
-  }
+  // 天気データ取得API（Python互換）
   Result<WeatherData> get_weather(
       bool weather = true,
       bool temperature = true,
@@ -60,38 +77,48 @@ public:
       bool alert = false,
       bool disaster = false,
       uint8_t day = 0,
-      bool proxy = false) noexcept {
-    WeatherOptions o{}; o.weather=weather; o.temperature=temperature; o.precipitation_prob=precipitation_prob; o.alert=alert; o.disaster=disaster; o.day=day;
-    return core_.get_weather(o, proxy);
-  }
+      bool proxy = false
+  );
 
-  Result<WeatherData> get_weather_by_coordinates(double lat, double lon, const WeatherOptions& opt, bool proxy = false) noexcept {
-    return core_.get_weather_by_coordinates(lat, lon, opt, proxy);
-  }
   Result<WeatherData> get_weather_by_coordinates(
       double lat, double lon,
-      bool weather, bool temperature, bool precipitation_prob,
-      bool alert, bool disaster, uint8_t day,
-      bool proxy = false) noexcept {
-    WeatherOptions o{}; o.weather=weather; o.temperature=temperature; o.precipitation_prob=precipitation_prob; o.alert=alert; o.disaster=disaster; o.day=day;
-    return core_.get_weather_by_coordinates(lat, lon, o, proxy);
-  }
+      bool weather = true,
+      bool temperature = true,
+      bool precipitation_prob = true,
+      bool alert = false,
+      bool disaster = false,
+      uint8_t day = 0,
+      bool proxy = false
+  );
 
-  Result<WeatherData> get_weather_by_area_code(std::string_view area_code, const WeatherOptions& opt, bool proxy = false) noexcept {
-    return core_.get_weather_by_area_code(area_code, opt, proxy);
-  }
   Result<WeatherData> get_weather_by_area_code(
       std::string_view area_code,
-      bool weather, bool temperature, bool precipitation_prob,
-      bool alert, bool disaster, uint8_t day,
-      bool proxy = false) noexcept {
-    WeatherOptions o{}; o.weather=weather; o.temperature=temperature; o.precipitation_prob=precipitation_prob; o.alert=alert; o.disaster=disaster; o.day=day;
-    return core_.get_weather_by_area_code(area_code, o, proxy);
-  }
+      bool weather = true,
+      bool temperature = true,
+      bool precipitation_prob = true,
+      bool alert = false,
+      bool disaster = false,
+      uint8_t day = 0,
+      bool proxy = false
+  );
+
+  // RAII サポート（Python with相当）
+  Client& operator()() { return *this; } // __enter__ equivalent
+  void release() { close(); } // __exit__ equivalent
 
 private:
-  ServerConfig cfg_{}; // ラッパ側で保持
-  ::wiplib::client::WipClient core_;
+  ServerConfig config_;
+  ClientState state_;
+  bool debug_;
+    
+  // 内部クライアント（WipClientを使用）
+  std::unique_ptr<WipClient> wip_client_;
+    
+  // ヘルパーメソッド
+  WeatherOptions build_options(bool weather, bool temperature, bool precipitation_prob, 
+                              bool alert, bool disaster, uint8_t day) const;
+  void validate_port() const;
+  void initialize_wip_client();
 };
 
 } // namespace wiplib::client

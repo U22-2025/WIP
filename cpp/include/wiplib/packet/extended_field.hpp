@@ -7,6 +7,7 @@
 #include <optional>
 #include <span>
 #include <unordered_map>
+#include <array>
 #include "wiplib/packet/packet.hpp"
 
 namespace wiplib::packet {
@@ -81,11 +82,11 @@ using ExtendedFieldValue = std::variant<
  * Note: on-wire encoding uses little-endian for the 16-bit header to match codec.
  */
 struct ExtendedFieldHeader {
-    uint16_t length : 10;  // データ長（0-1023）
-    uint8_t key : 6;       // キー（0-63）
+    unsigned length : 10;  // データ長（0-1023）
+    unsigned key    : 6;   // キー（0-63）
     
-    ExtendedFieldHeader() : length(0), key(0) {}
-    ExtendedFieldHeader(uint16_t len, uint8_t k) : length(len), key(k) {}
+    ExtendedFieldHeader() : length(0u), key(0u) {}
+    ExtendedFieldHeader(unsigned len, unsigned k) : length(len), key(k) {}
     
     /**
      * @brief ヘッダーをバイト配列にパック（little-endian）

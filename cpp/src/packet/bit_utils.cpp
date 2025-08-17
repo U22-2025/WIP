@@ -10,10 +10,10 @@ uint64_t extract_bits(uint64_t data, uint8_t bit_offset, uint8_t bit_length) {
     
     if (bit_length == 0) return 0;
     
-    // マスクを作成
+    // Create mask
     uint64_t mask = (1ULL << bit_length) - 1;
     
-    // 指定位置から抽出
+    // Extract from specified position
     return (data >> bit_offset) & mask;
 }
 
@@ -28,22 +28,22 @@ uint64_t extract_bits(std::span<const uint8_t> data, uint32_t bit_offset, uint8_
     uint64_t result = 0;
     uint8_t bits_read = 0;
     
-    // 必要なバイト数を計算
+    // Calculate required bytes
     uint32_t bytes_needed = (bit_pos + bit_length + 7) / 8;
     
-    // バイト境界チェック
+    // Check byte boundary
     if (byte_offset + bytes_needed > data.size()) {
-        return 0; // データ不足
+        return 0; // Insufficient data
     }
     
-    // ビッグエンディアンでバイトを読み取り
+    // Read bytes in big-endian
     for (uint32_t i = 0; i < bytes_needed && bits_read < bit_length; ++i) {
         uint8_t byte_data = data[byte_offset + i];
         uint8_t bits_from_byte = std::min(static_cast<uint8_t>(8 - (i == 0 ? bit_pos : 0)), 
                                          static_cast<uint8_t>(bit_length - bits_read));
         
         if (i == 0 && bit_pos > 0) {
-            // 最初のバイトで部分的な読み取り
+            // Partial read from first byte
             byte_data = byte_data & ((1 << (8 - bit_pos)) - 1);
         }
         
@@ -60,10 +60,10 @@ uint64_t set_bits(uint64_t data, uint8_t bit_offset, uint8_t bit_length, uint64_
     
     if (bit_length == 0) return data;
     
-    // マスクを作成
+    // Create mask
     uint64_t mask = ((1ULL << bit_length) - 1) << bit_offset;
     
-    // 既存ビットをクリアして新しい値を設定
+    // Clear existing bits and set new value
     return (data & ~mask) | ((value & ((1ULL << bit_length) - 1)) << bit_offset);
 }
 
@@ -78,12 +78,12 @@ void set_bits(std::span<uint8_t> data, uint32_t bit_offset, uint8_t bit_length, 
     uint8_t bits_written = 0;
     uint32_t bytes_needed = (bit_pos + bit_length + 7) / 8;
     
-    // バイト境界チェック
+    // Check byte boundary
     if (byte_offset + bytes_needed > data.size()) {
-        return; // データ不足
+        return; // Insufficient data
     }
     
-    // ビッグエンディアンでバイトに書き込み
+    // Write bytes in big-endian
     for (uint32_t i = 0; i < bytes_needed && bits_written < bit_length; ++i) {
         uint8_t bits_to_write = std::min(static_cast<uint8_t>(8 - (i == 0 ? bit_pos : 0)), 
                                         static_cast<uint8_t>(bit_length - bits_written));
@@ -92,11 +92,11 @@ void set_bits(std::span<uint8_t> data, uint32_t bit_offset, uint8_t bit_length, 
         uint8_t byte_value = static_cast<uint8_t>((value >> shift) & ((1 << bits_to_write) - 1));
         
         if (i == 0 && bit_pos > 0) {
-            // 最初のバイトで部分的な書き込み
+            // Partial write to first byte
             uint8_t mask = ((1 << bits_to_write) - 1) << (8 - bit_pos - bits_to_write);
             data[byte_offset + i] = (data[byte_offset + i] & ~mask) | (byte_value << (8 - bit_pos - bits_to_write));
         } else {
-            // 完全なバイト書き込み
+            // Complete byte write
             uint8_t bit_position = 8 - bits_to_write;
             uint8_t mask = ((1 << bits_to_write) - 1) << bit_position;
             data[byte_offset + i] = (data[byte_offset + i] & ~mask) | (byte_value << bit_position);

@@ -77,8 +77,8 @@ ExtendedFieldHeader ExtendedFieldHeader::unpack(std::span<const uint8_t> data) {
     uint16_t packed = static_cast<uint16_t>(data[0] | (static_cast<uint16_t>(data[1]) << 8));
     
     ExtendedFieldHeader header;
-    header.length = packed & 0x3FF;
-    header.key = (packed >> 10) & 0x3F;
+    header.length = static_cast<unsigned>(packed & 0x03FFu);
+    header.key = static_cast<unsigned>((packed >> 10) & 0x3Fu);
     
     return header;
 }

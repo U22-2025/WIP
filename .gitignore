@@ -39,6 +39,7 @@ cpp/**/x64/
 cpp/**/Debug/
 cpp/**/Release/
 cpp/**/ZERO_CHECK.vcxproj*
+cpp/.vs/
 *.obj
 *.pdb
 *.ilk

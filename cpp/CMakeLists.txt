@@ -23,6 +23,8 @@ set(WIPLIB_SRC
     src/client/location_client.cpp
     src/client/query_client.cpp
     src/client/async_weather_client.cpp
+    src/client/client.cpp
+    src/client/client_async.cpp
     src/client/utils/safe_sock_sendto.cpp
     src/client/utils/receive_with_id.cpp
     src/client/utils/connection_pool.cpp
