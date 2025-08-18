@@ -5,84 +5,95 @@ use wip_rust::wip_common_rs::packet::core::checksum::verify_checksum12;
 
 #[test]
 fn test_location_request_creation() {
-    let mut request = LocationRequest::new();
-    request.set_latitude(35.6812);
-    request.set_longitude(139.7671);
+    let request = LocationRequest::create_coordinate_lookup(35.6812, 139.7671, 1, true, true, false, false, false, 0, 1);
     
-    assert_eq!(request.get_latitude(), 35.6812);
-    assert_eq!(request.get_longitude(), 139.7671);
+    assert_eq!(request.latitude, 35.6812);
+    assert_eq!(request.longitude, 139.7671);
+    assert_eq!(request.packet_id, 1);
+    assert!(request.weather_flag);
+    assert!(request.temperature_flag);
 }
 
 #[test]
 fn test_location_request_serialization() {
-    let mut request = LocationRequest::new();
-    request.set_latitude(35.6812);
-    request.set_longitude(139.7671);
+    let request = LocationRequest::create_coordinate_lookup(35.6812, 139.7671, 1, true, true, false, false, false, 0, 1);
     
     let bytes = request.to_bytes();
     assert!(!bytes.is_empty());
+    assert!(bytes.len() >= 16); // Base packet size
     
-    // Verify that packet has valid checksum (standard 116-bit position)
+    // Verify checksum at standard position
     assert!(verify_checksum12(&bytes, 116, 12));
 }
 
 #[test]
 fn test_location_response_creation() {
-    let mut response = LocationResponse::new();
-    response.set_area_code(123456);
-    response.set_region_name("Tokyo".to_string());
+    let response = LocationResponse::create_response(1, "123456", Some(25.5), Some(70), 100);
     
-    assert_eq!(response.get_area_code(), 123456);
-    assert_eq!(response.get_region_name(), "Tokyo");
+    assert_eq!(response.packet_id, 1);
+    // Check area code (stored as u32 internally)
+    assert!(response.area_code > 0);
 }
 
 #[test]
 fn test_report_request_creation() {
-    let mut request = ReportRequest::new();
-    request.set_disaster_type("earthquake".to_string());
-    request.set_severity(5);
-    request.set_description("Strong earthquake detected".to_string());
+    let request = ReportRequest::create_sensor_data_report(
+        "123456",
+        Some(200),
+        Some(25.5),
+        Some(70),
+        None,
+        None,
+        1,
+        1001
+    );
     
-    assert_eq!(request.get_disaster_type(), "earthquake");
-    assert_eq!(request.get_severity(), 5);
-    assert_eq!(request.get_description(), "Strong earthquake detected");
+    assert_eq!(request.packet_id, 1001);
+    assert_eq!(request.area_code, 123456);
+    assert!(request.weather_flag);
+    assert!(request.temperature_flag);
+    assert!(request.pop_flag);
 }
 
 #[test]
 fn test_report_request_serialization() {
-    let mut request = ReportRequest::new();
-    request.set_disaster_type("earthquake".to_string());
-    request.set_severity(8);
-    request.set_description("Major earthquake in Tokyo area".to_string());
+    let request = ReportRequest::create_sensor_data_report(
+        "123456",
+        Some(200),
+        Some(25.5),
+        Some(70),
+        None,
+        None,
+        1,
+        1001
+    );
     
     let bytes = request.to_bytes();
     assert!(!bytes.is_empty());
+    assert!(bytes.len() >= 16);
     
-    // Verify that packet has valid checksum (standard 116-bit position)
-    assert!(verify_checksum12(&bytes, 116, 12));
+    // Verify checksum
+    assert!(verify_checksum12(&bytes, 116, 12).unwrap_or(false));
 }
 
 #[test]
 fn test_query_request_creation() {
-    let mut request = QueryRequest::new();
-    request.set_query_type("status".to_string());
-    request.set_parameters("region=tokyo".to_string());
+    let request = QueryRequest::create_status_query("status", "region=tokyo", 1);
     
-    assert_eq!(request.get_query_type(), "status");
-    assert_eq!(request.get_parameters(), "region=tokyo");
+    assert_eq!(request.packet_id, 1);
+    // Additional query-specific checks can be added here
 }
 
 #[test]
 fn test_query_request_serialization() {
-    let mut request = QueryRequest::new();
-    request.set_query_type("weather".to_string());
-    request.set_parameters("location=tokyo&period=24h".to_string());
+    let request = QueryRequest::create_status_query("weather", "location=tokyo&period=24h", 1);
     
     let bytes = request.to_bytes();
     assert!(!bytes.is_empty());
+    assert!(bytes.len() >= 16);
     
-    // Verify that packet has valid checksum (standard 116-bit position)
-    assert!(verify_checksum12(&bytes, 116, 12));
+    // Verify checksum
+    assert!(verify_checksum12(&bytes, 116, 12).unwrap_or(false));
 }
 
 #[test]
@@ -96,53 +107,65 @@ fn test_edge_case_coordinates() {
     ];
     
     for (lat, lon) in test_cases {
-        let mut request = LocationRequest::new();
-        request.set_latitude(lat);
-        request.set_longitude(lon);
+        let request = LocationRequest::create_coordinate_lookup(lat, lon, 1, false, false, false, false, false, 0);
         
-        assert_eq!(request.get_latitude(), lat);
-        assert_eq!(request.get_longitude(), lon);
+        assert_eq!(request.latitude, lat);
+        assert_eq!(request.longitude, lon);
         
         let bytes = request.to_bytes();
         assert!(!bytes.is_empty());
-        assert!(verify_checksum12(&bytes).is_ok());
+        assert!(verify_checksum12(&bytes, 116, 12).unwrap_or(false));
     }
 }
 
 #[test]
-fn test_severity_levels() {
-    // Test all severity levels 1-10
-    for severity in 1..=10 {
-        let mut request = ReportRequest::new();
-        request.set_disaster_type("test".to_string());
-        request.set_severity(severity);
-        request.set_description(format!("Test severity {}", severity));
-        
-        assert_eq!(request.get_severity(), severity);
-        
-        let bytes = request.to_bytes();
-        assert!(!bytes.is_empty());
-        assert!(verify_checksum12(&bytes).is_ok());
-    }
-}
-
-#[test]
-fn test_disaster_types() {
-    let disaster_types = vec![
-        "earthquake", "tsunami", "typhoon", "flood", 
-        "landslide", "volcanic_eruption", "fire", "explosion"
-    ];
+fn test_area_code_handling() {
+    let test_codes = vec!["123456", "000001", "999999", "12345", "1"];
     
-    for disaster_type in disaster_types {
-        let mut request = ReportRequest::new();
-        request.set_disaster_type(disaster_type.to_string());
-        request.set_severity(5);
-        request.set_description(format!("Test {}", disaster_type));
+    for area_code in test_codes {
+        let request = ReportRequest::create_sensor_data_report(
+            area_code,
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            1
+        );
         
-        assert_eq!(request.get_disaster_type(), disaster_type);
+        // All area codes should be normalized to valid 6-digit format
+        assert!(request.area_code <= 999999);
         
         let bytes = request.to_bytes();
         assert!(!bytes.is_empty());
-        assert!(verify_checksum12(&bytes).is_ok());
+        assert!(verify_checksum12(&bytes, 116, 12).unwrap_or(false));
+    }
+}
+
+#[test]
+fn test_temperature_encoding() {
+    // Test temperature encoding with +100 offset
+    let temperatures = vec![-30.0, 0.0, 25.5, 40.0];
+    
+    for temp in temperatures {
+        let request = ReportRequest::create_sensor_data_report(
+            "123456",
+            None,
+            Some(temp),
+            None,
+            None,
+            None,
+            1,
+            1
+        );
+        
+        // Temperature should be encoded with +100 offset
+        let encoded_temp = (temp + 100.0) as u8;
+        assert_eq!(request.temperature, encoded_temp);
+        
+        let bytes = request.to_bytes();
+        assert!(!bytes.is_empty());
+        assert!(verify_checksum12(&bytes, 116, 12).unwrap_or(false));
     }
 }

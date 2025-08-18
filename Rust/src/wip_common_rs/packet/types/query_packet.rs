@@ -66,6 +66,33 @@ impl QueryRequest {
         }
     }
 
+    /// Test用に固定タイムスタンプでQueryRequestを作成する
+    pub fn new_with_timestamp(
+        area_code: u32,
+        packet_id: u16,
+        weather: bool,
+        temperature: bool,
+        precipitation_prob: bool,
+        alert: bool,
+        disaster: bool,
+        day: u8,
+        timestamp: u64,
+    ) -> Self {
+        Self {
+            version: 1,
+            packet_id,
+            weather_flag: weather,
+            temperature_flag: temperature,
+            pop_flag: precipitation_prob,
+            alert_flag: alert,
+            disaster_flag: disaster,
+            ex_flag: false,
+            timestamp,
+            day: day & 0x07,
+            area_code: area_code & 0xFFFFF,
+        }
+    }
+
     /// Python実装に合わせた外部API（エリアコードを6桁文字列で受け取る）
     pub fn create_query_request(
         area_code_str: &str,
@@ -111,38 +138,75 @@ impl QueryRequest {
     }
 
     /// パケットをバイト列に変換する (Little Endian)
+    /// Python実装と互換性を保つため、手動でビットフィールドを配置
     pub fn to_bytes(&self) -> [u8; 16] {
-        let fields = &*REQUEST_FIELDS;
         let mut out = [0u8; 16];
-        let mut bits_u128 = bytes_to_u128_le(&out);
+        let mut bits_u128 = 0u128;
 
-        // 仕様に基づく各フィールド設定
-        if let Some(f) = fields.get_field("version") { f.set(&mut bits_u128, self.version as u128); }
-        if let Some(f) = fields.get_field("packet_id") { f.set(&mut bits_u128, self.packet_id as u128); }
-        if let Some(f) = fields.get_field("type") { f.set(&mut bits_u128, 2u128); }
-        if let Some(f) = fields.get_field("weather_flag") { f.set(&mut bits_u128, self.weather_flag as u128); }
-        if let Some(f) = fields.get_field("temperature_flag") { f.set(&mut bits_u128, self.temperature_flag as u128); }
-        if let Some(f) = fields.get_field("pop_flag") { f.set(&mut bits_u128, self.pop_flag as u128); }
-        if let Some(f) = fields.get_field("alert_flag") { f.set(&mut bits_u128, self.alert_flag as u128); }
-        if let Some(f) = fields.get_field("disaster_flag") { f.set(&mut bits_u128, self.disaster_flag as u128); }
-        if let Some(f) = fields.get_field("ex_flag") { f.set(&mut bits_u128, self.ex_flag as u128); }
-        if let Some(f) = fields.get_field("request_auth") { f.set(&mut bits_u128, 0); }
-        if let Some(f) = fields.get_field("response_auth") { f.set(&mut bits_u128, 0); }
-        if let Some(f) = fields.get_field("day") { f.set(&mut bits_u128, (self.day & 0x07) as u128); }
-        if let Some(f) = fields.get_field("reserved") { f.set(&mut bits_u128, 0); }
-        if let Some(f) = fields.get_field("timestamp") { f.set(&mut bits_u128, self.timestamp as u128); }
-        if let Some(f) = fields.get_field("area_code") { f.set(&mut bits_u128, (self.area_code & 0xFFFFF) as u128); }
-        if let Some(f) = fields.get_field("checksum") { f.set(&mut bits_u128, 0); }
-
-        // 一旦書き出し
+        // 正しいビット順序でフィールドを配置（Python実装準拠）
+        // bit 0-3: version (4ビット)
+        bits_u128 |= (self.version as u128) & 0x0F;
+        
+        // bit 4-15: packet_id (12ビット)  
+        bits_u128 |= ((self.packet_id as u128) & 0x0FFF) << 4;
+        
+        // bit 16-18: type (3ビット) = 2 (Query)
+        bits_u128 |= (2u128 & 0x07) << 16;
+        
+        // bit 19: weather_flag (1ビット)
+        if self.weather_flag {
+            bits_u128 |= 1u128 << 19;
+        }
+        
+        // bit 20: temperature_flag (1ビット)
+        if self.temperature_flag {
+            bits_u128 |= 1u128 << 20;
+        }
+        
+        // bit 21: pop_flag (1ビット)
+        if self.pop_flag {
+            bits_u128 |= 1u128 << 21;
+        }
+        
+        // bit 22: alert_flag (1ビット)
+        if self.alert_flag {
+            bits_u128 |= 1u128 << 22;
+        }
+        
+        // bit 23: disaster_flag (1ビット)
+        if self.disaster_flag {
+            bits_u128 |= 1u128 << 23;
+        }
+        
+        // bit 24: ex_flag (1ビット)
+        if self.ex_flag {
+            bits_u128 |= 1u128 << 24;
+        }
+        
+        // bit 25: request_auth (1ビット) = 0
+        // bit 26: response_auth (1ビット) = 0
+        
+        // bit 27-29: day (3ビット)
+        bits_u128 |= ((self.day as u128) & 0x07) << 27;
+        
+        // bit 30-31: reserved (2ビット) = 0
+        
+        // bit 32-95: timestamp (64ビット)
+        bits_u128 |= (self.timestamp as u128) << 32;
+        
+        // bit 96-115: area_code (20ビット)
+        bits_u128 |= ((self.area_code as u128) & 0xFFFFF) << 96;
+        
+        // bit 116-127: checksum (12ビット) - 一旦0で初期化
+        
+        // バイト配列に変換
         u128_to_bytes_le(bits_u128, &mut out);
 
         // チェックサム計算（ヘッダ16バイト）
         let checksum = calc_checksum12(&out);
 
-        // チェックサム設定
-        let mut bits_u128 = bytes_to_u128_le(&out);
-        if let Some(f) = fields.get_field("checksum") { f.set(&mut bits_u128, checksum as u128); }
+        // チェックサム設定 (bit 116-127)
+        bits_u128 |= ((checksum as u128) & 0x0FFF) << 116;
         u128_to_bytes_le(bits_u128, &mut out);
 
         out

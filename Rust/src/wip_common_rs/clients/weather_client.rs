@@ -144,7 +144,36 @@ impl WeatherClient {
             day,
         );
         let bytes = req.to_bytes();
+        
+        if self.debug {
+            // チェックサム検証
+            use crate::wip_common_rs::packet::core::checksum::verify_checksum12;
+            let is_checksum_valid = verify_checksum12(&bytes, 116, 12);
+            println!("Checksum validation: {}", if is_checksum_valid { "✅ Valid" } else { "❌ Invalid" });
+            
+            // パケット詳細
+            println!("Request packet details:");
+            println!("  Length: {} bytes", bytes.len());
+            println!("  Area code in packet: {}", req.area_code);
+            println!("  Flags: weather={} temp={} pop={} alert={} disaster={}", 
+                    req.weather_flag, req.temperature_flag, req.pop_flag, req.alert_flag, req.disaster_flag);
+        }
+        
         let resp_bytes = self.send_raw(&bytes)?;
+        
+        if self.debug {
+            println!("Response analysis:");
+            if resp_bytes.len() >= 3 {
+                let packet_type = resp_bytes[2] & 0x07;
+                println!("  Response type: {} (3=QueryResponse, 7=Error)", packet_type);
+                
+                if packet_type == 7 && resp_bytes.len() >= 4 {
+                    let error_code = resp_bytes[3];
+                    println!("  Error code: {} (1=Invalid packet format, 2=Checksum error, etc.)", error_code);
+                }
+            }
+        }
+        
         Ok(QueryResponse::from_bytes(&resp_bytes))
     }
 }

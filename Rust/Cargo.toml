@@ -22,6 +22,7 @@ redis = { version = "0.24", optional = true }
 gethostname = "0.4"
 lazy_static = "1.4"
 fastrand = "2.0"
+clap = { version = "4.0", features = ["derive"] }
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -51,3 +52,28 @@ test = false
 [[bench]]
 name = "simple_performance"
 harness = false
+
+# CLI binaries
+[[bin]]
+name = "wip-weather"
+path = "src/bin/wip-weather.rs"
+
+[[bin]]
+name = "wip-location"
+path = "src/bin/wip-location.rs"
+
+[[bin]]
+name = "wip-query"
+path = "src/bin/wip-query.rs"
+
+[[bin]]
+name = "wip-report"
+path = "src/bin/wip-report.rs"
+
+[[bin]]
+name = "wip-auth"
+path = "src/bin/wip-auth.rs"
+
+[[bin]]
+name = "wip-cli"
+path = "src/bin/wip-cli.rs"
