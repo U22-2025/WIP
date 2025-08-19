@@ -8,6 +8,8 @@
 #include <chrono>
 #include <optional>
 #include <unordered_map>
+#include <mutex>
+#include <filesystem>
 
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
@@ -53,7 +55,10 @@ struct CoordinateResult {
 class LocationClient {
 public:
   LocationClient(std::string host = "127.0.0.1", uint16_t port = 4109)
-    : host_(std::move(host)), port_(port) {}
+    : host_(std::move(host)), port_(port) {
+    cache_file_path_ = std::filesystem::temp_directory_path() / "wip_location_cache.json";
+    load_cache_from_disk();
+  }
 
   // 既存メソッド
   wiplib::Result<std::string> get_area_code_simple(double latitude, double longitude) noexcept;
@@ -186,6 +191,7 @@ private:
   std::chrono::seconds cache_ttl_{300};
   mutable std::unordered_map<std::string, std::pair<CoordinateResult, std::chrono::steady_clock::time_point>> cache_;
   mutable std::mutex cache_mutex_;
+  std::filesystem::path cache_file_path_;
   
   // 統計
   mutable std::mutex stats_mutex_;
@@ -203,12 +209,17 @@ private:
   std::optional<CoordinateResult> get_cached_result(const std::string& cache_key) const;
   
   void cache_result(const std::string& cache_key, const CoordinateResult& result) const;
-  
+
+  void load_cache_from_disk();
+  void save_cache_to_disk() const;
+
   void update_statistics(const std::string& key, uint64_t increment = 1) const;
   
   double calculate_accuracy_from_precision(PrecisionLevel precision_level) const;
   
   bool is_coordinate_in_bounds(const packet::Coordinate& coordinate, const GeographicBounds& bounds) const;
+
+  friend class LocationClientCacheTestHelper;
 };
 
 /**

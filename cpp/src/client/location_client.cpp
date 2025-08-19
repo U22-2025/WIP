@@ -17,6 +17,9 @@
 #include <optional>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
+#include <filesystem>
+#include <regex>
 
 #if defined(_WIN32)
 #  include <winsock2.h>
@@ -36,6 +39,7 @@ using socklen_t = int;
 namespace wiplib::client {
 
 using namespace wiplib::proto;
+namespace fs = std::filesystem;
 
 static std::vector<std::uint8_t> coord_to_le(double d) {
   std::vector<std::uint8_t> v(4);
@@ -364,10 +368,17 @@ GeographicBounds LocationClient::get_geographic_bounds() const {
 // ---------------------------------------
 
 void LocationClient::set_cache_enabled(bool enabled, std::chrono::seconds cache_ttl) {
-  std::scoped_lock lock(cache_mutex_);
-  cache_enabled_ = enabled;
-  cache_ttl_ = cache_ttl;
-  if (!enabled) cache_.clear();
+  {
+    std::scoped_lock lock(cache_mutex_);
+    cache_enabled_ = enabled;
+    cache_ttl_ = cache_ttl;
+    if (!enabled) cache_.clear();
+  }
+  if (enabled) {
+    load_cache_from_disk();
+  } else {
+    save_cache_to_disk();
+  }
 }
 
 // ---------------------------------------
@@ -416,21 +427,105 @@ std::string LocationClient::generate_cache_key(const packet::Coordinate& coordin
 }
 
 std::optional<CoordinateResult> LocationClient::get_cached_result(const std::string& cache_key) const {
-  std::scoped_lock lock(cache_mutex_);
-  if (!cache_enabled_) return std::nullopt;
-  auto it = cache_.find(cache_key);
-  if (it == cache_.end()) return std::nullopt;
-  if (std::chrono::steady_clock::now() - it->second.second > cache_ttl_) {
-    cache_.erase(it);
-    return std::nullopt;
+  bool removed = false;
+  std::optional<CoordinateResult> res;
+  {
+    std::scoped_lock lock(cache_mutex_);
+    if (!cache_enabled_) return std::nullopt;
+    auto it = cache_.find(cache_key);
+    if (it == cache_.end()) return std::nullopt;
+    if (std::chrono::steady_clock::now() - it->second.second > cache_ttl_) {
+      cache_.erase(it);
+      removed = true;
+    } else {
+      res = it->second.first;
+    }
   }
-  return it->second.first;
+  if (removed) save_cache_to_disk();
+  return res;
 }
 
 void LocationClient::cache_result(const std::string& cache_key, const CoordinateResult& result) const {
-  std::scoped_lock lock(cache_mutex_);
-  if (!cache_enabled_) return;
-  cache_[cache_key] = {result, std::chrono::steady_clock::now()};
+  {
+    std::scoped_lock lock(cache_mutex_);
+    if (!cache_enabled_) return;
+    cache_[cache_key] = {result, std::chrono::steady_clock::now()};
+  }
+  save_cache_to_disk();
+}
+
+void LocationClient::load_cache_from_disk() {
+  std::string content;
+  {
+    std::ifstream ifs(cache_file_path_);
+    if (!ifs) return;
+    content.assign((std::istreambuf_iterator<char>(ifs)), {});
+  }
+  std::unordered_map<std::string, std::pair<CoordinateResult, std::chrono::steady_clock::time_point>> new_cache;
+  auto now_sys = std::chrono::system_clock::now();
+  std::regex entry_regex(R"("([^"]+)"\s*:\s*\{([^}]*)\})");
+  for (auto it = std::sregex_iterator(content.begin(), content.end(), entry_regex);
+       it != std::sregex_iterator(); ++it) {
+    std::string key = (*it)[1].str();
+    std::string body = (*it)[2].str();
+    CoordinateResult res{};
+    std::smatch m;
+    if (std::regex_search(body, m, std::regex(R"("area_code"\s*:\s*"([^"]*)")"))) res.area_code = m[1].str();
+    if (std::regex_search(body, m, std::regex(R"("original_latitude"\s*:\s*([-0-9\.]+))"))) res.original_coordinate.latitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex(R"("original_longitude"\s*:\s*([-0-9\.]+))"))) res.original_coordinate.longitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex(R"("normalized_latitude"\s*:\s*([-0-9\.]+))"))) res.normalized_coordinate.latitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex(R"("normalized_longitude"\s*:\s*([-0-9\.]+))"))) res.normalized_coordinate.longitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex(R"("precision_level"\s*:\s*(\d+))"))) res.precision_level = static_cast<PrecisionLevel>(std::stoi(m[1].str()));
+    if (std::regex_search(body, m, std::regex(R"("accuracy_meters"\s*:\s*([-0-9\.]+))"))) res.accuracy_meters = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex(R"("is_within_bounds"\s*:\s*(true|false))"))) res.is_within_bounds = (m[1].str() == "true");
+    if (std::regex_search(body, m, std::regex(R"("response_time_ms"\s*:\s*(\d+))"))) res.response_time = std::chrono::milliseconds(std::stoll(m[1].str()));
+    long long stored_sec = 0;
+    if (std::regex_search(body, m, std::regex(R"("stored_time"\s*:\s*(\d+))"))) stored_sec = std::stoll(m[1].str());
+    auto stored_sys = std::chrono::system_clock::time_point{std::chrono::seconds(stored_sec)};
+    if (now_sys - stored_sys > cache_ttl_) continue;
+    auto age = now_sys - stored_sys;
+    auto stored_steady = std::chrono::steady_clock::now() - age;
+    new_cache[key] = {res, stored_steady};
+  }
+  {
+    std::scoped_lock lock(cache_mutex_);
+    cache_ = std::move(new_cache);
+  }
+  save_cache_to_disk();
+}
+
+void LocationClient::save_cache_to_disk() const {
+  std::unordered_map<std::string, std::pair<CoordinateResult, std::chrono::steady_clock::time_point>> copy;
+  {
+    std::scoped_lock lock(cache_mutex_);
+    copy = cache_;
+  }
+  std::ostringstream oss;
+  oss << "{";
+  bool first = true;
+  auto now_sys = std::chrono::system_clock::now();
+  for (const auto& [key, val] : copy) {
+    if (!first) oss << ",\n"; else oss << "\n";
+    first = false;
+    auto age = std::chrono::steady_clock::now() - val.second;
+    auto stored_sys = now_sys - age;
+    long long stored_sec = std::chrono::duration_cast<std::chrono::seconds>(stored_sys.time_since_epoch()).count();
+    oss << "  \"" << key << "\": {";
+    oss << "\"area_code\":\"" << val.first.area_code << "\",";
+    oss << "\"original_latitude\":" << val.first.original_coordinate.latitude << ",";
+    oss << "\"original_longitude\":" << val.first.original_coordinate.longitude << ",";
+    oss << "\"normalized_latitude\":" << val.first.normalized_coordinate.latitude << ",";
+    oss << "\"normalized_longitude\":" << val.first.normalized_coordinate.longitude << ",";
+    oss << "\"precision_level\":" << static_cast<int>(val.first.precision_level) << ",";
+    oss << "\"accuracy_meters\":" << val.first.accuracy_meters << ",";
+    oss << "\"is_within_bounds\":" << (val.first.is_within_bounds ? "true" : "false") << ",";
+    oss << "\"response_time_ms\":" << val.first.response_time.count() << ",";
+    oss << "\"stored_time\":" << stored_sec << "}";
+  }
+  if (!copy.empty()) oss << "\n";
+  oss << "}";
+  std::ofstream ofs(cache_file_path_);
+  ofs << oss.str();
 }
 
 void LocationClient::update_statistics(const std::string& key, uint64_t increment) const {
