@@ -4,15 +4,6 @@
 
 ---
 
-## フェーズ 0: 下準備（仕様確認）
-
-- [ ] AUTH_SPEC の要件確認（HMAC-SHA256、`auth_hash`=ID 4 文字列、hex64、`flags.extended=true`）
-- [ ] 宛先別パスフレーズ運用ポリシーの確定（weather/location/query/report）
-
-受け入れ条件
-- 仕様整合の合意が取れていること。
-
----
 
 ## フェーズ 1: ヘルパと設定の導入
 
