@@ -136,3 +136,8 @@ c.set_auth_config(ac);
 - C++ クライアントは `AuthConfig::from_env()` 呼び出し時に、カレントディレクトリから親ディレクトリ方向に最大3階層まで `.env` を自動読み込みします（既存の環境変数は上書きしません）。
 - 特定パスを指定したい場合は `WIP_DOTENV_PATH` を設定してください（例: `WIP_DOTENV_PATH=/path/to/.env`）。
 - これにより `.env` に `*_REQUEST_AUTH_ENABLED` や `*_SERVER_PASSPHRASE` を記述するだけで、C++ 側でも認証が有効化されます。
+- `WeatherClient::from_env()` や `LocationClient::from_env()` などを利用すると、以下の環境変数から接続先ホスト・ポートを取得できます。
+  - `WEATHER_SERVER_HOST` / `WEATHER_SERVER_PORT`
+  - `LOCATION_RESOLVER_HOST` / `LOCATION_RESOLVER_PORT`
+  - `QUERY_GENERATOR_HOST` / `QUERY_GENERATOR_PORT`
+  例: `auto cli = wiplib::client::WeatherClient::from_env();`

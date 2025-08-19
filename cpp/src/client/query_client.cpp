@@ -3,10 +3,12 @@
 #include "wiplib/packet/codec.hpp"
 #include "wiplib/utils/auth.hpp"
 #include "wiplib/packet/extended_field.hpp"
+#include "wiplib/utils/dotenv.hpp"
 #include <variant>
 #include <chrono>
 #include <random>
 #include <iostream>
+#include <cstdlib>
 
 #if defined(_WIN32)
 #  include <winsock2.h>
@@ -26,6 +28,22 @@ using socklen_t = int;
 namespace wiplib::client {
 
 using namespace wiplib::proto;
+
+QueryClient QueryClient::from_env(bool debug) {
+  return QueryClient(default_host(), default_port(), debug);
+}
+
+std::string QueryClient::default_host() {
+  (void)wiplib::utils::load_dotenv(".env", false, 3);
+  if (const char* h = std::getenv("QUERY_GENERATOR_HOST")) return h;
+  return "127.0.0.1";
+}
+
+uint16_t QueryClient::default_port() {
+  (void)wiplib::utils::load_dotenv(".env", false, 3);
+  if (const char* p = std::getenv("QUERY_GENERATOR_PORT")) return static_cast<uint16_t>(std::stoi(p));
+  return 4111;
+}
 
 wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view area_code,
                                                             const QueryOptions& opt) noexcept {

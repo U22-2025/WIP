@@ -15,8 +15,8 @@
 namespace wiplib::client {
 
 struct ServerConfig {
-  std::string host = "127.0.0.1";
-  uint16_t port = 4110; // Weather Server (proxy)
+  std::string host = WeatherClient::default_host();
+  uint16_t port = WeatherClient::default_port(); // Weather Server (proxy)
 };
 
 struct ClientState {
@@ -46,6 +46,7 @@ struct WeatherData {
 class WipClient {
 public:
   explicit WipClient(ServerConfig cfg = {}, bool debug = false);
+  static WipClient from_env(bool debug = false);
   ~WipClient();
 
   void set_coordinates(double latitude, double longitude);

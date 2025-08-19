@@ -32,8 +32,14 @@ struct WeatherResult {
 
 class WeatherClient {
 public:
-  WeatherClient(std::string host, uint16_t port) : host_(std::move(host)), port_(port) {}
+  WeatherClient(std::string host = default_host(),
+                uint16_t port = default_port())
+      : host_(std::move(host)), port_(port) {}
   ~WeatherClient() = default;
+
+  static WeatherClient from_env();
+  static std::string default_host();
+  static uint16_t default_port();
 
   // Python版に合わせた命名
   wiplib::Result<WeatherResult> get_weather_by_coordinates(double lat, double lon, const QueryOptions& opt) noexcept;

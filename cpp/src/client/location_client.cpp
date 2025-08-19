@@ -6,6 +6,7 @@
 #include "wiplib/packet/extended_field.hpp"
 #include "wiplib/packet/request.hpp"
 #include "wiplib/packet/response.hpp"
+#include "wiplib/utils/dotenv.hpp"
 #include <vector>
 #include <string>
 #include <cstdio>
@@ -17,6 +18,7 @@
 #include <optional>
 #include <sstream>
 #include <iomanip>
+#include <cstdlib>
 
 #if defined(_WIN32)
 #  include <winsock2.h>
@@ -34,6 +36,22 @@ using socklen_t = int;
 #endif
 
 namespace wiplib::client {
+
+LocationClient LocationClient::from_env() {
+  return LocationClient(default_host(), default_port());
+}
+
+std::string LocationClient::default_host() {
+  (void)wiplib::utils::load_dotenv(".env", false, 3);
+  if (const char* h = std::getenv("LOCATION_RESOLVER_HOST")) return h;
+  return "127.0.0.1";
+}
+
+uint16_t LocationClient::default_port() {
+  (void)wiplib::utils::load_dotenv(".env", false, 3);
+  if (const char* p = std::getenv("LOCATION_RESOLVER_PORT")) return static_cast<uint16_t>(std::stoi(p));
+  return 4109;
+}
 
 using namespace wiplib::proto;
 

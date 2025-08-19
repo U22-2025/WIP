@@ -52,8 +52,13 @@ struct CoordinateResult {
 
 class LocationClient {
 public:
-  LocationClient(std::string host = "127.0.0.1", uint16_t port = 4109)
+  LocationClient(std::string host = default_host(),
+                 uint16_t port = default_port())
     : host_(std::move(host)), port_(port) {}
+
+  static LocationClient from_env();
+  static std::string default_host();
+  static uint16_t default_port();
 
   // 既存メソッド
   wiplib::Result<std::string> get_area_code_simple(double latitude, double longitude) noexcept;

@@ -14,9 +14,13 @@ namespace wiplib::client {
 
 class QueryClient {
 public:
-  QueryClient(std::string host = "127.0.0.1", uint16_t port = 4111,
+  QueryClient(std::string host = default_host(), uint16_t port = default_port(),
               bool debug = false)
     : host_(std::move(host)), port_(port), debug_(debug) {}
+
+  static QueryClient from_env(bool debug = false);
+  static std::string default_host();
+  static uint16_t default_port();
 
   wiplib::Result<WeatherResult> get_weather_data(std::string_view area_code,
                                                  const QueryOptions& opt) noexcept;
