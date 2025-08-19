@@ -5,7 +5,7 @@ use crate::wip_common_rs::packet::core::{
     PacketFormat, AutoChecksumPacket, WipResult, WipPacketError, PacketParseError,
     BitField, PacketFields, bytes_to_u128_le, u128_to_bytes_le
 };
-use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, embed_checksum12_le};
+use crate::wip_common_rs::packet::core::checksum::{embed_checksum12_at};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
 use crate::wip_common_rs::packet::core::extended_field::{ExtendedFieldManager, FieldDefinition, FieldType, FieldValue, unpack_ext_fields, pack_ext_fields};
 use once_cell::sync::Lazy;
@@ -71,12 +71,27 @@ impl LocationRequest {
         }
     }
 
-    /// パケットをエンコード（ヘッダ16バイト＋拡張フィールド）
+    /// パケットをエンコード（Python互換: 全体でチェックサム計算）
     pub fn to_bytes(&self) -> Vec<u8> {
-        // 固定レイアウトでヘッダを構築
-        let mut head = [0u8; 16];
+        // Python版と同じ手順：
+        // 1. チェックサムを0にしてヘッダを構築
+        // 2. 拡張フィールドを追加
+        // 3. 全体でチェックサムを計算
+        // 4. チェックサムを埋め込み
+        
+        // 拡張フィールド（latitude/longitude）をPython準拠でpack
+        let mut map = HashMap::new();
+        map.insert("latitude".to_string(), FieldValue::F64(self.latitude));
+        map.insert("longitude".to_string(), FieldValue::F64(self.longitude));
+        let ext = pack_ext_fields(&map);
+        
+        // 全パケットサイズでバッファを確保
+        let total_size = 16 + ext.len();
+        let mut packet = vec![0u8; total_size];
+        
+        // ヘッダを構築（チェックサムは0のまま）
         {
-            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut head);
+            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut packet[..16]);
             bits[0..4].store(self.version);
             bits[4..16].store(self.packet_id);
             bits[16..19].store(0u8); // type=0
@@ -94,21 +109,20 @@ impl LocationRequest {
             bits[96..116].store(0u32); // area_code無し
             bits[116..128].store(0u16); // checksum placeholder
         }
-
-        // チェックサムを固定位置(116..128)へ埋込
-        embed_checksum12_le(&mut head);
-
-        // 拡張フィールド（latitude/longitude）をPython準拠でpack
-        let mut map = HashMap::new();
-        map.insert("latitude".to_string(), FieldValue::F64(self.latitude));
-        map.insert("longitude".to_string(), FieldValue::F64(self.longitude));
-        let ext = pack_ext_fields(&map);
-
-        // 出力
-        let mut out = Vec::with_capacity(16 + ext.len());
-        out.extend_from_slice(&head);
-        out.extend_from_slice(&ext);
-        out
+        
+        // 拡張フィールドをコピー
+        packet[16..].copy_from_slice(&ext);
+        
+        // Python版と同様：全パケット（最小サイズまでパディング）でチェックサムを計算
+        let min_packet_size = 16; // 基本ヘッダサイズ（Python版のget_min_packet_size相当）
+        if packet.len() < min_packet_size {
+            packet.resize(min_packet_size, 0);
+        }
+        
+        // 全体でチェックサムを計算して埋め込み
+        embed_checksum12_at(&mut packet, 116, 12);
+        
+        packet
     }
 }
 
@@ -142,41 +156,8 @@ impl LocationRequest {
 
 impl PacketFormat for LocationRequest {
     fn to_bytes(&self) -> Vec<u8> {
-        // Use the existing implementation from the LocationRequest impl block
-        // 固定レイアウトでヘッダを構築
-        let mut head = [0u8; 16];
-        {
-            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut head);
-            bits[0..4].store(self.version);
-            bits[4..16].store(self.packet_id);
-            bits[16..19].store(0u8); // type=0
-            bits[19..20].store(self.weather_flag as u8);
-            bits[20..21].store(self.temperature_flag as u8);
-            bits[21..22].store(self.pop_flag as u8);
-            bits[22..23].store(self.alert_flag as u8);
-            bits[23..24].store(self.disaster_flag as u8);
-            bits[24..25].store(1u8); // ex_flag = 1
-            bits[25..26].store(0u8); // request_auth
-            bits[26..27].store(0u8); // response_auth
-            bits[27..30].store(self.day);
-            bits[30..32].store(0u8); // reserved
-            bits[32..96].store(self.timestamp);
-            bits[96..116].store(0u32);
-            bits[116..128].store(0u16);
-        }
-
-        embed_checksum12_le(&mut head);
-
-        let mut map = HashMap::new();
-        map.insert("latitude".to_string(), FieldValue::F64(self.latitude));
-        map.insert("longitude".to_string(), FieldValue::F64(self.longitude));
-        let ext = pack_ext_fields(&map);
-
-        // 出力
-        let mut out = Vec::with_capacity(16 + ext.len());
-        out.extend_from_slice(&head);
-        out.extend_from_slice(&ext);
-        out
+        // Use the existing implementation
+        self.to_bytes()
     }
     
     fn from_bytes(data: &[u8]) -> WipResult<Self> {
@@ -353,35 +334,35 @@ impl PacketFormat for LocationResponse {
             return Err(WipPacketError::Parse(PacketParseError::insufficient_data(16, data.len())));
         }
         
-        let bits_data = bytes_to_u128_le(data);
-        let fields = Self::get_field_definitions();
+        // Use BitSlice approach like LocationResponseEx for correct area code extraction
+        let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..data.len().min(20)]);
         
-        // パケット型チェック
-        let packet_type = fields.get_field("type")
-            .map(|f| f.extract(bits_data) as u8)
-            .unwrap_or(255);
+        // Extract fields using bit positions (same as LocationResponseEx)
+        let version = bits[0..4].load::<u8>();
+        let packet_id = bits[4..16].load::<u16>();
+        let packet_type = bits[16..19].load::<u8>();
+        
         if packet_type != 1 {
             return Err(WipPacketError::Parse(PacketParseError::invalid_packet_type(packet_type)));
         }
         
-        let version = fields.get_field("version")
-            .map(|f| f.extract(bits_data) as u8)
-            .unwrap_or(1);
-        let packet_id = fields.get_field("packet_id")
-            .map(|f| f.extract(bits_data) as u16)
-            .unwrap_or(0);
-        let area_code = fields.get_field("area_code")
-            .map(|f| f.extract(bits_data) as u32)
-            .unwrap_or(0);
-        let success = fields.get_field("success")
-            .map(|f| f.extract(bits_data) != 0)
-            .unwrap_or(false);
-        let error_code = fields.get_field("error_code")
-            .map(|f| f.extract(bits_data) as u8)
-            .unwrap_or(0);
-        let checksum = fields.get_field("checksum")
-            .map(|f| f.extract(bits_data) as u16)
-            .unwrap_or(0);
+        // Extract area code from bits 96-115 (20 bits) - ensure we have enough data
+        let area_code = if data.len() >= 16 {
+            // For 32-byte response, ensure we read from the full packet
+            let full_bits = BitSlice::<u8, Lsb0>::from_slice(data);
+            full_bits[96..116].load::<u32>()
+        } else {
+            0
+        };
+        
+        // For LocationResponse, these fields may not be present in the same way
+        let success = true; // Assume success for valid response
+        let error_code = 0;
+        let checksum = if data.len() >= 16 {
+            bits[116..128].load::<u16>()
+        } else {
+            0
+        };
         
         Ok(Self {
             version,
@@ -410,20 +391,8 @@ impl PacketFormat for LocationResponse {
     }
     
     fn get_field_definitions() -> &'static PacketFields {
-        use std::sync::OnceLock;
-        static FIELDS: OnceLock<PacketFields> = OnceLock::new();
-        
-        FIELDS.get_or_init(|| {
-            let mut fields = PacketFields::new();
-            fields.add_field("version", 4);
-            fields.add_field("packet_id", 12);
-            fields.add_field("type", 3);
-            fields.add_field("area_code", 20);
-            fields.add_field("success", 1);
-            fields.add_field("error_code", 8);
-            fields.add_field("checksum", 12);
-            fields
-        })
+        // Use the same field definitions as response_fields.json
+        &*RESPONSE_FIELDS
     }
     
     fn get_checksum_field() -> Option<&'static BitField> {

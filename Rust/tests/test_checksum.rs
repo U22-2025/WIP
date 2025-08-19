@@ -52,8 +52,8 @@ fn test_embed_and_verify_checksum() {
     // Embed checksum
     embed_checksum12_le(&mut data);
     
-    // Verify the checksum
-    assert!(verify_checksum12(&data).is_ok());
+    // Verify the checksum (位置116から12ビット)
+    assert!(verify_checksum12(&data, 116, 12));
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn test_verify_invalid_checksum() {
     data[0] = 0xFF;
     
     // Verification should fail
-    assert!(verify_checksum12(&data).is_err());
+    assert!(!verify_checksum12(&data, 116, 12));
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn test_checksum_different_sizes() {
         data.extend_from_slice(&[0, 0]); // Space for checksum
         
         embed_checksum12_le(&mut data);
-        assert!(verify_checksum12(&data).is_ok());
+        assert!(verify_checksum12(&data, 116, 12));
     }
 }
 
@@ -97,7 +97,7 @@ fn test_checksum_known_values() {
         packet_data.extend_from_slice(&[0, 0]); // Space for checksum
         
         embed_checksum12_le(&mut packet_data);
-        assert!(verify_checksum12(&packet_data).is_ok());
+        assert!(verify_checksum12(&packet_data, 116, 12));
         
         // Verify the actual checksum calculation
         let calculated = calc_checksum12(&data);
@@ -144,5 +144,5 @@ fn test_large_packet_checksum() {
     
     // Should complete within reasonable time (less than 1ms for 1KB)
     assert!(duration.as_millis() < 10);
-    assert!(verify_checksum12(&data).is_ok());
+    assert!(verify_checksum12(&data, 116, 12));
 }

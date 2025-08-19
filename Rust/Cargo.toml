@@ -49,6 +49,11 @@ name = "packet_showcase"
 path = "examples/packet_showcase.rs"
 test = false
 
+[[example]]
+name = "unified_client"
+path = "examples/unified_client.rs"
+test = false
+
 [[bench]]
 name = "simple_performance"
 harness = false

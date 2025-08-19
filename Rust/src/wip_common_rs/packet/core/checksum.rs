@@ -9,24 +9,63 @@
 /// Returns:
 ///     12ビットチェックサム値
 pub fn calc_checksum12(data: &[u8]) -> u16 {
+    calc_checksum12_with_debug(data, false)
+}
+
+/// 12ビットチェックサムを計算する（デバッグ機能付き）
+/// 
+/// Args:
+///     data: チェックサム計算対象のバイト列
+///     debug: デバッグログを出力するかどうか
+/// 
+/// Returns:
+///     12ビットチェックサム値
+pub fn calc_checksum12_with_debug(data: &[u8], debug: bool) -> u16 {
+    if debug {
+        eprintln!("[DEBUG] チェックサム計算開始: データ長={} bytes", data.len());
+        eprintln!("[DEBUG] データ: {:02X?}", data);
+    }
+    
     let mut total = 0u32;
     
     // 1バイトずつ加算
-    for &byte in data {
+    for (i, &byte) in data.iter().enumerate() {
         total += byte as u32;
+        if debug && i < 20 {
+            eprintln!("[DEBUG] byte[{}] = 0x{:02X}, total = 0x{:X}", i, byte, total);
+        }
+    }
+    
+    if debug {
+        eprintln!("[DEBUG] 加算完了: total = 0x{:X}", total);
     }
     
     // キャリーを12ビットに折り返し
+    let mut fold_count = 0;
     while total >> 12 != 0 {
-        total = (total & 0xFFF) + (total >> 12);
+        let new_total = (total & 0xFFF) + (total >> 12);
+        if debug {
+            eprintln!("[DEBUG] キャリーフォールド#{}: 0x{:X} -> 0x{:X}", fold_count, total, new_total);
+        }
+        total = new_total;
+        fold_count += 1;
+        if fold_count > 10 { // 無限ループ防止
+            break;
+        }
     }
     
     // 1の補数を返す（12ビットマスク）
     let checksum = (!total) & 0xFFF;
+    
+    if debug {
+        eprintln!("[DEBUG] 最終チェックサム: ~0x{:X} & 0xFFF = 0x{:03X}", total, checksum);
+    }
+    
     checksum as u16
 }
 
 /// 12ビットチェックサムを検証する（可変長パケット対応）
+/// Python版format_base.pyのverify_checksum12()と同等の処理
 /// 
 /// Args:
 ///     data_with_checksum: チェックサムを含むバイト列
@@ -40,8 +79,6 @@ pub fn verify_checksum12(
     checksum_start_bit: usize, 
     checksum_length: usize
 ) -> bool {
-    use bitvec::prelude::*;
-    
     if data_with_checksum.is_empty() || checksum_length != 12 {
         return false;
     }
@@ -51,21 +88,101 @@ pub fn verify_checksum12(
         return false;
     }
     
-    // ビット操作でチェックサムを抽出
-    let bits = BitSlice::<u8, bitvec::order::Lsb0>::from_slice(data_with_checksum);
-    let stored_checksum = bits[checksum_start_bit..checksum_start_bit + checksum_length]
-        .load::<u16>();
+    // 格納されているチェックサムを抽出
+    let stored_checksum = {
+        let byte_start = checksum_start_bit / 8;
+        let bit_start_in_byte = checksum_start_bit % 8;
+        let mut checksum = 0u16;
+        let mut bits_to_read = checksum_length;
+        let mut byte_idx = byte_start;
+        let mut bit_offset = bit_start_in_byte;
+        let mut result_shift = 0;
+        
+        while bits_to_read > 0 && byte_idx < data_with_checksum.len() {
+            let bits_in_this_byte = (8 - bit_offset).min(bits_to_read);
+            // オーバーフロー防止
+            let bits_in_this_byte = bits_in_this_byte.min(8);
+            
+            if bits_in_this_byte > 0 {
+                let mask = if bits_in_this_byte < 8 {
+                    ((1u8 << bits_in_this_byte) - 1) << bit_offset
+                } else {
+                    0xFF
+                };
+                let value_bits = (data_with_checksum[byte_idx] & mask) >> bit_offset;
+                
+                if result_shift < 16 {
+                    checksum |= (value_bits as u16) << result_shift;
+                }
+                
+                result_shift += bits_in_this_byte;
+            }
+            
+            bits_to_read -= bits_in_this_byte;
+            byte_idx += 1;
+            bit_offset = 0;
+        }
+        
+        checksum
+    };
     
     // チェックサム部分を0にしたデータを作成
     let mut data_without_checksum = data_with_checksum.to_vec();
-    let bits_mut = BitSlice::<u8, bitvec::order::Lsb0>::from_slice_mut(&mut data_without_checksum);
-    bits_mut[checksum_start_bit..checksum_start_bit + checksum_length].store(0u16);
     
-    // チェックサムを計算
-    let calculated_checksum = calc_checksum12(&data_without_checksum);
+    // ビットレベルでチェックサム部分を0にする
+    let byte_start = checksum_start_bit / 8;
+    let bit_start_in_byte = checksum_start_bit % 8;
+    let mut bits_to_clear = checksum_length;
+    let mut byte_idx = byte_start;
+    let mut bit_offset = bit_start_in_byte;
+    
+    while bits_to_clear > 0 && byte_idx < data_without_checksum.len() {
+        let bits_in_this_byte = (8 - bit_offset).min(bits_to_clear);
+        // オーバーフロー防止
+        let bits_in_this_byte = bits_in_this_byte.min(8);
+        
+        if bits_in_this_byte > 0 {
+            if bits_in_this_byte < 8 {
+                let mask = ((1u8 << bits_in_this_byte) - 1) << bit_offset;
+                data_without_checksum[byte_idx] &= !mask;
+            } else if bits_in_this_byte == 8 && bit_offset == 0 {
+                // 1バイト全体をクリア
+                data_without_checksum[byte_idx] = 0;
+            }
+        }
+        
+        bits_to_clear -= bits_in_this_byte;
+        byte_idx += 1;
+        bit_offset = 0;
+    }
+    
+    // Python版と同様: パケットの最小サイズ（16バイト）まで0パディング
+    let min_packet_size = 16; // ヘッダの最小サイズ
+    if data_without_checksum.len() < min_packet_size {
+        data_without_checksum.resize(min_packet_size, 0);
+    }
+    
+    // チェックサムを計算（デバッグモードで詳細出力）
+    let calculated_checksum = if std::env::var("WIP_DEBUG_CHECKSUM").is_ok() {
+        eprintln!("[DEBUG] verify_checksum12: パケット長={}, チェックサム位置={}-{}", 
+                 data_with_checksum.len(), checksum_start_bit, checksum_start_bit + checksum_length - 1);
+        eprintln!("[DEBUG] 格納チェックサム: 0x{:03X}", stored_checksum);
+        let calc = calc_checksum12_with_debug(&data_without_checksum, true);
+        eprintln!("[DEBUG] 計算チェックサム: 0x{:03X}", calc);
+        calc
+    } else {
+        calc_checksum12(&data_without_checksum)
+    };
     
     // 計算されたチェックサムと格納されたチェックサムを比較
-    calculated_checksum == stored_checksum
+    let result = calculated_checksum == stored_checksum;
+    
+    if std::env::var("WIP_DEBUG_CHECKSUM").is_ok() {
+        eprintln!("[DEBUG] チェックサム検証結果: {} (計算:0x{:03X} vs 格納:0x{:03X})", 
+                 if result { "OK" } else { "NG" }, calculated_checksum, stored_checksum);
+    }
+    
+    result
 }
 
 /// 最適化されたチェックサム計算（ゼロコピー）
@@ -83,34 +200,103 @@ pub fn calc_checksum12_optimized(data: &[u8]) -> u16 {
 }
 
 /// パケットの指定位置に12ビットチェックサムを埋め込む（可変長対応）
+/// Python版format_base.pyのto_bytes()と同等の処理
 /// 
 /// Args:
 ///     packet: チェックサムを埋め込むパケットデータ
 ///     checksum_start_bit: チェックサムの開始ビット位置
 ///     checksum_length: チェックサムの長さ（ビット、通常12）
 pub fn embed_checksum12_at(packet: &mut [u8], checksum_start_bit: usize, checksum_length: usize) {
-    use bitvec::prelude::*;
-    
     if packet.is_empty() || checksum_length != 12 {
         return;
     }
     
-    // チェックサム部分を0にしたコピーでチェックサムを計算
-    let mut tmp = packet.to_vec();
-    
-    // ビット操作でチェックサム部分をゼロクリア
-    if tmp.len() * 8 >= checksum_start_bit + checksum_length {
-        let bits = BitSlice::<u8, bitvec::order::Lsb0>::from_slice_mut(&mut tmp);
-        bits[checksum_start_bit..checksum_start_bit + checksum_length].store(0u16);
+    // パケットサイズがチェックサム位置を収容できるかチェック
+    if packet.len() * 8 < checksum_start_bit + checksum_length {
+        return;
     }
     
-    // チェックサムを計算
-    let checksum = calc_checksum12(&tmp);
+    // Python版と同様の処理: チェックサム部分を0にしてから計算
+    // 1. チェックサム部分を0に設定
+    let mut data_for_checksum = packet.to_vec();
     
-    // 元のパケットにチェックサムを埋め込み
-    if packet.len() * 8 >= checksum_start_bit + checksum_length {
-        let bits = BitSlice::<u8, bitvec::order::Lsb0>::from_slice_mut(packet);
-        bits[checksum_start_bit..checksum_start_bit + checksum_length].store(checksum);
+    // ビットレベルでチェックサム部分を0にする
+    let byte_start = checksum_start_bit / 8;
+    let bit_start_in_byte = checksum_start_bit % 8;
+    let remaining_bits = checksum_length;
+    
+    // チェックサム部分のビットをクリア
+    let mut bits_to_clear = remaining_bits;
+    let mut byte_idx = byte_start;
+    let mut bit_offset = bit_start_in_byte;
+    
+    while bits_to_clear > 0 && byte_idx < data_for_checksum.len() {
+        let bits_in_this_byte = (8 - bit_offset).min(bits_to_clear);
+        // オーバーフロー防止: bits_in_this_byteが8を超えないことを保証
+        let bits_in_this_byte = bits_in_this_byte.min(8);
+        if bits_in_this_byte > 0 && bits_in_this_byte < 8 {
+            let mask = ((1u8 << bits_in_this_byte) - 1) << bit_offset;
+            data_for_checksum[byte_idx] &= !mask;
+        } else if bits_in_this_byte == 8 && bit_offset == 0 {
+            // 1バイト全体をクリア
+            data_for_checksum[byte_idx] = 0;
+        }
+        
+        bits_to_clear -= bits_in_this_byte;
+        byte_idx += 1;
+        bit_offset = 0;
+    }
+    
+    // Python版と同様: パケットの最小サイズ（16バイト）まで0パディング
+    let min_packet_size = 16; // ヘッダの最小サイズ
+    if data_for_checksum.len() < min_packet_size {
+        data_for_checksum.resize(min_packet_size, 0);
+    }
+    
+    // チェックサムを計算（デバッグモードで詳細出力）
+    let checksum = if std::env::var("WIP_DEBUG_CHECKSUM").is_ok() {
+        eprintln!("[DEBUG] embed_checksum12_at: パケット長={}, チェックサム位置={}-{}", 
+                 packet.len(), checksum_start_bit, checksum_start_bit + checksum_length - 1);
+        calc_checksum12_with_debug(&data_for_checksum, true)
+    } else {
+        calc_checksum12(&data_for_checksum)
+    };
+    
+    // 計算されたチェックサムを元のパケットに埋め込み
+    let mut bits_to_set = checksum_length;
+    let mut checksum_value = checksum;
+    byte_idx = byte_start;
+    bit_offset = bit_start_in_byte;
+    
+    while bits_to_set > 0 && byte_idx < packet.len() {
+        let bits_in_this_byte = (8 - bit_offset).min(bits_to_set);
+        // オーバーフロー防止: bits_in_this_byteが適切な範囲内であることを保証
+        let bits_in_this_byte = bits_in_this_byte.min(8);
+        
+        if bits_in_this_byte > 0 {
+            let mask = if bits_in_this_byte >= 16 {
+                0xFFFF
+            } else {
+                (1u16 << bits_in_this_byte) - 1
+            };
+            let value_bits = (checksum_value & mask) as u8;
+            
+            // 既存のビットをクリアしてから新しい値を設定
+            if bits_in_this_byte < 8 {
+                let clear_mask = ((1u8 << bits_in_this_byte) - 1) << bit_offset;
+                packet[byte_idx] &= !clear_mask;
+                packet[byte_idx] |= value_bits << bit_offset;
+            } else if bits_in_this_byte == 8 && bit_offset == 0 {
+                // 1バイト全体を設定
+                packet[byte_idx] = value_bits;
+            }
+            
+            checksum_value >>= bits_in_this_byte;
+        }
+        
+        bits_to_set -= bits_in_this_byte;
+        byte_idx += 1;
+        bit_offset = 0;
     }
 }
 

@@ -80,10 +80,14 @@ class DebugHelper:
 
         if hasattr(parsed_request, "ex_field") and parsed_request.ex_field:
             packet_details["Extended Field"] = str(parsed_request.ex_field)
-            if hasattr(parsed_request.ex_field, "source"):
-                packet_details["Source"] = (
-                    f"{parsed_request.ex_field.source[0]}:{parsed_request.ex_field.source[1]}"
-                )
+            # if hasattr(parsed_request.ex_field, "source"):
+            #     packet_details["Source"] = (
+            #         f"{parsed_request.ex_field.source[0]}:{parsed_request.ex_field.source[1]}"
+            #     )
+            """
+            TODO: rustクライアントテストするときに引っかかった
+            142行目も
+            """
 
         log_message = UnifiedLogFormatter.format_communication_log(
             server_name=self.server_name,
@@ -134,10 +138,10 @@ class DebugHelper:
                 packet_details["Precipitation Probability"] = f"{response_obj.pop}%"
             if hasattr(response_obj, "ex_field") and response_obj.ex_field:
                 packet_details["Extended Field"] = str(response_obj.ex_field)
-                if hasattr(response_obj.ex_field, "source"):
-                    packet_details["Source"] = (
-                        f"{response_obj.ex_field.source[0]}:{response_obj.ex_field.source[1]}"
-                    )
+                # if hasattr(response_obj.ex_field, "source"):
+                #     packet_details["Source"] = (
+                #         f"{response_obj.ex_field.source[0]}:{response_obj.ex_field.source[1]}"
+                #     )
 
         log_message = UnifiedLogFormatter.format_communication_log(
             server_name=self.server_name,
