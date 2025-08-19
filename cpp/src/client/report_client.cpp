@@ -1,4 +1,4 @@
-#include "wiplib/client/simple_report_client.hpp"
+#include "wiplib/client/report_client.hpp"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,9 +23,9 @@
 
 namespace wiplib::client {
 
-// SimpleReportClient implementation
+// ReportClient implementation
 
-SimpleReportClient::SimpleReportClient(std::string host, uint16_t port, bool debug)
+ReportClient::ReportClient(std::string host, uint16_t port, bool debug)
     : host_(std::move(host))
     , port_(port)
     , debug_(debug)
@@ -68,11 +68,11 @@ SimpleReportClient::SimpleReportClient(std::string host, uint16_t port, bool deb
     }
 }
 
-SimpleReportClient::~SimpleReportClient() {
+ReportClient::~ReportClient() {
     close();
 }
 
-void SimpleReportClient::init_auth_config() {
+void ReportClient::init_auth_config() {
     // Python版_init_auth_config()互換
     const char* auth_enabled_env = std::getenv("REPORT_SERVER_REQUEST_AUTH_ENABLED");
     auth_enabled_ = (auth_enabled_env && std::string(auth_enabled_env) == "true");
@@ -81,7 +81,7 @@ void SimpleReportClient::init_auth_config() {
     auth_passphrase_ = auth_passphrase_env ? auth_passphrase_env : "";
 }
 
-bool SimpleReportClient::init_socket() {
+bool ReportClient::init_socket() {
     socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd_ < 0) {
         return false;
@@ -131,7 +131,7 @@ bool SimpleReportClient::init_socket() {
     return true;
 }
 
-void SimpleReportClient::set_sensor_data(
+void ReportClient::set_sensor_data(
     const std::string& area_code,
     std::optional<int> weather_code,
     std::optional<float> temperature,
@@ -156,31 +156,31 @@ void SimpleReportClient::set_sensor_data(
     }
 }
 
-void SimpleReportClient::set_area_code(const std::string& area_code) {
+void ReportClient::set_area_code(const std::string& area_code) {
     area_code_ = area_code;
 }
 
-void SimpleReportClient::set_weather_code(int weather_code) {
+void ReportClient::set_weather_code(int weather_code) {
     weather_code_ = weather_code;
 }
 
-void SimpleReportClient::set_temperature(float temperature) {
+void ReportClient::set_temperature(float temperature) {
     temperature_ = temperature;
 }
 
-void SimpleReportClient::set_precipitation_prob(int precipitation_prob) {
+void ReportClient::set_precipitation_prob(int precipitation_prob) {
     precipitation_prob_ = precipitation_prob;
 }
 
-void SimpleReportClient::set_alert(const std::vector<std::string>& alert) {
+void ReportClient::set_alert(const std::vector<std::string>& alert) {
     alert_ = alert;
 }
 
-void SimpleReportClient::set_disaster(const std::vector<std::string>& disaster) {
+void ReportClient::set_disaster(const std::vector<std::string>& disaster) {
     disaster_ = disaster;
 }
 
-Result<ReportResult> SimpleReportClient::send_report_data() {
+Result<ReportResult> ReportClient::send_report_data() {
     if (!area_code_.has_value()) {
         return make_error_code(WipErrc::invalid_packet);
     }
@@ -270,17 +270,17 @@ Result<ReportResult> SimpleReportClient::send_report_data() {
     return result;
 }
 
-std::future<Result<ReportResult>> SimpleReportClient::send_report_data_async() {
+std::future<Result<ReportResult>> ReportClient::send_report_data_async() {
     return std::async(std::launch::async, [this]() {
         return send_report_data();
     });
 }
 
-Result<ReportResult> SimpleReportClient::send_data_simple() {
+Result<ReportResult> ReportClient::send_data_simple() {
     return send_report_data();
 }
 
-std::unordered_map<std::string, std::any> SimpleReportClient::get_current_data() const {
+std::unordered_map<std::string, std::any> ReportClient::get_current_data() const {
     std::unordered_map<std::string, std::any> data;
     
     if (area_code_) data["area_code"] = *area_code_;
@@ -293,7 +293,7 @@ std::unordered_map<std::string, std::any> SimpleReportClient::get_current_data()
     return data;
 }
 
-void SimpleReportClient::clear_data() {
+void ReportClient::clear_data() {
     area_code_.reset();
     weather_code_.reset();
     temperature_.reset();
@@ -306,7 +306,7 @@ void SimpleReportClient::clear_data() {
     }
 }
 
-void SimpleReportClient::close() {
+void ReportClient::close() {
     if (socket_fd_ >= 0 && !socket_closed_) {
         ::close(socket_fd_);
         socket_fd_ = -1;
@@ -314,15 +314,15 @@ void SimpleReportClient::close() {
     }
 }
 
-Result<ReportResult> SimpleReportClient::send_report() {
+Result<ReportResult> ReportClient::send_report() {
     return send_report_data();
 }
 
-Result<ReportResult> SimpleReportClient::send_current_data() {
+Result<ReportResult> ReportClient::send_current_data() {
     return send_data_simple();
 }
 
-Result<packet::compat::PyReportRequest> SimpleReportClient::create_request() {
+Result<packet::compat::PyReportRequest> ReportClient::create_request() {
     if (!area_code_) {
         return make_error_code(WipErrc::invalid_packet);
     }
@@ -352,7 +352,7 @@ Result<packet::compat::PyReportRequest> SimpleReportClient::create_request() {
     return request;
 }
 
-Result<ReportResult> SimpleReportClient::receive_response(uint16_t packet_id, int timeout_ms) {
+Result<ReportResult> ReportClient::receive_response(uint16_t packet_id, int timeout_ms) {
     std::vector<uint8_t> buffer(2048);
     struct sockaddr_in sender_addr;
     socklen_t sender_len = sizeof(sender_addr);
@@ -431,7 +431,7 @@ Result<ReportResult> SimpleReportClient::receive_response(uint16_t packet_id, in
     }
 }
 
-ReportResult SimpleReportClient::handle_error_response(const std::vector<uint8_t>& data) {
+ReportResult ReportClient::handle_error_response(const std::vector<uint8_t>& data) {
     ReportResult result;
     result.type = "error";
     result.success = false;
@@ -450,7 +450,7 @@ ReportResult SimpleReportClient::handle_error_response(const std::vector<uint8_t
     return result;
 }
 
-uint8_t SimpleReportClient::get_packet_type(const std::vector<uint8_t>& data) {
+uint8_t ReportClient::get_packet_type(const std::vector<uint8_t>& data) {
     if (data.size() < wiplib::proto::kFixedHeaderSize) {
         return 0;
     }
@@ -467,12 +467,12 @@ uint8_t SimpleReportClient::get_packet_type(const std::vector<uint8_t>& data) {
 
 namespace wiplib::client::utils {
 
-std::unique_ptr<SimpleReportClient> create_report_client(
+std::unique_ptr<ReportClient> create_report_client(
     const std::string& host, 
     uint16_t port, 
     bool debug
 ) {
-    return std::make_unique<SimpleReportClient>(host, port, debug);
+    return std::make_unique<ReportClient>(host, port, debug);
 }
 
 Result<ReportResult> send_sensor_report(
@@ -487,7 +487,7 @@ Result<ReportResult> send_sensor_report(
     bool debug
 ) {
     try {
-        auto client = SimpleReportClient(host, port, debug);
+        auto client = ReportClient(host, port, debug);
         
         client.set_sensor_data(
             area_code,

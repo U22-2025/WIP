@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-#include "wiplib/client/simple_report_client.hpp"
+#include "wiplib/client/report_client.hpp"
 #include "wiplib/packet/report_packet_compat.hpp"
 
 namespace wiplib::client::test {
@@ -16,11 +16,11 @@ namespace wiplib::client::test {
  * Python版ReportClientと同一データでのパケット形式、レスポンス処理、
  * エラーハンドリングの完全互換性を確認
  */
-class SimpleReportClientCompatibilityTest : public ::testing::Test {
+class ReportClientCompatibilityTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // テスト用のクライアント作成（デバッグモード有効）
-        client_ = std::make_unique<SimpleReportClient>("127.0.0.1", 4112, true);
+        client_ = std::make_unique<ReportClient>("127.0.0.1", 4112, true);
     }
 
     void TearDown() override {
@@ -29,7 +29,7 @@ protected:
         }
     }
 
-    std::unique_ptr<SimpleReportClient> client_;
+    std::unique_ptr<ReportClient> client_;
 };
 
 /**
@@ -42,7 +42,7 @@ protected:
  * # パケット内容の確認
  * ```
  */
-TEST_F(SimpleReportClientCompatibilityTest, PacketFormatCompatibility) {
+TEST_F(ReportClientCompatibilityTest, PacketFormatCompatibility) {
     // Python版と同一のテストデータ
     const std::string area_code = "123456";
     const int weather_code = 1;
@@ -107,7 +107,7 @@ TEST_F(SimpleReportClientCompatibilityTest, PacketFormatCompatibility) {
  * client.set_disaster(["台風", "洪水"])
  * ```
  */
-TEST_F(SimpleReportClientCompatibilityTest, IndividualSetterCompatibility) {
+TEST_F(ReportClientCompatibilityTest, IndividualSetterCompatibility) {
     // Python版の個別設定メソッドと同等の呼び出し
     client_->set_area_code("654321");
     client_->set_weather_code(2);
@@ -139,7 +139,7 @@ TEST_F(SimpleReportClientCompatibilityTest, IndividualSetterCompatibility) {
  * 
  * Python版clear_data()メソッドと同等の動作を確認
  */
-TEST_F(SimpleReportClientCompatibilityTest, ClearDataCompatibility) {
+TEST_F(ReportClientCompatibilityTest, ClearDataCompatibility) {
     // データ設定
     client_->set_sensor_data("123456", 1, 25.5f, 30);
     
@@ -160,7 +160,7 @@ TEST_F(SimpleReportClientCompatibilityTest, ClearDataCompatibility) {
  * 
  * Python版と同様のエラー処理動作を確認
  */
-TEST_F(SimpleReportClientCompatibilityTest, ErrorHandlingCompatibility) {
+TEST_F(ReportClientCompatibilityTest, ErrorHandlingCompatibility) {
     // エリアコード未設定でのエラーテスト（Python版と同様）
     auto result = client_->send_report_data();
     
@@ -176,7 +176,7 @@ TEST_F(SimpleReportClientCompatibilityTest, ErrorHandlingCompatibility) {
  * 
  * 環境変数による認証設定がPython版と同等に動作することを確認
  */
-TEST_F(SimpleReportClientCompatibilityTest, AuthConfigCompatibility) {
+TEST_F(ReportClientCompatibilityTest, AuthConfigCompatibility) {
     // 認証設定のテスト用環境変数設定
     // 注意: 実際のテストでは環境変数の設定/復元が必要
     
@@ -203,7 +203,7 @@ TEST_F(SimpleReportClientCompatibilityTest, AuthConfigCompatibility) {
  * 
  * Python版の便利関数と同等の動作を確認
  */
-TEST_F(SimpleReportClientCompatibilityTest, UtilityFunctionCompatibility) {
+TEST_F(ReportClientCompatibilityTest, UtilityFunctionCompatibility) {
     // Python版create_report_client()と同等の関数テスト
     auto client = utils::create_report_client("127.0.0.1", 4112, true);
     EXPECT_NE(client, nullptr);
@@ -232,7 +232,7 @@ TEST_F(SimpleReportClientCompatibilityTest, UtilityFunctionCompatibility) {
  * 
  * Python版の後方互換性メソッドと同等の動作を確認
  */
-TEST_F(SimpleReportClientCompatibilityTest, BackwardCompatibilityMethods) {
+TEST_F(ReportClientCompatibilityTest, BackwardCompatibilityMethods) {
     client_->set_area_code("123456");
     
     // Python版send_report()互換メソッド

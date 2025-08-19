@@ -26,7 +26,7 @@ set(WIPLIB_SRC
     src/client/async_weather_client.cpp
     src/client/client.cpp
     src/client/client_async.cpp
-    src/client/simple_report_client.cpp
+    src/client/report_client.cpp
     src/client/utils/safe_sock_sendto.cpp
     src/client/utils/receive_with_id.cpp
     src/client/utils/connection_pool.cpp
@@ -127,7 +127,7 @@ if(WIPLIB_BUILD_TESTS)
     tests/integration/test_client_async.cpp
     tests/integration/test_location_client.cpp
     tests/integration/test_query_client.cpp
-    tests/integration/test_simple_report_client.cpp
+    tests/integration/test_report_client.cpp
     tests/compatibility/test_python_compatibility.cpp
     tests/utils/mock_server.cpp
     tests/utils/test_data_generator.cpp
