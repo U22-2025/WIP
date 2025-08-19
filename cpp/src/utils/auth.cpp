@@ -1,5 +1,6 @@
 #include "wiplib/utils/auth.hpp"
 #include "wiplib/packet/packet.hpp"
+#include "wiplib/packet/extended_field.hpp"
 #include <random>
 #include <sstream>
 #include <iostream>
@@ -312,7 +313,7 @@ bool WIPAuth::attach_auth_hash(wiplib::proto::Packet& packet, const std::string&
     
     wiplib::proto::ExtendedField f{};
     // Python の extended_fields.json で auth_hash は id=4, type=str
-    f.data_type = 4; // auth_hash
+    f.data_type = static_cast<uint8_t>(wiplib::packet::ExtendedFieldKey::AuthHash);
     f.data.assign(hex.begin(), hex.end());
     packet.extensions.push_back(std::move(f));
     packet.header.flags.extended = true;
