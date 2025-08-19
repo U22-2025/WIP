@@ -99,12 +99,25 @@ public:
      * @param alert 警報情報リスト
      */
     void set_alert(const std::vector<std::string>& alert);
-    
+
     /**
      * @brief 災害情報を設定（Python版set_disaster()互換）
      * @param disaster 災害情報リスト
      */
     void set_disaster(const std::vector<std::string>& disaster);
+
+    /**
+     * @brief 接続先サーバーを再設定
+     * @param host ホスト名
+     * @param port ポート番号
+     */
+    void set_server(const std::string& host, uint16_t port);
+
+    /**
+     * @brief 接続先サーバーを再設定（ポートは保持）
+     * @param host ホスト名
+     */
+    void set_server(const std::string& host);
     
     // Python互換送信API
     

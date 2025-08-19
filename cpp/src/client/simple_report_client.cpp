@@ -180,6 +180,36 @@ void SimpleReportClient::set_disaster(const std::vector<std::string>& disaster) 
     disaster_ = disaster;
 }
 
+void SimpleReportClient::set_server(const std::string& host, uint16_t port) {
+    close();
+    host_ = host;
+    port_ = port;
+
+    if (host_ == "localhost") {
+        const char* env_host = std::getenv("REPORT_SERVER_HOST");
+        if (env_host) {
+            host_ = env_host;
+        }
+    }
+    if (port_ == 4112) {
+        const char* env_port = std::getenv("REPORT_SERVER_PORT");
+        if (env_port) {
+            port_ = static_cast<uint16_t>(std::atoi(env_port));
+        }
+    }
+    if (host_ == "localhost") {
+        host_ = "127.0.0.1";
+    }
+
+    if (!init_socket()) {
+        throw std::runtime_error("Failed to initialize UDP socket");
+    }
+}
+
+void SimpleReportClient::set_server(const std::string& host) {
+    set_server(host, port_);
+}
+
 Result<ReportResult> SimpleReportClient::send_report_data() {
     if (!area_code_.has_value()) {
         return make_error_code(WipErrc::invalid_packet);
