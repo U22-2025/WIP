@@ -20,6 +20,8 @@
 #include "wiplib/packet/codec.hpp"
 #include "wiplib/utils/auth.hpp"
 #include "wiplib/error.hpp"
+#include "wiplib/client/utils/safe_sock_sendto.hpp"
+#include "wiplib/client/utils/receive_with_id.hpp"
 
 namespace wiplib::client {
 
@@ -271,8 +273,94 @@ Result<ReportResult> SimpleReportClient::send_report_data() {
 }
 
 std::future<Result<ReportResult>> SimpleReportClient::send_report_data_async() {
-    return std::async(std::launch::async, [this]() {
-        return send_report_data();
+    return std::async(std::launch::async, [this]() -> Result<ReportResult> {
+        if (!area_code_) {
+            return make_error_code(WipErrc::invalid_packet);
+        }
+        if (socket_closed_) {
+            return make_error_code(WipErrc::io_error);
+        }
+
+        auto start_time = std::chrono::high_resolution_clock::now();
+
+        auto req_result = create_request();
+        if (!req_result.has_value()) {
+            return req_result.error();
+        }
+        auto request = req_result.value();
+        auto packet_data = request.to_bytes();
+
+        // 送信先アドレス設定
+        struct sockaddr_in server_addr;
+        memset(&server_addr, 0, sizeof(server_addr));
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_port = htons(port_);
+        if (inet_pton(AF_INET, host_.c_str(), &server_addr.sin_addr) != 1) {
+            struct addrinfo hints{};
+            struct addrinfo* res = nullptr;
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_DGRAM;
+            int rc = getaddrinfo(host_.c_str(), nullptr, &hints, &res);
+            if (rc != 0 || !res) {
+                return make_error_code(WipErrc::io_error);
+            }
+            server_addr.sin_addr = reinterpret_cast<struct sockaddr_in*>(res->ai_addr)->sin_addr;
+            freeaddrinfo(res);
+        }
+
+        // 非同期送信
+        utils::SafeSockSendTo sender(socket_fd_);
+        auto send_res = sender.send_async(packet_data, server_addr).get();
+        if (send_res.error_type != utils::SendErrorType::Success) {
+            return make_error_code(WipErrc::io_error);
+        }
+
+        // 非同期受信
+        utils::ReceiveWithId receiver(socket_fd_);
+        packet::GenericResponse resp;
+        try {
+            resp = receiver
+                       .receive_async(request.header.packet_id, std::chrono::milliseconds{10000})
+                       .get();
+        } catch (const utils::ReceiveTimeoutException&) {
+            return make_error_code(WipErrc::timeout);
+        }
+
+        auto raw_bytes = resp.encode();
+        auto type = resp.get_header().type;
+        if (type == proto::PacketType::ReportResponse) {
+            auto resp_res = packet::compat::PyReportResponse::from_bytes(raw_bytes);
+            if (!resp_res.has_value()) {
+                return resp_res.error();
+            }
+            auto r = resp_res.value();
+            if (debug_) {
+                std::cout << "Received SENSOR REPORT RESPONSE" << std::endl;
+            }
+            if (r.is_success()) {
+                ReportResult result;
+                result.type = "report_ack";
+                result.success = true;
+                result.packet_id = r.header.packet_id;
+                result.timestamp = r.header.timestamp;
+                result.area_code = std::to_string(r.header.area_code);
+                result.summary = r.get_response_summary();
+                auto end = std::chrono::high_resolution_clock::now();
+                result.response_time_ms =
+                    std::chrono::duration<double, std::milli>(end - start_time).count();
+
+                if (debug_) {
+                    std::cout << "Direct request completed successfully" << std::endl;
+                }
+
+                return result;
+            }
+            return make_error_code(WipErrc::invalid_packet);
+        }
+        if (type == proto::PacketType::ErrorResponse) {
+            return handle_error_response(raw_bytes);
+        }
+        return make_error_code(WipErrc::invalid_packet);
     });
 }
 
