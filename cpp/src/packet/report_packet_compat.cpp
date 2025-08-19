@@ -1,6 +1,7 @@
 #include "wiplib/packet/report_packet_compat.hpp"
 #include "wiplib/packet/bit_utils.hpp"
 #include "wiplib/packet/checksum.hpp"
+#include "wiplib/packet/codec.hpp"
 #include "wiplib/utils/auth.hpp"
 
 #include <random>
@@ -185,92 +186,43 @@ std::vector<uint8_t> PyReportRequest::to_bytes() const {
     // パケットを proto::Packet 形式に変換してエンコード
     proto::Packet packet;
     packet.header = header;
-    
-    // レスポンスフィールドは Type 4 では不要
-    
-    // 拡張フィールドを設定
+
+    // Python版互換: Type4(ReportRequest) でも固定長フィールドを含める
+    // weather_code / temperature(+100オフセット) / precipitation_prob
+    proto::ResponseFields rf{};
+    rf.weather_code = sensor_data.weather_code.has_value() ? static_cast<uint16_t>(*sensor_data.weather_code) : 0;
+    rf.temperature = sensor_data.temperature.has_value()
+        ? py_utils::celsius_to_internal(*sensor_data.temperature)
+        : py_utils::celsius_to_internal(0.0f); // 0℃相当
+    rf.precipitation_prob = sensor_data.precipitation_prob.has_value() ? static_cast<uint8_t>(*sensor_data.precipitation_prob) : 0;
+    packet.response_fields = rf;
+
+    // alert / disaster は拡張フィールドへ
     packet.extensions = build_extended_fields();
-    
-    // 既存のcodec実装を使用してエンコード
-    // TODO: codec実装との統合が必要
-    std::vector<uint8_t> result;
-    // 仮実装：基本的なヘッダーのみエンコード
-    result.resize(16); // 基本ヘッダーサイズ
-    
-    // ヘッダーフィールドの設定（ビット操作）
-    result[0] = (header.version & 0x0F) | ((header.packet_id & 0x0F) << 4);
-    result[1] = (header.packet_id >> 4) & 0xFF;
-    result[2] = (static_cast<uint8_t>(header.type) & 0x07) | 
-                (header.flags.weather ? 0x08 : 0) |
-                (header.flags.temperature ? 0x10 : 0) |
-                (header.flags.precipitation ? 0x20 : 0) |
-                (header.flags.alert ? 0x40 : 0) |
-                (header.flags.disaster ? 0x80 : 0);
-    
-    // タイムスタンプ（8バイト、リトルエンディアン）
-    for (int i = 0; i < 8; ++i) {
-        result[4 + i] = static_cast<uint8_t>((header.timestamp >> (i * 8)) & 0xFF);
+
+    auto enc = proto::encode_packet(packet);
+    if (enc.has_value()) {
+        return enc.value();
     }
-    
-    // エリアコード（4バイト、リトルエンディアン）
-    for (int i = 0; i < 4; ++i) {
-        result[12 + i] = static_cast<uint8_t>((header.area_code >> (i * 8)) & 0xFF);
-    }
-    
-    // チェックサムを計算して設定（最後の2バイト）
-    uint16_t checksum = calc_checksum12(std::span<const uint8_t>(result.data(), 14));
-    result[14] = checksum & 0xFF;
-    result[15] = (checksum >> 8) & 0xFF;
-    
-    return result;
+    // エンコード失敗時は空
+    return {};
 }
 
 wiplib::Result<PyReportRequest> PyReportRequest::from_bytes(std::span<const uint8_t> data) {
-    if (data.size() < 16) {
+    auto dec = proto::decode_packet(data);
+    if (!dec.has_value()) {
+        return dec.error();
+    }
+    const auto& p = dec.value();
+    if (p.header.type != proto::PacketType::ReportRequest) {
         return std::make_error_code(std::errc::invalid_argument);
     }
-    
-    PyReportRequest request;
-    
-    // ヘッダーのデコード
-    request.header.version = data[0] & 0x0F;
-    request.header.packet_id = ((data[0] >> 4) & 0x0F) | (data[1] << 4);
-    request.header.type = static_cast<proto::PacketType>(data[2] & 0x07);
-    
-    // フラグのデコード
-    request.header.flags.weather = (data[2] & 0x08) != 0;
-    request.header.flags.temperature = (data[2] & 0x10) != 0;
-    request.header.flags.precipitation = (data[2] & 0x20) != 0;
-    request.header.flags.alert = (data[2] & 0x40) != 0;
-    request.header.flags.disaster = (data[2] & 0x80) != 0;
-    
-    // タイムスタンプのデコード
-    uint64_t timestamp = 0;
-    for (int i = 0; i < 8; ++i) {
-        timestamp |= static_cast<uint64_t>(data[4 + i]) << (i * 8);
-    }
-    request.header.timestamp = timestamp;
-    
-    // エリアコードのデコード
-    uint32_t area_code = 0;
-    for (int i = 0; i < 4; ++i) {
-        area_code |= static_cast<uint32_t>(data[12 + i]) << (i * 8);
-    }
-    request.header.area_code = area_code;
-    request.sensor_data.area_code = PySensorData::normalize_area_code(static_cast<int>(area_code));
-    
-    // チェックサムのデコード
-    request.header.checksum = data[14] | (data[15] << 8);
-    
-    // チェックサムの検証
-    uint16_t calculated_checksum = calc_checksum12(std::span<const uint8_t>(data.data(), 14));
-    if (calculated_checksum != request.header.checksum) {
-        return std::make_error_code(std::errc::bad_message);
-    }
-    
-    // TODO: 拡張フィールドのデコード実装
-    
-    return request;
+    PyReportRequest req;
+    req.header = p.header;
+    // area_codeを文字列化
+    req.sensor_data.area_code = PySensorData::normalize_area_code(static_cast<int>(p.header.area_code));
+    // alert/disaster拡張の復元は省略（用途上不要）
+    return req;
 }
 
 bool PyReportRequest::validate() const {
@@ -357,77 +309,34 @@ PyReportResponse PyReportResponse::create_data_response(
 }
 
 std::vector<uint8_t> PyReportResponse::to_bytes() const {
-    // PyReportRequestと同様の実装
-    // TODO: 完全な実装が必要
-    std::vector<uint8_t> result(16);
-    
-    // 基本ヘッダーのエンコード（仮実装）
-    result[0] = (header.version & 0x0F) | ((header.packet_id & 0x0F) << 4);
-    result[1] = (header.packet_id >> 4) & 0xFF;
-    result[2] = (static_cast<uint8_t>(header.type) & 0x07) | 
-                (header.flags.weather ? 0x08 : 0) |
-                (header.flags.temperature ? 0x10 : 0) |
-                (header.flags.precipitation ? 0x20 : 0) |
-                (header.flags.alert ? 0x40 : 0) |
-                (header.flags.disaster ? 0x80 : 0);
-    
-    // タイムスタンプとエリアコードの設定
-    for (int i = 0; i < 8; ++i) {
-        result[4 + i] = static_cast<uint8_t>((header.timestamp >> (i * 8)) & 0xFF);
+    proto::Packet p;
+    p.header = header;
+    p.response_fields = response_fields;
+    p.extensions = build_extended_fields();
+    auto enc = proto::encode_packet(p);
+    if (enc.has_value()) {
+        return enc.value();
     }
-    
-    for (int i = 0; i < 4; ++i) {
-        result[12 + i] = static_cast<uint8_t>((header.area_code >> (i * 8)) & 0xFF);
-    }
-    
-    // チェックサム計算
-    uint16_t checksum = calc_checksum12(std::span<const uint8_t>(result.data(), 14));
-    result[14] = checksum & 0xFF;
-    result[15] = (checksum >> 8) & 0xFF;
-    
-    return result;
+    return {};
 }
 
 wiplib::Result<PyReportResponse> PyReportResponse::from_bytes(std::span<const uint8_t> data) {
-    if (data.size() < 16) {
+    auto dec = proto::decode_packet(data);
+    if (!dec.has_value()) {
+        return dec.error();
+    }
+    const auto& p = dec.value();
+    if (p.header.type != proto::PacketType::ReportResponse &&
+        p.header.type != proto::PacketType::ErrorResponse) {
         return std::make_error_code(std::errc::invalid_argument);
     }
-    
-    PyReportResponse response;
-    
-    // ヘッダーのデコード（PyReportRequestと同様）
-    response.header.version = data[0] & 0x0F;
-    response.header.packet_id = ((data[0] >> 4) & 0x0F) | (data[1] << 4);
-    response.header.type = static_cast<proto::PacketType>(data[2] & 0x07);
-    
-    // フラグとタイムスタンプ、エリアコードのデコード
-    response.header.flags.weather = (data[2] & 0x08) != 0;
-    response.header.flags.temperature = (data[2] & 0x10) != 0;
-    response.header.flags.precipitation = (data[2] & 0x20) != 0;
-    response.header.flags.alert = (data[2] & 0x40) != 0;
-    response.header.flags.disaster = (data[2] & 0x80) != 0;
-    
-    uint64_t timestamp = 0;
-    for (int i = 0; i < 8; ++i) {
-        timestamp |= static_cast<uint64_t>(data[4 + i]) << (i * 8);
+    PyReportResponse r;
+    r.header = p.header;
+    if (p.response_fields.has_value()) {
+        r.response_fields = *p.response_fields;
     }
-    response.header.timestamp = timestamp;
-    
-    uint32_t area_code = 0;
-    for (int i = 0; i < 4; ++i) {
-        area_code |= static_cast<uint32_t>(data[12 + i]) << (i * 8);
-    }
-    response.header.area_code = area_code;
-    
-    response.header.checksum = data[14] | (data[15] << 8);
-    
-    // チェックサム検証
-    uint16_t calculated_checksum = calc_checksum12(std::span<const uint8_t>(data.data(), 14));
-    if (calculated_checksum != response.header.checksum) {
-        return std::make_error_code(std::errc::bad_message);
-    }
-    
-    return response;
+    // 拡張からsource情報抽出（将来対応）。現状は未設定。
+    return r;
 }
 
 std::optional<std::tuple<std::string, int>> PyReportResponse::get_source_info() const {

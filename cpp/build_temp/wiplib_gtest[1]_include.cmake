@@ -1,0 +1,5 @@
+if(EXISTS "/mnt/c/Users/pijon/Desktop/WIP/cpp/build_temp/wiplib_gtest[1]_tests.cmake")
+  include("/mnt/c/Users/pijon/Desktop/WIP/cpp/build_temp/wiplib_gtest[1]_tests.cmake")
+else()
+  add_test(wiplib_gtest_NOT_BUILT wiplib_gtest_NOT_BUILT)
+endif()

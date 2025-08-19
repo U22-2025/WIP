@@ -169,8 +169,8 @@ int main(int argc, char** argv) {
   p.header.packet_id = static_cast<uint16_t>(0x123u); // サンプル: 固定でもOK
   p.header.flags.weather = a.weather;
   p.header.flags.temperature = a.temperature;
-  p.header.flags.precipitation_prob = a.precipitation;
-  p.header.flags.alerts = a.alert;
+  p.header.flags.precipitation = a.precipitation;
+  p.header.flags.alert = a.alert;
   p.header.flags.disaster = a.disaster;
   p.header.day = a.day;
   p.header.timestamp = now_sec();

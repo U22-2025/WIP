@@ -67,8 +67,8 @@ static std::vector<std::uint8_t> encode_query(const GenArgs& g) {
   p.header.type = PacketType::WeatherRequest;
   p.header.flags.weather = g.weather;
   p.header.flags.temperature = g.temperature;
-  p.header.flags.precipitation_prob = g.precipitation;
-  p.header.flags.alerts = g.alert;
+  p.header.flags.precipitation = g.precipitation;
+  p.header.flags.alert = g.alert;
   p.header.flags.disaster = g.disaster;
   p.header.day = g.day;
   p.header.timestamp = g.timestamp.value_or(static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
@@ -88,8 +88,8 @@ static std::vector<std::uint8_t> encode_location(const GenArgs& g) {
   p.header.type = PacketType::CoordinateRequest;
   p.header.flags.weather = g.weather;
   p.header.flags.temperature = g.temperature;
-  p.header.flags.precipitation_prob = g.precipitation;
-  p.header.flags.alerts = g.alert;
+  p.header.flags.precipitation = g.precipitation;
+  p.header.flags.alert = g.alert;
   p.header.flags.disaster = g.disaster;
   p.header.flags.extended = true;
   p.header.day = g.day;

@@ -32,6 +32,7 @@ Client::Client(
 
     try {
         initialize_wip_client();
+        initialize_report_client();
     } catch (const std::exception& e) {
         throw std::runtime_error("111: クライアント初期化失敗 - " + std::string(e.what()));
     }
@@ -71,6 +72,7 @@ void Client::set_server(const std::string& host) {
     config_.host = host;
     // クライアントの再初期化が必要
     initialize_wip_client();
+    initialize_report_client();
 }
 
 void Client::set_server(const std::string& host, uint16_t port) {
@@ -79,12 +81,17 @@ void Client::set_server(const std::string& host, uint16_t port) {
     validate_port();
     // クライアントの再初期化が必要
     initialize_wip_client();
+    initialize_report_client();
 }
 
 void Client::close() {
     if (wip_client_) {
         wip_client_->close();
         wip_client_.reset();
+    }
+    if (report_client_) {
+        report_client_->close();
+        report_client_.reset();
     }
 }
 
@@ -164,6 +171,114 @@ void Client::initialize_wip_client() {
     if (state_.area_code.has_value()) {
         wip_client_->set_area_code(state_.area_code.value());
     }
+}
+
+void Client::initialize_report_client() {
+    report_client_ = std::make_unique<SimpleReportClient>(config_.host, config_.port, debug_);
+}
+
+// レポート送信API（SimpleReportClientへの委譲）
+void Client::set_sensor_data(const std::string& area_code, 
+                            std::optional<int> weather_code,
+                            std::optional<float> temperature,
+                            std::optional<int> precipitation_prob,
+                            std::optional<std::vector<std::string>> alert,
+                            std::optional<std::vector<std::string>> disaster) {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->set_sensor_data(area_code, weather_code, temperature, precipitation_prob, alert, disaster);
+}
+
+void Client::set_area_code(const std::string& area_code) {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->set_area_code(area_code);
+}
+
+void Client::set_weather_code(int weather_code) {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->set_weather_code(weather_code);
+}
+
+void Client::set_temperature(float temperature) {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->set_temperature(temperature);
+}
+
+void Client::set_precipitation_prob(int precipitation_prob) {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->set_precipitation_prob(precipitation_prob);
+}
+
+void Client::set_alert(const std::vector<std::string>& alert) {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->set_alert(alert);
+}
+
+void Client::set_disaster(const std::vector<std::string>& disaster) {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->set_disaster(disaster);
+}
+
+Result<ReportResult> Client::send_report_data() {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    return report_client_->send_report_data();
+}
+
+std::future<Result<ReportResult>> Client::send_report_data_async() {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    return report_client_->send_report_data_async();
+}
+
+Result<ReportResult> Client::send_data_simple() {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    return report_client_->send_data_simple();
+}
+
+std::unordered_map<std::string, std::any> Client::get_current_data() const {
+    if (!report_client_) {
+        return {};
+    }
+    return report_client_->get_current_data();
+}
+
+void Client::clear_data() {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    report_client_->clear_data();
+}
+
+Result<ReportResult> Client::send_report() {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    return report_client_->send_report();
+}
+
+Result<ReportResult> Client::send_current_data() {
+    if (!report_client_) {
+        initialize_report_client();
+    }
+    return report_client_->send_current_data();
 }
 
 } // namespace wiplib::client

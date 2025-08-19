@@ -47,8 +47,8 @@ int main(int argc, char** argv) {
   std::cout << "  \"flags\": {\n"
             << "    \"weather\": " << (p.header.flags.weather?"true":"false") << ",\n"
             << "    \"temperature\": " << (p.header.flags.temperature?"true":"false") << ",\n"
-            << "    \"precipitation\": " << (p.header.flags.precipitation_prob?"true":"false") << ",\n"
-            << "    \"alert\": " << (p.header.flags.alerts?"true":"false") << ",\n"
+            << "    \"precipitation\": " << (p.header.flags.precipitation?"true":"false") << ",\n"
+            << "    \"alert\": " << (p.header.flags.alert?"true":"false") << ",\n"
             << "    \"disaster\": " << (p.header.flags.disaster?"true":"false") << "\n"
             << "  },\n";
   std::cout << "  \"day\": " << int(p.header.day) << ",\n";

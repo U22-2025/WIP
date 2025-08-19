@@ -4,11 +4,16 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
+#include <future>
+#include <any>
+#include <unordered_map>
 
 #include "wiplib/client/wip_client.hpp"
 #include "wiplib/client/weather_client.hpp"
 #include "wiplib/client/location_client.hpp"
 #include "wiplib/client/query_client.hpp"
+#include "wiplib/client/simple_report_client.hpp"
 
 namespace wiplib::client {
 
@@ -17,6 +22,7 @@ using ServerConfig = ::wiplib::client::ServerConfig;
 using ClientState = ::wiplib::client::ClientState;
 using WeatherOptions = ::wiplib::client::WeatherOptions;
 using WeatherData = ::wiplib::client::WeatherData;
+using ReportResult = ::wiplib::client::ReportResult;
 
 struct ClientSnapshot {
   std::optional<double> latitude{};
@@ -102,6 +108,32 @@ public:
       bool proxy = false
   );
 
+  // レポート送信API（Python互換）
+  void set_sensor_data(const std::string& area_code, 
+                      std::optional<int> weather_code = {},
+                      std::optional<float> temperature = {},
+                      std::optional<int> precipitation_prob = {},
+                      std::optional<std::vector<std::string>> alert = {},
+                      std::optional<std::vector<std::string>> disaster = {});
+  
+  void set_area_code(const std::string& area_code);
+  void set_weather_code(int weather_code);
+  void set_temperature(float temperature);
+  void set_precipitation_prob(int precipitation_prob);
+  void set_alert(const std::vector<std::string>& alert);
+  void set_disaster(const std::vector<std::string>& disaster);
+  
+  Result<ReportResult> send_report_data();
+  std::future<Result<ReportResult>> send_report_data_async();
+  Result<ReportResult> send_data_simple();
+  
+  std::unordered_map<std::string, std::any> get_current_data() const;
+  void clear_data();
+  
+  // 後方互換性メソッド
+  Result<ReportResult> send_report();
+  Result<ReportResult> send_current_data();
+
   // RAII サポート（Python with相当）
   Client& operator()() { return *this; } // __enter__ equivalent
   void release() { close(); } // __exit__ equivalent
@@ -111,14 +143,16 @@ private:
   ClientState state_;
   bool debug_;
     
-  // 内部クライアント（WipClientを使用）
+  // 内部クライアント
   std::unique_ptr<WipClient> wip_client_;
+  std::unique_ptr<SimpleReportClient> report_client_;
     
   // ヘルパーメソッド
   WeatherOptions build_options(bool weather, bool temperature, bool precipitation_prob, 
                               bool alert, bool disaster, uint8_t day) const;
   void validate_port() const;
   void initialize_wip_client();
+  void initialize_report_client();
 };
 
 } // namespace wiplib::client
