@@ -56,7 +56,8 @@ class LocationClient {
 public:
   LocationClient(std::string host = "127.0.0.1", uint16_t port = 4109)
     : host_(std::move(host)), port_(port) {
-    cache_file_path_ = std::filesystem::temp_directory_path() / "wip_location_cache.json";
+    // Python互換のキャッシュファイルパス
+    cache_file_path_ = std::filesystem::current_path() / "coordinate_cache.json";
     load_cache_from_disk();
   }
 
@@ -174,6 +175,15 @@ public:
   void set_server(std::string host, uint16_t port) { 
       host_ = std::move(host); 
       port_ = port; 
+  }
+  
+  /**
+   * @brief キャッシュファイルパスを設定（Python互換）
+   * @param cache_file_path キャッシュファイルパス
+   */
+  void set_cache_file_path(const std::filesystem::path& cache_file_path) {
+    cache_file_path_ = cache_file_path;
+    load_cache_from_disk();
   }
 
   void set_auth_config(const AuthConfig& cfg) { auth_cfg_ = cfg; }

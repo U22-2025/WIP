@@ -420,9 +420,10 @@ CoordinateResult LocationClient::perform_coordinate_conversion(
 std::string LocationClient::generate_cache_key(const packet::Coordinate& coordinate,
                                                PrecisionLevel precision_level) const {
   std::ostringstream oss;
-  auto c = manage_gps_precision(coordinate, precision_level);
-  oss << std::fixed << std::setprecision(4) << c.latitude << ',' << c.longitude
-      << ':' << static_cast<int>(precision_level);
+  // Python互換性のため、4桁精度に統一してcoord:プレフィックスを使用
+  double rounded_lat = std::round(coordinate.latitude * 10000.0) / 10000.0;
+  double rounded_lon = std::round(coordinate.longitude * 10000.0) / 10000.0;
+  oss << "coord:" << std::fixed << std::setprecision(4) << rounded_lat << ',' << rounded_lon;
   return oss.str();
 }
 
@@ -470,7 +471,39 @@ void LocationClient::load_cache_from_disk() {
     std::string body = (*it)[2].str();
     CoordinateResult res{};
     std::smatch m;
-    if (std::regex_search(body, m, std::regex(R"("area_code"\s*:\s*"([^"]*)")"))) res.area_code = m[1].str();
+    
+    // Python互換形式をサポート（シンプルなarea_code + timestampのみ）
+    if (std::regex_search(body, m, std::regex(R"("area_code"\s*:\s*"([^"]*)")"))) {
+      res.area_code = m[1].str();
+    }
+    
+    // timestampフィールド（Python形式）をチェック
+    double timestamp = 0.0;
+    if (std::regex_search(body, m, std::regex(R"("timestamp"\s*:\s*([\d\.]+))"))) {
+      timestamp = std::stod(m[1].str());
+      auto stored_sys = std::chrono::system_clock::time_point{
+        std::chrono::seconds(static_cast<long long>(timestamp))
+      };
+      if (now_sys - stored_sys > cache_ttl_) continue;
+      auto age = now_sys - stored_sys;
+      auto stored_steady = std::chrono::steady_clock::now() - age;
+      
+      // キーから座標情報を抽出（coord:lat,lon形式）
+      if (key.starts_with("coord:")) {
+        std::string coords = key.substr(6);
+        size_t comma_pos = coords.find(',');
+        if (comma_pos != std::string::npos) {
+          res.original_coordinate.latitude = std::stod(coords.substr(0, comma_pos));
+          res.original_coordinate.longitude = std::stod(coords.substr(comma_pos + 1));
+          res.normalized_coordinate = res.original_coordinate;
+        }
+      }
+      
+      new_cache[key] = {res, stored_steady};
+      continue;
+    }
+    
+    // C++独自の詳細形式もサポート（後方互換性）
     if (std::regex_search(body, m, std::regex(R"("original_latitude"\s*:\s*([-0-9\.]+))"))) res.original_coordinate.latitude = std::stod(m[1].str());
     if (std::regex_search(body, m, std::regex(R"("original_longitude"\s*:\s*([-0-9\.]+))"))) res.original_coordinate.longitude = std::stod(m[1].str());
     if (std::regex_search(body, m, std::regex(R"("normalized_latitude"\s*:\s*([-0-9\.]+))"))) res.normalized_coordinate.latitude = std::stod(m[1].str());
@@ -491,7 +524,6 @@ void LocationClient::load_cache_from_disk() {
     std::scoped_lock lock(cache_mutex_);
     cache_ = std::move(new_cache);
   }
-  save_cache_to_disk();
 }
 
 void LocationClient::save_cache_to_disk() const {
@@ -501,26 +533,21 @@ void LocationClient::save_cache_to_disk() const {
     copy = cache_;
   }
   std::ostringstream oss;
-  oss << "{";
+  oss << "{\n";
   bool first = true;
   auto now_sys = std::chrono::system_clock::now();
   for (const auto& [key, val] : copy) {
-    if (!first) oss << ",\n"; else oss << "\n";
+    if (!first) oss << ",\n";
     first = false;
     auto age = std::chrono::steady_clock::now() - val.second;
     auto stored_sys = now_sys - age;
-    long long stored_sec = std::chrono::duration_cast<std::chrono::seconds>(stored_sys.time_since_epoch()).count();
-    oss << "  \"" << key << "\": {";
-    oss << "\"area_code\":\"" << val.first.area_code << "\",";
-    oss << "\"original_latitude\":" << val.first.original_coordinate.latitude << ",";
-    oss << "\"original_longitude\":" << val.first.original_coordinate.longitude << ",";
-    oss << "\"normalized_latitude\":" << val.first.normalized_coordinate.latitude << ",";
-    oss << "\"normalized_longitude\":" << val.first.normalized_coordinate.longitude << ",";
-    oss << "\"precision_level\":" << static_cast<int>(val.first.precision_level) << ",";
-    oss << "\"accuracy_meters\":" << val.first.accuracy_meters << ",";
-    oss << "\"is_within_bounds\":" << (val.first.is_within_bounds ? "true" : "false") << ",";
-    oss << "\"response_time_ms\":" << val.first.response_time.count() << ",";
-    oss << "\"stored_time\":" << stored_sec << "}";
+    
+    // Python互換形式で保存（シンプルなarea_code + timestamp形式）
+    double timestamp = std::chrono::duration<double>(stored_sys.time_since_epoch()).count();
+    oss << "  \"" << key << "\": {\n";
+    oss << "    \"area_code\": \"" << val.first.area_code << "\",\n";
+    oss << "    \"timestamp\": " << std::fixed << std::setprecision(6) << timestamp << "\n";
+    oss << "  }";
   }
   if (!copy.empty()) oss << "\n";
   oss << "}";
