@@ -101,6 +101,12 @@ class QueryClient:
         if not self._get_response_auth_config():
             return True
             
+        # レスポンスのresponse_authフラグをチェック
+        # フラグが0の場合は認証検証をスキップ
+        if not hasattr(response, 'response_auth') or response.response_auth != 1:
+            self.logger.debug("Response authentication skipped - response_auth flag not set")
+            return True
+            
         # パスフレーズが設定されていない場合は失敗
         if not self.auth_passphrase:
             self.logger.warning("Response authentication enabled but passphrase not set")
@@ -115,7 +121,11 @@ class QueryClient:
                 self.logger.warning("Response authentication required but no extended field found")
                 return False
                 
-            auth_hash_str = response.ex_field._data.get("auth_hash")
+            if not response.ex_field.contains("auth_hash"):
+                self.logger.warning("Response authentication required but no auth_hash found")
+                return False
+                
+            auth_hash_str = response.ex_field.auth_hash
             if not auth_hash_str:
                 self.logger.warning("Response authentication required but no auth_hash found")
                 return False

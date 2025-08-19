@@ -423,36 +423,38 @@ Result<ReportResult> ReportClient::receive_response(uint16_t packet_id, int time
             // レスポンス認証検証
             if (response_auth_enabled_ && !auth_passphrase_.empty()) {
                 // Python版のWIPAuth.verify_auth_hashと同様の検証処理
-                // ReportResponseから認証ハッシュを取得（拡張フィールドID=4）
-                std::string auth_hash_hex;
+                // ReportResponseから認証ハッシュを取得（拡張フィールド）
+                std::vector<uint8_t> recv_hash;
+                bool auth_hash_found = false;
+                
+                // Python版のresponse.ex_fieldに相当する処理
                 if (response.ex_field.has_value()) {
-                    // 拡張フィールドから認証ハッシュを取得
-                    auto auth_hash_bytes = response.ex_field->get_auth_hash();
-                    if (!auth_hash_bytes.empty()) {
-                        // バイト列をhex文字列に変換
-                        std::stringstream hex_stream;
-                        for (const auto& byte : auth_hash_bytes) {
-                            hex_stream << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(byte);
+                    // 拡張フィールドから認証ハッシュを検索
+                    for (const auto& field_data : response.ex_field->_data) {
+                        if (field_data.first == "auth_hash") {
+                            auth_hash_found = true;
+                            const std::string& auth_hash_str = field_data.second;
+                            
+                            // hex文字列をバイト列に変換
+                            if (auth_hash_str.length() % 2 == 0) {
+                                for (size_t i = 0; i < auth_hash_str.length(); i += 2) {
+                                    std::string byte_str = auth_hash_str.substr(i, 2);
+                                    uint8_t byte_val = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
+                                    recv_hash.push_back(byte_val);
+                                }
+                            }
+                            break;
                         }
-                        auth_hash_hex = hex_stream.str();
                     }
                 }
 
-                if (!auth_hash_hex.empty()) {
-                    // hex文字列をバイト列に変換
-                    std::vector<uint8_t> received_hash;
-                    for (size_t i = 0; i < auth_hash_hex.length(); i += 2) {
-                        std::string byte_str = auth_hash_hex.substr(i, 2);
-                        uint8_t byte_val = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
-                        received_hash.push_back(byte_val);
-                    }
-
+                if (auth_hash_found && !recv_hash.empty()) {
                     // レスポンスパケットのタイムスタンプとパケットIDで認証ハッシュを再計算・検証
                     if (!wiplib::utils::WIPAuth::verify_auth_hash(
                             response.header.packet_id, 
                             response.header.timestamp, 
                             auth_passphrase_, 
-                            received_hash)) {
+                            recv_hash)) {
                         
                         ReportResult error_result;
                         error_result.type = "error";

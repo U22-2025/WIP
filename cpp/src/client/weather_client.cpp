@@ -261,14 +261,23 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
             // 座標リクエストの場合: LocationResponse(1) を受けたら、クライアントが QueryRequest(2) を送信し、WeatherResponse(3) を待つ
             if (req.header.type == PacketType::CoordinateRequest) {
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::CoordinateResponse)) {
+                // Check if response has response_auth flag set
+                bool response_has_auth_flag = rp.header.flags.response_auth;
+                
                 // Optional response verification for weather server (proxy)
                 if (auth_cfg_.weather_server_response_auth_enabled) {
-                  const std::string* pass = nullptr;
-                  if (auth_cfg_.weather && !auth_cfg_.weather->empty()) pass = &*auth_cfg_.weather;
+                  // Only verify if response has response_auth flag set
+                  if (!response_has_auth_flag) {
+                    if (std::getenv("WIPLIB_DEBUG_LOG"))
+                      fprintf(stderr, "[wiplib] Response authentication skipped - response_auth flag not set\n");
+                    // Continue without verification when flag is not set
+                  } else {
+                    const std::string* pass = nullptr;
+                    if (auth_cfg_.weather && !auth_cfg_.weather->empty()) pass = &*auth_cfg_.weather;
                   if (pass) {
                     std::vector<uint8_t> recv_hash;
                     for (const auto& ef : rp.extensions) {
-                      if (ef.data_type == 4) {
+                      if (ef.data_type == static_cast<uint8_t>(wiplib::packet::ExtendedFieldKey::AuthHash)) {
                         const auto& d = ef.data; if (d.size()==64) {
                           recv_hash.reserve(32);
                           auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };
@@ -287,6 +296,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
 #endif
                         return make_error_code(WipErrc::invalid_packet);
                       }
+                    }
                     }
                   }
                 }
@@ -377,7 +387,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                     // find ext id=4 hex64
                     std::vector<uint8_t> recv_hash;
                     for (const auto& ef : rp.extensions) {
-                      if (ef.data_type == 4) {
+                      if (ef.data_type == static_cast<uint8_t>(wiplib::packet::ExtendedFieldKey::AuthHash)) {
                         const auto& d = ef.data;
                         if (d.size() == 64) {
                           // hex to bytes
@@ -438,7 +448,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                   if (pass) {
                     std::vector<uint8_t> recv_hash;
                     for (const auto& ef : rp.extensions) {
-                      if (ef.data_type == 4) {
+                      if (ef.data_type == static_cast<uint8_t>(wiplib::packet::ExtendedFieldKey::AuthHash)) {
                         const auto& d = ef.data; if (d.size()==64) {
                           recv_hash.reserve(32);
                           auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };

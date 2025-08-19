@@ -146,14 +146,24 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   const Packet& rp = dec.value();
   if (rp.header.type != PacketType::WeatherResponse) return make_error_code(WipErrc::invalid_packet);
 
+  // Check if response has response_auth flag set
+  bool response_has_auth_flag = rp.header.flags.response_auth;
+  
   // Optional response verification for query server
   if (auth_cfg_.query_server_response_auth_enabled) {
-    const std::string* pass = nullptr;
-    if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
+    // Only verify if response has response_auth flag set
+    if (!response_has_auth_flag) {
+      if (debug_) {
+        std::cerr << "DEBUG: Response authentication skipped - response_auth flag not set" << std::endl;
+      }
+      // Continue without verification when flag is not set
+    } else {
+      const std::string* pass = nullptr;
+      if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
     if (pass) {
       std::vector<uint8_t> recv_hash;
       for (const auto& ef : rp.extensions) {
-        if (ef.data_type == 4) {
+        if (ef.data_type == static_cast<uint8_t>(wiplib::packet::ExtendedFieldKey::AuthHash)) {
           const auto& d = ef.data; if (d.size()==64) {
             recv_hash.reserve(32);
             auto hexval = [](uint8_t c)->int { if (c>='0'&&c<='9') return c-'0'; if (c>='a'&&c<='f') return c-'a'+10; if (c>='A'&&c<='F') return c-'A'+10; return -1; };
@@ -167,6 +177,7 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
         if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
           return make_error_code(WipErrc::invalid_packet);
         }
+      }
       }
     }
   }
