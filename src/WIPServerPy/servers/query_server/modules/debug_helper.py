@@ -79,11 +79,20 @@ class DebugHelper:
         }
 
         if hasattr(parsed_request, "ex_field") and parsed_request.ex_field:
-            packet_details["Extended Field"] = str(parsed_request.ex_field)
-            if hasattr(parsed_request.ex_field, "source"):
-                packet_details["Source"] = (
-                    f"{parsed_request.ex_field.source[0]}:{parsed_request.ex_field.source[1]}"
-                )
+            try:
+                packet_details["Extended Field"] = str(parsed_request.ex_field)
+            except Exception:
+                packet_details["Extended Field"] = "<unprintable>"
+            # Source is optional; handle absent or non-tuple safely
+            try:
+                src = getattr(parsed_request.ex_field, "source", None)
+                if isinstance(src, (list, tuple)) and len(src) == 2:
+                    packet_details["Source"] = f"{src[0]}:{src[1]}"
+                elif isinstance(src, str) and ":" in src:
+                    packet_details["Source"] = src
+                # else: do not include Source
+            except Exception:
+                pass
 
         log_message = UnifiedLogFormatter.format_communication_log(
             server_name=self.server_name,
@@ -126,18 +135,29 @@ class DebugHelper:
         # パケット詳細情報の収集
         packet_details = {}
         if response_obj:
-            if hasattr(response_obj, "weather_code"):
-                packet_details["Weather Code"] = response_obj.weather_code
-            if hasattr(response_obj, "temperature"):
-                packet_details["Temperature"] = response_obj.temperature
-            if hasattr(response_obj, "pop"):
-                packet_details["Precipitation Probability"] = f"{response_obj.pop}%"
-            if hasattr(response_obj, "ex_field") and response_obj.ex_field:
-                packet_details["Extended Field"] = str(response_obj.ex_field)
-                if hasattr(response_obj.ex_field, "source"):
-                    packet_details["Source"] = (
-                        f"{response_obj.ex_field.source[0]}:{response_obj.ex_field.source[1]}"
-                    )
+            try:
+                if hasattr(response_obj, "weather_code"):
+                    packet_details["Weather Code"] = response_obj.weather_code
+                if hasattr(response_obj, "temperature"):
+                    packet_details["Temperature"] = response_obj.temperature
+                if hasattr(response_obj, "pop"):
+                    packet_details["Precipitation Probability"] = f"{response_obj.pop}%"
+            except Exception:
+                pass
+            # ExtendedField and optional Source
+            try:
+                if hasattr(response_obj, "ex_field") and response_obj.ex_field:
+                    try:
+                        packet_details["Extended Field"] = str(response_obj.ex_field)
+                    except Exception:
+                        packet_details["Extended Field"] = "<unprintable>"
+                    src = getattr(response_obj.ex_field, "source", None)
+                    if isinstance(src, (list, tuple)) and len(src) == 2:
+                        packet_details["Source"] = f"{src[0]}:{src[1]}"
+                    elif isinstance(src, str) and ":" in src:
+                        packet_details["Source"] = src
+            except Exception:
+                pass
 
         log_message = UnifiedLogFormatter.format_communication_log(
             server_name=self.server_name,

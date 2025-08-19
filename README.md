@@ -241,6 +241,30 @@ python -m WIPCommonPy.clients.query_client
 python -m WIPCommonPy.clients.report_client
 ```
 
+#### 迅速な疎通テスト（Pythonモックサーバー + C++ CLI）
+本番サーバ群の代わりに、簡易モックサーバーで C++ クライアントの疎通確認ができます。
+
+1) モックサーバー起動（別ターミナル）
+```bash
+python python/tools/mock_weather_server.py  # UDP/4110 を待受
+```
+
+2) C++ CLI ビルド（CMake なしの場合）
+```bash
+# Windows (Developer Command Prompt)
+cpp\tools\build_no_cmake.bat
+
+# Linux/macOS/MSYS2
+bash cpp/tools/build_no_cmake.sh
+```
+
+3) 疎通確認
+```bash
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature
+```
+
+モックサーバーは有効な WeatherResponse を即時返却します（エリアコード: 130010、天気コード: 100、温度: 22℃、降水確率: 10%）。
+
 ## データ形式
 
 ### 天気コード
@@ -332,6 +356,78 @@ python test/api_test.py
 
 # プロトコルテスト
 python -m wip.packet.format  # パケット形式テスト
+```
+
+### C++ クライアント（wiplib-cpp）
+このリポジトリには C++20 実装（クライアントおよびパケットコーデック）が含まれます。ビルド手順:
+
+```bash
+# CMake 3.20+ と C++20 対応コンパイラを用意してください
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build --config Release
+
+# 単体テスト（簡易）
+./cpp/build/wiplib_tests
+
+# CLI ツール実行例（Python サーバ群起動後）
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature --precipitation
+
+# 座標指定の例（東京）
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --coords 35.6895 139.6917 --weather --temperature --precipitation
+```
+
+CLI オプション:
+- `--host`, `--port`: 接続先 Weather Server (UDP/4110)
+- `--coords <lat> <lon>` または `--area <6桁コード>`
+- `--weather|--no-weather`, `--temperature|--no-temperature`, `--precipitation`, `--alerts`, `--disaster`, `--day <0-7>`
+
+備考:
+- C++ 実装は Python 実装と同じリトルエンディアン表現・12bitチェックサム（1の補数折返し）で動作します。相互運用で不一致があれば Issue へ報告ください。
+
+### ゴールデンベクタ生成（Python → C++ 検証）
+Python 実装から既知のパケットを生成して C++ でデコード検証できます。
+
+```bash
+# 1) ゴールデンベクタを生成（dist/golden/*.bin）
+python python/tools/generate_golden_vectors.py
+
+# 2) C++ 側で検証実行
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
+cmake --build cpp/build --config Debug
+./cpp/build/wiplib_golden
+```
+
+### ソケット無しの相互運用テスト
+C++で生成したリクエストをPythonが解釈、Pythonが生成したレスポンスをC++が解釈するテストを自動実行できます。
+
+```bash
+# C++ツールのビルド（gen/decode）
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
+cmake --build cpp/build --config Debug --target wip_packet_gen wip_packet_decode
+
+# パス指定してテスト実行（Windowsは exe 拡張子）
+export WIP_CPP_BIN_DIR=cpp/build
+python python/tools/interop_no_socket.py
+```
+
+#### CMake なしでビルドする場合（全OS対応）
+
+環境に CMake が無い場合でも、同梱スクリプトでビルドできます。
+
+- Windows（MSVC / Developer Command Prompt）
+  - `cpp\tools\build_no_cmake.bat`
+  - 出力: `cpp\build\wip_client_cli.exe`, `cpp\build\wiplib_tests.exe`
+- Windows（MSYS2/MinGW）/ Linux / macOS（clang++/g++）
+  - `bash cpp/tools/build_no_cmake.sh`
+  - 出力: `cpp/build/wip_client_cli`, `cpp/build/wiplib_tests`
+
+実行例:
+```bash
+# CLI
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature
+
+# テスト（コーデックの往復確認）
+./cpp/build/wiplib_tests
 ```
 
 ### ログ出力
