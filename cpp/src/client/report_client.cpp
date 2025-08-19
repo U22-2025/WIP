@@ -20,6 +20,8 @@
 #include "wiplib/packet/codec.hpp"
 #include "wiplib/utils/auth.hpp"
 #include "wiplib/error.hpp"
+#include "wiplib/client/utils/safe_sock_sendto.hpp"
+#include "wiplib/client/utils/receive_with_id.hpp"
 
 namespace wiplib::client {
 
