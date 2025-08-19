@@ -13,6 +13,10 @@
 #include <algorithm>
 #include <future>
 #include <thread>
+#include <mutex>
+#include <optional>
+#include <sstream>
+#include <iomanip>
 
 #if defined(_WIN32)
 #  include <winsock2.h>
@@ -206,6 +210,267 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
   close(sock);
 #endif
   return make_error_code(WipErrc::timeout);
+}
+
+// ---------------------------------------
+// 詳細エリアコード取得（非同期）
+// ---------------------------------------
+
+std::future<wiplib::Result<CoordinateResult>> LocationClient::get_area_code_detailed_async(
+    const packet::Coordinate& coordinate,
+    PrecisionLevel precision_level,
+    std::chrono::milliseconds timeout) {
+  return std::async(std::launch::async, [=, this]() -> wiplib::Result<CoordinateResult> {
+    update_statistics("total_requests");
+
+    const std::string cache_key = generate_cache_key(coordinate, precision_level);
+    if (cache_enabled_) {
+      if (auto cached = get_cached_result(cache_key)) {
+        update_statistics("cache_hits");
+        return *cached;
+      }
+    }
+    update_statistics("cache_misses");
+
+    auto start = std::chrono::steady_clock::now();
+    auto ac = get_area_code_simple(coordinate.latitude, coordinate.longitude);
+    auto end = std::chrono::steady_clock::now();
+
+    if (!ac) {
+      update_statistics("failed_requests");
+      return ac.error();
+    }
+
+    CoordinateResult result = perform_coordinate_conversion(coordinate, precision_level, timeout);
+    result.area_code = ac.value();
+    result.response_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    if (cache_enabled_) cache_result(cache_key, result);
+    return result;
+  });
+}
+
+// ---------------------------------------
+// バッチ変換（非同期）
+// ---------------------------------------
+
+std::future<std::vector<wiplib::Result<CoordinateResult>>> LocationClient::batch_convert_async(
+    const std::vector<packet::Coordinate>& coordinates,
+    PrecisionLevel precision_level,
+    std::chrono::milliseconds timeout) {
+  return std::async(std::launch::async, [=, this]() {
+    std::vector<wiplib::Result<CoordinateResult>> results;
+    results.reserve(coordinates.size());
+    for (const auto& c : coordinates) {
+      auto r = get_area_code_detailed_async(c, precision_level, timeout).get();
+      results.push_back(std::move(r));
+    }
+    return results;
+  });
+}
+
+// ---------------------------------------
+// GPS精度管理
+// ---------------------------------------
+
+packet::Coordinate LocationClient::manage_gps_precision(
+    const packet::Coordinate& coordinate,
+    PrecisionLevel target_precision) const {
+  packet::Coordinate result = coordinate;
+  int digits = 3;
+  switch (target_precision) {
+    case PrecisionLevel::Low: digits = 2; break;
+    case PrecisionLevel::Medium: digits = 3; break;
+    case PrecisionLevel::High: digits = 4; break;
+    case PrecisionLevel::VeryHigh: digits = 5; break;
+  }
+  double factor = std::pow(10.0, digits);
+  result.latitude = std::round(result.latitude * factor) / factor;
+  result.longitude = std::round(result.longitude * factor) / factor;
+  return result;
+}
+
+// ---------------------------------------
+// 境界チェック
+// ---------------------------------------
+
+bool LocationClient::check_geographic_bounds(
+    const packet::Coordinate& coordinate,
+    const std::optional<GeographicBounds>& bounds) const {
+  const GeographicBounds& b = bounds ? *bounds : geographic_bounds_;
+  return is_coordinate_in_bounds(coordinate, b);
+}
+
+// ---------------------------------------
+// 座標正規化
+// ---------------------------------------
+
+packet::Coordinate LocationClient::normalize_coordinate(
+    const packet::Coordinate& coordinate,
+    uint8_t precision) const {
+  packet::Coordinate result = coordinate;
+  double factor = std::pow(10.0, precision);
+  result.latitude = std::round(result.latitude * factor) / factor;
+  result.longitude = std::round(result.longitude * factor) / factor;
+  return result;
+}
+
+// ---------------------------------------
+// 精度推定
+// ---------------------------------------
+
+PrecisionLevel LocationClient::estimate_precision_level(const packet::Coordinate& coordinate) const {
+  auto digits = [](double v) {
+    v = std::abs(v);
+    for (int d = 0; d <= 6; ++d) {
+      double f = std::pow(10.0, d);
+      if (std::abs(v * f - std::round(v * f)) < 1e-6) return d;
+    }
+    return 6;
+  };
+  int d = std::max(digits(coordinate.latitude), digits(coordinate.longitude));
+  if (d >= 5) return PrecisionLevel::VeryHigh;
+  if (d >= 4) return PrecisionLevel::High;
+  if (d >= 3) return PrecisionLevel::Medium;
+  return PrecisionLevel::Low;
+}
+
+// ---------------------------------------
+// 座標妥当性検証
+// ---------------------------------------
+
+std::pair<bool, std::string> LocationClient::validate_coordinate(const packet::Coordinate& coordinate) const {
+  if (coordinate.latitude < -90.0 || coordinate.latitude > 90.0)
+    return {false, "latitude out of range"};
+  if (coordinate.longitude < -180.0 || coordinate.longitude > 180.0)
+    return {false, "longitude out of range"};
+  return {true, ""};
+}
+
+// ---------------------------------------
+// 境界設定/取得
+// ---------------------------------------
+
+void LocationClient::set_geographic_bounds(const GeographicBounds& bounds) {
+  geographic_bounds_ = bounds;
+}
+
+GeographicBounds LocationClient::get_geographic_bounds() const {
+  return geographic_bounds_;
+}
+
+// ---------------------------------------
+// キャッシュ設定
+// ---------------------------------------
+
+void LocationClient::set_cache_enabled(bool enabled, std::chrono::seconds cache_ttl) {
+  std::scoped_lock lock(cache_mutex_);
+  cache_enabled_ = enabled;
+  cache_ttl_ = cache_ttl;
+  if (!enabled) cache_.clear();
+}
+
+// ---------------------------------------
+// 統計取得/リセット
+// ---------------------------------------
+
+std::unordered_map<std::string, uint64_t> LocationClient::get_conversion_statistics() const {
+  std::scoped_lock lock(stats_mutex_);
+  return conversion_stats_;
+}
+
+void LocationClient::reset_statistics() {
+  std::scoped_lock lock(stats_mutex_);
+  conversion_stats_.clear();
+}
+
+// ---------------------------------------
+// 変換処理（共通）
+// ---------------------------------------
+
+CoordinateResult LocationClient::perform_coordinate_conversion(
+    const packet::Coordinate& coordinate,
+    PrecisionLevel precision_level,
+    std::chrono::milliseconds /*timeout*/) const {
+  CoordinateResult result{};
+  result.original_coordinate = coordinate;
+  result.precision_level = precision_level;
+  result.accuracy_meters = calculate_accuracy_from_precision(precision_level);
+  auto managed = manage_gps_precision(coordinate, precision_level);
+  result.normalized_coordinate = normalize_coordinate(managed, 6);
+  result.is_within_bounds = check_geographic_bounds(managed);
+  return result;
+}
+
+// ---------------------------------------
+// キャッシュ関連
+// ---------------------------------------
+
+std::string LocationClient::generate_cache_key(const packet::Coordinate& coordinate,
+                                               PrecisionLevel precision_level) const {
+  std::ostringstream oss;
+  auto c = manage_gps_precision(coordinate, precision_level);
+  oss << std::fixed << std::setprecision(4) << c.latitude << ',' << c.longitude
+      << ':' << static_cast<int>(precision_level);
+  return oss.str();
+}
+
+std::optional<CoordinateResult> LocationClient::get_cached_result(const std::string& cache_key) const {
+  std::scoped_lock lock(cache_mutex_);
+  if (!cache_enabled_) return std::nullopt;
+  auto it = cache_.find(cache_key);
+  if (it == cache_.end()) return std::nullopt;
+  if (std::chrono::steady_clock::now() - it->second.second > cache_ttl_) {
+    cache_.erase(it);
+    return std::nullopt;
+  }
+  return it->second.first;
+}
+
+void LocationClient::cache_result(const std::string& cache_key, const CoordinateResult& result) const {
+  std::scoped_lock lock(cache_mutex_);
+  if (!cache_enabled_) return;
+  cache_[cache_key] = {result, std::chrono::steady_clock::now()};
+}
+
+void LocationClient::update_statistics(const std::string& key, uint64_t increment) const {
+  std::scoped_lock lock(stats_mutex_);
+  conversion_stats_[key] += increment;
+}
+
+double LocationClient::calculate_accuracy_from_precision(PrecisionLevel precision_level) const {
+  switch (precision_level) {
+    case PrecisionLevel::Low: return 1000.0;
+    case PrecisionLevel::Medium: return 100.0;
+    case PrecisionLevel::High: return 10.0;
+    case PrecisionLevel::VeryHigh: return 1.0;
+  }
+  return 100.0;
+}
+
+bool LocationClient::is_coordinate_in_bounds(const packet::Coordinate& coordinate,
+                                             const GeographicBounds& bounds) const {
+  return coordinate.latitude >= bounds.min_latitude &&
+         coordinate.latitude <= bounds.max_latitude &&
+         coordinate.longitude >= bounds.min_longitude &&
+         coordinate.longitude <= bounds.max_longitude;
+}
+
+// ---------------------------------------
+// ファクトリー実装
+// ---------------------------------------
+
+std::unique_ptr<LocationClient> LocationClientFactory::create_basic(
+    const std::string& host, uint16_t port) {
+  return std::make_unique<LocationClient>(host, port);
+}
+
+std::unique_ptr<LocationClient> LocationClientFactory::create_high_precision(
+    const std::string& host, uint16_t port, const GeographicBounds& bounds) {
+  auto client = std::make_unique<LocationClient>(host, port);
+  client->set_geographic_bounds(bounds);
+  client->set_cache_enabled(true);
+  return client;
 }
 
 } // namespace wiplib::client
