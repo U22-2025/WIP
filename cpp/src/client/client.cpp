@@ -187,7 +187,7 @@ void Client::initialize_report_client() {
 }
 
 // レポート送信API（SimpleReportClientへの委譲）
-void Client::set_sensor_data(const std::string& area_code, 
+void Client::set_sensor_data(const std::string& area_code,
                             std::optional<int> weather_code,
                             std::optional<float> temperature,
                             std::optional<int> precipitation_prob,
@@ -196,6 +196,7 @@ void Client::set_sensor_data(const std::string& area_code,
     if (!report_client_) {
         initialize_report_client();
     }
+    // 新しい警報・災害情報フィールドもそのまま委譲
     report_client_->set_sensor_data(area_code, weather_code, temperature, precipitation_prob, alert, disaster);
 }
 

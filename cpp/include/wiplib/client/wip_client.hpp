@@ -39,6 +39,8 @@ struct WeatherData {
   std::optional<uint16_t> weather_code{};
   std::optional<int> temperature_c{}; // Celsius
   std::optional<int> precipitation_prob{};
+  std::optional<std::vector<std::string>> alerts{};
+  std::optional<std::vector<std::string>> disasters{};
 };
 
 class WipClient {

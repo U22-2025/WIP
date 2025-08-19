@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
@@ -25,6 +26,8 @@ struct WeatherResult {
   std::optional<uint16_t> weather_code{};
   std::optional<int8_t> temperature{};
   std::optional<uint8_t> precipitation_prob{};
+  std::optional<std::vector<std::string>> alerts{};
+  std::optional<std::vector<std::string>> disasters{};
 };
 
 class WeatherClient {

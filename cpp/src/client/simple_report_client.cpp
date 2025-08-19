@@ -148,10 +148,14 @@ void SimpleReportClient::set_sensor_data(
     
     // デバッグ情報の出力（コンソール出力に変更）
     if (debug_) {
-        std::cout << "センサーデータを設定: エリア=" << area_code 
+        std::cout << "センサーデータを設定: エリア=" << area_code
                   << ", 天気=" << (weather_code ? std::to_string(*weather_code) : "null")
                   << ", 気温=" << (temperature ? std::to_string(*temperature) + "℃" : "null")
                   << ", 降水確率=" << (precipitation_prob ? std::to_string(*precipitation_prob) + "%" : "null")
+                  << ", 警報="
+                  << (alert ? std::to_string(alert->size()) : std::string("null"))
+                  << ", 災害="
+                  << (disaster ? std::to_string(disaster->size()) : std::string("null"))
                   << std::endl;
     }
 }
