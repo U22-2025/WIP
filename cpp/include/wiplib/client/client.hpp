@@ -13,7 +13,7 @@
 #include "wiplib/client/weather_client.hpp"
 #include "wiplib/client/location_client.hpp"
 #include "wiplib/client/query_client.hpp"
-#include "wiplib/client/simple_report_client.hpp"
+#include "wiplib/client/report_client.hpp"
 #include "wiplib/client/auth_config.hpp"
 
 namespace wiplib::client {
@@ -150,7 +150,7 @@ private:
     
   // 内部クライアント
   std::unique_ptr<WipClient> wip_client_;
-  std::unique_ptr<SimpleReportClient> report_client_;
+  std::unique_ptr<ReportClient> report_client_;
     
   // ヘルパーメソッド
   WeatherOptions build_options(bool weather, bool temperature, bool precipitation_prob, 

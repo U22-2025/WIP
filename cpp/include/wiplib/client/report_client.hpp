@@ -1,19 +1,19 @@
 #pragma once
 
-#include <future>
-#include <chrono>
-#include <memory>
 #include <string>
+#include <optional>
 #include <vector>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <atomic>
-#include <thread>
+#include <unordered_map>
+#include <future>
+#include <any>
+#include <memory>
+#include <cstdint>
 
-#include "wiplib/packet/report_packet.hpp"
-#include "wiplib/packet/request.hpp"
-#include "wiplib/packet/response.hpp"
+#include "wiplib/expected.hpp"
+#include "wiplib/error.hpp"
+#include "wiplib/packet/report_packet_compat.hpp"
+#include "wiplib/packet/debug/debug_logger.hpp"
+#include "wiplib/utils/network.hpp"
 
 namespace wiplib::client {
 
@@ -21,283 +21,253 @@ namespace wiplib::client {
  * @brief レポート送信結果
  */
 struct ReportResult {
-    bool success = false;
-    uint8_t status_code = 0;
-    uint16_t processed_count = 0;
-    std::string message{};
-    uint64_t server_timestamp = 0;
-    std::chrono::milliseconds response_time{};
+    std::string type;                           // "report_ack" or "error"
+    bool success = false;                       // 成功フラグ
+    std::optional<std::string> area_code{};     // レスポンスのエリアコード
+    std::optional<uint16_t> packet_id{};        // パケットID
+    std::optional<uint64_t> timestamp{};        // タイムスタンプ
+    std::optional<uint16_t> error_code{};       // エラーコード (error時)
+    double response_time_ms = 0.0;              // レスポンス時間
+    std::unordered_map<std::string, std::string> summary{}; // 追加情報
 };
 
 /**
- * @brief バッチ処理設定
- */
-struct BatchConfig {
-    size_t max_batch_size = 100;          // 最大バッチサイズ
-    std::chrono::milliseconds max_wait_time{5000};  // 最大待機時間
-    size_t min_batch_size = 1;             // 最小バッチサイズ
-    bool enable_compression = true;        // 圧縮有効
-    uint8_t compression_level = 6;         // 圧縮レベル（0-9）
-};
-
-/**
- * @brief データ圧縮・暗号化設定
- */
-struct SecurityConfig {
-    bool enable_encryption = false;       // 暗号化有効
-    std::string encryption_key{};         // 暗号化キー
-    std::string encryption_algorithm = "AES-256-GCM";  // 暗号化アルゴリズム
-    bool verify_ssl = true;               // SSL証明書検証
-    std::chrono::seconds key_rotation_interval{3600}; // キーローテーション間隔
-};
-
-/**
- * @brief レポート送信統計
- */
-struct ReportStats {
-    std::atomic<uint64_t> total_reports_sent{0};
-    std::atomic<uint64_t> successful_reports{0};
-    std::atomic<uint64_t> failed_reports{0};
-    std::atomic<uint64_t> batched_reports{0};
-    std::atomic<uint64_t> compressed_bytes_saved{0};
-    std::atomic<uint64_t> total_processing_time_ms{0};
-    std::chrono::steady_clock::time_point start_time{std::chrono::steady_clock::now()};
-};
-
-/**
- * @brief レポートクライアント
+ * @brief Python版ReportClient互換のReportClient
+ * 
+ * Python版ReportClientと完全互換のAPIを提供する
+ * IoT機器からサーバーへのセンサーデータレポート送信に特化
  */
 class ReportClient {
 public:
     /**
-     * @brief コンストラクタ
-     * @param host サーバーホスト
-     * @param port サーバーポート
-     * @param enable_batching バッチ処理有効フラグ
+     * @brief コンストラクタ（Python版互換）
+     * @param host Report Serverのホスト名
+     * @param port Report Serverのポート番号
+     * @param debug デバッグモードフラグ
      */
-    explicit ReportClient(
-        const std::string& host = "localhost", 
-        uint16_t port = 4112,
-        bool enable_batching = true
-    );
+    ReportClient(std::string host = "localhost", uint16_t port = 4112, bool debug = false);
     
+    /**
+     * @brief デストラクタ
+     */
     ~ReportClient();
     
-    /**
-     * @brief センサーデータを送信（非同期）
-     * @param sensor_data センサーデータ
-     * @param timeout タイムアウト時間
-     * @return 送信結果のFuture
-     */
-    std::future<ReportResult> send_sensor_data_async(
-        const packet::SensorData& sensor_data,
-        std::chrono::milliseconds timeout = std::chrono::milliseconds{10000}
-    );
+    // Python互換データ設定API
     
     /**
-     * @brief センサーデータを送信（同期）
-     * @param sensor_data センサーデータ
+     * @brief センサーデータを一括設定（Python版set_sensor_data()互換）
+     * @param area_code エリアコード（6桁文字列）
+     * @param weather_code 天気コード（オプション）
+     * @param temperature 気温（摂氏、オプション）
+     * @param precipitation_prob 降水確率（0-100%、オプション）
+     * @param alert 警報情報リスト（オプション）
+     * @param disaster 災害情報リスト（オプション）
+     */
+    void set_sensor_data(const std::string& area_code, 
+                        std::optional<int> weather_code = {},
+                        std::optional<float> temperature = {},
+                        std::optional<int> precipitation_prob = {},
+                        std::optional<std::vector<std::string>> alert = {},
+                        std::optional<std::vector<std::string>> disaster = {});
+    
+    /**
+     * @brief エリアコードを設定（Python版set_area_code()互換）
+     * @param area_code エリアコード
+     */
+    void set_area_code(const std::string& area_code);
+    
+    /**
+     * @brief 天気コードを設定（Python版set_weather_code()互換）
+     * @param weather_code 天気コード
+     */
+    void set_weather_code(int weather_code);
+    
+    /**
+     * @brief 気温を設定（Python版set_temperature()互換）
+     * @param temperature 気温（摂氏）
+     */
+    void set_temperature(float temperature);
+    
+    /**
+     * @brief 降水確率を設定（Python版set_precipitation_prob()互換）
+     * @param precipitation_prob 降水確率（0-100%）
+     */
+    void set_precipitation_prob(int precipitation_prob);
+    
+    /**
+     * @brief 警報情報を設定（Python版set_alert()互換）
+     * @param alert 警報情報リスト
+     */
+    void set_alert(const std::vector<std::string>& alert);
+    
+    /**
+     * @brief 災害情報を設定（Python版set_disaster()互換）
+     * @param disaster 災害情報リスト
+     */
+    void set_disaster(const std::vector<std::string>& disaster);
+    
+    // Python互換送信API
+    
+    /**
+     * @brief レポートデータを送信（Python版send_report_data()互換）
      * @return 送信結果
      */
-    ReportResult send_sensor_data_sync(const packet::SensorData& sensor_data);
+    Result<ReportResult> send_report_data();
     
     /**
-     * @brief バイナリデータを送信
-     * @param binary_data バイナリデータ
-     * @param metadata メタデータ
-     * @param timeout タイムアウト時間
-     * @return 送信結果のFuture
+     * @brief レポートデータを非同期送信（Python版send_report_data_async()互換）
+     * @return 送信結果のfuture
      */
-    std::future<ReportResult> send_binary_data_async(
-        const std::vector<uint8_t>& binary_data,
-        const std::unordered_map<std::string, std::string>& metadata = {},
-        std::chrono::milliseconds timeout = std::chrono::milliseconds{30000}
-    );
+    std::future<Result<ReportResult>> send_report_data_async();
     
     /**
-     * @brief 複数データを一括送信
-     * @param sensor_data_list センサーデータリスト
-     * @param timeout タイムアウト時間
-     * @return 送信結果のFuture
+     * @brief 現在のデータでレポートを送信（Python版send_data_simple()互換）
+     * @return 送信結果
      */
-    std::future<ReportResult> send_batch_async(
-        const std::vector<packet::SensorData>& sensor_data_list,
-        std::chrono::milliseconds timeout = std::chrono::milliseconds{60000}
-    );
+    Result<ReportResult> send_data_simple();
+    
+    // Python互換データ管理API
     
     /**
-     * @brief バッチ処理設定を変更
-     * @param config バッチ設定
+     * @brief 現在設定されているデータを取得（Python版get_current_data()互換）
+     * @return データ辞書
      */
-    void set_batch_config(const BatchConfig& config);
+    std::unordered_map<std::string, std::any> get_current_data() const;
     
     /**
-     * @brief セキュリティ設定を変更
-     * @param config セキュリティ設定
+     * @brief 設定されているデータをクリア（Python版clear_data()互換）
      */
-    void set_security_config(const SecurityConfig& config);
+    void clear_data();
     
     /**
-     * @brief データ品質チェックを有効化
-     * @param enabled 有効フラグ
-     * @param min_quality 最小品質閾値（0-255）
-     */
-    void set_quality_check_enabled(bool enabled, uint8_t min_quality = 200);
-    
-    /**
-     * @brief 重複データ検出を有効化
-     * @param enabled 有効フラグ
-     * @param time_window 検出時間窓（同一データの重複判定時間）
-     */
-    void set_duplicate_detection_enabled(bool enabled, 
-                                        std::chrono::seconds time_window = std::chrono::seconds{60});
-    
-    /**
-     * @brief 自動リトライを設定
-     * @param max_retries 最大リトライ回数
-     * @param base_delay ベース遅延時間
-     * @param max_delay 最大遅延時間
-     */
-    void set_retry_policy(uint8_t max_retries,
-                         std::chrono::milliseconds base_delay = std::chrono::milliseconds{1000},
-                         std::chrono::milliseconds max_delay = std::chrono::milliseconds{30000});
-    
-    /**
-     * @brief バックプレッシャー制御を設定
-     * @param max_pending_requests 最大保留リクエスト数
-     * @param queue_timeout キュータイムアウト
-     */
-    void set_backpressure_control(size_t max_pending_requests = 1000,
-                                 std::chrono::milliseconds queue_timeout = std::chrono::milliseconds{30000});
-    
-    /**
-     * @brief ヘルスチェックを実行
-     * @return サーバーが正常な場合true
-     */
-    bool health_check();
-    
-    /**
-     * @brief 統計情報を取得
-     * @return 統計情報
-     */
-    ReportStats get_statistics() const;
-    
-    /**
-     * @brief パフォーマンスメトリクスを取得
-     * @return メトリクスマップ
-     */
-    std::unordered_map<std::string, double> get_performance_metrics() const;
-    
-    /**
-     * @brief 保留中のデータを強制送信
-     * @return 送信されたアイテム数
-     */
-    size_t flush_pending_data();
-    
-    /**
-     * @brief デバッグモードを設定
-     * @param enabled デバッグ有効フラグ
-     */
-    void set_debug_enabled(bool enabled);
-    
-    /**
-     * @brief すべての処理を停止してクライアントを閉じる
+     * @brief ソケットを閉じる（Python版close()互換）
      */
     void close();
+    
+    // 後方互換性メソッド（Python版と同様）
+    
+    /**
+     * @brief 後方互換性のため（Python版send_report()互換）
+     * @return 送信結果
+     */
+    Result<ReportResult> send_report();
+    
+    /**
+     * @brief 後方互換性のため（Python版send_current_data()互換）
+     * @return 送信結果
+     */
+    Result<ReportResult> send_current_data();
 
 private:
-    struct PendingReport {
-        packet::SensorData sensor_data;
-        std::vector<uint8_t> binary_data;
-        std::unordered_map<std::string, std::string> metadata;
-        std::chrono::steady_clock::time_point timestamp;
-        std::promise<ReportResult> promise;
-        uint8_t retry_count = 0;
-    };
-    
+    // 設定
     std::string host_;
     uint16_t port_;
+    bool debug_;
     
-    // バッチ処理
-    std::atomic<bool> batching_enabled_{true};
-    BatchConfig batch_config_;
-    std::queue<std::unique_ptr<PendingReport>> batch_queue_;
-    std::mutex batch_mutex_;
-    std::condition_variable batch_cv_;
-    std::unique_ptr<std::thread> batch_worker_;
+    // ネットワーク
+    int socket_fd_;
+    bool socket_closed_;
     
-    // セキュリティ
-    SecurityConfig security_config_;
+    // デバッグ（将来の拡張用）
+    // std::unique_ptr<packet::debug::PacketDebugLogger> debug_logger_;
     
-    // 品質チェック
-    std::atomic<bool> quality_check_enabled_{false};
-    uint8_t min_quality_threshold_{200};
+    // パケットIDジェネレーター
+    std::unique_ptr<packet::compat::PyPacketIDGenerator> pid_generator_;
     
-    // 重複検出
-    std::atomic<bool> duplicate_detection_enabled_{false};
-    std::chrono::seconds duplicate_time_window_{60};
-    std::unordered_map<std::string, std::chrono::steady_clock::time_point> recent_data_hashes_;
-    std::mutex duplicate_mutex_;
+    // センサーデータ（Python版と同様にメンバ変数で保持）
+    std::optional<std::string> area_code_{};
+    std::optional<int> weather_code_{};
+    std::optional<float> temperature_{};
+    std::optional<int> precipitation_prob_{};
+    std::optional<std::vector<std::string>> alert_{};
+    std::optional<std::vector<std::string>> disaster_{};
     
-    // リトライ
-    uint8_t max_retries_{3};
-    std::chrono::milliseconds base_retry_delay_{1000};
-    std::chrono::milliseconds max_retry_delay_{30000};
-    
-    // バックプレッシャー
-    size_t max_pending_requests_{1000};
-    std::chrono::milliseconds queue_timeout_{30000};
-    std::atomic<size_t> pending_request_count_{0};
-    
-    // 統計・メトリクス
-    ReportStats stats_;
-    std::atomic<bool> debug_enabled_{false};
-    
-    // 制御フラグ
-    std::atomic<bool> running_{true};
-    
-    // プライベートメソッド
-    void batch_worker_loop();
-    void process_batch();
-    ReportResult send_report_internal(const packet::ReportRequest& request);
-    std::vector<uint8_t> compress_data(const std::vector<uint8_t>& data);
-    std::vector<uint8_t> decompress_data(const std::vector<uint8_t>& compressed_data);
-    std::vector<uint8_t> encrypt_data(const std::vector<uint8_t>& data);
-    std::vector<uint8_t> decrypt_data(const std::vector<uint8_t>& encrypted_data);
-    bool validate_data_quality(const packet::SensorData& data);
-    std::string calculate_data_hash(const packet::SensorData& data);
-    bool is_duplicate_data(const std::string& data_hash);
-    void record_data_hash(const std::string& data_hash);
-    void cleanup_old_hashes();
-    std::chrono::milliseconds calculate_retry_delay(uint8_t retry_count);
-    void log_debug(const std::string& message);
-    ReportResult parse_report_response(const packet::GenericResponse& response);
-};
-
-/**
- * @brief レポートクライアントファクトリー
- */
-class ReportClientFactory {
-public:
-    /**
-     * @brief 標準設定のクライアントを作成
-     */
-    static std::unique_ptr<ReportClient> create_standard();
+    // 認証設定（Python版互換）
+    bool auth_enabled_;
+    std::string auth_passphrase_;
     
     /**
-     * @brief 高スループット設定のクライアントを作成
+     * @brief 環境変数から認証設定を初期化（Python版_init_auth_config()互換）
      */
-    static std::unique_ptr<ReportClient> create_high_throughput();
+    void init_auth_config();
     
     /**
-     * @brief セキュア設定のクライアントを作成
+     * @brief UDPソケットを初期化
+     * @return 成功時true
      */
-    static std::unique_ptr<ReportClient> create_secure();
+    bool init_socket();
     
     /**
-     * @brief リアルタイム設定のクライアントを作成（バッチ無効）
+     * @brief レポートリクエストを作成
+     * @return 作成されたリクエスト
      */
-    static std::unique_ptr<ReportClient> create_realtime();
+    Result<packet::compat::PyReportRequest> create_request();
+    
+    /**
+     * @brief レスポンスを受信・解析
+     * @param packet_id 期待するパケットID
+     * @param timeout_ms タイムアウト（ミリ秒）
+     * @return レスポンス解析結果
+     */
+    Result<ReportResult> receive_response(uint16_t packet_id, int timeout_ms = 10000);
+    
+    /**
+     * @brief エラーレスポンスを処理
+     * @param data 受信データ
+     * @return エラー結果
+     */
+    ReportResult handle_error_response(const std::vector<uint8_t>& data);
+    
+    /**
+     * @brief パケットタイプを取得
+     * @param data パケットデータ
+     * @return パケットタイプ
+     */
+    static uint8_t get_packet_type(const std::vector<uint8_t>& data);
 };
 
 } // namespace wiplib::client
+
+// Python版互換の便利関数
+
+namespace wiplib::client::utils {
+
+/**
+ * @brief ReportClientインスタンスを作成する便利関数（Python版create_report_client()互換）
+ * @param host ホスト名
+ * @param port ポート番号
+ * @param debug デバッグモード
+ * @return クライアントインスタンス
+ */
+std::unique_ptr<ReportClient> create_report_client(
+    const std::string& host = "localhost", 
+    uint16_t port = 4112, 
+    bool debug = false
+);
+
+/**
+ * @brief センサーレポートを一回の呼び出しで送信する便利関数（Python版send_sensor_report()互換）
+ * @param area_code エリアコード
+ * @param weather_code 天気コード（オプション）
+ * @param temperature 気温（オプション）
+ * @param precipitation_prob 降水確率（オプション）
+ * @param alert 警報情報（オプション）
+ * @param disaster 災害情報（オプション）
+ * @param host ホスト名
+ * @param port ポート番号
+ * @param debug デバッグモード
+ * @return 送信結果
+ */
+Result<ReportResult> send_sensor_report(
+    const std::string& area_code,
+    std::optional<int> weather_code = {},
+    std::optional<float> temperature = {},
+    std::optional<int> precipitation_prob = {},
+    std::optional<std::vector<std::string>> alert = {},
+    std::optional<std::vector<std::string>> disaster = {},
+    const std::string& host = "localhost",
+    uint16_t port = 4112,
+    bool debug = false
+);
+
+} // namespace wiplib::client::utils

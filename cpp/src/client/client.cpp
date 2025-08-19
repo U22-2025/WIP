@@ -183,10 +183,10 @@ void Client::initialize_wip_client() {
 }
 
 void Client::initialize_report_client() {
-    report_client_ = std::make_unique<SimpleReportClient>(config_.host, config_.port, debug_);
+    report_client_ = std::make_unique<ReportClient>(config_.host, config_.port, debug_);
 }
 
-// レポート送信API（SimpleReportClientへの委譲）
+// レポート送信API（ReportClientへの委譲）
 void Client::set_sensor_data(const std::string& area_code, 
                             std::optional<int> weather_code,
                             std::optional<float> temperature,
