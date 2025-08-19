@@ -121,6 +121,7 @@ if(WIPLIB_BUILD_TESTS)
     tests/unit/test_config_loader.cpp
     tests/unit/test_log_config.cpp
     tests/unit/test_network.cpp
+    tests/unit/test_location_cache_persistence.cpp
     tests/integration/test_weather_client.cpp
     tests/integration/test_async_weather_client.cpp
     tests/integration/test_client.cpp
