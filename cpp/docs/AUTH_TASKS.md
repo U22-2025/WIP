@@ -14,7 +14,7 @@
 
 2. 認証設定構造体の追加
    - 追加: `struct AuthConfig { bool enabled; std::optional<std::string> weather, location, query, report; bool verify_response=false; };`
-   - 環境変数読取（任意）: `WIP_CLIENT_AUTH_ENABLED`, `WEATHER_SERVER_PASSPHRASE`, `LOCATION_SERVER_PASSPHRASE`, `QUERY_SERVER_PASSPHRASE`, `REPORT_SERVER_PASSPHRASE`
+   - 環境変数読取（任意）: `WEATHER_SERVER_PASSPHRASE`, `LOCATION_SERVER_PASSPHRASE`, `QUERY_SERVER_PASSPHRASE`, `REPORT_SERVER_PASSPHRASE`
    - 変更ファイル: `cpp/include/wiplib/client/*`（公開 API）、`cpp/src/client/*`
 
 受け入れ条件
