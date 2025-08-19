@@ -5,10 +5,12 @@
 
 #include "wiplib/utils/auth.hpp"
 #include "wiplib/packet/packet.hpp"
+#include "wiplib/packet/extended_field.hpp"
 
 using namespace wiplib;
 using namespace wiplib::utils;
 using namespace wiplib::proto;
+using namespace wiplib::packet;
 
 namespace {
 // simple hex utils for tests
@@ -39,9 +41,10 @@ TEST(AuthCompat, AttachAddsExtAndFlags){
     ASSERT_TRUE(p.header.flags.extended);
     ASSERT_TRUE(p.header.flags.request_auth);
 
-    // find ext id=4
+    // find ext id=AuthHash
     const ExtendedField* ext = nullptr;
-    for (const auto& ef : p.extensions) if (ef.data_type == 4) { ext = &ef; break; }
+    for (const auto& ef : p.extensions)
+        if (ef.data_type == static_cast<uint8_t>(ExtendedFieldKey::AuthHash)) { ext = &ef; break; }
     ASSERT_NE(ext, nullptr);
     ASSERT_EQ(ext->data.size(), 64u);
     EXPECT_TRUE(is_hex_lower(ext->data));
@@ -50,7 +53,8 @@ TEST(AuthCompat, AttachAddsExtAndFlags){
 TEST(AuthCompat, VerifyUsingExtension){
     Packet p{}; p.header.version=1; p.header.packet_id=10; p.header.type=PacketType::WeatherRequest; p.header.timestamp=123456;
     ASSERT_TRUE(WIPAuth::attach_auth_hash(p, "pass"));
-    const ExtendedField* ext = nullptr; for (const auto& ef : p.extensions) if (ef.data_type==4){ ext=&ef; break; }
+    const ExtendedField* ext = nullptr; for (const auto& ef : p.extensions)
+        if (ef.data_type==static_cast<uint8_t>(ExtendedFieldKey::AuthHash)){ ext=&ef; break; }
     ASSERT_NE(ext, nullptr);
     auto mac = hex_to_bytes(ext->data);
     ASSERT_EQ(mac.size(), 32u);
@@ -62,13 +66,17 @@ TEST(AuthCompat, VerifyUsingExtension){
 TEST(AuthCompat, DifferentInputsProduceDifferentHMAC){
     Packet p1{}; p1.header.version=1; p1.header.packet_id=10; p1.header.type=PacketType::WeatherRequest; p1.header.timestamp=123456; ASSERT_TRUE(WIPAuth::attach_auth_hash(p1, "pass"));
     Packet p2{}; p2.header.version=1; p2.header.packet_id=10; p2.header.type=PacketType::WeatherRequest; p2.header.timestamp=123456; ASSERT_TRUE(WIPAuth::attach_auth_hash(p2, "pass2"));
-    const ExtendedField *e1=nullptr,*e2=nullptr; for (const auto& ef : p1.extensions) if (ef.data_type==4){ e1=&ef; break;} for (const auto& ef : p2.extensions) if (ef.data_type==4){ e2=&ef; break; }
+    const ExtendedField *e1=nullptr,*e2=nullptr; for (const auto& ef : p1.extensions)
+        if (ef.data_type==static_cast<uint8_t>(ExtendedFieldKey::AuthHash)){ e1=&ef; break; }
+    for (const auto& ef : p2.extensions)
+        if (ef.data_type==static_cast<uint8_t>(ExtendedFieldKey::AuthHash)){ e2=&ef; break; }
     ASSERT_NE(e1, nullptr); ASSERT_NE(e2, nullptr);
     EXPECT_NE(e1->data, e2->data);
 
     // Also timestamp difference should yield different MAC
     Packet p3{}; p3.header.version=1; p3.header.packet_id=10; p3.header.type=PacketType::WeatherRequest; p3.header.timestamp=123457; ASSERT_TRUE(WIPAuth::attach_auth_hash(p3, "pass"));
-    const ExtendedField* e3=nullptr; for (const auto& ef : p3.extensions) if (ef.data_type==4){ e3=&ef; break; }
+    const ExtendedField* e3=nullptr; for (const auto& ef : p3.extensions)
+        if (ef.data_type==static_cast<uint8_t>(ExtendedFieldKey::AuthHash)){ e3=&ef; break; }
     ASSERT_NE(e3, nullptr);
     EXPECT_NE(e1->data, e3->data);
 }
