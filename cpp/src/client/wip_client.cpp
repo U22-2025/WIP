@@ -4,10 +4,12 @@
 #include "wiplib/client/location_client.hpp"
 #include "wiplib/client/query_client.hpp"
 #include "wiplib/client/auth_config.hpp"
+#include "wiplib/utils/dotenv.hpp"
 #include <chrono>
 #include <cstring>
 #include <random>
 #include <cstdio>
+#include <cstdlib>
 
 #if defined(_WIN32)
 #  include <winsock2.h>
@@ -29,6 +31,19 @@ using namespace wiplib::proto;
 static uint64_t now_sec() {
   return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
       std::chrono::system_clock::now().time_since_epoch()).count());
+}
+
+WipClient WipClient::from_env(bool debug) {
+  (void)wiplib::utils::load_dotenv(".env", false, 3);
+  ServerConfig cfg{};
+  if (const char* h = std::getenv("WEATHER_SERVER_HOST")) cfg.host = h;
+  if (const char* p = std::getenv("WEATHER_SERVER_PORT")) cfg.port = static_cast<uint16_t>(std::stoi(p));
+  WipClient client(cfg, debug);
+  if (const char* lh = std::getenv("LOCATION_RESOLVER_HOST")) client.location_host_ = lh;
+  if (const char* lp = std::getenv("LOCATION_RESOLVER_PORT")) client.location_port_ = static_cast<uint16_t>(std::stoi(lp));
+  if (const char* qh = std::getenv("QUERY_GENERATOR_HOST")) client.query_host_ = qh;
+  if (const char* qp = std::getenv("QUERY_GENERATOR_PORT")) client.query_port_ = static_cast<uint16_t>(std::stoi(qp));
+  return client;
 }
 
 WipClient::WipClient(ServerConfig cfg, bool debug)
