@@ -36,7 +36,7 @@ static void print_usage() {
                "Flags:\n"
                "  --weather (default on), --no-weather\n"
                "  --temperature (default on), --no-temperature\n"
-               "  --precipitation, --alerts, --disaster\n"
+               "  --precipitation (default on), --no-precipitation, --alerts, --disaster\n"
                "  --day <0-7>\n"
                "  --location-host H, --location-port P (direct mode)\n"
                "  --query-host H, --query-port P (direct mode)\n"
@@ -81,6 +81,8 @@ static bool parse_args(int argc, char** argv, Args& args) {
       args.opt.temperature = false;
     } else if (a == "--precipitation") {
       args.opt.precipitation_prob = true;
+    } else if (a == "--no-precipitation") {
+      args.opt.precipitation_prob = false;
     } else if (a == "--alerts") {
       args.opt.alerts = true;
     } else if (a == "--disaster") {

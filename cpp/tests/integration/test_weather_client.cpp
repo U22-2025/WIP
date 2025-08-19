@@ -54,7 +54,7 @@ TEST_F(WeatherClientIntegrationTest, QueryOptionsConfiguration) {
     // デフォルト値の確認
     EXPECT_TRUE(options.weather);
     EXPECT_TRUE(options.temperature);
-    EXPECT_FALSE(options.precipitation_prob);
+    EXPECT_TRUE(options.precipitation_prob);
     EXPECT_FALSE(options.alerts);
     EXPECT_FALSE(options.disaster);
     EXPECT_EQ(options.day, 0);

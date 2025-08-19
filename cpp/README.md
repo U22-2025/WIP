@@ -39,7 +39,7 @@ using namespace wiplib::client;
 
 int main(){
   WeatherClient cli("127.0.0.1", 4110);
-  QueryOptions opt;  // weather/temperature=on,他は必要に応じて
+  QueryOptions opt;  // weather/temperature/precipitation_prob=on,他は必要に応じて
   auto res = cli.get_weather_by_area_code("011000", opt);
   if(!res){ /* エラー処理 */ return 1; }
   const auto& r = res.value();

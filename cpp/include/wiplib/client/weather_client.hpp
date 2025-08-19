@@ -14,7 +14,7 @@ namespace wiplib::client {
 struct QueryOptions {
   bool weather = true;
   bool temperature = true;
-  bool precipitation_prob = false;
+  bool precipitation_prob = true;
   bool alerts = false;
   bool disaster = false;
   uint8_t day = 0;
