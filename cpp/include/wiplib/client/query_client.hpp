@@ -14,8 +14,9 @@ namespace wiplib::client {
 
 class QueryClient {
 public:
-  QueryClient(std::string host = "127.0.0.1", uint16_t port = 4111)
-    : host_(std::move(host)), port_(port) {}
+  QueryClient(std::string host = "127.0.0.1", uint16_t port = 4111,
+              bool debug = false)
+    : host_(std::move(host)), port_(port), debug_(debug) {}
 
   wiplib::Result<WeatherResult> get_weather_data(std::string_view area_code,
                                                  const QueryOptions& opt) noexcept;
@@ -27,6 +28,7 @@ public:
 private:
   std::string host_;
   uint16_t port_;
+  bool debug_ = false;
   AuthConfig auth_cfg_{};
 };
 
