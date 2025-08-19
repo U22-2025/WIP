@@ -128,16 +128,21 @@ public:
   void set_alert(const std::vector<std::string>& alert);
   void set_disaster(const std::vector<std::string>& disaster);
   
-  Result<ReportResult> send_report_data();
-  std::future<Result<ReportResult>> send_report_data_async();
-  Result<ReportResult> send_data_simple();
+  Result<ReportResult> send_report_data(bool proxy = false,
+                                        std::optional<ServerConfig> report_server = std::nullopt);
+  std::future<Result<ReportResult>> send_report_data_async(bool proxy = false,
+                                                           std::optional<ServerConfig> report_server = std::nullopt);
+  Result<ReportResult> send_data_simple(bool proxy = false,
+                                        std::optional<ServerConfig> report_server = std::nullopt);
   
   std::unordered_map<std::string, std::any> get_current_data() const;
   void clear_data();
   
   // 後方互換性メソッド
-  Result<ReportResult> send_report();
-  Result<ReportResult> send_current_data();
+  Result<ReportResult> send_report(bool proxy = false,
+                                   std::optional<ServerConfig> report_server = std::nullopt);
+  Result<ReportResult> send_current_data(bool proxy = false,
+                                         std::optional<ServerConfig> report_server = std::nullopt);
 
   // RAII サポート（Python with相当）
   Client& operator()() { return *this; } // __enter__ equivalent
@@ -157,7 +162,8 @@ private:
                               bool alert, bool disaster, uint8_t day) const;
   void validate_port() const;
   void initialize_wip_client();
-  void initialize_report_client();
+  void initialize_report_client(bool proxy = false,
+                                std::optional<ServerConfig> report_server = std::nullopt);
 };
 
 } // namespace wiplib::client

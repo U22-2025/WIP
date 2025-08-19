@@ -2,6 +2,7 @@
 #include "wiplib/error.hpp"
 #include <stdexcept>
 #include <utility>
+#include <cstdlib>
 
 namespace wiplib::client {
 
@@ -182,8 +183,26 @@ void Client::initialize_wip_client() {
     }
 }
 
-void Client::initialize_report_client() {
-    report_client_ = std::make_unique<ReportClient>(config_.host, config_.port, debug_);
+void Client::initialize_report_client(bool proxy, std::optional<ServerConfig> report_server) {
+    std::string host;
+    uint16_t port;
+    if (report_server.has_value()) {
+        host = report_server->host;
+        port = report_server->port;
+    } else if (proxy) {
+        host = config_.host;
+        port = config_.port;
+    } else {
+        const char* env_host = std::getenv("REPORT_SERVER_HOST");
+        host = env_host ? env_host : "127.0.0.1";
+        const char* env_port = std::getenv("REPORT_SERVER_PORT");
+        port = env_port ? static_cast<uint16_t>(std::atoi(env_port)) : 4112;
+    }
+    if (report_client_) {
+        report_client_->set_server(host, port);
+    } else {
+        report_client_ = std::make_unique<SimpleReportClient>(host, port, debug_);
+    }
 }
 
 // レポート送信API（ReportClientへの委譲）
@@ -247,24 +266,21 @@ void Client::set_disaster(const std::vector<std::string>& disaster) {
     report_client_->set_disaster(disaster);
 }
 
-Result<ReportResult> Client::send_report_data() {
-    if (!report_client_) {
-        initialize_report_client();
-    }
+Result<ReportResult> Client::send_report_data(bool proxy,
+                                             std::optional<ServerConfig> report_server) {
+    initialize_report_client(proxy, report_server);
     return report_client_->send_report_data();
 }
 
-std::future<Result<ReportResult>> Client::send_report_data_async() {
-    if (!report_client_) {
-        initialize_report_client();
-    }
+std::future<Result<ReportResult>> Client::send_report_data_async(
+    bool proxy, std::optional<ServerConfig> report_server) {
+    initialize_report_client(proxy, report_server);
     return report_client_->send_report_data_async();
 }
 
-Result<ReportResult> Client::send_data_simple() {
-    if (!report_client_) {
-        initialize_report_client();
-    }
+Result<ReportResult> Client::send_data_simple(bool proxy,
+                                              std::optional<ServerConfig> report_server) {
+    initialize_report_client(proxy, report_server);
     return report_client_->send_data_simple();
 }
 
@@ -282,18 +298,14 @@ void Client::clear_data() {
     report_client_->clear_data();
 }
 
-Result<ReportResult> Client::send_report() {
-    if (!report_client_) {
-        initialize_report_client();
-    }
-    return report_client_->send_report();
+Result<ReportResult> Client::send_report(bool proxy,
+                                         std::optional<ServerConfig> report_server) {
+    return send_report_data(proxy, report_server);
 }
 
-Result<ReportResult> Client::send_current_data() {
-    if (!report_client_) {
-        initialize_report_client();
-    }
-    return report_client_->send_current_data();
+Result<ReportResult> Client::send_current_data(bool proxy,
+                                               std::optional<ServerConfig> report_server) {
+    return send_data_simple(proxy, report_server);
 }
 
 } // namespace wiplib::client
