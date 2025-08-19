@@ -94,7 +94,6 @@ Python版との対応
 認証設定
 - 概要: Pythonクライアントの認証挙動を再現。HMAC-SHA256 を拡張フィールド(ID=4)へ hex64 で付与（`flags.extended=true`）。
 - 環境変数:
-  - `WIP_CLIENT_AUTH_ENABLED=1`（認証付与を有効化）
   - `WIP_CLIENT_VERIFY_RESPONSE_AUTH=1`（受信パケットの検証を有効化）
   - `WEATHER_SERVER_PASSPHRASE`（WeatherServer 宛の共有パスフレーズ）
   - `LOCATION_SERVER_PASSPHRASE`（LocationResolver 宛の共有パスフレーズ）

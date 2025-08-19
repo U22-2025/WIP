@@ -88,7 +88,6 @@ Python 実装:
 3) Report サーバーを叩く機能を将来追加する場合は `REPORT_SERVER_PASSPHRASE` を使用。
 
 環境変数（推奨デフォルト）:
-- `WIP_CLIENT_AUTH_ENABLED` = `true|false`（デフォルト: `false`）
 - `WEATHER_SERVER_PASSPHRASE`, `LOCATION_SERVER_PASSPHRASE`, `QUERY_SERVER_PASSPHRASE`, `REPORT_SERVER_PASSPHRASE`
   - API での上書きを優先し、未設定時は空扱い（= 認証付与しない）。
 
@@ -109,7 +108,7 @@ Python 実装:
   - パケットの `header.flags.extended = true` を忘れずに。
 
 - クライアント群
-  - `WeatherClient` 送信直前に、`WIP_CLIENT_AUTH_ENABLED` と `WEATHER_SERVER_PASSPHRASE` を確認し、必要なら `auth_hash` を付与。
+  - `WeatherClient` 送信直前に `WEATHER_SERVER_PASSPHRASE` を確認し、必要なら `auth_hash` を付与。
   - `LocationClient` / `QueryClient`（直叩きのとき）も同様に、宛先別パスフレーズで付与。
   - 高水準 `WipClient` は内部で利用する `LocationClient`/`QueryClient` に伝播できるよう設定 API を用意。
 

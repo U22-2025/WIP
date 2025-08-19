@@ -6,7 +6,7 @@
 namespace wiplib::client {
 
 struct AuthConfig {
-    bool enabled = false; // global switch via WIP_CLIENT_AUTH_ENABLED
+    bool enabled = false; // 全体の有効化フラグ（いずれかの認証設定が有効なら true）
     bool weather_request_auth_enabled = false;
     bool location_resolver_request_auth_enabled = false;
     bool query_generator_request_auth_enabled = false;
