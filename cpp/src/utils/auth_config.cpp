@@ -1,4 +1,5 @@
 #include "wiplib/client/auth_config.hpp"
+#include "wiplib/utils/dotenv.hpp"
 #include <cstdlib>
 #include <string>
 #include <algorithm>
@@ -13,24 +14,25 @@ static bool env_truthy(const char* v){
 }
 
 AuthConfig AuthConfig::from_env(){
+    // Load .env if present (once per process). Do not overwrite explicit env.
+    (void)wiplib::utils::load_dotenv(".env", /*overwrite=*/false, /*max_parent_levels=*/3);
     AuthConfig cfg{};
 
-    const bool global = env_truthy(std::getenv("WIP_CLIENT_AUTH_ENABLED"));
-    cfg.enabled = global;
-
-    auto read_env_or = [&](const char* name, bool def){
-        if (const char* v = std::getenv(name)) return env_truthy(v);
-        return def;
-    };
-
+    // Python版と同様に、各サービスごとに個別に認証設定をチェック
     cfg.weather_request_auth_enabled =
-        read_env_or("WEATHER_SERVER_REQUEST_AUTH_ENABLED", global);
+        env_truthy(std::getenv("WEATHER_SERVER_REQUEST_AUTH_ENABLED"));
     cfg.location_resolver_request_auth_enabled =
-        read_env_or("LOCATION_RESOLVER_REQUEST_AUTH_ENABLED", global);
+        env_truthy(std::getenv("LOCATION_RESOLVER_REQUEST_AUTH_ENABLED"));
     cfg.query_generator_request_auth_enabled =
-        read_env_or("QUERY_GENERATOR_REQUEST_AUTH_ENABLED", global);
+        env_truthy(std::getenv("QUERY_GENERATOR_REQUEST_AUTH_ENABLED"));
     cfg.report_server_request_auth_enabled =
-        read_env_or("REPORT_SERVER_REQUEST_AUTH_ENABLED", global);
+        env_truthy(std::getenv("REPORT_SERVER_REQUEST_AUTH_ENABLED"));
+
+    // 全体の有効化フラグは、いずれかのサービスで認証が有効な場合にtrue
+    cfg.enabled = cfg.weather_request_auth_enabled || 
+                  cfg.location_resolver_request_auth_enabled ||
+                  cfg.query_generator_request_auth_enabled ||
+                  cfg.report_server_request_auth_enabled;
 
     cfg.verify_response = env_truthy(std::getenv("WIP_CLIENT_VERIFY_RESPONSE_AUTH"));
 
@@ -42,4 +44,3 @@ AuthConfig AuthConfig::from_env(){
 }
 
 } // namespace wiplib::client
-

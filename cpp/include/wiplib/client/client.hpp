@@ -14,6 +14,7 @@
 #include "wiplib/client/location_client.hpp"
 #include "wiplib/client/query_client.hpp"
 #include "wiplib/client/simple_report_client.hpp"
+#include "wiplib/client/auth_config.hpp"
 
 namespace wiplib::client {
 
@@ -69,6 +70,9 @@ public:
   // サーバ設定（Pythonと同名）
   void set_server(const std::string& host);
   void set_server(const std::string& host, uint16_t port);
+
+  // 認証設定
+  void set_auth_config(const AuthConfig& auth_config);
 
   // 互換API
   void close();
