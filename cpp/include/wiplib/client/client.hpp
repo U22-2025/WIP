@@ -59,6 +59,9 @@ public:
   // 座標設定
   void set_coordinates(double lat, double lon);
 
+  // エリアコード設定
+  void set_area_code(std::string area_code);
+
   // サーバ設定（Pythonと同名）
   void set_server(const std::string& host);
   void set_server(const std::string& host, uint16_t port);
