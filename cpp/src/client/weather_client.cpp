@@ -2,6 +2,8 @@
 
 #include "wiplib/packet/codec.hpp"
 #include "wiplib/utils/auth.hpp"
+#include "wiplib/packet/extended_field.hpp"
+#include <variant>
 #include <chrono>
 #include <random>
 #include <cstring>
@@ -378,6 +380,16 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                   result.temperature = rp.response_fields->temperature;
                   result.precipitation_prob = rp.response_fields->precipitation_prob;
                 }
+                if (auto f = packet::ExtendedFieldManager::get_field(rp, packet::ExtendedFieldKey::Alert)) {
+                  if (auto v = std::get_if<std::vector<std::string>>(&*f)) {
+                    result.alerts = *v;
+                  }
+                }
+                if (auto f = packet::ExtendedFieldManager::get_field(rp, packet::ExtendedFieldKey::Disaster)) {
+                  if (auto v = std::get_if<std::vector<std::string>>(&*f)) {
+                    result.disasters = *v;
+                  }
+                }
                 if (result.area_code == 0) result.area_code = rp.header.area_code;
                 // クローズして返す
 #if defined(_WIN32)
@@ -425,6 +437,16 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                   result.weather_code = rp.response_fields->weather_code;
                   result.temperature = rp.response_fields->temperature;
                   result.precipitation_prob = rp.response_fields->precipitation_prob;
+                }
+                if (auto f = packet::ExtendedFieldManager::get_field(rp, packet::ExtendedFieldKey::Alert)) {
+                  if (auto v = std::get_if<std::vector<std::string>>(&*f)) {
+                    result.alerts = *v;
+                  }
+                }
+                if (auto f = packet::ExtendedFieldManager::get_field(rp, packet::ExtendedFieldKey::Disaster)) {
+                  if (auto v = std::get_if<std::vector<std::string>>(&*f)) {
+                    result.disasters = *v;
+                  }
                 }
 #if defined(_WIN32)
                 closesocket(sock); WSACleanup();

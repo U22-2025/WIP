@@ -94,6 +94,8 @@ Result<WeatherData> WipClient::get_weather_by_coordinates(double lat, double lon
     if (res.value().weather_code) out.weather_code = res.value().weather_code;
     if (res.value().temperature) out.temperature_c = static_cast<int>(*res.value().temperature) - 100; // Python仕様
     if (res.value().precipitation_prob) out.precipitation_prob = static_cast<int>(*res.value().precipitation_prob);
+    if (res.value().alerts) out.alerts = res.value().alerts;
+    if (res.value().disasters) out.disasters = res.value().disasters;
     return out;
   }
   auto ac = resolve_area_code_direct(lat, lon, opt);
@@ -110,6 +112,8 @@ Result<WeatherData> WipClient::get_weather_by_area_code(std::string_view area_co
     if (res.value().weather_code) out.weather_code = res.value().weather_code;
     if (res.value().temperature) out.temperature_c = static_cast<int>(*res.value().temperature) - 100;
     if (res.value().precipitation_prob) out.precipitation_prob = static_cast<int>(*res.value().precipitation_prob);
+    if (res.value().alerts) out.alerts = res.value().alerts;
+    if (res.value().disasters) out.disasters = res.value().disasters;
     return out;
   }
   return query_weather_direct(area_code, opt);
@@ -131,6 +135,8 @@ Result<WeatherData> WipClient::query_weather_direct(std::string_view area_code, 
   if (r.value().weather_code) out.weather_code = r.value().weather_code;
   if (r.value().temperature) out.temperature_c = static_cast<int>(*r.value().temperature) - 100;
   if (r.value().precipitation_prob) out.precipitation_prob = static_cast<int>(*r.value().precipitation_prob);
+  if (r.value().alerts) out.alerts = r.value().alerts;
+  if (r.value().disasters) out.disasters = r.value().disasters;
   return out;
 }
 

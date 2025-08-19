@@ -2,6 +2,8 @@
 
 #include "wiplib/packet/codec.hpp"
 #include "wiplib/utils/auth.hpp"
+#include "wiplib/packet/extended_field.hpp"
+#include <variant>
 #include <chrono>
 #include <random>
 #include <iostream>
@@ -143,6 +145,16 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
     out.weather_code = rp.response_fields->weather_code;
     out.temperature = rp.response_fields->temperature; // +100オフセットの生値
     out.precipitation_prob = rp.response_fields->precipitation_prob;
+  }
+  if (auto f = packet::ExtendedFieldManager::get_field(rp, packet::ExtendedFieldKey::Alert)) {
+    if (auto v = std::get_if<std::vector<std::string>>(&*f)) {
+      out.alerts = *v;
+    }
+  }
+  if (auto f = packet::ExtendedFieldManager::get_field(rp, packet::ExtendedFieldKey::Disaster)) {
+    if (auto v = std::get_if<std::vector<std::string>>(&*f)) {
+      out.disasters = *v;
+    }
   }
   return out;
 }
