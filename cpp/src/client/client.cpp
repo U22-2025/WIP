@@ -86,6 +86,13 @@ void Client::set_server(const std::string& host, uint16_t port) {
     initialize_report_client();
 }
 
+void Client::set_auth_config(const AuthConfig& auth_config) {
+    // WIPClientに認証設定を渡す
+    if (wip_client_) {
+        wip_client_->set_auth_config(auth_config);
+    }
+}
+
 void Client::close() {
     if (wip_client_) {
         wip_client_->close();

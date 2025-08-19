@@ -148,7 +148,7 @@ std::vector<proto::ExtendedField> PyReportRequest::build_extended_fields() const
     // alert情報
     if (sensor_data.alert && !sensor_data.alert->empty()) {
         proto::ExtendedField alert_field;
-        alert_field.data_type = 0x10; // alert type
+        alert_field.data_type = 1; // alert type (Python互換)
         
         // 文字列リストをバイト列に変換
         std::ostringstream oss;
@@ -165,7 +165,7 @@ std::vector<proto::ExtendedField> PyReportRequest::build_extended_fields() const
     // disaster情報
     if (sensor_data.disaster && !sensor_data.disaster->empty()) {
         proto::ExtendedField disaster_field;
-        disaster_field.data_type = 0x11; // disaster type
+        disaster_field.data_type = 2; // disaster type (Python互換)
         
         // 文字列リストをバイト列に変換
         std::ostringstream oss;
@@ -199,6 +199,15 @@ std::vector<uint8_t> PyReportRequest::to_bytes() const {
 
     // alert / disaster は拡張フィールドへ
     packet.extensions = build_extended_fields();
+
+    // 認証が有効な場合はハッシュを付与
+    if (auth_enabled && !auth_passphrase.empty()) {
+        if (wiplib::utils::WIPAuth::attach_auth_hash(packet, auth_passphrase)) {
+            // 拡張フィールドと認証フラグが正しく設定されていることを保証
+            packet.header.flags.extended = true;
+            packet.header.flags.auth_enabled = true;
+        }
+    }
 
     auto enc = proto::encode_packet(packet);
     if (enc.has_value()) {
@@ -380,7 +389,7 @@ std::vector<proto::ExtendedField> PyReportResponse::build_extended_fields() cons
     // 送信元情報を拡張フィールドに追加
     if (source_info) {
         proto::ExtendedField source_field;
-        source_field.data_type = 0x20; // source type
+        source_field.data_type = 40; // source type (Python互換)
         
         auto [ip, port] = *source_info;
         std::string source_str = ip + ":" + std::to_string(port);
@@ -396,7 +405,7 @@ std::optional<std::tuple<std::string, int>> PyReportResponse::extract_source_inf
     const std::vector<proto::ExtendedField>& extensions
 ) {
     for (const auto& field : extensions) {
-        if (field.data_type == 0x20) { // source type
+        if (field.data_type == 40) { // source type (Python互換)
             std::string source_str(field.data.begin(), field.data.end());
             size_t colon_pos = source_str.find(':');
             if (colon_pos != std::string::npos) {

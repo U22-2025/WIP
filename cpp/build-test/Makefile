@@ -156,6 +156,19 @@ unified_client_cli/fast:
 .PHONY : unified_client_cli/fast
 
 #=============================================================================
+# Target rules for targets named report_debug_tool
+
+# Build rule for target.
+report_debug_tool: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 report_debug_tool
+.PHONY : report_debug_tool
+
+# fast build rule for target.
+report_debug_tool/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/report_debug_tool.dir/build.make CMakeFiles/report_debug_tool.dir/build
+.PHONY : report_debug_tool/fast
+
+#=============================================================================
 # Target rules for targets named wip_packet_gen
 
 # Build rule for target.
@@ -245,6 +258,45 @@ wip_performance_test: cmake_check_build_system
 wip_performance_test/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/wip_performance_test.dir/build.make CMakeFiles/wip_performance_test.dir/build
 .PHONY : wip_performance_test/fast
+
+#=============================================================================
+# Target rules for targets named packet_encoding_debug
+
+# Build rule for target.
+packet_encoding_debug: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 packet_encoding_debug
+.PHONY : packet_encoding_debug
+
+# fast build rule for target.
+packet_encoding_debug/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/packet_encoding_debug.dir/build.make CMakeFiles/packet_encoding_debug.dir/build
+.PHONY : packet_encoding_debug/fast
+
+#=============================================================================
+# Target rules for targets named mock_report_server
+
+# Build rule for target.
+mock_report_server: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 mock_report_server
+.PHONY : mock_report_server
+
+# fast build rule for target.
+mock_report_server/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mock_report_server.dir/build.make CMakeFiles/mock_report_server.dir/build
+.PHONY : mock_report_server/fast
+
+#=============================================================================
+# Target rules for targets named test_auth_vars
+
+# Build rule for target.
+test_auth_vars: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_auth_vars
+.PHONY : test_auth_vars
+
+# fast build rule for target.
+test_auth_vars/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_auth_vars.dir/build.make CMakeFiles/test_auth_vars.dir/build
+.PHONY : test_auth_vars/fast
 
 src/client/async_weather_client.o: src/client/async_weather_client.cpp.o
 .PHONY : src/client/async_weather_client.o
@@ -798,6 +850,30 @@ src/utils/config_loader.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/config_loader.cpp.s
 .PHONY : src/utils/config_loader.cpp.s
 
+src/utils/dotenv.o: src/utils/dotenv.cpp.o
+.PHONY : src/utils/dotenv.o
+
+# target to build an object file
+src/utils/dotenv.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/dotenv.cpp.o
+.PHONY : src/utils/dotenv.cpp.o
+
+src/utils/dotenv.i: src/utils/dotenv.cpp.i
+.PHONY : src/utils/dotenv.i
+
+# target to preprocess a source file
+src/utils/dotenv.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/dotenv.cpp.i
+.PHONY : src/utils/dotenv.cpp.i
+
+src/utils/dotenv.s: src/utils/dotenv.cpp.s
+.PHONY : src/utils/dotenv.s
+
+# target to generate assembly for a file
+src/utils/dotenv.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/dotenv.cpp.s
+.PHONY : src/utils/dotenv.cpp.s
+
 src/utils/file_cache.o: src/utils/file_cache.cpp.o
 .PHONY : src/utils/file_cache.o
 
@@ -893,6 +969,102 @@ tools/async_weather_cli.s: tools/async_weather_cli.cpp.s
 tools/async_weather_cli.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/async_weather_cli.dir/build.make CMakeFiles/async_weather_cli.dir/tools/async_weather_cli.cpp.s
 .PHONY : tools/async_weather_cli.cpp.s
+
+tools/mock_report_server.o: tools/mock_report_server.cpp.o
+.PHONY : tools/mock_report_server.o
+
+# target to build an object file
+tools/mock_report_server.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mock_report_server.dir/build.make CMakeFiles/mock_report_server.dir/tools/mock_report_server.cpp.o
+.PHONY : tools/mock_report_server.cpp.o
+
+tools/mock_report_server.i: tools/mock_report_server.cpp.i
+.PHONY : tools/mock_report_server.i
+
+# target to preprocess a source file
+tools/mock_report_server.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mock_report_server.dir/build.make CMakeFiles/mock_report_server.dir/tools/mock_report_server.cpp.i
+.PHONY : tools/mock_report_server.cpp.i
+
+tools/mock_report_server.s: tools/mock_report_server.cpp.s
+.PHONY : tools/mock_report_server.s
+
+# target to generate assembly for a file
+tools/mock_report_server.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/mock_report_server.dir/build.make CMakeFiles/mock_report_server.dir/tools/mock_report_server.cpp.s
+.PHONY : tools/mock_report_server.cpp.s
+
+tools/packet_encoding_debug.o: tools/packet_encoding_debug.cpp.o
+.PHONY : tools/packet_encoding_debug.o
+
+# target to build an object file
+tools/packet_encoding_debug.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/packet_encoding_debug.dir/build.make CMakeFiles/packet_encoding_debug.dir/tools/packet_encoding_debug.cpp.o
+.PHONY : tools/packet_encoding_debug.cpp.o
+
+tools/packet_encoding_debug.i: tools/packet_encoding_debug.cpp.i
+.PHONY : tools/packet_encoding_debug.i
+
+# target to preprocess a source file
+tools/packet_encoding_debug.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/packet_encoding_debug.dir/build.make CMakeFiles/packet_encoding_debug.dir/tools/packet_encoding_debug.cpp.i
+.PHONY : tools/packet_encoding_debug.cpp.i
+
+tools/packet_encoding_debug.s: tools/packet_encoding_debug.cpp.s
+.PHONY : tools/packet_encoding_debug.s
+
+# target to generate assembly for a file
+tools/packet_encoding_debug.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/packet_encoding_debug.dir/build.make CMakeFiles/packet_encoding_debug.dir/tools/packet_encoding_debug.cpp.s
+.PHONY : tools/packet_encoding_debug.cpp.s
+
+tools/report_debug_tool.o: tools/report_debug_tool.cpp.o
+.PHONY : tools/report_debug_tool.o
+
+# target to build an object file
+tools/report_debug_tool.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/report_debug_tool.dir/build.make CMakeFiles/report_debug_tool.dir/tools/report_debug_tool.cpp.o
+.PHONY : tools/report_debug_tool.cpp.o
+
+tools/report_debug_tool.i: tools/report_debug_tool.cpp.i
+.PHONY : tools/report_debug_tool.i
+
+# target to preprocess a source file
+tools/report_debug_tool.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/report_debug_tool.dir/build.make CMakeFiles/report_debug_tool.dir/tools/report_debug_tool.cpp.i
+.PHONY : tools/report_debug_tool.cpp.i
+
+tools/report_debug_tool.s: tools/report_debug_tool.cpp.s
+.PHONY : tools/report_debug_tool.s
+
+# target to generate assembly for a file
+tools/report_debug_tool.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/report_debug_tool.dir/build.make CMakeFiles/report_debug_tool.dir/tools/report_debug_tool.cpp.s
+.PHONY : tools/report_debug_tool.cpp.s
+
+tools/test_auth_vars.o: tools/test_auth_vars.cpp.o
+.PHONY : tools/test_auth_vars.o
+
+# target to build an object file
+tools/test_auth_vars.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_auth_vars.dir/build.make CMakeFiles/test_auth_vars.dir/tools/test_auth_vars.cpp.o
+.PHONY : tools/test_auth_vars.cpp.o
+
+tools/test_auth_vars.i: tools/test_auth_vars.cpp.i
+.PHONY : tools/test_auth_vars.i
+
+# target to preprocess a source file
+tools/test_auth_vars.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_auth_vars.dir/build.make CMakeFiles/test_auth_vars.dir/tools/test_auth_vars.cpp.i
+.PHONY : tools/test_auth_vars.cpp.i
+
+tools/test_auth_vars.s: tools/test_auth_vars.cpp.s
+.PHONY : tools/test_auth_vars.s
+
+# target to generate assembly for a file
+tools/test_auth_vars.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_auth_vars.dir/build.make CMakeFiles/test_auth_vars.dir/tools/test_auth_vars.cpp.s
+.PHONY : tools/test_auth_vars.cpp.s
 
 tools/unified_client_cli.o: tools/unified_client_cli.cpp.o
 .PHONY : tools/unified_client_cli.o
@@ -1095,6 +1267,10 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... async_weather_cli"
+	@echo "... mock_report_server"
+	@echo "... packet_encoding_debug"
+	@echo "... report_debug_tool"
+	@echo "... test_auth_vars"
 	@echo "... unified_client_cli"
 	@echo "... wip_client_cli"
 	@echo "... wip_config_validator"
@@ -1173,6 +1349,9 @@ help:
 	@echo "... src/utils/config_loader.o"
 	@echo "... src/utils/config_loader.i"
 	@echo "... src/utils/config_loader.s"
+	@echo "... src/utils/dotenv.o"
+	@echo "... src/utils/dotenv.i"
+	@echo "... src/utils/dotenv.s"
 	@echo "... src/utils/file_cache.o"
 	@echo "... src/utils/file_cache.i"
 	@echo "... src/utils/file_cache.s"
@@ -1185,6 +1364,18 @@ help:
 	@echo "... tools/async_weather_cli.o"
 	@echo "... tools/async_weather_cli.i"
 	@echo "... tools/async_weather_cli.s"
+	@echo "... tools/mock_report_server.o"
+	@echo "... tools/mock_report_server.i"
+	@echo "... tools/mock_report_server.s"
+	@echo "... tools/packet_encoding_debug.o"
+	@echo "... tools/packet_encoding_debug.i"
+	@echo "... tools/packet_encoding_debug.s"
+	@echo "... tools/report_debug_tool.o"
+	@echo "... tools/report_debug_tool.i"
+	@echo "... tools/report_debug_tool.s"
+	@echo "... tools/test_auth_vars.o"
+	@echo "... tools/test_auth_vars.i"
+	@echo "... tools/test_auth_vars.s"
 	@echo "... tools/unified_client_cli.o"
 	@echo "... tools/unified_client_cli.i"
 	@echo "... tools/unified_client_cli.s"

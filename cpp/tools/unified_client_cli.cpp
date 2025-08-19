@@ -247,6 +247,7 @@ static int run_weather_mode(const Args& args) {
         
         // 認証設定
         auto auth_cfg = build_auth_config(args);
+        client->set_auth_config(auth_cfg);
         if (args.debug) {
             std::cout << "Auth enabled: " << (auth_cfg.enabled ? "true" : "false") << std::endl;
         }
@@ -309,6 +310,7 @@ static int run_report_mode(const Args& args) {
         
         // 認証設定
         auto auth_cfg = build_auth_config(args);
+        client->set_auth_config(auth_cfg);
         if (args.debug) {
             std::cout << "Auth enabled: " << (auth_cfg.enabled ? "true" : "false") << std::endl;
         }

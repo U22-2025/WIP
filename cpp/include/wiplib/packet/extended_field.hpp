@@ -19,11 +19,12 @@ enum class ExtendedFieldKey : uint8_t {
     Alert = 1,
     Disaster = 2,
     Coordinate = 3,
-    SourceInfo = 4,
+    AuthHash = 4,
     CustomData = 5,
     SensorReading = 6,
     Metadata = 7,
-    // 8-63 are reserved for future use
+    SourceInfo = 40,
+    // 8-39 and 41-63 are reserved for future use
 };
 
 /**

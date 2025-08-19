@@ -219,6 +219,8 @@ ExtendedDataType ExtendedFieldProcessor::key_to_data_type(ExtendedFieldKey key) 
             return ExtendedDataType::StringList;
         case ExtendedFieldKey::Coordinate:
             return ExtendedDataType::Coordinate;
+        case ExtendedFieldKey::AuthHash:
+            return ExtendedDataType::Json;
         case ExtendedFieldKey::SourceInfo:
             return ExtendedDataType::Source;
         case ExtendedFieldKey::CustomData:

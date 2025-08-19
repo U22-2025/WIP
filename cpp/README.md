@@ -125,3 +125,8 @@ c.set_auth_config(ac);
 注意
 - ログにはパスフレーズや HMAC 値を出力しません。
 - 受信検証はレスポンス側が `response_auth` フラグと拡張(ID=4, hex64)を付与する場合のみ実施します。
+
+環境変数の読み込み (.env)
+- C++ クライアントは `AuthConfig::from_env()` 呼び出し時に、カレントディレクトリから親ディレクトリ方向に最大3階層まで `.env` を自動読み込みします（既存の環境変数は上書きしません）。
+- 特定パスを指定したい場合は `WIP_DOTENV_PATH` を設定してください（例: `WIP_DOTENV_PATH=/path/to/.env`）。
+- これにより `.env` に `*_REQUEST_AUTH_ENABLED` や `*_SERVER_PASSPHRASE` を記述するだけで、C++ 側でも認証が有効化されます。
