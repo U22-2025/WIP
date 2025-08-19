@@ -12,6 +12,7 @@ WIP C++ Library (wiplib)
 - クライアント: `wiplib/client` 配下
   - `weather_client.hpp`: Pythonの `WIPCommonPy.clients.weather_client` 相当（Weather Server プロキシ直叩き）
   - `wip_client.hpp`: Pythonの `WIPClientPy.client.Client` 相当（状態保持と direct/proxy 両モード）
+  - `simple_report_client.hpp`: Pythonの `WIPCommonPy.clients.report_client` 相当（センサーデータレポート送信）
 
 ビルド
 1) CMake の使用
@@ -70,11 +71,16 @@ Python版との対応
 - パケット仕様: フィールド配置/チェックサム/拡張フィールドは Python 実装の `WIPCommonPy.packet` に準拠。
 - `WeatherClient`: Python版の `WeatherClient.get_weather_data`／`get_weather_by_*` に相当する `get_weather_by_area_code`／`get_weather_by_coordinates` を提供。
 - `WipClient`: Python版の `Client.get_weather/get_weather_by_*` と同等の役割。座標→エリア解決（Location Server 4109）→Query Server 4111 への direct モード、および Weather Server(4110) プロキシ経由の2経路に対応。
+- `SimpleReportClient`: Python版の `ReportClient` と同等のセンサーデータ送信APIを提供。
 
 既知の差分/今後の拡張
 - 認証・キャッシュ・詳細ロガー: Python版の一部機能（例: request_auth/response_authの実処理、Cache, UnifiedLog）は最小実装です。必要であれば拡張可能です。
 - 例外ではなく `wiplib::Result<T>` によるエラー伝播を採用。
 - 温度値はPython版同様にパケット内では+100オフセット。`WipClient` は摂氏に戻して返却します。
+- `SimpleReportClient` は Python版 `ReportClient` と同等のAPIを提供するが、
+  - 非同期送信は `asyncio` ではなく `std::future` を使用
+  - エラーは例外ではなく `Result<ReportResult>` で返却
+  - ホスト・ポートは環境変数から自動取得しない
 
 ツール
 - `wip_client_cli`: 天気取得の簡易CLI。
