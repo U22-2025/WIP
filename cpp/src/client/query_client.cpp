@@ -88,6 +88,11 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
     }
   }
 
+  // Set response_auth flag if client wants server to authenticate responses
+  if (auth_cfg_.query_server_response_auth_enabled) {
+    p.header.flags.response_auth = true;
+  }
+
   auto enc = encode_packet(p);
   if (!enc) return enc.error();
 
@@ -141,8 +146,8 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   const Packet& rp = dec.value();
   if (rp.header.type != PacketType::WeatherResponse) return make_error_code(WipErrc::invalid_packet);
 
-  // Optional response verification (independent of response_auth flag)
-  if (auth_cfg_.verify_response) {
+  // Optional response verification for query server
+  if (auth_cfg_.query_server_response_auth_enabled) {
     const std::string* pass = nullptr;
     if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
     if (pass) {

@@ -185,6 +185,7 @@ private:
     // 認証設定（Python版互換）
     bool auth_enabled_;
     std::string auth_passphrase_;
+    bool response_auth_enabled_ = false;
     
     /**
      * @brief 環境変数から認証設定を初期化（Python版_init_auth_config()互換）

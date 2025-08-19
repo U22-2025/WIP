@@ -35,6 +35,17 @@ AuthConfig AuthConfig::from_env(){
                   cfg.report_server_request_auth_enabled;
 
     cfg.verify_response = env_truthy(std::getenv("WIP_CLIENT_VERIFY_RESPONSE_AUTH"));
+    cfg.request_response_auth = env_truthy(std::getenv("WIP_CLIENT_REQUEST_RESPONSE_AUTH"));
+    
+    // 個別のサーバー向けレスポンス認証設定
+    cfg.weather_server_response_auth_enabled = 
+        env_truthy(std::getenv("WEATHER_SERVER_RESPONSE_AUTH_ENABLED"));
+    cfg.location_server_response_auth_enabled = 
+        env_truthy(std::getenv("LOCATION_SERVER_RESPONSE_AUTH_ENABLED"));
+    cfg.query_server_response_auth_enabled = 
+        env_truthy(std::getenv("QUERY_SERVER_RESPONSE_AUTH_ENABLED"));
+    cfg.report_server_response_auth_enabled = 
+        env_truthy(std::getenv("REPORT_SERVER_RESPONSE_AUTH_ENABLED"));
 
     if (const char* p = std::getenv("WEATHER_SERVER_PASSPHRASE")) cfg.weather = std::string(p);
     if (const char* p = std::getenv("LOCATION_SERVER_PASSPHRASE")) cfg.location = std::string(p);

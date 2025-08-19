@@ -12,6 +12,13 @@ struct AuthConfig {
     bool query_generator_request_auth_enabled = false;
     bool report_server_request_auth_enabled = false;
     bool verify_response = false; // optional, default off
+    bool request_response_auth = false; // サーバーにレスポンス認証を要求するかどうか
+    
+    // 個別のサーバー向けレスポンス認証設定
+    bool weather_server_response_auth_enabled = false;
+    bool location_server_response_auth_enabled = false;
+    bool query_server_response_auth_enabled = false;
+    bool report_server_response_auth_enabled = false;
     std::optional<std::string> weather{};
     std::optional<std::string> location{};
     std::optional<std::string> query{};

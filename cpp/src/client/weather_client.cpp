@@ -118,6 +118,11 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
       wiplib::utils::WIPAuth::attach_auth_hash(send_pkt, *auth_cfg_.weather);
     }
   }
+
+  // Set response_auth flag if client wants server to authenticate responses
+  if (auth_cfg_.weather_server_response_auth_enabled) {
+    send_pkt.header.flags.response_auth = true;
+  }
   auto enc = encode_packet(send_pkt);
   if (!enc) return enc.error();
   const auto& payload = enc.value();
@@ -256,10 +261,10 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
             // 座標リクエストの場合: LocationResponse(1) を受けたら、クライアントが QueryRequest(2) を送信し、WeatherResponse(3) を待つ
             if (req.header.type == PacketType::CoordinateRequest) {
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::CoordinateResponse)) {
-                // Optional response verification (independent of response_auth flag)
-                if (auth_cfg_.verify_response) {
+                // Optional response verification for weather server (proxy)
+                if (auth_cfg_.weather_server_response_auth_enabled) {
                   const std::string* pass = nullptr;
-                  if (auth_cfg_.location && !auth_cfg_.location->empty()) pass = &*auth_cfg_.location;
+                  if (auth_cfg_.weather && !auth_cfg_.weather->empty()) pass = &*auth_cfg_.weather;
                   if (pass) {
                     std::vector<uint8_t> recv_hash;
                     for (const auto& ef : rp.extensions) {
@@ -328,11 +333,16 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                     std::chrono::system_clock::now().time_since_epoch()).count());
                 qreq.header.area_code = rp.header.area_code;
 
-                // Attach auth for QueryRequest if configured
+                // Attach auth for QueryRequest to weather server (proxy) if configured
                 if (auth_cfg_.enabled) {
-                  if (auth_cfg_.query && !auth_cfg_.query->empty()) {
-                    wiplib::utils::WIPAuth::attach_auth_hash(qreq, *auth_cfg_.query);
+                  if (auth_cfg_.weather && !auth_cfg_.weather->empty()) {
+                    wiplib::utils::WIPAuth::attach_auth_hash(qreq, *auth_cfg_.weather);
                   }
+                }
+
+                // Set response_auth flag for query request to weather server (proxy)
+                if (auth_cfg_.weather_server_response_auth_enabled) {
+                  qreq.header.flags.response_auth = true;
                 }
 
                 auto enc2 = encode_packet(qreq);
@@ -359,10 +369,10 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                 continue;
               }
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
-                // Optional response verification (independent of response_auth flag)
-                if (auth_cfg_.verify_response) {
+                // Optional response verification for weather server (proxy)
+                if (auth_cfg_.weather_server_response_auth_enabled) {
                   const std::string* pass = nullptr;
-                  if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
+                  if (auth_cfg_.weather && !auth_cfg_.weather->empty()) pass = &*auth_cfg_.weather;
                   if (pass) {
                     // find ext id=4 hex64
                     std::vector<uint8_t> recv_hash;
@@ -421,10 +431,10 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
             } else {
               // エリアコード指定（WeatherRequest→WeatherResponse 1段階）
               if (static_cast<uint8_t>(rp.header.type) == static_cast<uint8_t>(PacketType::WeatherResponse)) {
-                // Optional response verification (independent of response_auth flag)
-                if (auth_cfg_.verify_response) {
+                // Optional response verification for weather server (proxy - direct request)
+                if (auth_cfg_.weather_server_response_auth_enabled) {
                   const std::string* pass = nullptr;
-                  if (auth_cfg_.query && !auth_cfg_.query->empty()) pass = &*auth_cfg_.query;
+                  if (auth_cfg_.weather && !auth_cfg_.weather->empty()) pass = &*auth_cfg_.weather;
                   if (pass) {
                     std::vector<uint8_t> recv_hash;
                     for (const auto& ef : rp.extensions) {

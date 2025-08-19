@@ -15,6 +15,8 @@
 #include <iostream>
 #include <thread>
 #include <span>
+#include <sstream>
+#include <iomanip>
 
 #include "wiplib/packet/types.hpp"
 #include "wiplib/packet/codec.hpp"
@@ -81,6 +83,10 @@ void ReportClient::init_auth_config() {
     
     const char* auth_passphrase_env = std::getenv("REPORT_SERVER_PASSPHRASE");
     auth_passphrase_ = auth_passphrase_env ? auth_passphrase_env : "";
+
+    // レスポンス認証設定
+    const char* response_auth_env = std::getenv("REPORT_SERVER_RESPONSE_AUTH_ENABLED");
+    response_auth_enabled_ = (response_auth_env && std::string(response_auth_env) == "true");
 }
 
 bool ReportClient::init_socket() {
@@ -354,6 +360,11 @@ Result<packet::compat::PyReportRequest> ReportClient::create_request() {
         request.enable_auth(auth_passphrase_);
         request.set_auth_flags();
     }
+
+    // レスポンス認証フラグの設定
+    if (response_auth_enabled_) {
+        request.header.response_auth = 1;
+    }
     
     return request;
 }
@@ -408,6 +419,56 @@ Result<ReportResult> ReportClient::receive_response(uint16_t packet_id, int time
             }
             
             auto response = response_result.value();
+
+            // レスポンス認証検証
+            if (response_auth_enabled_ && !auth_passphrase_.empty()) {
+                // Python版のWIPAuth.verify_auth_hashと同様の検証処理
+                // ReportResponseから認証ハッシュを取得（拡張フィールドID=4）
+                std::string auth_hash_hex;
+                if (response.ex_field.has_value()) {
+                    // 拡張フィールドから認証ハッシュを取得
+                    auto auth_hash_bytes = response.ex_field->get_auth_hash();
+                    if (!auth_hash_bytes.empty()) {
+                        // バイト列をhex文字列に変換
+                        std::stringstream hex_stream;
+                        for (const auto& byte : auth_hash_bytes) {
+                            hex_stream << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(byte);
+                        }
+                        auth_hash_hex = hex_stream.str();
+                    }
+                }
+
+                if (!auth_hash_hex.empty()) {
+                    // hex文字列をバイト列に変換
+                    std::vector<uint8_t> received_hash;
+                    for (size_t i = 0; i < auth_hash_hex.length(); i += 2) {
+                        std::string byte_str = auth_hash_hex.substr(i, 2);
+                        uint8_t byte_val = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
+                        received_hash.push_back(byte_val);
+                    }
+
+                    // レスポンスパケットのタイムスタンプとパケットIDで認証ハッシュを再計算・検証
+                    if (!wiplib::utils::WIPAuth::verify_auth_hash(
+                            response.header.packet_id, 
+                            response.header.timestamp, 
+                            auth_passphrase_, 
+                            received_hash)) {
+                        
+                        ReportResult error_result;
+                        error_result.type = "error";
+                        error_result.success = false;
+                        error_result.summary["message"] = "Response authentication failed";
+                        return error_result;
+                    }
+                } else if (response_auth_enabled_) {
+                    // レスポンス認証が要求されているが認証ハッシュが見つからない
+                    ReportResult error_result;
+                    error_result.type = "error";  
+                    error_result.success = false;
+                    error_result.summary["message"] = "Response authentication required but no auth_hash found";
+                    return error_result;
+                }
+            }
             if (debug_) {
                 std::cout << "Received SENSOR REPORT RESPONSE" << std::endl;
             }

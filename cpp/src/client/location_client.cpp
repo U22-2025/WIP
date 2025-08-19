@@ -92,6 +92,11 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
     }
   }
 
+  // Set response_auth flag if client wants server to authenticate responses
+  if (auth_cfg_.location_server_response_auth_enabled) {
+    p.header.flags.response_auth = true;
+  }
+
   auto enc = encode_packet(p);
   if (!enc) return enc.error();
   const auto& payload = enc.value();
@@ -182,8 +187,8 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
       }
       const Packet& rp = dec.value();
       if (rp.header.type == PacketType::CoordinateResponse) {
-        // Optional response verification (independent of response_auth flag)
-        if (auth_cfg_.verify_response) {
+        // Optional response verification for location server
+        if (auth_cfg_.location_server_response_auth_enabled) {
           const std::string* pass = nullptr;
           if (auth_cfg_.location && !auth_cfg_.location->empty()) pass = &*auth_cfg_.location;
           if (pass) {
