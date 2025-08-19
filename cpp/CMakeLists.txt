@@ -161,10 +161,18 @@ if(WIPLIB_BUILD_TESTS)
   endif()
 endif()
 
-# CLI tool
+# CLI tools
 add_executable(wip_client_cli tools/wip_client_cli.cpp)
 target_link_libraries(wip_client_cli PRIVATE wiplib)
 target_include_directories(wip_client_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(unified_client_cli tools/unified_client_cli.cpp)
+target_link_libraries(unified_client_cli PRIVATE wiplib)
+target_include_directories(unified_client_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(report_debug_tool tools/report_debug_tool.cpp)
+target_link_libraries(report_debug_tool PRIVATE wiplib)
+target_include_directories(report_debug_tool PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(wip_packet_gen tools/wip_packet_gen.cpp)
 target_link_libraries(wip_packet_gen PRIVATE wiplib)
@@ -194,3 +202,15 @@ target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_D
 add_executable(wip_performance_test tools/wip_performance_test.cpp)
 target_link_libraries(wip_performance_test PRIVATE wiplib)
 target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(packet_encoding_debug tools/packet_encoding_debug.cpp)
+target_link_libraries(packet_encoding_debug PRIVATE wiplib)
+target_include_directories(packet_encoding_debug PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(mock_report_server tools/mock_report_server.cpp)
+target_link_libraries(mock_report_server PRIVATE wiplib)
+target_include_directories(mock_report_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(test_auth_vars tools/test_auth_vars.cpp)
+target_link_libraries(test_auth_vars PRIVATE wiplib)
+target_include_directories(test_auth_vars PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

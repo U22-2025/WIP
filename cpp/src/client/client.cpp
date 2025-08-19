@@ -69,12 +69,6 @@ void Client::set_coordinates(double lat, double lon) {
     }
 }
 
-void Client::set_area_code(std::string area_code) {
-    state_.area_code = area_code;
-    if (wip_client_) {
-        wip_client_->set_area_code(std::move(area_code));
-    }
-}
 
 void Client::set_server(const std::string& host) {
     config_.host = host;
@@ -199,6 +193,11 @@ void Client::set_sensor_data(const std::string& area_code,
 }
 
 void Client::set_area_code(const std::string& area_code) {
+    // 内部状態も更新
+    state_.area_code = area_code;
+    if (wip_client_) {
+        wip_client_->set_area_code(area_code);
+    }
     if (!report_client_) {
         initialize_report_client();
     }
