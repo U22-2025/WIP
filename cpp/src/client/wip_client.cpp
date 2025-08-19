@@ -122,7 +122,7 @@ Result<std::string> WipClient::resolve_area_code_direct(double lat, double lon, 
 }
 
 Result<WeatherData> WipClient::query_weather_direct(std::string_view area_code, const WeatherOptions& opt) noexcept {
-  QueryClient qc(query_host_, query_port_);
+  QueryClient qc(query_host_, query_port_, debug_);
   qc.set_auth_config(auth_cfg_);
   QueryOptions qo{}; qo.weather=opt.weather; qo.temperature=opt.temperature; qo.precipitation_prob=opt.precipitation_prob; qo.alerts=opt.alert; qo.disaster=opt.disaster; qo.day=opt.day;
   auto r = qc.get_weather_data(area_code, qo);

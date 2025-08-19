@@ -49,15 +49,23 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
       p.header.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
           std::chrono::system_clock::now().time_since_epoch()).count());
       // Debug output
-      std::cerr << "DEBUG: Adding auth hash with passphrase: " << *auth_cfg_.query << std::endl;
+      if (debug_) {
+        std::cerr << "DEBUG: Adding auth hash with passphrase: " << *auth_cfg_.query << std::endl;
+      }
       bool auth_result = wiplib::utils::WIPAuth::attach_auth_hash(p, *auth_cfg_.query);
-      std::cerr << "DEBUG: Auth attach result: " << (auth_result ? "success" : "failed") << std::endl;
-      std::cerr << "DEBUG: Extensions count: " << p.extensions.size() << std::endl;
+      if (debug_) {
+        std::cerr << "DEBUG: Auth attach result: " << (auth_result ? "success" : "failed") << std::endl;
+        std::cerr << "DEBUG: Extensions count: " << p.extensions.size() << std::endl;
+      }
     } else {
-      std::cerr << "DEBUG: Auth enabled but no query passphrase set" << std::endl;
+      if (debug_) {
+        std::cerr << "DEBUG: Auth enabled but no query passphrase set" << std::endl;
+      }
     }
   } else {
-    std::cerr << "DEBUG: Auth not enabled" << std::endl;
+    if (debug_) {
+      std::cerr << "DEBUG: Auth not enabled" << std::endl;
+    }
   }
 
   auto enc = encode_packet(p);
