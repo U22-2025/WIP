@@ -1,6 +1,7 @@
 #include "wiplib/client/client.hpp"
 #include "wiplib/error.hpp"
 #include <stdexcept>
+#include <utility>
 
 namespace wiplib::client {
 
@@ -65,6 +66,13 @@ void Client::set_coordinates(double lat, double lon) {
     state_.longitude = lon;
     if (wip_client_) {
         wip_client_->set_coordinates(lat, lon);
+    }
+}
+
+void Client::set_area_code(std::string area_code) {
+    state_.area_code = area_code;
+    if (wip_client_) {
+        wip_client_->set_area_code(std::move(area_code));
     }
 }
 

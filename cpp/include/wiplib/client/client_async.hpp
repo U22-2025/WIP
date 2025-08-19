@@ -44,6 +44,9 @@ public:
     // 座標設定
     void set_coordinates(double lat, double lon);
 
+    // エリアコード設定
+    void set_area_code(std::string area_code);
+
     // 非同期天気データ取得
     std::future<Result<WeatherData>> get_weather(
         bool weather = true,
