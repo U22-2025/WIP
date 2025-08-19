@@ -28,16 +28,6 @@ enum class PrecisionLevel {
     VeryHigh = 3  // ±1m
 };
 
-/**
- * @brief 地理的境界定義
- */
-struct GeographicBounds {
-    double min_latitude = -90.0;
-    double max_latitude = 90.0;
-    double min_longitude = -180.0;
-    double max_longitude = 180.0;
-    std::string region_name = "Global";
-};
 
 /**
  * @brief 座標変換結果
@@ -48,7 +38,6 @@ struct CoordinateResult {
     packet::Coordinate normalized_coordinate;
     PrecisionLevel precision_level = PrecisionLevel::Medium;
     double accuracy_meters = 100.0;
-    bool is_within_bounds = true;
     std::chrono::milliseconds response_time{0};
 };
 
@@ -105,16 +94,6 @@ public:
       PrecisionLevel target_precision
   ) const;
 
-  /**
-   * @brief 地理的境界チェック
-   * @param coordinate 座標データ
-   * @param bounds 境界定義（nulloptでデフォルト境界）
-   * @return 境界内の場合true
-   */
-  bool check_geographic_bounds(
-      const packet::Coordinate& coordinate,
-      const std::optional<GeographicBounds>& bounds = std::nullopt
-  ) const;
 
   /**
    * @brief 座標の正規化
@@ -141,17 +120,6 @@ public:
    */
   std::pair<bool, std::string> validate_coordinate(const packet::Coordinate& coordinate) const;
 
-  /**
-   * @brief 地理的境界を設定
-   * @param bounds 新しい境界定義
-   */
-  void set_geographic_bounds(const GeographicBounds& bounds);
-
-  /**
-   * @brief 現在の地理的境界を取得
-   * @return 境界定義
-   */
-  GeographicBounds get_geographic_bounds() const;
 
   /**
    * @brief キャッシュを有効化/無効化
@@ -197,9 +165,6 @@ private:
   uint16_t port_;
   AuthConfig auth_cfg_{};
   
-  // 地理的境界
-  GeographicBounds geographic_bounds_;
-  
   // キャッシュ設定
   bool cache_enabled_ = false;
   std::chrono::seconds cache_ttl_{300};
@@ -209,7 +174,7 @@ private:
   
   // 統計
   mutable std::mutex stats_mutex_;
-  std::unordered_map<std::string, uint64_t> conversion_stats_;
+  mutable std::unordered_map<std::string, uint64_t> conversion_stats_;
   
   // プライベートメソッド
   CoordinateResult perform_coordinate_conversion(
@@ -230,8 +195,6 @@ private:
   void update_statistics(const std::string& key, uint64_t increment = 1) const;
   
   double calculate_accuracy_from_precision(PrecisionLevel precision_level) const;
-  
-  bool is_coordinate_in_bounds(const packet::Coordinate& coordinate, const GeographicBounds& bounds) const;
 
   friend class LocationClientCacheTestHelper;
 };
@@ -254,8 +217,7 @@ public:
      */
     static std::unique_ptr<LocationClient> create_high_precision(
         const std::string& host = "127.0.0.1", 
-        uint16_t port = 4109,
-        const GeographicBounds& bounds = GeographicBounds{}
+        uint16_t port = 4109
     );
 };
 

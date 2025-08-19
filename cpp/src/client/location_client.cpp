@@ -312,16 +312,6 @@ packet::Coordinate LocationClient::manage_gps_precision(
   return result;
 }
 
-// ---------------------------------------
-// 境界チェック
-// ---------------------------------------
-
-bool LocationClient::check_geographic_bounds(
-    const packet::Coordinate& coordinate,
-    const std::optional<GeographicBounds>& bounds) const {
-  const GeographicBounds& b = bounds ? *bounds : geographic_bounds_;
-  return is_coordinate_in_bounds(coordinate, b);
-}
 
 // ---------------------------------------
 // 座標正規化
@@ -369,17 +359,6 @@ std::pair<bool, std::string> LocationClient::validate_coordinate(const packet::C
   return {true, ""};
 }
 
-// ---------------------------------------
-// 境界設定/取得
-// ---------------------------------------
-
-void LocationClient::set_geographic_bounds(const GeographicBounds& bounds) {
-  geographic_bounds_ = bounds;
-}
-
-GeographicBounds LocationClient::get_geographic_bounds() const {
-  return geographic_bounds_;
-}
 
 // ---------------------------------------
 // キャッシュ設定
@@ -427,7 +406,6 @@ CoordinateResult LocationClient::perform_coordinate_conversion(
   result.accuracy_meters = calculate_accuracy_from_precision(precision_level);
   auto managed = manage_gps_precision(coordinate, precision_level);
   result.normalized_coordinate = normalize_coordinate(managed, 6);
-  result.is_within_bounds = check_geographic_bounds(managed);
   return result;
 }
 
@@ -482,7 +460,7 @@ void LocationClient::load_cache_from_disk() {
   }
   std::unordered_map<std::string, std::pair<CoordinateResult, std::chrono::steady_clock::time_point>> new_cache;
   auto now_sys = std::chrono::system_clock::now();
-  std::regex entry_regex(R"("([^"]+)"\s*:\s*\{([^}]*)\})");
+  std::regex entry_regex("\"([^\"]+)\"\\s*:\\s*\\{([^}]*)\\}");
   for (auto it = std::sregex_iterator(content.begin(), content.end(), entry_regex);
        it != std::sregex_iterator(); ++it) {
     std::string key = (*it)[1].str();
@@ -491,13 +469,13 @@ void LocationClient::load_cache_from_disk() {
     std::smatch m;
     
     // Python互換形式をサポート（シンプルなarea_code + timestampのみ）
-    if (std::regex_search(body, m, std::regex(R"("area_code"\s*:\s*"([^"]*)")"))) {
+    if (std::regex_search(body, m, std::regex("\"area_code\"\\s*:\\s*\"([^\"]*)\""))) {
       res.area_code = m[1].str();
     }
     
     // timestampフィールド（Python形式）をチェック
     double timestamp = 0.0;
-    if (std::regex_search(body, m, std::regex(R"("timestamp"\s*:\s*([\d\.]+))"))) {
+    if (std::regex_search(body, m, std::regex("\"timestamp\"\\s*:\\s*([\\d\\.]+)"))) {
       timestamp = std::stod(m[1].str());
       auto stored_sys = std::chrono::system_clock::time_point{
         std::chrono::seconds(static_cast<long long>(timestamp))
@@ -522,16 +500,15 @@ void LocationClient::load_cache_from_disk() {
     }
     
     // C++独自の詳細形式もサポート（後方互換性）
-    if (std::regex_search(body, m, std::regex(R"("original_latitude"\s*:\s*([-0-9\.]+))"))) res.original_coordinate.latitude = std::stod(m[1].str());
-    if (std::regex_search(body, m, std::regex(R"("original_longitude"\s*:\s*([-0-9\.]+))"))) res.original_coordinate.longitude = std::stod(m[1].str());
-    if (std::regex_search(body, m, std::regex(R"("normalized_latitude"\s*:\s*([-0-9\.]+))"))) res.normalized_coordinate.latitude = std::stod(m[1].str());
-    if (std::regex_search(body, m, std::regex(R"("normalized_longitude"\s*:\s*([-0-9\.]+))"))) res.normalized_coordinate.longitude = std::stod(m[1].str());
-    if (std::regex_search(body, m, std::regex(R"("precision_level"\s*:\s*(\d+))"))) res.precision_level = static_cast<PrecisionLevel>(std::stoi(m[1].str()));
-    if (std::regex_search(body, m, std::regex(R"("accuracy_meters"\s*:\s*([-0-9\.]+))"))) res.accuracy_meters = std::stod(m[1].str());
-    if (std::regex_search(body, m, std::regex(R"("is_within_bounds"\s*:\s*(true|false))"))) res.is_within_bounds = (m[1].str() == "true");
-    if (std::regex_search(body, m, std::regex(R"("response_time_ms"\s*:\s*(\d+))"))) res.response_time = std::chrono::milliseconds(std::stoll(m[1].str()));
+    if (std::regex_search(body, m, std::regex("\"original_latitude\"\\s*:\\s*([-0-9\\.]+)"))) res.original_coordinate.latitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex("\"original_longitude\"\\s*:\\s*([-0-9\\.]+)"))) res.original_coordinate.longitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex("\"normalized_latitude\"\\s*:\\s*([-0-9\\.]+)"))) res.normalized_coordinate.latitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex("\"normalized_longitude\"\\s*:\\s*([-0-9\\.]+)"))) res.normalized_coordinate.longitude = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex("\"precision_level\"\\s*:\\s*(\\d+)"))) res.precision_level = static_cast<PrecisionLevel>(std::stoi(m[1].str()));
+    if (std::regex_search(body, m, std::regex("\"accuracy_meters\"\\s*:\\s*([-0-9\\.]+)"))) res.accuracy_meters = std::stod(m[1].str());
+    if (std::regex_search(body, m, std::regex("\"response_time_ms\"\\s*:\\s*(\\d+)"))) res.response_time = std::chrono::milliseconds(std::stoll(m[1].str()));
     long long stored_sec = 0;
-    if (std::regex_search(body, m, std::regex(R"("stored_time"\s*:\s*(\d+))"))) stored_sec = std::stoll(m[1].str());
+    if (std::regex_search(body, m, std::regex("\"stored_time\"\\s*:\\s*(\\d+)"))) stored_sec = std::stoll(m[1].str());
     auto stored_sys = std::chrono::system_clock::time_point{std::chrono::seconds(stored_sec)};
     if (now_sys - stored_sys > cache_ttl_) continue;
     auto age = now_sys - stored_sys;
@@ -588,13 +565,6 @@ double LocationClient::calculate_accuracy_from_precision(PrecisionLevel precisio
   return 100.0;
 }
 
-bool LocationClient::is_coordinate_in_bounds(const packet::Coordinate& coordinate,
-                                             const GeographicBounds& bounds) const {
-  return coordinate.latitude >= bounds.min_latitude &&
-         coordinate.latitude <= bounds.max_latitude &&
-         coordinate.longitude >= bounds.min_longitude &&
-         coordinate.longitude <= bounds.max_longitude;
-}
 
 // ---------------------------------------
 // ファクトリー実装
@@ -606,9 +576,8 @@ std::unique_ptr<LocationClient> LocationClientFactory::create_basic(
 }
 
 std::unique_ptr<LocationClient> LocationClientFactory::create_high_precision(
-    const std::string& host, uint16_t port, const GeographicBounds& bounds) {
+    const std::string& host, uint16_t port) {
   auto client = std::make_unique<LocationClient>(host, port);
-  client->set_geographic_bounds(bounds);
   client->set_cache_enabled(true);
   return client;
 }
