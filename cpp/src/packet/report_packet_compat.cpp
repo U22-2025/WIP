@@ -200,6 +200,15 @@ std::vector<uint8_t> PyReportRequest::to_bytes() const {
     // alert / disaster は拡張フィールドへ
     packet.extensions = build_extended_fields();
 
+    // 認証が有効な場合はハッシュを付与
+    if (auth_enabled && !auth_passphrase.empty()) {
+        if (wiplib::utils::WIPAuth::attach_auth_hash(packet, auth_passphrase)) {
+            // 拡張フィールドと認証フラグが正しく設定されていることを保証
+            packet.header.flags.extended = true;
+            packet.header.flags.auth_enabled = true;
+        }
+    }
+
     auto enc = proto::encode_packet(packet);
     if (enc.has_value()) {
         return enc.value();
