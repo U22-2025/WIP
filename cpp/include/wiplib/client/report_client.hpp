@@ -144,6 +144,13 @@ public:
      */
     void close();
     
+    /**
+     * @brief サーバー設定を変更
+     * @param host ホスト名
+     * @param port ポート番号
+     */
+    void set_server(const std::string& host, uint16_t port);
+    
     // 後方互換性メソッド（Python版と同様）
     
     /**

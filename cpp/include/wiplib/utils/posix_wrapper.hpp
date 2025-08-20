@@ -15,6 +15,10 @@
 
 namespace wiplib::utils {
 
+#ifdef _WIN32
+using ssize_t = long long;
+#endif
+
 class PosixWrapper {
 public:
   static int openFile(const char *path, int flags, int mode = 0644);

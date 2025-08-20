@@ -1,8 +1,6 @@
 #include "wiplib/client/utils/receive_with_id.hpp"
 #include "wiplib/packet/codec.hpp"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
+#include "wiplib/utils/platform_compat.hpp"
 #include <cstring>
 #include <future>
 
@@ -15,15 +13,17 @@ ReceiveWithId::~ReceiveWithId() { stop_streaming(); running_ = false; }
 
 packet::GenericResponse ReceiveWithId::receive_sync(uint16_t packet_id, std::chrono::milliseconds timeout) {
     // Set SO_RCVTIMEO temporarily
-    struct timeval tv; tv.tv_sec = static_cast<time_t>(timeout.count() / 1000);
+    struct timeval tv; 
+    tv.tv_sec = static_cast<long>(timeout.count() / 1000);
     tv.tv_usec = static_cast<suseconds_t>((timeout.count() % 1000) * 1000);
-    ::setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    wiplib::utils::platform_setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     for (;;) {
         std::uint8_t buf[2048];
-        ssize_t r = ::recv(socket_fd_, buf, sizeof(buf), 0);
+        ssize_t r = wiplib::utils::platform_recv(socket_fd_, buf, sizeof(buf), 0);
         if (r < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            int error = platform_socket_error();
+            if (error == EAGAIN || error == EWOULDBLOCK) {
                 stats_.timeout_receives++;
                 throw ReceiveTimeoutException(packet_id);
             }
@@ -108,7 +108,7 @@ void ReceiveWithId::receive_loop() {
 
 packet::GenericResponse ReceiveWithId::receive_single_packet() {
     std::vector<std::uint8_t> buf(receive_buffer_size_);
-    ssize_t r = ::recv(socket_fd_, buf.data(), buf.size(), 0);
+    ssize_t r = wiplib::utils::platform_recv(socket_fd_, buf.data(), buf.size(), 0);
     if (r <= 0) return packet::GenericResponse{0};
     buf.resize(static_cast<size_t>(r));
     auto res = wiplib::proto::decode_packet(buf);

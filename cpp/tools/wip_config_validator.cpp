@@ -323,7 +323,7 @@ private:
         }
 
         // 重複キーのチェック（簡易版）
-        std::regex key_regex(R"("([^"]+)"\s*:)");
+        std::regex key_regex(R"(\"([^\"]+)\"\s*:)");
         std::set<std::string> keys;
         std::sregex_iterator iter(content.begin(), content.end(), key_regex);
         std::sregex_iterator end;

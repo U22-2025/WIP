@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "wiplib/client/simple_report_client.hpp"
+#include "wiplib/client/report_client.hpp"
 
 int main() {
     std::cout << "=== Environment Variable Test ===\n";
@@ -20,7 +20,7 @@ int main() {
     std::cout << "\n=== SimpleReportClient Test ===\n";
     
     try {
-        wiplib::client::SimpleReportClient client("127.0.0.1", 4112, true);
+        wiplib::client::ReportClient client("127.0.0.1", 4112, true);
         
         std::cout << "SimpleReportClient created successfully\n";
         

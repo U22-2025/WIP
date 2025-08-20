@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "wiplib/client/simple_report_client.hpp"
+#include "wiplib/client/report_client.hpp"
 
 void dump_packet_hex(const std::vector<uint8_t>& data) {
     std::cout << "Packet dump (" << data.size() << " bytes):\n";
@@ -79,7 +79,7 @@ int test_packet_generation() {
     
     try {
         // SimpleReportClientを作成（実際の送信は行わない）
-        wiplib::client::SimpleReportClient client("127.0.0.1", 4112, true);
+        wiplib::client::ReportClient client("127.0.0.1", 4112, true);
         
         // データ設定
         client.set_sensor_data(

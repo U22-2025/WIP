@@ -201,7 +201,7 @@ void Client::initialize_report_client(bool proxy, std::optional<ServerConfig> re
     if (report_client_) {
         report_client_->set_server(host, port);
     } else {
-        report_client_ = std::make_unique<SimpleReportClient>(host, port, debug_);
+        report_client_ = std::make_unique<ReportClient>(host, port, debug_);
     }
 }
 

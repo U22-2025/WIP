@@ -1,10 +1,5 @@
 #include "wiplib/client/report_client.hpp"
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
+#include "wiplib/utils/platform_compat.hpp"
 #include <chrono>
 #include <cstring>
 #include <cstdlib>
@@ -100,8 +95,8 @@ bool ReportClient::init_socket() {
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
     
-    if (setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-        ::close(socket_fd_);
+    if (wiplib::utils::platform_setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        platform_close_socket(socket_fd_);
         socket_fd_ = -1;
         return false;
     }
@@ -239,8 +234,8 @@ Result<ReportResult> ReportClient::send_report_data() {
         freeaddrinfo(res);
     }
 
-    ssize_t sent_bytes = sendto(socket_fd_, packet_data.data(), packet_data.size(), 0,
-                               reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr));
+    ssize_t sent_bytes = wiplib::utils::platform_sendto(socket_fd_, packet_data.data(), packet_data.size(), 0,
+                                                        reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr));
     
     if (sent_bytes < 0) {
         return make_error_code(WipErrc::io_error);
@@ -363,7 +358,7 @@ Result<packet::compat::PyReportRequest> ReportClient::create_request() {
 
     // レスポンス認証フラグの設定
     if (response_auth_enabled_) {
-        request.header.response_auth = 1;
+        request.header.flags.response_auth = true;
     }
     
     return request;
@@ -384,11 +379,12 @@ Result<ReportResult> ReportClient::receive_response(uint16_t packet_id, int time
             return make_error_code(WipErrc::timeout);
         }
         
-        ssize_t received_bytes = recvfrom(socket_fd_, buffer.data(), buffer.size(), 0,
-                                         reinterpret_cast<struct sockaddr*>(&sender_addr), &sender_len);
+        ssize_t received_bytes = wiplib::utils::platform_recvfrom(socket_fd_, buffer.data(), buffer.size(), 0,
+                                                                 reinterpret_cast<struct sockaddr*>(&sender_addr), &sender_len);
         
         if (received_bytes < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            int error = platform_socket_error();
+            if (error == EAGAIN || error == EWOULDBLOCK) {
                 // CPU過負荷を避けるため少し待機
                 std::this_thread::sleep_for(std::chrono::milliseconds(2));
                 continue;  // タイムアウト、再試行
@@ -428,24 +424,12 @@ Result<ReportResult> ReportClient::receive_response(uint16_t packet_id, int time
                 bool auth_hash_found = false;
                 
                 // Python版のresponse.ex_fieldに相当する処理
+                // 現在のC++実装では拡張フィールドの構造が異なるため、
+                // 将来の実装で対応予定
                 if (response.ex_field.has_value()) {
-                    // 拡張フィールドから認証ハッシュを検索
-                    for (const auto& field_data : response.ex_field->_data) {
-                        if (field_data.first == "auth_hash") {
-                            auth_hash_found = true;
-                            const std::string& auth_hash_str = field_data.second;
-                            
-                            // hex文字列をバイト列に変換
-                            if (auth_hash_str.length() % 2 == 0) {
-                                for (size_t i = 0; i < auth_hash_str.length(); i += 2) {
-                                    std::string byte_str = auth_hash_str.substr(i, 2);
-                                    uint8_t byte_val = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
-                                    recv_hash.push_back(byte_val);
-                                }
-                            }
-                            break;
-                        }
-                    }
+                    // TODO: 拡張フィールドから認証ハッシュを抽出する実装を追加
+                    // 現在は拡張フィールドの構造が単純なため、
+                    // Python版の辞書構造との互換性実装が必要
                 }
 
                 if (auth_hash_found && !recv_hash.empty()) {
@@ -519,6 +503,15 @@ ReportResult ReportClient::handle_error_response(const std::vector<uint8_t>& dat
     return result;
 }
 
+void ReportClient::set_server(const std::string& host, uint16_t port) {
+    host_ = host;
+    port_ = port;
+    if (socket_fd_ != -1) {
+        close();
+        init_socket();
+    }
+}
+
 uint8_t ReportClient::get_packet_type(const std::vector<uint8_t>& data) {
     if (data.size() < wiplib::proto::kFixedHeaderSize) {
         return 0;
@@ -573,5 +566,9 @@ Result<ReportResult> send_sensor_report(
         return make_error_code(WipErrc::io_error);
     }
 }
+
+} // namespace wiplib::client
+
+namespace wiplib::client::utils {
 
 } // namespace wiplib::client::utils

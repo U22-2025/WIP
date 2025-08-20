@@ -1,8 +1,13 @@
 #include "wiplib/client/utils/safe_sock_sendto.hpp"
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#ifdef _WIN32
+    #include <ws2tcpip.h>
+    using ssize_t = long long;
+#else
+    #include <arpa/inet.h>
+    #include <netdb.h>
+    #include <sys/socket.h>
+    #include <unistd.h>
+#endif
 #include <cstring>
 #include <future>
 
@@ -58,7 +63,7 @@ SendResult SafeSockSendTo::broadcast_send(const std::vector<uint8_t>& data, uint
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(interface_addr.empty() ? "255.255.255.255" : interface_addr.c_str());
-    int opt = 1; ::setsockopt(socket_fd_, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt));
+    int opt = 1; wiplib::utils::platform_setsockopt(socket_fd_, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt));
     return send_sync(data, addr);
 }
 
@@ -85,8 +90,8 @@ std::unordered_map<std::string, double> SafeSockSendTo::get_performance_metrics(
 }
 
 bool SafeSockSendTo::optimize_socket_options() { return true; }
-int SafeSockSendTo::get_send_buffer_size() const { int sz=0; socklen_t l=sizeof(sz); ::getsockopt(socket_fd_, SOL_SOCKET, SO_SNDBUF, &sz, &l); return sz; }
-bool SafeSockSendTo::set_send_buffer_size(int size) { return ::setsockopt(socket_fd_, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) == 0; }
+int SafeSockSendTo::get_send_buffer_size() const { int sz=0; socklen_t l=sizeof(sz); wiplib::utils::platform_getsockopt(socket_fd_, SOL_SOCKET, SO_SNDBUF, &sz, &l); return sz; }
+bool SafeSockSendTo::set_send_buffer_size(int size) { return wiplib::utils::platform_setsockopt(socket_fd_, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) == 0; }
 
 double SafeSockSendTo::measure_network_quality(const struct sockaddr_in& destination, size_t test_data_size) {
     std::vector<uint8_t> data(test_data_size, 0xAA);

@@ -355,7 +355,7 @@ PrecisionLevel LocationClient::estimate_precision_level(const packet::Coordinate
     }
     return 6;
   };
-  int d = std::max(digits(coordinate.latitude), digits(coordinate.longitude));
+  int d = (std::max)(digits(coordinate.latitude), digits(coordinate.longitude));
   if (d >= 5) return PrecisionLevel::VeryHigh;
   if (d >= 4) return PrecisionLevel::High;
   if (d >= 3) return PrecisionLevel::Medium;

@@ -1,8 +1,5 @@
 #include "wiplib/client/utils/connection_pool.hpp"
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include "wiplib/utils/platform_compat.hpp"
 #include <cstring>
 #include <random>
 
@@ -143,11 +140,11 @@ std::shared_ptr<ConnectionInfo> UDPConnectionPool::create_connection(const std::
         struct sockaddr_in addr{}; addr.sin_family = AF_INET; addr.sin_port = htons(port);
         if (::inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
             struct addrinfo hints{}; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM; struct addrinfo* res=nullptr;
-            if (getaddrinfo(host.c_str(), nullptr, &hints, &res) != 0 || !res) { ::close(sock); return nullptr; }
+            if (getaddrinfo(host.c_str(), nullptr, &hints, &res) != 0 || !res) { platform_close_socket(sock); return nullptr; }
             auto* a = reinterpret_cast<sockaddr_in*>(res->ai_addr);
             addr.sin_addr = a->sin_addr; freeaddrinfo(res);
         }
-        if (::connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) { ::close(sock); return nullptr; }
+        if (::connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) { platform_close_socket(sock); return nullptr; }
     }
     auto c = std::make_shared<ConnectionInfo>();
     c->socket_fd = sock; c->host = host; c->port = port; c->state = ConnectionState::Connected; c->created_time = std::chrono::steady_clock::now();

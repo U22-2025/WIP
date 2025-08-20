@@ -2,11 +2,7 @@
 #include "wiplib/packet/request.hpp"
 #include "wiplib/packet/response.hpp"
 #include "wiplib/packet/extended_field.hpp"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <netdb.h>
+#include "wiplib/utils/platform_compat.hpp"
 #include <cstring>
 #include <random>
 #include <sstream>
@@ -37,7 +33,7 @@ int ConnectionPool::acquire_connection(const std::string& host, uint16_t port) {
                 return conn.socket_fd;
             } else {
                 // 無効な接続を削除
-                close(conn.socket_fd);
+                platform_close_socket(conn.socket_fd);
                 conn.socket_fd = -1;
             }
         }
@@ -56,14 +52,14 @@ int ConnectionPool::acquire_connection(const std::string& host, uint16_t port) {
     
     struct hostent* server = gethostbyname(host.c_str());
     if (!server) {
-        close(sock);
+        platform_close_socket(sock);
         return -1;
     }
     
     memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
     
     if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        close(sock);
+        platform_close_socket(sock);
         return -1;
     }
     
@@ -96,7 +92,7 @@ void ConnectionPool::close_all() {
     
     for (auto& conn : connections_) {
         if (conn.socket_fd >= 0) {
-            close(conn.socket_fd);
+            platform_close_socket(conn.socket_fd);
         }
     }
     connections_.clear();
@@ -117,7 +113,7 @@ size_t ConnectionPool::get_available_connections() const {
 bool ConnectionPool::is_connection_valid(int socket_fd) const {
     int error = 0;
     socklen_t len = sizeof(error);
-    int retval = getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, &error, &len);
+    int retval = wiplib::utils::platform_getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, &error, &len);
     return (retval == 0 && error == 0);
 }
 
@@ -404,7 +400,7 @@ WeatherData AsyncWeatherClient::send_request_sync(const packet::GenericRequest& 
     try {
         // リクエスト送信
         auto request_data = request.encode();
-        ssize_t sent = send(sock, request_data.data(), request_data.size(), 0);
+        ssize_t sent = wiplib::utils::platform_send(sock, request_data.data(), request_data.size(), 0);
         if (sent < 0) {
             throw std::runtime_error("Failed to send request");
         }
@@ -413,7 +409,7 @@ WeatherData AsyncWeatherClient::send_request_sync(const packet::GenericRequest& 
         
         // レスポンス受信
         std::vector<uint8_t> response_buffer(1024);
-        ssize_t received = recv(sock, response_buffer.data(), response_buffer.size(), 0);
+        ssize_t received = wiplib::utils::platform_recv(sock, response_buffer.data(), response_buffer.size(), 0);
         if (received < 0) {
             throw std::runtime_error("Failed to receive response");
         }
@@ -487,7 +483,7 @@ std::string AsyncWeatherClient::generate_request_id() const {
 std::chrono::milliseconds AsyncWeatherClient::calculate_retry_delay(uint8_t retry_count) const {
     // Exponential backoff with jitter
     auto delay = base_retry_delay_ * (1 << (retry_count - 1));
-    delay = std::min(delay, max_retry_delay_);
+    delay = (std::min)(delay, max_retry_delay_);
     
     // Add jitter (±25%)
     static std::random_device rd;
