@@ -1,7 +1,8 @@
 #include "wiplib/utils/config_loader.hpp"
-#include <cstdlib>
 #include <sstream>
 #include <filesystem>
+
+#include "wiplib/utils/env.hpp"
 
 namespace wiplib::utils {
 
@@ -68,6 +69,28 @@ ConfigLoader& GlobalConfig::instance() { std::lock_guard<std::mutex> lk(instance
 bool GlobalConfig::load(const std::string& file_path, ConfigFormat f) { return instance().load_from_file(file_path, f); }
 
 // utils
-namespace config_utils { std::string normalize_env_var_name(const std::string& k, const std::string& p) { std::string r = p; for (char c : k) r += (c=='.'?'_': std::toupper(c)); return r; } std::optional<std::string> get_env_var(const std::string& n) { const char* v = std::getenv(n.c_str()); if (!v) return std::nullopt; return std::string(v);} bool parse_bool(const std::string& s) { return s=="1"||s=="true"||s=="yes"; } std::string expand_path(const std::string& p) { return p; } bool validate_config_file(const std::string& fp) { return std::filesystem::exists(fp); } }
+namespace config_utils {
+std::string normalize_env_var_name(const std::string& k, const std::string& p) {
+    std::string r = p;
+    for (char c : k) r += (c == '.' ? '_' : std::toupper(c));
+    return r;
+}
+
+std::optional<std::string> get_env_var(const std::string& n) {
+    return getenv_os(n);
+}
+
+bool parse_bool(const std::string& s) {
+    return s == "1" || s == "true" || s == "yes";
+}
+
+std::filesystem::path expand_path(const std::filesystem::path& p) {
+    return p;
+}
+
+bool validate_config_file(const std::filesystem::path& fp) {
+    return std::filesystem::exists(fp);
+}
+} // namespace config_utils
 
 } // namespace wiplib::utils
