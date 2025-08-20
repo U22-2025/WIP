@@ -61,6 +61,32 @@ target_include_directories(wiplib
 find_package(Threads REQUIRED)
 target_link_libraries(wiplib PRIVATE Threads::Threads)
 
+# Optional external libraries
+if(WIN32)
+  # Typical installation paths for prebuilt Windows binaries
+  set(OPENSSL_ROOT_DIR
+      "C:/OpenSSL-Win64"
+      "C:/Program Files/OpenSSL-Win64"
+      CACHE PATH "OpenSSL installation root")
+  set(BOOST_ROOT
+      "C:/local/boost_1_84_0"
+      CACHE PATH "Boost installation root")
+endif()
+
+find_package(OpenSSL QUIET)
+if(OpenSSL_FOUND)
+  target_link_libraries(wiplib PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+else()
+  message(STATUS "OpenSSL not found; continuing without SSL support")
+endif()
+
+find_package(Boost QUIET)
+if(Boost_FOUND)
+  target_link_libraries(wiplib PRIVATE Boost::boost)
+else()
+  message(STATUS "Boost not found; continuing without Boost")
+endif()
+
 # Platform-specific socket libraries
 if(WIN32)
     target_link_libraries(wiplib PRIVATE ws2_32 wsock32)
