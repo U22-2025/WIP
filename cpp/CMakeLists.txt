@@ -39,6 +39,7 @@ set(WIPLIB_SRC
     src/utils/encoding.cpp
     src/utils/env.cpp
     src/utils/network.cpp
+    src/utils/platform_compat.cpp
     src/packet/debug/debug_logger.cpp
     # Temporarily disabled due to build errors
     # src/compatibility/python_errors.cpp

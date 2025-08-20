@@ -1,5 +1,8 @@
 #pragma once
 
+#include <atomic>
+#include <mutex>
+
 /**
  * @brief Windows/POSIX互換性ヘッダー
  * 
@@ -66,24 +69,54 @@
 namespace wiplib::utils {
 
 /**
+ * @brief グローバルWinsock初期化管理
+ */
+class WinsockInitializer {
+private:
+    static std::atomic<bool> initialized_;
+    static std::mutex mutex_;
+    
+public:
+    static bool ensure_initialized() {
+#ifdef _WIN32
+        if (initialized_.load()) return true;
+        
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (initialized_.load()) return true;
+        
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
+            initialized_.store(true);
+            return true;
+        }
+        return false;
+#else
+        return true;
+#endif
+    }
+    
+    static void cleanup() {
+#ifdef _WIN32
+        if (initialized_.load()) {
+            WSACleanup();
+            initialized_.store(false);
+        }
+#endif
+    }
+};
+
+/**
  * @brief プラットフォーム固有の初期化
  */
 inline bool initialize_platform() {
-#ifdef _WIN32
-    WSADATA wsaData;
-    return WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
-#else
-    return true;  // POSIX では何もしない
-#endif
+    return WinsockInitializer::ensure_initialized();
 }
 
 /**
  * @brief プラットフォーム固有のクリーンアップ
  */
 inline void cleanup_platform() {
-#ifdef _WIN32
-    WSACleanup();
-#endif
+    WinsockInitializer::cleanup();
 }
 
 /**

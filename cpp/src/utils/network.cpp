@@ -75,7 +75,7 @@ bool is_private_ipv4_address(const std::string&) { return false; }
 bool is_loopback_ipv4_address(const std::string& ip) { return ip.rfind("127.", 0) == 0; }
 std::string calculate_network_address(const std::string&, const std::string&) { return ""; }
 std::string calculate_broadcast_address(const std::string&, const std::string&) { return ""; }
-std::string cidr_to_netmask(int cidr) { uint32_t mask = cidr==0?0:~((1u << (32-cidr)) - 1); struct in_addr a{ htonl(mask) }; char buf[INET_ADDRSTRLEN]; inet_ntop(AF_INET, &a, buf, sizeof(buf)); return buf; }
+std::string cidr_to_netmask(int cidr) { uint32_t mask = cidr==0?0:~((1u << (32-cidr)) - 1); struct in_addr a{}; a.s_addr = htonl(mask); char buf[INET_ADDRSTRLEN]; inet_ntop(AF_INET, &a, buf, sizeof(buf)); return buf; }
 int netmask_to_cidr(const std::string& netmask) { struct in_addr a{}; inet_pton(AF_INET, netmask.c_str(), &a); uint32_t m = ntohl(a.s_addr); return platform_popcount(m); }
 std::string normalize_mac_address(const std::string& mac) { return mac; }
 bool is_valid_port(uint16_t port) { return port>0; }

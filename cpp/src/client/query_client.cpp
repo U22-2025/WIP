@@ -4,6 +4,7 @@
 #include "wiplib/utils/auth.hpp"
 #include "wiplib/packet/extended_field.hpp"
 #include "wiplib/utils/dotenv.hpp"
+#include "wiplib/utils/platform_compat.hpp"
 #include <variant>
 #include <chrono>
 #include <random>
@@ -96,26 +97,32 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   auto enc = encode_packet(p);
   if (!enc) return enc.error();
 
-#if defined(_WIN32)
-  WSADATA wsaData; if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return make_error_code(WipErrc::io_error);
-#endif
+  if (!wiplib::utils::initialize_platform()) {
+    return make_error_code(WipErrc::io_error);
+  }
   int sock = -1;
 #if defined(_WIN32)
   sock = static_cast<int>(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
-  if (sock == INVALID_SOCKET) { WSACleanup(); return make_error_code(WipErrc::io_error); }
+  if (sock == INVALID_SOCKET) { return make_error_code(WipErrc::io_error); }
 #else
   sock = ::socket(AF_INET, SOCK_DGRAM, 0);
   if (sock < 0) return make_error_code(WipErrc::io_error);
 #endif
+
+  // タイムアウト設定（他のクライアントと統一）
+#if defined(_WIN32)
+  DWORD tv = 500; 
+  wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#else
+  struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000; 
+  wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+
   sockaddr_in addr{}; addr.sin_family = AF_INET; addr.sin_port = htons(port_);
   if (::inet_pton(AF_INET, host_.c_str(), &addr.sin_addr) != 1) {
     struct addrinfo hints{}; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM; struct addrinfo* res = nullptr;
     if (getaddrinfo(host_.c_str(), nullptr, &hints, &res) != 0 || !res) {
-#if defined(_WIN32)
-      closesocket(sock); WSACleanup();
-#else
-      close(sock);
-#endif
+      platform_close_socket(sock);
       return make_error_code(WipErrc::io_error);
     }
     auto* a = reinterpret_cast<sockaddr_in*>(res->ai_addr); addr.sin_addr = a->sin_addr; freeaddrinfo(res);
@@ -123,22 +130,14 @@ wiplib::Result<WeatherResult> QueryClient::get_weather_data(std::string_view are
   const auto& payload = enc.value();
   if (::sendto(sock, reinterpret_cast<const char*>(payload.data()), static_cast<int>(payload.size()), 0,
                reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-#if defined(_WIN32)
-    closesocket(sock); WSACleanup();
-#else
-    close(sock);
-#endif
+    platform_close_socket(sock);
     return make_error_code(WipErrc::io_error);
   }
 
   std::uint8_t buf[2048]; sockaddr_in from{}; socklen_t fromlen = sizeof(from);
   int rlen = static_cast<int>(::recvfrom(sock, reinterpret_cast<char*>(buf), sizeof(buf), 0,
                                reinterpret_cast<sockaddr*>(&from), &fromlen));
-#if defined(_WIN32)
-  closesocket(sock); WSACleanup();
-#else
-  close(sock);
-#endif
+  platform_close_socket(sock);
   if (rlen <= 0) return make_error_code(WipErrc::timeout);
 
   auto dec = decode_packet(std::span<const std::uint8_t>(buf, static_cast<size_t>(rlen)));

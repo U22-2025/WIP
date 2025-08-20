@@ -7,6 +7,7 @@
 #include "wiplib/packet/request.hpp"
 #include "wiplib/packet/response.hpp"
 #include "wiplib/utils/dotenv.hpp"
+#include "wiplib/utils/platform_compat.hpp"
 #include <vector>
 #include <string>
 #include <cstdio>
@@ -109,27 +110,32 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
     fprintf(stderr, "\n");
   }
 
-#if defined(_WIN32)
-  WSADATA wsaData; if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return make_error_code(WipErrc::io_error);
-#endif
+  if (!wiplib::utils::initialize_platform()) {
+    return make_error_code(WipErrc::io_error);
+  }
   int sock = -1;
 #if defined(_WIN32)
   sock = static_cast<int>(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
-  if (sock == INVALID_SOCKET) { WSACleanup(); return make_error_code(WipErrc::io_error); }
+  if (sock == INVALID_SOCKET) { return make_error_code(WipErrc::io_error); }
 #else
   sock = ::socket(AF_INET, SOCK_DGRAM, 0);
   if (sock < 0) return make_error_code(WipErrc::io_error);
+#endif
+
+  // タイムアウト設定（他のクライアントと統一）
+#if defined(_WIN32)
+  DWORD tv = 500;
+  wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#else
+  struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000;
+  wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
   sockaddr_in addr{}; addr.sin_family = AF_INET; addr.sin_port = htons(port_);
   if (::inet_pton(AF_INET, host_.c_str(), &addr.sin_addr) != 1) {
     struct addrinfo hints{}; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM; struct addrinfo* res = nullptr;
     if (getaddrinfo(host_.c_str(), nullptr, &hints, &res) != 0 || !res) {
-#if defined(_WIN32)
-      closesocket(sock); WSACleanup();
-#else
-      close(sock);
-#endif
+      platform_close_socket(sock);
       return make_error_code(WipErrc::io_error);
     }
     auto* a = reinterpret_cast<sockaddr_in*>(res->ai_addr); addr.sin_addr = a->sin_addr; freeaddrinfo(res);
@@ -147,19 +153,9 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
 #endif
   }
   if (sret < 0) {
-#if defined(_WIN32)
-    closesocket(sock); WSACleanup();
-#else
-    close(sock);
-#endif
+    platform_close_socket(sock);
     return make_error_code(WipErrc::io_error);
   }
-  // set short timeout and loop up to ~10s
-#if defined(_WIN32)
-  DWORD tv = 500; setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
-#else
-  struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000; setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-#endif
   if (std::getenv("WIPLIB_DEBUG_LOG")) {
     fprintf(stderr, "[wiplib] LOC waiting for CoordinateResponse up to 10s...\n");
   }
@@ -215,22 +211,14 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
             }
             if (!recv_hash.empty()) {
               if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
-#if defined(_WIN32)
-                closesocket(sock); WSACleanup();
-#else
-                close(sock);
-#endif
+                platform_close_socket(sock);
                 return make_error_code(WipErrc::invalid_packet);
               }
             }
             }
           }
         }
-#if defined(_WIN32)
-        closesocket(sock); WSACleanup();
-#else
-        close(sock);
-#endif
+        platform_close_socket(sock);
         char out[16]; std::snprintf(out, sizeof(out), "%06u", rp.header.area_code);
         return std::string(out);
       }
@@ -241,11 +229,7 @@ wiplib::Result<std::string> LocationClient::get_area_code_simple(double latitude
       break;
     }
   }
-#if defined(_WIN32)
-  closesocket(sock); WSACleanup();
-#else
-  close(sock);
-#endif
+  platform_close_socket(sock);
   return make_error_code(WipErrc::timeout);
 }
 

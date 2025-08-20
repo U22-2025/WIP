@@ -5,6 +5,7 @@
 #include "wiplib/client/query_client.hpp"
 #include "wiplib/client/auth_config.hpp"
 #include "wiplib/utils/dotenv.hpp"
+#include "wiplib/utils/platform_compat.hpp"
 #include <chrono>
 #include <cstring>
 #include <random>
@@ -167,9 +168,9 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
     fprintf(stderr, "\n");
   }
 
-#if defined(_WIN32)
-  WSADATA wsaData; if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return make_error_code(WipErrc::io_error);
-#endif
+  if (!wiplib::utils::initialize_platform()) {
+    return make_error_code(WipErrc::io_error);
+  }
   int sock = -1;
 #if defined(_WIN32)
   sock = static_cast<int>(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
@@ -180,20 +181,18 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
 #endif
   // 短い受信タイムアウト（500ms）でループし、全体で最大10秒待機
 #if defined(_WIN32)
-  DWORD tv = 500; setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+  DWORD tv = 500; 
+  wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #else
-  struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000; setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000; 
+  wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
   sockaddr_in addr{}; addr.sin_family = AF_INET; addr.sin_port = htons(port);
   if (::inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
     struct addrinfo hints{}; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM; struct addrinfo* res = nullptr;
     if (getaddrinfo(host.c_str(), nullptr, &hints, &res) != 0 || res == nullptr) {
-#if defined(_WIN32)
-      closesocket(sock); WSACleanup();
-#else
-      ::close(sock);
-#endif
+      platform_close_socket(sock);
       return make_error_code(WipErrc::io_error);
     }
     auto* a = reinterpret_cast<sockaddr_in*>(res->ai_addr); addr.sin_addr = a->sin_addr; freeaddrinfo(res);
@@ -211,11 +210,7 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
 #endif
   }
   if (sret < 0) {
-#if defined(_WIN32)
-    closesocket(sock); WSACleanup();
-#else
-    ::close(sock);
-#endif
+    platform_close_socket(sock);
     return make_error_code(WipErrc::io_error);
   }
 
@@ -257,11 +252,7 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
         uint16_t pid = static_cast<uint16_t>(get_bits_le(4, 12));
         if (pid == req.header.packet_id) {
           auto dec = decode_packet(std::span<const std::uint8_t>(buf, static_cast<size_t>(rlen)));
-#if defined(_WIN32)
-          closesocket(sock); WSACleanup();
-#else
-          ::close(sock);
-#endif
+          platform_close_socket(sock);
           return dec;
         }
       }
@@ -274,11 +265,7 @@ Result<Packet> WipClient::roundtrip_udp(const std::string& host, uint16_t port, 
       break;
     }
   }
-#if defined(_WIN32)
-  closesocket(sock); WSACleanup();
-#else
-  ::close(sock);
-#endif
+  platform_close_socket(sock);
   return make_error_code(WipErrc::timeout);
 }
 

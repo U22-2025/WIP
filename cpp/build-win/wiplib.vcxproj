@@ -312,6 +312,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\utils\encoding.cpp" />
     <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\utils\env.cpp" />
     <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\utils\network.cpp" />
+    <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\utils\platform_compat.cpp" />
     <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\packet\debug\debug_logger.cpp" />
   </ItemGroup>
   <ItemGroup />

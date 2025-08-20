@@ -955,6 +955,30 @@ src/utils/network.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/network.cpp.s
 .PHONY : src/utils/network.cpp.s
 
+src/utils/platform_compat.o: src/utils/platform_compat.cpp.o
+.PHONY : src/utils/platform_compat.o
+
+# target to build an object file
+src/utils/platform_compat.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/platform_compat.cpp.o
+.PHONY : src/utils/platform_compat.cpp.o
+
+src/utils/platform_compat.i: src/utils/platform_compat.cpp.i
+.PHONY : src/utils/platform_compat.i
+
+# target to preprocess a source file
+src/utils/platform_compat.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/platform_compat.cpp.i
+.PHONY : src/utils/platform_compat.cpp.i
+
+src/utils/platform_compat.s: src/utils/platform_compat.cpp.s
+.PHONY : src/utils/platform_compat.s
+
+# target to generate assembly for a file
+src/utils/platform_compat.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/wiplib.dir/build.make CMakeFiles/wiplib.dir/src/utils/platform_compat.cpp.s
+.PHONY : src/utils/platform_compat.cpp.s
+
 tools/async_weather_cli.o: tools/async_weather_cli.cpp.o
 .PHONY : tools/async_weather_cli.o
 
@@ -1301,6 +1325,9 @@ help:
 	@echo "... src/utils/network.o"
 	@echo "... src/utils/network.i"
 	@echo "... src/utils/network.s"
+	@echo "... src/utils/platform_compat.o"
+	@echo "... src/utils/platform_compat.i"
+	@echo "... src/utils/platform_compat.s"
 	@echo "... tools/async_weather_cli.o"
 	@echo "... tools/async_weather_cli.i"
 	@echo "... tools/async_weather_cli.s"

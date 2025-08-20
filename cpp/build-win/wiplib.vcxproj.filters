@@ -85,6 +85,9 @@
     <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\utils\network.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\utils\platform_compat.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="C:\Users\pijon\Desktop\WIP\cpp\src\packet\debug\debug_logger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

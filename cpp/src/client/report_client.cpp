@@ -85,17 +85,32 @@ void ReportClient::init_auth_config() {
 }
 
 bool ReportClient::init_socket() {
-    socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_fd_ < 0) {
+    if (!wiplib::utils::initialize_platform()) {
         return false;
     }
     
-    // タイムアウト設定（Python版と同様に10秒）
+#if defined(_WIN32)
+    socket_fd_ = static_cast<int>(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+    if (socket_fd_ == INVALID_SOCKET) {
+        return false;
+    }
+#else
+    socket_fd_ = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_fd_ < 0) {
+        return false;
+    }
+#endif
+    
+    // タイムアウト設定（他のクライアントと統一）
+#if defined(_WIN32)
+    DWORD timeout = 10000; // 10秒（ミリ秒）
+    if (wiplib::utils::platform_setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+#else
     struct timeval timeout;
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
-    
     if (wiplib::utils::platform_setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+#endif
         platform_close_socket(socket_fd_);
         socket_fd_ = -1;
         return false;
@@ -119,7 +134,7 @@ bool ReportClient::init_socket() {
         hints.ai_socktype = SOCK_DGRAM;
         int rc = getaddrinfo(host_.c_str(), nullptr, &hints, &res);
         if (rc != 0 || !res) {
-            ::close(socket_fd_);
+            platform_close_socket(socket_fd_);
             socket_fd_ = -1;
             return false;
         }
@@ -315,7 +330,7 @@ void ReportClient::clear_data() {
 
 void ReportClient::close() {
     if (socket_fd_ >= 0 && !socket_closed_) {
-        ::close(socket_fd_);
+        platform_close_socket(socket_fd_);
         socket_fd_ = -1;
         socket_closed_ = true;
     }
