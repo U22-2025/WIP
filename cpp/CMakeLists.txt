@@ -36,6 +36,8 @@ set(WIPLIB_SRC
     src/utils/dotenv.cpp
     src/utils/config_loader.cpp
     src/utils/file_cache.cpp
+    src/utils/encoding.cpp
+    src/utils/env.cpp
     src/utils/network.cpp
     src/packet/debug/debug_logger.cpp
     # Temporarily disabled due to build errors

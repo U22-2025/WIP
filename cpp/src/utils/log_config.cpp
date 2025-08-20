@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <filesystem>
 
 namespace wiplib::utils {
 
@@ -39,7 +40,7 @@ void ConsoleLogSink::write(const LogEntry& entry) {
 }
 
 // FileLogSink
-FileLogSink::FileLogSink(const std::string& file_path, size_t max_file_size, size_t max_files)
+FileLogSink::FileLogSink(const std::filesystem::path& file_path, size_t max_file_size, size_t max_files)
     : file_path_(file_path), max_file_size_(max_file_size), max_files_(max_files) {
     file_stream_ = std::make_unique<std::ofstream>(file_path_, std::ios::app);
 }
@@ -69,18 +70,22 @@ void FileLogSink::rotate_file() {
     if (!file_stream_) return;
     file_stream_->close();
     for (size_t i = max_files_; i-- > 1;) {
-        std::string src = get_rotated_file_path(i-1);
-        std::string dst = get_rotated_file_path(i);
-        std::remove(dst.c_str());
-        std::rename(src.c_str(), dst.c_str());
+        auto src = get_rotated_file_path(i - 1);
+        auto dst = get_rotated_file_path(i);
+        std::error_code ec;
+        std::filesystem::remove(dst, ec);
+        std::filesystem::rename(src, dst, ec);
     }
-    std::rename(file_path_.c_str(), get_rotated_file_path(0).c_str());
+    std::filesystem::rename(file_path_, get_rotated_file_path(0));
     file_stream_ = std::make_unique<std::ofstream>(file_path_, std::ios::trunc);
     current_file_size_ = 0;
 }
 
-std::string FileLogSink::get_rotated_file_path(size_t index) const {
-    return file_path_ + "." + std::to_string(index + 1);
+std::filesystem::path FileLogSink::get_rotated_file_path(size_t index) const {
+    std::filesystem::path rotated = file_path_;
+    rotated += ".";
+    rotated += std::to_string(index + 1);
+    return rotated;
 }
 
 // NetworkLogSink (minimal TCP not implemented, just noop)
