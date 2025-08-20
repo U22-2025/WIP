@@ -106,6 +106,77 @@ class LocationClient:
         self.auth_enabled = auth_enabled
         self.auth_passphrase = auth_passphrase
 
+    def _get_response_auth_config(self):
+        """レスポンス認証設定を取得"""
+        return (
+            os.getenv("LOCATION_SERVER_RESPONSE_AUTH_ENABLED", "false").lower() == "true"
+        )
+    
+    def _verify_response_auth(self, response):
+        """
+        レスポンス認証を検証
+        
+        Args:
+            response: LocationResponse オブジェクト
+            
+        Returns:
+            bool: 認証が成功した場合True、失敗またはスキップした場合False
+        """
+        # レスポンス認証が無効な場合は常にTrue
+        if not self._get_response_auth_config():
+            return True
+            
+        # レスポンスのresponse_authフラグをチェック
+        # フラグが0の場合は認証検証をスキップ
+        if not hasattr(response, 'response_auth') or response.response_auth != 1:
+            self.logger.debug("Response authentication skipped - response_auth flag not set")
+            return True
+            
+        # パスフレーズが設定されていない場合は失敗
+        if not self.auth_passphrase:
+            self.logger.warning("Response authentication enabled but passphrase not set")
+            return False
+            
+        # レスポンスパケットのタイムスタンプとパケットIDを使って再計算
+        from WIPCommonPy.utils.auth import WIPAuth
+        
+        try:
+            # レスポンスパケットの認証ハッシュを拡張フィールドから取得
+            if not hasattr(response, "ex_field") or not response.ex_field:
+                self.logger.warning("Response authentication required but no extended field found")
+                return False
+                
+            if not response.ex_field.contains("auth_hash"):
+                self.logger.warning("Response authentication required but no auth_hash found")
+                return False
+                
+            auth_hash_str = response.ex_field.auth_hash
+            if not auth_hash_str:
+                self.logger.warning("Response authentication required but no auth_hash found")
+                return False
+                
+            # hex文字列をバイト列に変換
+            received_hash = bytes.fromhex(auth_hash_str)
+            
+            # レスポンスパケットのタイムスタンプとパケットIDで認証ハッシュを再計算
+            is_valid = WIPAuth.verify_auth_hash(
+                packet_id=response.packet_id,
+                timestamp=response.timestamp,
+                passphrase=self.auth_passphrase,
+                received_hash=received_hash
+            )
+            
+            if not is_valid:
+                self.logger.error("Response authentication verification failed")
+                return False
+                
+            self.logger.debug("Response authentication verification successful")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error during response authentication verification: {e}")
+            return False
+
     def _get_cache_key(self, latitude, longitude):
         """
         座標からキャッシュキーを生成
@@ -201,6 +272,10 @@ class LocationClient:
                 request.enable_auth(self.auth_passphrase)
                 request.set_auth_flags()
 
+            # レスポンス認証フラグの設定
+            if self._get_response_auth_config():
+                request.response_auth = 1
+
             request_time = time.time() - request_start
 
             self.debug_logger.log_request(request, "LOCATION REQUEST")
@@ -220,6 +295,11 @@ class LocationClient:
             parse_time = time.time() - parse_start
 
             self.debug_logger.log_response(response, "LOCATION RESPONSE")
+
+            # レスポンス認証検証
+            if response and not self._verify_response_auth(response):
+                self.logger.error("Response authentication verification failed")
+                return None, 0
 
             # レスポンス検証
             if validate_response and response and not response.is_valid():
@@ -325,6 +405,10 @@ class LocationClient:
                 request.enable_auth(self.auth_passphrase)
                 request.set_auth_flags()
 
+            # レスポンス認証フラグの設定（非同期版）
+            if self._get_response_auth_config():
+                request.response_auth = 1
+
             request_time = time.time() - request_start
 
             self.debug_logger.log_request(request, "LOCATION REQUEST")
@@ -349,6 +433,11 @@ class LocationClient:
             parse_time = time.time() - parse_start
 
             self.debug_logger.log_response(response, "LOCATION RESPONSE")
+
+            # レスポンス認証検証
+            if response and not self._verify_response_auth(response):
+                self.logger.error("Response authentication verification failed")
+                return None, 0
 
             if validate_response and response and not response.is_valid():
                 self.logger.warning("Response validation failed")

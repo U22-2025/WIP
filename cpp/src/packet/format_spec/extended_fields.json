@@ -1,0 +1,71 @@
+{
+  "packet_type": "extended",
+  "description": "Extended field definitions for WIP protocol",
+  "format": {
+    "header_bits": 16,
+    "length_bits": 10,
+    "key_bits": 6
+  },
+  "fields": [
+    {
+      "key": 1,
+      "name": "alert",
+      "type": "string_list",
+      "description": "Weather alert information",
+      "encoding": "utf8"
+    },
+    {
+      "key": 2,
+      "name": "disaster",
+      "type": "string_list", 
+      "description": "Disaster information",
+      "encoding": "utf8"
+    },
+    {
+      "key": 3,
+      "name": "coordinate",
+      "type": "coordinate",
+      "description": "Geographic coordinates",
+      "format": {
+        "latitude_bits": 32,
+        "longitude_bits": 32,
+        "precision": "float32"
+      }
+    },
+    {
+      "key": 4,
+      "name": "source_info",
+      "type": "source",
+      "description": "Data source information",
+      "format": {
+        "source_id_bits": 8,
+        "timestamp_bits": 32,
+        "quality_bits": 8
+      }
+    },
+    {
+      "key": 5,
+      "name": "custom_data",
+      "type": "binary",
+      "description": "Custom binary data"
+    },
+    {
+      "key": 6,
+      "name": "sensor_reading",
+      "type": "float32",
+      "description": "Sensor measurement value"
+    },
+    {
+      "key": 7,
+      "name": "metadata",
+      "type": "json",
+      "description": "JSON metadata",
+      "encoding": "utf8"
+    }
+  ],
+  "validation": {
+    "max_extended_fields": 16,
+    "max_field_length": 1023,
+    "supported_types": ["string_list", "coordinate", "source", "binary", "float32", "json"]
+  }
+}
