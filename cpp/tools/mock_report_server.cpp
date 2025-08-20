@@ -2,10 +2,7 @@
 #include <iomanip>
 #include <vector>
 #include <thread>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "wiplib/utils/platform_compat.hpp"
 #include <cstring>
 
 #include "wiplib/packet/report_packet_compat.hpp"
@@ -66,8 +63,8 @@ public:
         socklen_t client_len = sizeof(client_addr);
         
         while (running_) {
-            ssize_t received = recvfrom(socket_fd_, buffer.data(), buffer.size(), 0,
-                                       reinterpret_cast<struct sockaddr*>(&client_addr), &client_len);
+            ssize_t received = wiplib::utils::platform_recvfrom(socket_fd_, buffer.data(), buffer.size(), 0,
+                                                               reinterpret_cast<struct sockaddr*>(&client_addr), &client_len);
             
             if (received < 0) {
                 if (running_) {
@@ -137,8 +134,8 @@ private:
         }
         
         // Send response
-        ssize_t sent = sendto(socket_fd_, response_data.data(), response_data.size(), 0,
-                             reinterpret_cast<const struct sockaddr*>(&client_addr), sizeof(client_addr));
+        ssize_t sent = wiplib::utils::platform_sendto(socket_fd_, response_data.data(), response_data.size(), 0,
+                                                     reinterpret_cast<const struct sockaddr*>(&client_addr), sizeof(client_addr));
         
         if (sent < 0) {
             std::cerr << "Failed to send response\n";

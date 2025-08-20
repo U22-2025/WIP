@@ -12,6 +12,7 @@
 #include <chrono>
 #include <atomic>
 #include <thread>
+#include <filesystem>
 
 namespace wiplib::utils {
 
@@ -365,14 +366,14 @@ namespace config_utils {
      * @param path パス文字列
      * @return 展開されたパス
      */
-    std::string expand_path(const std::string& path);
+    std::filesystem::path expand_path(const std::filesystem::path& path);
     
     /**
      * @brief 設定ファイルの妥当性をチェック
      * @param file_path ファイルパス
      * @return 妥当な場合true
      */
-    bool validate_config_file(const std::string& file_path);
+    bool validate_config_file(const std::filesystem::path& file_path);
 }
 
 } // namespace wiplib::utils

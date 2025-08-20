@@ -36,7 +36,10 @@ set(WIPLIB_SRC
     src/utils/dotenv.cpp
     src/utils/config_loader.cpp
     src/utils/file_cache.cpp
+    src/utils/encoding.cpp
+    src/utils/env.cpp
     src/utils/network.cpp
+    src/utils/platform_compat.cpp
     src/packet/debug/debug_logger.cpp
     # Temporarily disabled due to build errors
     # src/compatibility/python_errors.cpp
@@ -59,12 +62,45 @@ target_include_directories(wiplib
 find_package(Threads REQUIRED)
 target_link_libraries(wiplib PRIVATE Threads::Threads)
 
+# Optional external libraries
+if(WIN32)
+  # Typical installation paths for prebuilt Windows binaries
+  set(OPENSSL_ROOT_DIR
+      "C:/OpenSSL-Win64"
+      "C:/Program Files/OpenSSL-Win64"
+      CACHE PATH "OpenSSL installation root")
+  set(BOOST_ROOT
+      "C:/local/boost_1_84_0"
+      CACHE PATH "Boost installation root")
+endif()
+
+find_package(OpenSSL QUIET)
+if(OpenSSL_FOUND)
+  target_link_libraries(wiplib PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+else()
+  message(STATUS "OpenSSL not found; continuing without SSL support")
+endif()
+
+find_package(Boost QUIET)
+if(Boost_FOUND)
+  target_link_libraries(wiplib PRIVATE Boost::boost)
+else()
+  message(STATUS "Boost not found; continuing without Boost")
+endif()
+
 # Platform-specific socket libraries
 if(WIN32)
     target_link_libraries(wiplib PRIVATE ws2_32 wsock32)
 endif()
 
 target_compile_definitions(wiplib PRIVATE $<$<CONFIG:Debug>:WIPLIB_DEBUG=1>)
+
+# Windows specific compiler options
+if(MSVC)
+  # Apply UTF-8 to all targets
+  add_compile_options(/utf-8)
+  target_compile_options(wiplib PRIVATE /utf-8)
+endif()
 
 if(WIPLIB_ENABLE_SANITIZERS AND NOT MSVC)
   target_compile_options(wiplib PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
@@ -192,18 +228,18 @@ add_executable(async_weather_cli tools/async_weather_cli.cpp)
 target_link_libraries(async_weather_cli PRIVATE wiplib)
 target_include_directories(async_weather_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Phase 6 development tools
-add_executable(wip_packet_analyzer tools/wip_packet_analyzer.cpp)
-target_link_libraries(wip_packet_analyzer PRIVATE wiplib)
-target_include_directories(wip_packet_analyzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Phase 6 development tools (temporarily disabled due to compatibility dependencies)
+# add_executable(wip_packet_analyzer tools/wip_packet_analyzer.cpp)
+# target_link_libraries(wip_packet_analyzer PRIVATE wiplib)
+# target_include_directories(wip_packet_analyzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(wip_config_validator tools/wip_config_validator.cpp)
-target_link_libraries(wip_config_validator PRIVATE wiplib)
-target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# add_executable(wip_config_validator tools/wip_config_validator.cpp)
+# target_link_libraries(wip_config_validator PRIVATE wiplib)
+# target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(wip_performance_test tools/wip_performance_test.cpp)
-target_link_libraries(wip_performance_test PRIVATE wiplib)
-target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# add_executable(wip_performance_test tools/wip_performance_test.cpp)
+# target_link_libraries(wip_performance_test PRIVATE wiplib)
+# target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(packet_encoding_debug tools/packet_encoding_debug.cpp)
 target_link_libraries(packet_encoding_debug PRIVATE wiplib)

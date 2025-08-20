@@ -144,6 +144,9 @@ struct PyReportResponse {
     // レスポンス固有データ
     std::optional<std::tuple<std::string, int>> source_info{}; // (ip, port)
     
+    // 拡張フィールド（Python版互換）
+    std::optional<proto::ExtendedField> ex_field{};
+    
     /**
      * @brief ACKレスポンスを作成（Python版create_ack_response()互換）
      * @param request 元のリクエスト

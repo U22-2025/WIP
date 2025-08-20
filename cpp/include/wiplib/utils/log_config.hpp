@@ -11,6 +11,7 @@
 #include <functional>
 #include <queue>
 #include <thread>
+#include <filesystem>
 // Optional: async logging. Define WIPLIB_NO_ASYNC_LOG to disable.
 #ifndef WIPLIB_NO_ASYNC_LOG
 # include <condition_variable>
@@ -110,7 +111,7 @@ public:
      * @param max_file_size 最大ファイルサイズ（0で無制限）
      * @param max_files 最大ファイル数（ローテーション用）
      */
-    explicit FileLogSink(const std::string& file_path, 
+    explicit FileLogSink(const std::filesystem::path& file_path,
                         size_t max_file_size = 10 * 1024 * 1024,  // 10MB
                         size_t max_files = 5);
     
@@ -121,7 +122,7 @@ public:
     void close() override;
 
 private:
-    std::string file_path_;
+    std::filesystem::path file_path_;
     size_t max_file_size_;
     size_t max_files_;
     std::unique_ptr<std::ofstream> file_stream_;
@@ -129,7 +130,7 @@ private:
     size_t current_file_size_{0};
     
     void rotate_file();
-    std::string get_rotated_file_path(size_t index) const;
+    std::filesystem::path get_rotated_file_path(size_t index) const;
 };
 
 /**
@@ -481,7 +482,7 @@ namespace log_utils {
      * @return ファイルシンク
      */
     std::shared_ptr<FileLogSink> create_rotating_file_sink(
-        const std::string& base_path,
+        const std::filesystem::path& base_path,
         size_t max_size = 10 * 1024 * 1024,
         size_t max_files = 5
     );
@@ -492,9 +493,9 @@ namespace log_utils {
      * @param log_to_console コンソール出力有効
      * @param log_file ログファイルパス（空文字で無効）
      */
-    void setup_basic_logging(LogLevel level = LogLevel::Info, 
+    void setup_basic_logging(LogLevel level = LogLevel::Info,
                             bool log_to_console = true,
-                            const std::string& log_file = "");
+                            const std::filesystem::path& log_file = {});
 }
 
 } // namespace wiplib::utils

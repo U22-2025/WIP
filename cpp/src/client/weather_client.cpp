@@ -4,6 +4,7 @@
 #include "wiplib/utils/auth.hpp"
 #include "wiplib/packet/extended_field.hpp"
 #include "wiplib/utils/dotenv.hpp"
+#include "wiplib/utils/platform_compat.hpp"
 #include <variant>
 #include <chrono>
 #include <random>
@@ -143,12 +144,9 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
     }
   }
 
-#if defined(_WIN32)
-  WSADATA wsaData;
-  if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+  if (!wiplib::utils::initialize_platform()) {
     return make_error_code(WipErrc::io_error);
   }
-#endif
 
   WeatherResult result{};
   int sock = -1;
@@ -164,10 +162,10 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
     // 短い受信タイムアウトを設定（500ms）し、全体で最大10秒待つ
 #if defined(_WIN32)
     DWORD tv = 500;
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+    wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #else
     struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000;
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
     sockaddr_in addr{}; addr.sin_family = AF_INET; addr.sin_port = htons(port_);
@@ -178,7 +176,6 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
       if (getaddrinfo(host_.c_str(), nullptr, &hints, &res) != 0 || res == nullptr) {
 #if defined(_WIN32)
         closesocket(sock);
-        WSACleanup();
 #else
         close(sock);
 #endif
@@ -202,7 +199,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
     }
     if (sret < 0) {
 #if defined(_WIN32)
-      closesocket(sock); WSACleanup();
+      closesocket(sock);
 #else
       close(sock);
 #endif
@@ -290,7 +287,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                     if (!recv_hash.empty()) {
                       if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
 #if defined(_WIN32)
-                        closesocket(sock); WSACleanup();
+                        closesocket(sock);
 #else
                         close(sock);
 #endif
@@ -403,7 +400,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                     if (!recv_hash.empty()) {
                       if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
 #if defined(_WIN32)
-                        closesocket(sock); WSACleanup();
+                        closesocket(sock);
 #else
                         close(sock);
 #endif
@@ -431,7 +428,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                 if (result.area_code == 0) result.area_code = rp.header.area_code;
                 // クローズして返す
 #if defined(_WIN32)
-                closesocket(sock); WSACleanup();
+                closesocket(sock);
 #else
                 close(sock);
 #endif
@@ -461,7 +458,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                     if (!recv_hash.empty()) {
                       if (!wiplib::utils::WIPAuth::verify_auth_hash(rp.header.packet_id, rp.header.timestamp, *pass, recv_hash)) {
 #if defined(_WIN32)
-                        closesocket(sock); WSACleanup();
+                        closesocket(sock);
 #else
                         close(sock);
 #endif
@@ -487,7 +484,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
                   }
                 }
 #if defined(_WIN32)
-                closesocket(sock); WSACleanup();
+                closesocket(sock);
 #else
                 close(sock);
 #endif
@@ -508,7 +505,7 @@ wiplib::Result<WeatherResult> WeatherClient::request_and_parse(const wiplib::pro
     }
 
 #if defined(_WIN32)
-    closesocket(sock); WSACleanup();
+    closesocket(sock);
 #else
     close(sock);
 #endif

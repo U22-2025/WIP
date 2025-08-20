@@ -11,10 +11,9 @@
 #include <thread>
 #include <condition_variable>
 #include <functional>
-
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <optional>
+
+#include "wiplib/utils/platform_compat.hpp"
 
 namespace wiplib::client::utils {
 

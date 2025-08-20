@@ -1,11 +1,9 @@
 #include <iostream>
 #include <iomanip>
 #include <cstring>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include "wiplib/utils/platform_compat.hpp"
 
-#include "wiplib/client/simple_report_client.hpp"
+#include "wiplib/client/report_client.hpp"
 
 void dump_packet_hex(const std::vector<uint8_t>& data) {
     std::cout << "Packet dump (" << data.size() << " bytes):\n";
@@ -79,7 +77,7 @@ int test_packet_generation() {
     
     try {
         // SimpleReportClientを作成（実際の送信は行わない）
-        wiplib::client::SimpleReportClient client("127.0.0.1", 4112, true);
+        wiplib::client::ReportClient client("127.0.0.1", 4112, true);
         
         // データ設定
         client.set_sensor_data(
@@ -152,9 +150,9 @@ int test_socket_creation() {
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
     
-    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+    if (wiplib::utils::platform_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         std::cout << "ERROR: Failed to set socket timeout: " << strerror(errno) << "\n";
-        close(sock);
+        platform_close_socket(sock);
         return 1;
     }
     
@@ -168,7 +166,7 @@ int test_socket_creation() {
     
     if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) != 1) {
         std::cout << "ERROR: Failed to parse IP address\n";
-        close(sock);
+        platform_close_socket(sock);
         return 1;
     }
     
@@ -181,13 +179,13 @@ int test_socket_creation() {
     
     if (sent_bytes < 0) {
         std::cout << "ERROR: Failed to send test data: " << strerror(errno) << "\n";
-        close(sock);
+        platform_close_socket(sock);
         return 1;
     }
     
     std::cout << "Test data sent successfully (" << sent_bytes << " bytes)\n";
     
-    close(sock);
+    platform_close_socket(sock);
     return 0;
 }
 
