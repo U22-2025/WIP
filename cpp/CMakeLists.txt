@@ -96,6 +96,8 @@ target_compile_definitions(wiplib PRIVATE $<$<CONFIG:Debug>:WIPLIB_DEBUG=1>)
 
 # Windows specific compiler options
 if(MSVC)
+  # Apply UTF-8 to all targets
+  add_compile_options(/utf-8)
   target_compile_options(wiplib PRIVATE /utf-8)
 endif()
 

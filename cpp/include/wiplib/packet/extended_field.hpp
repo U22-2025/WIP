@@ -86,8 +86,14 @@ struct ExtendedFieldHeader {
     unsigned length : 10;  // データ長（0-1023）
     unsigned key    : 6;   // キー（0-63）
     
-    ExtendedFieldHeader() : length(0u), key(0u) {}
-    ExtendedFieldHeader(unsigned len, unsigned k) : length(len), key(k) {}
+    ExtendedFieldHeader() { 
+        length = 0u; 
+        key = 0u; 
+    }
+    ExtendedFieldHeader(unsigned len, unsigned k) { 
+        length = len; 
+        key = k; 
+    }
     
     /**
      * @brief ヘッダーをバイト配列にパック（little-endian）
