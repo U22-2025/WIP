@@ -23,6 +23,40 @@ pub struct ErrorResponse {
 }
 
 impl ErrorResponse {
+    /// バイト列から ErrorResponse を作成（Optional を返すバージョン）
+    pub fn parse_bytes(data: &[u8]) -> Option<Self> {
+        if data.len() < 16 {
+            eprintln!("ErrorResponse: insufficient length {}", data.len());
+            return None;
+        }
+        
+        use bitvec::prelude::*;
+        let bits = BitSlice::<u8, Lsb0>::from_slice(data);
+        
+        let packet_type: u8 = bits[16..19].load();
+        if packet_type != 7 {
+            eprintln!("ErrorResponse: wrong type, expected 7 got {}", packet_type);
+            return None;
+        }
+        
+        let version: u8 = bits[0..4].load();
+        let packet_id: u16 = bits[4..16].load();
+        let ex_flag: bool = bits[25..26].load::<u8>() != 0;
+        let timestamp: u64 = bits[32..96].load();
+        let error_code: u16 = bits[128..144].load(); // weather_code field position
+        let checksum: u16 = bits[116..128].load();
+        
+        Some(Self {
+            version,
+            packet_id,
+            ex_flag,
+            timestamp,
+            error_code,
+            checksum,
+            extended_fields: None,
+        })
+    }
+    
     /// 新しいErrorResponseを作成
     pub fn new(
         packet_id: u16,
@@ -160,49 +194,8 @@ impl PacketFormat for ErrorResponse {
     }
     
     fn from_bytes(data: &[u8]) -> WipResult<Self> {
-        if data.len() < 16 {
-            return Err(WipPacketError::Parse(PacketParseError::insufficient_data(16, data.len())));
-        }
-        
-        let bits_data = bytes_to_u128_le(data);
-        let fields = Self::get_field_definitions();
-        
-        // パケット型チェック
-        let packet_type = fields.get_field("type")
-            .map(|f| f.extract(bits_data) as u8)
-            .unwrap_or(255);
-        if packet_type != 7 {
-            return Err(WipPacketError::Parse(PacketParseError::invalid_packet_type(packet_type)));
-        }
-        
-        let version = fields.get_field("version")
-            .map(|f| f.extract(bits_data) as u8)
-            .unwrap_or(1);
-        let packet_id = fields.get_field("packet_id")
-            .map(|f| f.extract(bits_data) as u16)
-            .unwrap_or(0);
-        let ex_flag = fields.get_field("ex_flag")
-            .map(|f| f.extract(bits_data) != 0)
-            .unwrap_or(false);
-        let timestamp = fields.get_field("timestamp")
-            .map(|f| f.extract(bits_data) as u64)
-            .unwrap_or(0);
-        let error_code = fields.get_field("weather_code") // weather_code フィールドを error_code として使用
-            .map(|f| f.extract(bits_data) as u16)
-            .unwrap_or(0);
-        let checksum = fields.get_field("checksum")
-            .map(|f| f.extract(bits_data) as u16)
-            .unwrap_or(0);
-        
-        Ok(Self {
-            version,
-            packet_id,
-            ex_flag,
-            timestamp,
-            error_code,
-            checksum,
-            extended_fields: None, // 拡張フィールドは別途解析が必要
-        })
+        Self::parse_bytes(data)
+            .ok_or_else(|| WipPacketError::Parse(PacketParseError::UnexpectedFormat("Failed to parse ErrorResponse".to_string())))
     }
     
     fn packet_size() -> usize {

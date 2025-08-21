@@ -379,6 +379,17 @@ fn encode_value(key: &str, v: &FieldValue) -> (Vec<u8>, String) {
                 }
             }
         }
+        // auth_hash は16進文字列をバイト列に変換して送信（長さプレフィックスなし）
+        "auth_hash" => {
+            if let FieldValue::String(s) = v {
+                if let Ok(bytes) = hex::decode(s) {
+                    return (bytes, "auth_hash".into());
+                } else {
+                    // hex decodeに失敗した場合は文字列として送信
+                    return (s.as_bytes().to_vec(), "auth_hash".into());
+                }
+            }
+        }
         _ => {}
     }
     // fallback: serialize as bytes if possible
@@ -472,6 +483,10 @@ fn decode_value(name: &str, payload: &[u8]) -> FieldValue {
                 let n = u64::from_le_bytes(arr);
                 FieldValue::String(decode_source_from_int(n))
             } else { FieldValue::Bytes(payload.to_vec()) }
+        }
+        "auth_hash" => {
+            // auth_hashは生のバイト列として受信し、16進文字列に変換
+            FieldValue::String(hex::encode(payload))
         }
         _ => {
             // default to string (utf-8) if possible

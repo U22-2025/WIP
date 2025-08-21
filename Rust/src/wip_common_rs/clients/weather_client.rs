@@ -4,6 +4,7 @@ use std::io;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::time::Duration;
 
+#[derive(Debug)]
 pub struct WeatherClient {
     pub host: String,
     pub port: u16,

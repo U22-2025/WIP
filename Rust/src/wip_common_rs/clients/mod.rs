@@ -5,6 +5,7 @@ pub mod async_weather_client;
 pub mod location_client;
 pub mod query_client;
 pub mod report_client;
+pub mod python_compatible_client;
 pub mod utils;
 
 // 便利な再エクスポート

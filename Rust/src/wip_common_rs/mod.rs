@@ -4,3 +4,4 @@
 pub mod clients;
 pub mod packet;
 pub mod utils;
+pub mod compatibility;

@@ -1,5 +1,6 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
 use crate::wip_common_rs::packet::types::report_packet::{ReportRequest, ReportResponse};
+use crate::wip_common_rs::packet::types::error_response::ErrorResponse;
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use std::collections::VecDeque;
@@ -132,6 +133,7 @@ pub trait ReportClient {
     async fn get_queue_size(&self) -> usize;
 }
 
+#[derive(Debug)]
 pub struct ReportClientImpl {
     host: String,
     port: u16,
@@ -151,8 +153,19 @@ impl ReportClientImpl {
     }
 
     pub async fn with_config(host: &str, port: u16, config: ReportClientConfig) -> tokio::io::Result<Self> {
-        let addr: SocketAddr = format!("{}:{}", host, port).parse()
-            .map_err(|e| tokio::io::Error::new(tokio::io::ErrorKind::InvalidInput, e))?;
+        // localhostを127.0.0.1に解決
+        let resolved_host = if host == "localhost" {
+            "127.0.0.1"
+        } else {
+            host
+        };
+        
+        let addr_str = format!("{}:{}", resolved_host, port);
+        let addr: SocketAddr = addr_str.parse()
+            .map_err(|e| {
+                tokio::io::Error::new(tokio::io::ErrorKind::InvalidInput, 
+                    format!("Invalid socket address '{}': {}", addr_str, e))
+            })?;
 
         let socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await?);
         let semaphore = Arc::new(Semaphore::new(config.max_concurrent_reports));
@@ -316,8 +329,23 @@ impl ReportClientImpl {
                     let raw = u16::from_le_bytes([response_data[0], response_data[1]]);
                     let response_packet_id = (raw >> 4) & 0x0FFF; // version(4bit) + packet_id(12bit)
                     if response_packet_id == packet_id {
-                        let response = ReportResponse::from_bytes(response_data).ok_or("Failed to parse ReportResponse")?;
-                        return Ok(response);
+                        // まずReportResponseとしてパース試行
+                        if let Some(response) = ReportResponse::from_bytes(response_data) {
+                            return Ok(response);
+                        }
+                        
+                        // ReportResponseパースが失敗した場合、ErrorResponseとして試行
+                        if let Some(error_response) = ErrorResponse::parse_bytes(response_data) {
+                            let error_msg = format!(
+                                "Server returned error: {} (code: {})", 
+                                error_response.get_error_type(), 
+                                error_response.get_error_code()
+                            );
+                            return Err(error_msg.into());
+                        }
+                        
+                        // 両方とも失敗した場合
+                        return Err("Failed to parse server response as ReportResponse or ErrorResponse".into());
                     }
                 }
             }

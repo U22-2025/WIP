@@ -2,7 +2,11 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
+use hmac::{Hmac, Mac};
 use rand::Rng;
+
+// HMAC-SHA256 type alias
+type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthToken {
@@ -21,6 +25,30 @@ pub struct WIPAuth {
 impl WIPAuth {
     pub fn new(passphrase: String) -> Self {
         Self { passphrase, tokens: HashMap::new(), session_timeout: 3600 }
+    }
+    
+    /// Python版と同じ認証ハッシュを計算
+    /// パケットID、タイムスタンプ、パスフレーズからHMAC-SHA256ハッシュを計算
+    pub fn calculate_auth_hash(packet_id: u16, timestamp: u64, passphrase: &str) -> Vec<u8> {
+        // Python版と同じ認証データフォーマット: "{packet_id}:{timestamp}:{passphrase}"
+        let auth_data = format!("{}:{}:{}", packet_id, timestamp, passphrase);
+        
+        // HMAC-SHA256でハッシュを計算（パスフレーズをキーとして使用）
+        let mut mac = HmacSha256::new_from_slice(passphrase.as_bytes())
+            .expect("HMAC can take key of any size");
+        mac.update(auth_data.as_bytes());
+        
+        mac.finalize().into_bytes().to_vec()
+    }
+    
+    /// Python版と同じ認証ハッシュを検証
+    pub fn verify_auth_hash(packet_id: u16, timestamp: u64, passphrase: &str, received_hash: &[u8]) -> bool {
+        // 期待される認証ハッシュを計算
+        let expected_hash = Self::calculate_auth_hash(packet_id, timestamp, passphrase);
+        
+        // 定数時間比較で検証
+        use subtle::ConstantTimeEq;
+        expected_hash.ct_eq(received_hash).into()
     }
     pub fn with_timeout(passphrase: String, timeout_seconds: u64) -> Self {
         Self { passphrase, tokens: HashMap::new(), session_timeout: timeout_seconds }

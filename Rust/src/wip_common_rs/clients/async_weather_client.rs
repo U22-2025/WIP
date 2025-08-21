@@ -143,7 +143,14 @@ impl WeatherClientAsync {
     }
 
     pub async fn with_config(host: &str, port: u16, config: ClientConfig) -> tokio::io::Result<Self> {
-        let addr: SocketAddr = format!("{}:{}", host, port).parse()
+        // localhostを127.0.0.1に解決
+        let resolved_host = if host == "localhost" {
+            "127.0.0.1"
+        } else {
+            host
+        };
+        
+        let addr: SocketAddr = format!("{}:{}", resolved_host, port).parse()
             .map_err(|e| tokio::io::Error::new(tokio::io::ErrorKind::InvalidInput, e))?;
 
         let connection_pool = Arc::new(ConnectionPool::new(5).await?);

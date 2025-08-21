@@ -156,8 +156,8 @@ impl LocationRequest {
 
 impl PacketFormat for LocationRequest {
     fn to_bytes(&self) -> Vec<u8> {
-        // Use the existing implementation
-        self.to_bytes()
+        // Call the LocationRequest specific implementation
+        LocationRequest::to_bytes(self)
     }
     
     fn from_bytes(data: &[u8]) -> WipResult<Self> {
@@ -480,8 +480,14 @@ mod tests {
         );
         let bytes = req.to_bytes();
         assert!(bytes.len() >= 16);
-        // ヘッダチェックサムの検証（116..128, 12bit）
-        assert!(verify_checksum12(&bytes[..16], 116, 12));
+        
+        // デバッグ出力
+        println!("Generated full packet bytes ({} bytes): {:02X?}", bytes.len(), &bytes);
+        
+        // 全パケットでチェックサムの検証（116..128, 12bit）
+        let checksum_valid = verify_checksum12(&bytes, 116, 12);
+        println!("Checksum validation result: {}", checksum_valid);
+        assert!(checksum_valid);
         let head_bits = BitSlice::<u8, Lsb0>::from_slice(&bytes[..16]);
         let ty: u8 = head_bits[16..19].load();
         assert_eq!(ty, 0u8); // Type=0

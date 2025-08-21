@@ -27,17 +27,36 @@ pub trait PacketFormat: Sized {
     /// パケットIDを取得
     fn packet_id(&self) -> u16;
     
-    /// チェックサムを計算
+    /// チェックサムを計算（Python版互換）
     fn calculate_checksum(&self) -> u16 {
-        let mut bytes = self.to_bytes();
-        // チェックサム部分を0に設定してから計算
+        let bytes = self.to_bytes();
         if let Some(checksum_field) = Self::get_checksum_field() {
-            self.clear_checksum_in_bytes(&mut bytes, &checksum_field);
+            // Python版と同じ処理：リトルエンディアンでビット列に変換してからチェックサム部分を0にして計算
+            let mut bitstr = 0u128;
+            for (i, &byte) in bytes.iter().enumerate() {
+                bitstr |= (byte as u128) << (i * 8);
+            }
+            
+            let checksum_mask = ((1u128 << checksum_field.length) - 1) << checksum_field.start;
+            let bitstr_without_checksum = bitstr & !checksum_mask;
+            
+            let mut data_for_checksum = vec![0u8; bytes.len()];
+            for i in 0..data_for_checksum.len() {
+                data_for_checksum[i] = ((bitstr_without_checksum >> (i * 8)) & 0xFF) as u8;
+            }
+            
+            // 最小パケットサイズまで0パディング
+            if data_for_checksum.len() < 16 {
+                data_for_checksum.resize(16, 0);
+            }
+            
+            calc_checksum12(&data_for_checksum)
+        } else {
+            calc_checksum12(&bytes)
         }
-        calc_checksum12(&bytes)
     }
     
-    /// チェックサムを検証
+    /// チェックサムを検証（Python版互換）
     fn verify_checksum(&self) -> bool {
         let bytes = self.to_bytes();
         if let Some(checksum_field) = Self::get_checksum_field() {
@@ -254,21 +273,13 @@ impl PacketValidator {
 
 /// 自動チェックサム機能付きパケット
 pub trait AutoChecksumPacket: PacketFormat {
-    /// チェックサムを自動設定してバイト列に変換
+    /// チェックサムを自動設定してバイト列に変換（Python版互換）
     fn to_bytes_with_checksum(&self) -> Vec<u8> {
         let mut bytes = self.to_bytes();
         
         if let Some(checksum_field) = Self::get_checksum_field() {
-            // チェックサム部分を0にクリア
-            self.clear_checksum_in_bytes(&mut bytes, checksum_field);
-            
-            // チェックサムを計算
-            let checksum = calc_checksum12(&bytes);
-            
-            // チェックサムを設定
-            let mut data = bytes_to_u128_le(&bytes);
-            checksum_field.set(&mut data, checksum as u128);
-            u128_to_bytes_le(data, &mut bytes);
+            // Python版と同じ処理でチェックサムを埋め込み
+            super::checksum::embed_checksum12_at(&mut bytes, checksum_field.start, checksum_field.length);
         }
         
         bytes

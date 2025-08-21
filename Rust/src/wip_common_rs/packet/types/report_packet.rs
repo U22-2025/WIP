@@ -23,6 +23,8 @@ pub struct ReportRequest {
     pub alert_flag: bool,
     pub disaster_flag: bool,
     pub ex_flag: bool,
+    pub request_auth: bool,   // 認証フラグ
+    pub response_auth: bool,  // レスポンス認証フラグ
     pub day: u8,
     pub timestamp: u64,
     pub area_code: u32, // 内部20bit
@@ -30,6 +32,9 @@ pub struct ReportRequest {
     pub temperature: u8, // +100 オフセット済み
     pub pop: u8,
     pub ext: Option<ExtendedFieldManager>,
+    // 認証関連（内部状態）
+    _auth_enabled: bool,
+    _auth_passphrase: Option<String>,
 }
 
 impl ReportRequest {
@@ -85,6 +90,8 @@ impl ReportRequest {
             alert_flag,
             disaster_flag,
             ex_flag: has_ext,
+            request_auth: false,   // デフォルトは無効
+            response_auth: false,  // デフォルトは無効
             day: 0,
             timestamp,
             area_code: area_num,
@@ -92,16 +99,67 @@ impl ReportRequest {
             temperature: temp_val,
             pop: pop_val,
             ext: if has_ext { Some(ext) } else { None },
+            _auth_enabled: false,
+            _auth_passphrase: None,
+        }
+    }
+
+    /// Python版と同じ認証機能を有効にする
+    pub fn enable_auth(&mut self, passphrase: &str) {
+        self._auth_enabled = true;
+        self._auth_passphrase = Some(passphrase.to_string());
+    }
+    
+    /// Python版と同じ認証フラグを設定し、拡張フィールドに認証ハッシュを追加
+    pub fn set_auth_flags(&mut self) {
+        // 認証が有効でない場合は何もしない
+        if !self._auth_enabled {
+            return;
+        }
+        
+        // パスフレーズが設定されていない場合は何もしない
+        let passphrase = match &self._auth_passphrase {
+            Some(p) => p,
+            None => return,
+        };
+        
+        // 拡張フィールドが存在しない場合は作成
+        if self.ext.is_none() {
+            self.ext = Some(ExtendedFieldManager::new());
+        }
+        
+        if let Some(ref mut ext) = self.ext {
+            // 認証ハッシュを計算
+            use crate::wip_common_rs::utils::auth::WIPAuth;
+            let auth_hash_bytes = WIPAuth::calculate_auth_hash(
+                self.packet_id,
+                self.timestamp,
+                passphrase,
+            );
+            
+            // バイト列をhex文字列として保存
+            let auth_hash_str = hex::encode(auth_hash_bytes);
+            
+            // auth_hashフィールドを追加
+            let field_def = FieldDefinition::new("auth_hash".to_string(), FieldType::String);
+            ext.add_definition(field_def);
+            let _ = ext.set_value("auth_hash".to_string(), FieldValue::String(auth_hash_str));
+            
+            // 拡張フィールドフラグを有効に設定
+            self.ex_flag = true;
+            
+            // 認証フラグを設定
+            self.request_auth = true;
         }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
         // 20バイト固定部（response仕様）
         let mut fixed = [0u8; 20];
-        // 固定レイアウトでヘッダを構築
-        let mut head = [0u8; 16];
+        
+        // 全フィールドを先に設定（チェックサム以外）
         {
-            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut head);
+            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut fixed);
             bits[0..4].store(self.version);
             bits[4..16].store(self.packet_id);
             bits[16..19].store(4u8); // type=4
@@ -111,29 +169,34 @@ impl ReportRequest {
             bits[22..23].store(self.alert_flag as u8);
             bits[23..24].store(self.disaster_flag as u8);
             bits[24..25].store(self.ex_flag as u8);
-            bits[25..26].store(0u8);
-            bits[26..27].store(0u8);
+            bits[25..26].store(self.request_auth as u8);
+            bits[26..27].store(self.response_auth as u8);
             bits[27..30].store(self.day);
             bits[30..32].store(0u8);
             bits[32..96].store(self.timestamp);
             bits[96..116].store(self.area_code);
-            bits[116..128].store(0u16);
+            bits[116..128].store(0u16); // チェックサムは後で設定
+            // 固定部の後半（weather_code, temperature, pop）
+            bits[128..144].store(self.weather_code);
+            bits[144..152].store(self.temperature);
+            bits[152..160].store(self.pop);
         }
 
-        embed_checksum12_le(&mut head);
-
-        // 固定部の後半（weather_code, temperature, pop）
-        fixed[..16].copy_from_slice(&head);
-        let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut fixed);
-        bits[128..144].store(self.weather_code);
-        bits[144..152].store(self.temperature);
-        bits[152..160].store(self.pop);
-
-        // 追加の拡張フィールドがある場合はPython準拠でpackして連結
-        if let Some(ext) = &self.ext {
+        // まず拡張フィールドを結合してから、全体のチェックサムを計算する
+        let mut final_packet = if let Some(ext) = &self.ext {
             let mut map = HashMap::new();
-            if let Some(FieldValue::String(s)) = ext.get_value("alert") { map.insert("alert".to_string(), FieldValue::String(s.clone())); }
-            if let Some(FieldValue::String(s)) = ext.get_value("disaster") { map.insert("disaster".to_string(), FieldValue::String(s.clone())); }
+            
+            if let Some(FieldValue::String(s)) = ext.get_value("alert") { 
+                map.insert("alert".to_string(), FieldValue::String(s.clone())); 
+            }
+            if let Some(FieldValue::String(s)) = ext.get_value("disaster") { 
+                map.insert("disaster".to_string(), FieldValue::String(s.clone())); 
+            }
+            // 認証ハッシュフィールドも追加
+            if let Some(FieldValue::String(s)) = ext.get_value("auth_hash") { 
+                map.insert("auth_hash".to_string(), FieldValue::String(s.clone())); 
+            }
+            
             let ext_bytes = pack_ext_fields(&map);
             let mut out = Vec::with_capacity(20 + ext_bytes.len());
             out.extend_from_slice(&fixed);
@@ -141,7 +204,15 @@ impl ReportRequest {
             out
         } else {
             fixed.to_vec()
-        }
+        };
+
+        // 全体パケットが完成した後にチェックサムを計算
+        // Python版と同様に、パケット全体でチェックサムを計算
+        // チェックサム位置は116-127ビット（14.5-15.9バイト目）
+        use crate::wip_common_rs::packet::core::checksum::embed_checksum12_at;
+        embed_checksum12_at(&mut final_packet, 116, 12);
+
+        final_packet
     }
 
     /// パケットIDを取得
@@ -180,9 +251,16 @@ impl ReportResponse {
             eprintln!("ReportResponse: insufficient length {}", data.len());
             return None; 
         }
-        let header = &data[..16];
         // 固定仕様: checksum はヘッダ内の 116..128（12bit）
-        if !verify_checksum12(header, 116, 12) {
+        // 互換性のため、まずヘッダ16Bで検証し、失敗したら20B、最終的に全体でも試す
+        let mut checksum_ok = verify_checksum12(&data[..16], 116, 12);
+        if !checksum_ok && data.len() >= 20 {
+            checksum_ok = verify_checksum12(&data[..20], 116, 12);
+        }
+        if !checksum_ok {
+            checksum_ok = verify_checksum12(data, 116, 12);
+        }
+        if !checksum_ok {
             eprintln!("ReportResponse: checksum failed at bits 116..128");
             return None;
         }

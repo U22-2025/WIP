@@ -207,16 +207,35 @@ async fn handle_report_mode(args: &ClientArgs) -> Result<(), Box<dyn std::error:
     let mut pidg = PacketIDGenerator12Bit::new();
     let packet_id = pidg.next_id();
     
-    let report_request = ReportRequest::create_sensor_data_report(
+    let mut report_request = ReportRequest::create_sensor_data_report(
         &args.area_code.to_string(),
         Some(args.weather_code),
         Some(args.temperature),
         Some(args.pops),
         if args.alerts.is_empty() { None } else { Some(args.alerts.clone()) },
         if args.disasters.is_empty() { None } else { Some(args.disasters.clone()) },
-        4, // version
+        1, // version
         packet_id,
     );
+    
+    // 認証が有効な場合（環境変数またはデフォルトのパスフレーズを使用）
+    if let Ok(passphrase) = std::env::var("WIP_AUTH_PASSPHRASE") {
+        report_request.enable_auth(&passphrase);
+        report_request.set_auth_flags();
+        
+        if args.debug_enabled {
+            println!("Debug: Authentication enabled with passphrase");
+        }
+    } else {
+        // デフォルトのパスフレーズを使用（テスト用）
+        let default_passphrase = "test_passphrase";
+        report_request.enable_auth(default_passphrase);
+        report_request.set_auth_flags();
+        
+        if args.debug_enabled {
+            println!("Debug: Authentication enabled with default passphrase: {}", default_passphrase);
+        }
+    }
     
     match report_client.send_report(report_request).await {
         Ok(result) => {
@@ -247,31 +266,67 @@ async fn handle_normal_mode(args: &ClientArgs) -> Result<(), Box<dyn std::error:
     }
     println!("{}", "=".repeat(60));
     
-    let mut client = WeatherClient::new("127.0.0.1", 4110, args.debug_enabled)
-        .map_err(|e| format!("Failed to create weather client: {}", e))?;
-    
     let start_time = std::time::Instant::now();
     
     let result = if args.use_coordinates {
         println!("\n1. Coordinate-based request using Rust WeatherClient");
         println!("{}", "-".repeat(50));
         
-        // まず座標からエリアコードを取得  
-        let location_client = LocationClientImpl::new("127.0.0.1", 4109).await?;
+        // 座標からエリアコードを取得
+        let (location_host, location_port) = if args.use_proxy {
+            ("127.0.0.1", 4110) // プロキシモード: WeatherServer経由
+        } else {
+            ("127.0.0.1", 4109) // ダイレクトモード: LocationServer直接
+        };
+        
+        let location_client = LocationClientImpl::new(location_host, location_port).await?;
         
         match location_client.resolve_coordinates(args.latitude, args.longitude).await {
             Ok(area_code) => {
                 println!("座標 ({}, {}) がエリアコード {} に解決されました", args.latitude, args.longitude, area_code);
+                
+                // 天気データを取得
+                let (weather_host, weather_port) = if args.use_proxy {
+                    ("127.0.0.1", 4110) // プロキシモード: WeatherServer経由
+                } else {
+                    ("127.0.0.1", 4111) // ダイレクトモード: QueryServer直接
+                };
+                
+                let mut client = WeatherClient::new(weather_host, weather_port, args.debug_enabled)
+                    .map_err(|e| format!("Failed to create weather client: {}", e))?;
+                
                 client.get_weather_simple(area_code, true, true, true, false, false, 0)
             }
             Err(e) => {
                 eprintln!("座標解決エラー: {}. デフォルトエリアコードを使用します", e);
+                
+                // デフォルトエリアコードで天気データを取得
+                let (weather_host, weather_port) = if args.use_proxy {
+                    ("127.0.0.1", 4110) // プロキシモード: WeatherServer経由
+                } else {
+                    ("127.0.0.1", 4111) // ダイレクトモード: QueryServer直接
+                };
+                
+                let mut client = WeatherClient::new(weather_host, weather_port, args.debug_enabled)
+                    .map_err(|e| format!("Failed to create weather client: {}", e))?;
+                
                 client.get_weather_simple(args.area_code, true, true, true, false, false, 0)
             }
         }
     } else {
         println!("\n1. Area code request using Rust WeatherClient");
         println!("{}", "-".repeat(40));
+        
+        // 天気データを取得
+        let (weather_host, weather_port) = if args.use_proxy {
+            ("127.0.0.1", 4110) // プロキシモード: WeatherServer経由
+        } else {
+            ("127.0.0.1", 4111) // ダイレクトモード: QueryServer直接
+        };
+        
+        let mut client = WeatherClient::new(weather_host, weather_port, args.debug_enabled)
+            .map_err(|e| format!("Failed to create weather client: {}", e))?;
+        
         client.get_weather_simple(args.area_code, true, true, true, false, false, 0)
     };
     
