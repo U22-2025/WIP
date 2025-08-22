@@ -15,7 +15,7 @@ impl ServerConfig {
 pub struct ClientState {
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
-    pub area_code: Option<String>,
+    pub area_code: Option<u32>,
 }
 
 pub struct Client {
@@ -42,7 +42,7 @@ impl Client {
         self.state.area_code = None;
     }
 
-    pub fn set_area_code(&mut self, code: String) {
+    pub fn set_area_code(&mut self, code: u32) {
         self.state.area_code = Some(code);
         self.state.latitude = None;
         self.state.longitude = None;
@@ -51,7 +51,7 @@ impl Client {
     pub fn get_weather(&self) -> std::io::Result<Vec<u8>> {
         let mut data = Vec::new();
         if let Some(code) = &self.state.area_code {
-            data.extend_from_slice(code.as_bytes());
+            data.extend_from_slice(&code.to_string().as_bytes());
         }
         self.weather_client.send_raw(&data)
     }
@@ -65,7 +65,7 @@ impl Client {
             map.insert("longitude".to_string(), lon.to_string());
         }
         if let Some(code) = &self.state.area_code {
-            map.insert("area_code".to_string(), code.clone());
+            map.insert("area_code".to_string(), code.to_string());
         }
         map.insert("host".to_string(), self.config.host.clone());
         map.insert("port".to_string(), self.config.port.to_string());

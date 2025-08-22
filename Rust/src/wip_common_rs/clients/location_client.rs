@@ -98,6 +98,15 @@ pub trait LocationClient {
     async fn validate_coordinates(&self, latitude: f64, longitude: f64) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
     fn clear_cache(&self);
     fn get_cache_stats(&self) -> HashMap<String, usize>;
+    
+    // Python版との互換性のためのエイリアス
+    async fn get_location_data(&self, latitude: f64, longitude: f64) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
+        self.resolve_coordinates(latitude, longitude).await
+    }
+    
+    async fn get_area_code_simple(&self, latitude: f64, longitude: f64) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
+        self.resolve_coordinates(latitude, longitude).await
+    }
 }
 
 #[derive(Debug)]

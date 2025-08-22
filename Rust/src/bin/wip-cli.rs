@@ -203,7 +203,7 @@ enum ReportCommands {
     },
     /// センサーデータレポート
     Sensor {
-        #[arg(short, long, default_value = "011000")] area_code: String,
+        #[arg(short, long, default_value = "11000")] area_code: u32,
         #[arg(short, long)] weather_code: Option<u16>,
         #[arg(short, long)] temperature: Option<f64>,
         #[arg(short = 'p', long)] precipitation: Option<u8>,

@@ -61,8 +61,8 @@ enum Commands {
     /// センサーデータレポート
     Sensor {
         /// エリアコード
-        #[arg(short, long, default_value = "011000")]
-        area_code: String,
+        #[arg(short, long, default_value = "11000")]
+        area_code: u32,
 
         /// 天気コード
         #[arg(short, long)]
@@ -202,7 +202,7 @@ async fn send_disaster_report(
 
 async fn send_sensor_report(
     client: &ReportClientImpl,
-    area_code: &str,
+    area_code: u32,
     weather_code: Option<u16>,
     temperature: Option<f64>,
     precipitation: Option<u8>,
@@ -345,7 +345,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             alerts,
             disaster_info,
         } => {
-            send_sensor_report(&client, &area_code, weather_code, temperature, precipitation, &alerts, &disaster_info).await?;
+            send_sensor_report(&client, area_code, weather_code, temperature, precipitation, &alerts, &disaster_info).await?;
         }
 
         Commands::Batch { file, batch_size, interval, retry } => {

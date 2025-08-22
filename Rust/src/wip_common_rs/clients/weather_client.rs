@@ -1,5 +1,7 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
 use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
+use crate::wip_common_rs::utils::auth::WIPAuth;
+use std::env;
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::time::Duration;
@@ -12,6 +14,10 @@ pub struct WeatherClient {
     socket: UdpSocket,
     pub debug: bool,
     pub pidg: PacketIDGenerator12Bit,
+    // 認証設定
+    auth_enabled: bool,
+    auth_passphrase: String,
+    response_auth_enabled: bool,
 }
 
 impl WeatherClient {
@@ -29,6 +35,16 @@ impl WeatherClient {
         let socket = UdpSocket::bind(bind_addr)?;
         socket.set_read_timeout(Some(Duration::from_secs(10)))?;
 
+        // 認証設定を環境変数から読み込み
+        let auth_enabled = env::var("WEATHER_SERVER_REQUEST_AUTH_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .to_lowercase() == "true";
+        let auth_passphrase = env::var("WEATHER_SERVER_PASSPHRASE")
+            .unwrap_or_default();
+        let response_auth_enabled = env::var("WEATHER_SERVER_RESPONSE_AUTH_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .to_lowercase() == "true";
+
         Ok(Self {
             host: host.to_string(),
             port,
@@ -36,6 +52,9 @@ impl WeatherClient {
             socket,
             debug,
             pidg: PacketIDGenerator12Bit::new(),
+            auth_enabled,
+            auth_passphrase,
+            response_auth_enabled,
         })
     }
 
@@ -107,7 +126,7 @@ impl WeatherClient {
         disaster: bool,
         day: u8,
     ) -> io::Result<Option<QueryResponse>> {
-        let req = QueryRequest::new(
+        let mut req = QueryRequest::new(
             area_code,
             self.pidg.next_id(),
             weather,
@@ -117,12 +136,85 @@ impl WeatherClient {
             disaster,
             day,
         );
+        
+        // 認証設定を適用
+        self.apply_auth_to_request(&mut req);
+        
         let bytes = req.to_bytes();
-        
-        
         let resp_bytes = self.send_raw(&bytes)?;
         
+        if let Some(response) = QueryResponse::from_bytes(&resp_bytes) {
+            // レスポンス認証検証
+            if self.verify_response_auth(&response) {
+                Ok(Some(response))
+            } else {
+                if self.debug {
+                    eprintln!("Response authentication verification failed");
+                }
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+    
+    /// Python版と同一のAPIを提供するメイン関数
+    pub fn get_weather_data(
+        &mut self,
+        area_code: u32,
+        weather: Option<bool>,
+        temperature: Option<bool>,
+        precipitation_prob: Option<bool>,
+        alert: Option<bool>,
+        disaster: Option<bool>,
+        day: Option<u8>,
+    ) -> io::Result<Option<QueryResponse>> {
+        self.get_weather_simple(
+            area_code,
+            weather.unwrap_or(true),
+            temperature.unwrap_or(true),
+            precipitation_prob.unwrap_or(true),
+            alert.unwrap_or(false),
+            disaster.unwrap_or(false),
+            day.unwrap_or(0),
+        )
+    }
+    
+    /// リクエストに認証設定を適用
+    fn apply_auth_to_request(&self, _request: &mut QueryRequest) {
+        // TODO: QueryRequestに認証フィールドを追加する実装が必要
+        // 現在のQueryRequest構造体には認証関連フィールドがないため、
+        // まずはプレースホルダーとして実装
+        if self.auth_enabled && !self.auth_passphrase.is_empty() {
+            if self.debug {
+                println!("Auth enabled but QueryRequest auth fields not implemented yet");
+            }
+        }
+    }
+    
+    /// レスポンス認証を検証
+    fn verify_response_auth(&self, _response: &QueryResponse) -> bool {
+        // レスポンス認証が無効な場合は常にtrue
+        if !self.response_auth_enabled {
+            return true;
+        }
         
-        Ok(QueryResponse::from_bytes(&resp_bytes))
+        // パスフレーズが設定されていない場合は失敗
+        if self.auth_passphrase.is_empty() {
+            if self.debug {
+                eprintln!("Response authentication enabled but passphrase not set");
+            }
+            return false;
+        }
+        
+        // TODO: QueryResponseに認証関連フィールドを追加する実装が必要
+        // 現在のQueryResponse構造体には認証関連フィールドがないため、
+        // プレースホルダーとして実装
+        if self.debug {
+            println!("Response auth enabled but QueryResponse auth fields not implemented yet");
+        }
+        
+        // 暫定的にtrueを返す（認証フィールドが実装されるまで）
+        true
     }
 }
