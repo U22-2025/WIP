@@ -235,22 +235,17 @@ impl LocationClientImpl {
                 let (len, _) = self.socket.recv_from(&mut buf).await?;
                 let response_data = &buf[..len];
                 
-                println!("DEBUG: Received {} bytes of response data: {:02X?}", len, &response_data[..len.min(32)]);
                 
                 if response_data.len() >= 2 {
                     let raw = u16::from_le_bytes([response_data[0], response_data[1]]);
                     let response_packet_id = (raw >> 4) & 0x0FFF; // version(4bit) + packet_id(12bit)
-                    println!("DEBUG: Extracted packet ID: {} (expected: {})", response_packet_id, packet_id);
                     if response_packet_id == packet_id {
                         // Try extended response parsing first (more robust for 32-byte responses)
                         if let Some(response_ex) = LocationResponseEx::from_bytes(response_data) {
-                            println!("DEBUG: Parsed with LocationResponseEx: area_code={}", response_ex.area_code);
                             return Ok(response_ex.area_code);
                         } else if let Ok(response) = LocationResponse::from_bytes(response_data) {
-                            println!("DEBUG: Parsed with LocationResponse: area_code={}", response.get_area_code());
                             return Ok(response.get_area_code());
                         } else {
-                            println!("DEBUG: Failed to parse response with both methods");
                             return Err("Failed to parse LocationResponse".into());
                         }
                     }

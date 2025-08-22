@@ -77,10 +77,6 @@ impl PythonCompatibleWeatherClient {
         let disaster = disaster.unwrap_or(false);
         let day = day.unwrap_or(0);
 
-        if self.debug {
-            eprintln!("[DEBUG] Requesting weather data for area_code={}, weather={}, temperature={}, precipitation_prob={}, alert={}, disaster={}, day={}", 
-                     area_code, weather, temperature, precipitation_prob, alert, disaster, day);
-        }
 
         // 内部クライアントを使用してデータを取得
         match self.inner_client.get_weather_simple(area_code, weather, temperature, precipitation_prob, alert, disaster, day) {
@@ -240,9 +236,6 @@ impl PythonCompatibleLocationClient {
         let _use_cache = use_cache.unwrap_or(true);
         let return_cache_info = return_cache_info.unwrap_or(false);
 
-        if self.debug {
-            eprintln!("[DEBUG] Resolving coordinates ({}, {}) to area code", latitude, longitude);
-        }
 
         match self.inner_client.resolve_coordinates(latitude, longitude).await {
             Ok(area_code) => {
@@ -343,9 +336,6 @@ impl PythonCompatibleQueryClient {
         let disaster = disaster.unwrap_or(false);
         let day = day.unwrap_or(0);
 
-        if self.debug {
-            eprintln!("[DEBUG] Direct query to server for area_code={}", area_code);
-        }
 
         let query_request = QueryRequest::new(
             area_code,
@@ -429,9 +419,6 @@ impl PythonCompatibleReportClient {
         pressure_hpa: Option<f64>,
         packet_id: u16,
     ) -> Result<HashMap<String, serde_json::Value>, String> {
-        if self.debug {
-            eprintln!("[DEBUG] Sending sensor data for area_code={}", area_code);
-        }
 
         let report_request = ReportRequest::create_sensor_data_report(
             area_code,
