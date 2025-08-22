@@ -17,7 +17,7 @@
 ### ナレーション
 「現代のIoT時代に、なぜ私たちは独自の気象データプロトコルを作ったのでしょうか？
 
-WIP - Weather Transfer Protocol。それは、従来の重厚なHTTPベースの気象APIに代わる、**革命的に軽量な通信プロトコル**です。」
+WIP - Weather Information Protocol。それは、従来の重厚なHTTPベースの気象APIに代わる、**革命的に軽量な通信プロトコル**です。」
 
 ---
 
