@@ -1,6 +1,6 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
 use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
-use crate::wip_common_rs::packet::core::extended_field::FieldValue;
+use crate::wip_common_rs::packet::core::extended_field::{FieldValue, ExtendedFieldManager, FieldDefinition};
 use crate::wip_common_rs::utils::auth::WIPAuth;
 use std::env;
 use std::io;
@@ -189,7 +189,11 @@ impl WeatherClient {
                 request.timestamp,
                 &self.auth_passphrase,
             );
-            request.auth_hash = Some(hash);
+            let mut ext = ExtendedFieldManager::new();
+            let def = FieldDefinition::new("auth_hash".to_string(), FieldValue::String("".to_string()).get_type());
+            ext.add_definition(def);
+            let _ = ext.set_value("auth_hash".to_string(), FieldValue::String(hex::encode(hash)));
+            request.ex_field = Some(ext);
             request.request_auth = true;
             request.ex_flag = true;
         }
@@ -220,8 +224,8 @@ impl WeatherClient {
         }
 
         // 拡張フィールドからauth_hashを取得して検証
-        if let Some(ref ext_fields) = response.extended_fields {
-            if let Some(FieldValue::String(hex_hash)) = ext_fields.get("auth_hash") {
+        if let Some(ref ext) = response.ex_field {
+            if let Some(FieldValue::String(hex_hash)) = ext.get_value("auth_hash") {
                 if let Ok(hash) = hex::decode(hex_hash) {
                     if WIPAuth::verify_auth_hash(
                         response.packet_id,

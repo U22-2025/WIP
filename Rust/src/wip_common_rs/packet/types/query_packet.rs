@@ -4,7 +4,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, verify_checksum12, embed_checksum12_at};
 use crate::wip_common_rs::packet::core::bit_utils::{bytes_to_u128_le, u128_to_bytes_le, PacketFields};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
-use crate::wip_common_rs::packet::core::extended_field::{FieldValue, pack_ext_fields, unpack_ext_fields};
+use crate::wip_common_rs::packet::core::extended_field::{
+    ExtendedFieldManager, FieldDefinition, FieldType, FieldValue,
+    pack_ext_fields, unpack_ext_fields
+};
 use once_cell::sync::Lazy;
 
 // JSON仕様からフィールド定義を構築（コンパイル時埋め込み）
@@ -37,7 +40,7 @@ pub struct QueryRequest {
     pub timestamp: u64,
     pub day: u8,
     pub area_code: u32,
-    pub auth_hash: Option<Vec<u8>>,
+    pub ex_field: Option<ExtendedFieldManager>,
 }
 
 impl QueryRequest {
@@ -70,7 +73,7 @@ impl QueryRequest {
             timestamp,
             day: day & 0x07,
             area_code: area_code & 0xFFFFF,
-            auth_hash: None,
+            ex_field: None,
         }
     }
 
@@ -100,7 +103,7 @@ impl QueryRequest {
             timestamp,
             day: day & 0x07,
             area_code: area_code & 0xFFFFF,
-            auth_hash: None,
+            ex_field: None,
         }
     }
 
@@ -136,60 +139,7 @@ impl QueryRequest {
         s
     }
 
-    pub fn get_packet_id(&self) -> u16 {
-        self.packet_id
-    }
-
-    pub fn set_packet_id(&mut self, id: u16) {
-        self.packet_id = id;
-    }
-
-    pub fn get_packet_type(&self) -> u8 {
-        2  // Query packet type
-    }
-
-    /// パケットをバイト列に変換する
-    /// 認証ハッシュが存在する場合は拡張フィールドとして付加する
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut fixed = [0u8; 16];
-        {
-            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut fixed);
-            bits[0..4].store(self.version);
-            bits[4..16].store(self.packet_id);
-            bits[16..19].store(2u8);
-            bits[19..20].store(self.weather_flag as u8);
-            bits[20..21].store(self.temperature_flag as u8);
-            bits[21..22].store(self.pop_flag as u8);
-            bits[22..23].store(self.alert_flag as u8);
-            bits[23..24].store(self.disaster_flag as u8);
-            bits[24..25].store(self.ex_flag as u8);
-            bits[25..26].store(self.request_auth as u8);
-            bits[26..27].store(self.response_auth as u8);
-            bits[27..30].store(self.day);
-            bits[30..32].store(0u8);
-            bits[32..96].store(self.timestamp);
-            bits[96..116].store(self.area_code);
-            bits[116..128].store(0u16);
-        }
-
-        let mut packet = if let Some(hash) = &self.auth_hash {
-            let mut map = HashMap::new();
-            let hex_hash = hex::encode(hash);
-            map.insert("auth_hash".to_string(), FieldValue::String(hex_hash));
-            let ext = pack_ext_fields(&map);
-            let mut out = Vec::with_capacity(16 + ext.len());
-            out.extend_from_slice(&fixed);
-            out.extend_from_slice(&ext);
-            out
-        } else {
-            fixed.to_vec()
-        };
-
-        embed_checksum12_at(&mut packet, 116, 12);
-        packet
-    }
-
-    /// バイト列からQueryRequestを生成する
+    /// バイト列から QueryRequest を生成する
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         if data.len() < 16 {
             return None;
@@ -203,22 +153,27 @@ impl QueryRequest {
         let alert_flag = bits[22];
         let disaster_flag = bits[23];
         let ex_flag = bits[24];
-        let request_auth = bits[25];
-        let response_auth = bits[26];
         let day: u8 = bits[27..30].load();
         let timestamp: u64 = bits[32..96].load();
         let area_code: u32 = bits[96..116].load();
 
-        let mut auth_hash = None;
-        if ex_flag && data.len() > 16 {
-            if let Ok(map) = unpack_ext_fields(&data[16..]) {
-                if let Some(FieldValue::String(s)) = map.get("auth_hash") {
-                    if let Ok(bytes) = hex::decode(s) {
-                        auth_hash = Some(bytes);
-                    }
+        // 拡張フィールド
+        let ex_field = if ex_flag && data.len() > 16 {
+            let map = unpack_ext_fields(&data[16..]);
+            if map.is_empty() {
+                None
+            } else {
+                let mut mgr = ExtendedFieldManager::new();
+                for (k, v) in map {
+                    let def = FieldDefinition::new(k.clone(), v.get_type());
+                    mgr.add_definition(def);
+                    let _ = mgr.set_value(k, v);
                 }
+                Some(mgr)
             }
-        }
+        } else {
+            None
+        };
 
         Some(Self {
             version,
@@ -229,13 +184,66 @@ impl QueryRequest {
             alert_flag,
             disaster_flag,
             ex_flag,
-            request_auth,
-            response_auth,
             timestamp,
             day,
             area_code,
-            auth_hash,
+            ex_field,
         })
+    }
+
+    pub fn get_packet_id(&self) -> u16 {
+        self.packet_id
+    }
+
+    pub fn set_packet_id(&mut self, id: u16) {
+        self.packet_id = id;
+    }
+
+    pub fn get_packet_type(&self) -> u8 {
+        2  // Query packet type
+    }
+
+    /// パケットをバイト列に変換する (Little Endian)
+    /// Python実装と互換性を保つため、手動でビットフィールドを配置
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = [0u8; 16];
+        let mut bits_u128 = 0u128;
+
+        // 正しいビット順序でフィールドを配置（Python実装準拠）
+        bits_u128 |= (self.version as u128) & 0x0F;
+        bits_u128 |= ((self.packet_id as u128) & 0x0FFF) << 4;
+        bits_u128 |= (2u128 & 0x07) << 16;
+        
+        if self.weather_flag { bits_u128 |= 1u128 << 19; }
+        if self.temperature_flag { bits_u128 |= 1u128 << 20; }
+        if self.pop_flag { bits_u128 |= 1u128 << 21; }
+        if self.alert_flag { bits_u128 |= 1u128 << 22; }
+        if self.disaster_flag { bits_u128 |= 1u128 << 23; }
+        if self.ex_flag || self.ex_field.is_some() { bits_u128 |= 1u128 << 24; }
+        if self.request_auth { bits_u128 |= 1u128 << 25; }
+        if self.response_auth { bits_u128 |= 1u128 << 26; }
+        
+        bits_u128 |= ((self.day as u128) & 0x07) << 27;
+        bits_u128 |= (self.timestamp as u128) << 32;
+        bits_u128 |= ((self.area_code as u128) & 0xFFFFF) << 96;
+        
+        u128_to_bytes_le(bits_u128, &mut out);
+        let mut packet = out.to_vec();
+
+        if let Some(ext) = &self.ex_field {
+            let mut map = HashMap::new();
+            for (k, v) in ext.get_all_values() {
+                map.insert(k.clone(), v.clone());
+            }
+            let ext_bytes = pack_ext_fields(&map);
+            packet.extend_from_slice(&ext_bytes);
+        }
+
+        let checksum = calc_checksum12(&packet);
+        bits_u128 |= ((checksum as u128) & 0x0FFF) << 116;
+        u128_to_bytes_le(bits_u128, &mut packet[..16]);
+
+        packet
     }
 }
 
@@ -250,7 +258,7 @@ pub struct QueryResponse {
     pub precipitation: Option<u8>,
     pub timestamp: u64,
     pub response_auth: bool,
-    pub extended_fields: Option<HashMap<String, FieldValue>>,
+    pub ex_field: Option<ExtendedFieldManager>,
 }
 
 impl QueryResponse {
@@ -265,7 +273,7 @@ impl QueryResponse {
             precipitation: None,
             timestamp: 0,
             response_auth: false,
-            extended_fields: None,
+            ex_field: None,
         }
     }
 
@@ -280,7 +288,7 @@ impl QueryResponse {
             precipitation: Some(pop),
             timestamp: 0,
             response_auth: false,
-            extended_fields: None,
+            ex_field: None,
         }
     }
 
@@ -303,6 +311,7 @@ impl QueryResponse {
         let response_auth = bits[26];
         let timestamp: u64 = bits[32..96].load();
         let area_code: u32 = bits[96..116].load();
+        let ex_flag = bits[24];
         let weather_code: u16 = bits[128..144].load();
         let temp_raw: u8    = bits[144..152].load();
         let precip: u8      = bits[152..160].load();
@@ -322,11 +331,19 @@ impl QueryResponse {
         };
         let precipitation = if precip != 0 { Some(precip) } else { None };
 
-        // 拡張フィールドの処理
-        let extended_fields = if ex_flag && data.len() > 20 {
+        // 拡張フィールド
+        let ex_field = if ex_flag && data.len() > 20 {
             match unpack_ext_fields(&data[20..]) {
-                Ok(map) => Some(map),
-                Err(_) => None,
+                Ok(map) if !map.is_empty() => {
+                    let mut mgr = ExtendedFieldManager::new();
+                    for (k, v) in map {
+                        let def = FieldDefinition::new(k.clone(), v.get_type());
+                        mgr.add_definition(def);
+                        let _ = mgr.set_value(k, v);
+                    }
+                    Some(mgr)
+                },
+                _ => None,
             }
         } else {
             None
@@ -341,7 +358,7 @@ impl QueryResponse {
             precipitation,
             timestamp,
             response_auth,
-            extended_fields,
+            ex_field,
         })
     }
 
@@ -358,7 +375,7 @@ impl QueryResponse {
             bits[21..22].store(self.precipitation.is_some() as u8);
             bits[22..23].store(0u8);
             bits[23..24].store(0u8);
-            let has_ext = self.extended_fields.is_some();
+            let has_ext = self.ex_field.is_some();
             bits[24..25].store(has_ext as u8);
             bits[25..26].store(0u8);
             bits[26..27].store(self.response_auth as u8);
@@ -373,11 +390,15 @@ impl QueryResponse {
             bits[152..160].store(self.precipitation.unwrap_or(0));
         }
 
-        let mut packet = if let Some(ref ext_fields) = self.extended_fields {
-            let ext = pack_ext_fields(ext_fields);
-            let mut out = Vec::with_capacity(20 + ext.len());
+        let mut packet = if let Some(ref ext) = self.ex_field {
+            let mut map = HashMap::new();
+            for (k, v) in ext.get_all_values() {
+                map.insert(k.clone(), v.clone());
+            }
+            let ext_bytes = pack_ext_fields(&map);
+            let mut out = Vec::with_capacity(20 + ext_bytes.len());
             out.extend_from_slice(&fixed);
-            out.extend_from_slice(&ext);
+            out.extend_from_slice(&ext_bytes);
             out
         } else {
             fixed.to_vec()
@@ -389,8 +410,8 @@ impl QueryResponse {
 
     /// 拡張フィールドからalertを取得
     pub fn get_alert(&self) -> Option<Vec<String>> {
-        if let Some(ref ext_fields) = self.extended_fields {
-            if let Some(FieldValue::String(s)) = ext_fields.get("alert") {
+        if let Some(ref ext) = self.ex_field {
+            if let Some(FieldValue::String(s)) = ext.get_value("alert") {
                 let v: Vec<String> = s
                     .split(',')
                     .filter(|x| !x.is_empty())
@@ -406,8 +427,8 @@ impl QueryResponse {
 
     /// 拡張フィールドからdisasterを取得
     pub fn get_disaster(&self) -> Option<Vec<String>> {
-        if let Some(ref ext_fields) = self.extended_fields {
-            if let Some(FieldValue::String(s)) = ext_fields.get("disaster") {
+        if let Some(ref ext) = self.ex_field {
+            if let Some(FieldValue::String(s)) = ext.get_value("disaster") {
                 let v: Vec<String> = s
                     .split(',')
                     .filter(|x| !x.is_empty())
@@ -423,8 +444,8 @@ impl QueryResponse {
 
     /// 拡張フィールドからauth_hashを取得
     pub fn get_auth_hash(&self) -> Option<Vec<u8>> {
-        if let Some(ref ext_fields) = self.extended_fields {
-            if let Some(FieldValue::String(hex_str)) = ext_fields.get("auth_hash") {
+        if let Some(ref ext) = self.ex_field {
+            if let Some(FieldValue::String(hex_str)) = ext.get_value("auth_hash") {
                 if let Ok(bytes) = hex::decode(hex_str) {
                     return Some(bytes);
                 }
@@ -437,6 +458,7 @@ impl QueryResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn request_to_bytes_length() {
@@ -454,22 +476,31 @@ mod tests {
         bits[128..144].store(10u16);
         bits[144..152].store(120u8);
         bits[152..160].store(80u8);
-        let mut data = [0u8; 20];
-        data.copy_from_slice(bits.as_raw_slice());
+        let mut base = [0u8; 20];
+        base.copy_from_slice(bits.as_raw_slice());
+
+        // 拡張フィールドを追加
+        let mut map = HashMap::new();
+        map.insert("alert".to_string(), FieldValue::String("A,B".into()));
+        map.insert("disaster".to_string(), FieldValue::String("X".into()));
+        let ext = pack_ext_fields(&map);
+        let mut packet = Vec::new();
+        packet.extend_from_slice(&base);
+        packet.extend_from_slice(&ext);
 
         // ヘッダ部（最初の16バイト）にチェックサムを埋め込む
-        let checksum = calc_checksum12(&data[..16]);
-        let mut head_bits = bitvec![u8, Lsb0; 0; 128];
-        head_bits.copy_from_bitslice(&BitSlice::<u8, Lsb0>::from_slice(&data[..16]));
+        let checksum = calc_checksum12(&packet);
+        let mut head_bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut packet[..16]);
         head_bits[116..128].store(checksum);
-        let mut head = [0u8; 16];
-        head.copy_from_slice(head_bits.as_raw_slice());
-        data[..16].copy_from_slice(&head);
-        let resp = QueryResponse::from_bytes(&data).unwrap();
+
+        let resp = QueryResponse::from_bytes(&packet).unwrap();
         assert_eq!(resp.packet_id, 1);
         assert_eq!(resp.area_code, 123);
         assert_eq!(resp.weather_code, Some(10));
         assert_eq!(resp.temperature, Some(20i8));
         assert_eq!(resp.precipitation, Some(80u8));
+        let ext = resp.ex_field.expect("ext");
+        assert_eq!(ext.get_value("alert"), Some(&FieldValue::String("A,B".into())));
+        assert_eq!(ext.get_value("disaster"), Some(&FieldValue::String("X".into())));
     }
 }

@@ -13,6 +13,7 @@ use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryRespo
 use crate::wip_common_rs::clients::report_client::{ReportClient, ReportClientImpl};
 use crate::wip_common_rs::packet::types::report_packet::ReportRequest;
 use crate::wip_common_rs::utils::config_loader::ConfigLoader;
+use crate::wip_common_rs::packet::core::extended_field::FieldValue;
 
 /// Python版WeatherClientと完全互換のクライアント
 #[derive(Debug)]
@@ -122,7 +123,55 @@ impl PythonCompatibleWeatherClient {
 
         // 内部クライアントを使用してデータを取得
         match self.inner_client.get_weather_simple(area_code, weather, temperature, precipitation_prob, alert, disaster, day) {
+<<<<<<< HEAD
             Ok(Some(response)) => Ok(self.map_from_response(&response)),
+=======
+            Ok(Some(response)) => {
+                let mut result = HashMap::new();
+                
+                // Python版と同じ構造で結果を返す
+                result.insert("area_code".to_string(), serde_json::Value::Number(serde_json::Number::from(response.area_code)));
+                
+                if let Some(weather_code) = response.weather_code {
+                    result.insert("weather_code".to_string(), serde_json::Value::Number(serde_json::Number::from(weather_code)));
+                }
+                
+                if let Some(temp) = response.temperature {
+                    result.insert("temperature".to_string(), serde_json::Value::Number(serde_json::Number::from(temp)));
+                }
+                
+                if let Some(precip) = response.precipitation {
+                    result.insert("precipitation_probability".to_string(), serde_json::Value::Number(serde_json::Number::from(precip)));
+                }
+
+                if let Some(ext) = &response.ex_field {
+                    if let Some(FieldValue::String(s)) = ext.get_value("alert") {
+                        let arr = s
+                            .split(',')
+                            .filter(|x| !x.is_empty())
+                            .map(|x| serde_json::Value::String(x.to_string()))
+                            .collect::<Vec<_>>();
+                        if !arr.is_empty() {
+                            result.insert("alert".to_string(), serde_json::Value::Array(arr));
+                        }
+                    }
+                    if let Some(FieldValue::String(s)) = ext.get_value("disaster") {
+                        let arr = s
+                            .split(',')
+                            .filter(|x| !x.is_empty())
+                            .map(|x| serde_json::Value::String(x.to_string()))
+                            .collect::<Vec<_>>();
+                        if !arr.is_empty() {
+                            result.insert("disaster".to_string(), serde_json::Value::Array(arr));
+                        }
+                    }
+                }
+
+                result.insert("success".to_string(), serde_json::Value::Bool(true));
+                
+                Ok(result)
+            }
+>>>>>>> origin/codex/introduce-extendedfieldmanager-and-extend-serialization
             Ok(None) => {
                 Err("No weather data received".to_string())
             }
