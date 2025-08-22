@@ -130,11 +130,3 @@ pub mod prelude {
     };
 }
 
-// 後方互換性のための古い構造（廃止予定）
-// 旧構成はテストからは除外（レガシーモジュールのテストが新仕様と競合するため）
-#[cfg(not(test))]
-#[path = "../common/mod.rs"]
-pub mod common;
-#[cfg(not(test))]
-#[path = "../WIP_Client/mod.rs"]
-pub mod wip_client;

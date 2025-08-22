@@ -35,7 +35,7 @@
 - `receive_with_id` のID抽出
   - ユーティリティ版の `extract_packet_id` は先頭2バイトをそのまま `u16` 化。プロトコル上は `version(4bit) + packet_id(12bit)` のため、`(value >> 4) & 0x0FFF` のマスク処理が必要（同期版`WeatherClient`は実装済み）。
 - 旧実装との二重化
-  - `Rust/common/*` の旧コード（例: 同名の `query_packet.rs`/`weather_client.rs`）が残置。利用経路の混在リスクがあるため、ドキュメント上の明確な切替指針が必要。
+  - 旧コードは `deprecated/common/*` に移動され、利用経路の混在リスクは解消された。
 - 座標フィールド
   - Location系は緯度経度の固定小数点格納コメントあり。実際の拡張フィールド/ビット位置へのマッピングは未完。
 
