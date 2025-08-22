@@ -9,7 +9,7 @@ use std::time::Duration;
 use crate::wip_common_rs::clients::weather_client::WeatherClient;
 use crate::wip_common_rs::clients::location_client::{LocationClient, LocationClientImpl};
 use crate::wip_common_rs::clients::query_client::{QueryClient, QueryClientImpl};
-use crate::wip_common_rs::packet::types::query_packet::QueryRequest;
+use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
 use crate::wip_common_rs::clients::report_client::{ReportClient, ReportClientImpl};
 use crate::wip_common_rs::packet::types::report_packet::ReportRequest;
 use crate::wip_common_rs::utils::config_loader::ConfigLoader;
@@ -55,6 +55,48 @@ impl PythonCompatibleWeatherClient {
         })
     }
 
+    fn map_from_response(&self, response: &QueryResponse) -> HashMap<String, serde_json::Value> {
+        let mut result = HashMap::new();
+        result.insert(
+            "area_code".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(response.area_code)),
+        );
+        if let Some(weather_code) = response.weather_code {
+            result.insert(
+                "weather_code".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(weather_code)),
+            );
+        }
+        if let Some(temp) = response.temperature {
+            result.insert(
+                "temperature".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(temp)),
+            );
+        }
+        if let Some(precip) = response.precipitation {
+            result.insert(
+                "precipitation_probability".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(precip)),
+            );
+        }
+        if let Some(alerts) = &response.alert {
+            let arr = alerts
+                .iter()
+                .map(|a| serde_json::Value::String(a.clone()))
+                .collect();
+            result.insert("alert".to_string(), serde_json::Value::Array(arr));
+        }
+        if let Some(disasters) = &response.disaster {
+            let arr = disasters
+                .iter()
+                .map(|d| serde_json::Value::String(d.clone()))
+                .collect();
+            result.insert("disaster".to_string(), serde_json::Value::Array(arr));
+        }
+        result.insert("success".to_string(), serde_json::Value::Bool(true));
+        result
+    }
+
     /// Python版の get_weather_data メソッドと完全互換
     /// ```python
     /// def get_weather_data(self, area_code, weather=True, temperature=True, 
@@ -80,28 +122,7 @@ impl PythonCompatibleWeatherClient {
 
         // 内部クライアントを使用してデータを取得
         match self.inner_client.get_weather_simple(area_code, weather, temperature, precipitation_prob, alert, disaster, day) {
-            Ok(Some(response)) => {
-                let mut result = HashMap::new();
-                
-                // Python版と同じ構造で結果を返す
-                result.insert("area_code".to_string(), serde_json::Value::Number(serde_json::Number::from(response.area_code)));
-                
-                if let Some(weather_code) = response.weather_code {
-                    result.insert("weather_code".to_string(), serde_json::Value::Number(serde_json::Number::from(weather_code)));
-                }
-                
-                if let Some(temp) = response.temperature {
-                    result.insert("temperature".to_string(), serde_json::Value::Number(serde_json::Number::from(temp)));
-                }
-                
-                if let Some(precip) = response.precipitation {
-                    result.insert("precipitation_probability".to_string(), serde_json::Value::Number(serde_json::Number::from(precip)));
-                }
-                
-                result.insert("success".to_string(), serde_json::Value::Bool(true));
-                
-                Ok(result)
-            }
+            Ok(Some(response)) => Ok(self.map_from_response(&response)),
             Ok(None) => {
                 Err("No weather data received".to_string())
             }
@@ -124,13 +145,48 @@ impl PythonCompatibleWeatherClient {
 
         // 簡単な実装として、デフォルトの天気情報を返す
         self.get_weather_data(
-            area_code, 
-            Some(include_all), 
-            Some(include_all), 
-            Some(include_all), 
-            Some(include_all), 
-            Some(include_all), 
+            area_code,
+            Some(include_all),
+            Some(include_all),
+            Some(include_all),
+            Some(include_all),
+            Some(include_all),
             Some(day)
+        )
+    }
+
+    /// 座標から天気情報を取得
+    pub async fn get_weather_by_coordinates(
+        &mut self,
+        latitude: f64,
+        longitude: f64,
+        weather: Option<bool>,
+        temperature: Option<bool>,
+        precipitation_prob: Option<bool>,
+        alert: Option<bool>,
+        disaster: Option<bool>,
+        day: Option<u8>,
+    ) -> Result<HashMap<String, serde_json::Value>, String> {
+        let host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let port = env::var("LOCATION_RESOLVER_PORT")
+            .unwrap_or_else(|_| "4109".to_string())
+            .parse()
+            .unwrap_or(4109);
+        let loc_client = LocationClientImpl::new(&host, port)
+            .await
+            .map_err(|e| format!("Location client init failed: {}", e))?;
+        let area_code = loc_client
+            .resolve_coordinates(latitude, longitude)
+            .await
+            .map_err(|e| format!("Coordinate resolution failed: {}", e))?;
+        self.get_weather_data(
+            area_code,
+            weather,
+            temperature,
+            precipitation_prob,
+            alert,
+            disaster,
+            day,
         )
     }
 
