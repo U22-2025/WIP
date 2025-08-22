@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, verify_checksum12};
 use crate::wip_common_rs::packet::core::bit_utils::{bytes_to_u128_le, u128_to_bytes_le, PacketFields};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
+use crate::wip_common_rs::packet::core::extended_field::{unpack_ext_fields, FieldValue};
 use once_cell::sync::Lazy;
 
 // JSON仕様からフィールド定義を構築（コンパイル時埋め込み）
@@ -222,6 +223,8 @@ pub struct QueryResponse {
     pub weather_code: Option<u16>,
     pub temperature: Option<i8>,
     pub precipitation: Option<u8>,
+    pub alert: Option<Vec<String>>,
+    pub disaster: Option<Vec<String>>,
 }
 
 impl QueryResponse {
@@ -232,7 +235,6 @@ impl QueryResponse {
             return None;
         }
         let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
-        let header = &data[..16];
 
         // ヘッダ部のチェックサムを検証
         if !verify_checksum12(header, 116, 12) {
@@ -262,6 +264,33 @@ impl QueryResponse {
         };
         let precipitation = if precip != 0 { Some(precip) } else { None };
 
+        // 拡張フィールドの解析
+        let mut alert: Option<Vec<String>> = None;
+        let mut disaster: Option<Vec<String>> = None;
+        if data.len() > 20 {
+            let map = unpack_ext_fields(&data[20..]);
+            if let Some(FieldValue::String(s)) = map.get("alert") {
+                let v = s
+                    .split(',')
+                    .filter(|x| !x.is_empty())
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>();
+                if !v.is_empty() {
+                    alert = Some(v);
+                }
+            }
+            if let Some(FieldValue::String(s)) = map.get("disaster") {
+                let v = s
+                    .split(',')
+                    .filter(|x| !x.is_empty())
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>();
+                if !v.is_empty() {
+                    disaster = Some(v);
+                }
+            }
+        }
+
         Some(Self {
             version,
             packet_id,
@@ -269,6 +298,8 @@ impl QueryResponse {
             weather_code,
             temperature,
             precipitation,
+            alert,
+            disaster,
         })
     }
 }
