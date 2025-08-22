@@ -234,8 +234,11 @@ impl QueryResponse {
         let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
         let header = &data[..16];
 
-        // チェックサム検証をスキップ（Python/Rust相互運用性のため）
-        // 注意: チェックサム算法の違いは既知の問題で、将来修正予定
+        // ヘッダ部のチェックサムを検証
+        if !verify_checksum12(header, 116, 12) {
+            eprintln!("DEBUG: QueryResponse::from_bytes - checksum verification failed");
+            return None;
+        }
 
         // 固定レイアウトで抽出（JSON順序差異の影響を排除）
         let version: u8  = bits[0..4].load();

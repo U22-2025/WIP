@@ -9,7 +9,20 @@
 /// Returns:
 ///     12ビットチェックサム値
 pub fn calc_checksum12(data: &[u8]) -> u16 {
-    calc_checksum12_with_debug(data, false)
+    // Python版と同一アルゴリズム
+    // 1バイトずつ加算
+    let mut total: u32 = 0;
+    for &byte in data {
+        total += byte as u32;
+    }
+
+    // キャリーを12ビットに折り返し
+    while total >> 12 != 0 {
+        total = (total & 0xFFF) + (total >> 12);
+    }
+
+    // 1の補数を返す（12ビットマスク）
+    (!total & 0xFFF) as u16
 }
 
 /// 12ビットチェックサムを計算する（デバッグ機能付き）
@@ -40,18 +53,13 @@ pub fn calc_checksum12_with_debug(data: &[u8], debug: bool) -> u16 {
         eprintln!("[DEBUG] 加算完了: total = 0x{:X}", total);
     }
     
-    // キャリーを12ビットに折り返し
-    let mut fold_count = 0;
+    // キャリーを12ビットに折り返し（Python版と同様に無限ループ防止は行わない）
     while total >> 12 != 0 {
         let new_total = (total & 0xFFF) + (total >> 12);
         if debug {
-            eprintln!("[DEBUG] キャリーフォールド#{}: 0x{:X} -> 0x{:X}", fold_count, total, new_total);
+            eprintln!("[DEBUG] キャリーフォールド: 0x{:X} -> 0x{:X}", total, new_total);
         }
         total = new_total;
-        fold_count += 1;
-        if fold_count > 10 { // 無限ループ防止
-            break;
-        }
     }
     
     // 1の補数を返す（12ビットマスク）
