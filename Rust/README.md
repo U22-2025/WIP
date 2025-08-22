@@ -2,6 +2,8 @@
 
 Weather Information Protocol (WIP) クライアントライブラリのRust実装です。
 
+現在は `wip_common_rs` が正式な実装であり、従来の `common/` と `WIP_Client/` ディレクトリは `deprecated/` 以下に移動して非推奨となりました。
+
 ## 構造
 
 ```
@@ -90,7 +92,7 @@ cargo run --example packet_showcase
 | `WIPCommonPy/packet/types/location_packet.py` | `wip_common_rs/packet/types/location_packet.rs` |
 | `WIPCommonPy/packet/types/report_packet.py` | `wip_common_rs/packet/types/report_packet.rs` |
 
-> Note: `Rust/common/*` は旧構成として残していますが非推奨です。新規実装・サンプルは `src/wip_common_rs/*` を参照してください。
+> Note: 旧構成は `deprecated/common/*` や `deprecated/WIP_Client/*` に移動され非推奨です。新規実装・サンプルは `src/wip_common_rs/*` を参照してください。
 
 ### 互換性ノート（重要）
 
