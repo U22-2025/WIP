@@ -33,12 +33,24 @@ impl WIPAuth {
         // Python版と同じ認証データフォーマット: "{packet_id}:{timestamp}:{passphrase}"
         let auth_data = format!("{}:{}:{}", packet_id, timestamp, passphrase);
         
+        // デバッグ情報を出力
+        println!("[DEBUG] 認証ハッシュ計算:");
+        println!("  packet_id: {}", packet_id);
+        println!("  timestamp: {}", timestamp);
+        println!("  passphrase: '{}'", passphrase);
+        println!("  auth_data文字列: '{}'", auth_data);
+        println!("  auth_data bytes: {:?}", auth_data.as_bytes());
+        println!("  passphrase bytes: {:?}", passphrase.as_bytes());
+        
         // HMAC-SHA256でハッシュを計算（パスフレーズをキーとして使用）
         let mut mac = HmacSha256::new_from_slice(passphrase.as_bytes())
             .expect("HMAC can take key of any size");
         mac.update(auth_data.as_bytes());
         
-        mac.finalize().into_bytes().to_vec()
+        let result = mac.finalize().into_bytes().to_vec();
+        println!("  計算されたハッシュ: {}", hex::encode(&result));
+        
+        result
     }
     
     /// Python版と同じ認証ハッシュを検証

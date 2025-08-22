@@ -18,7 +18,7 @@ fn main() {
     println!("Initial request created");
     
     // Enable auth
-    request.enable_auth("test_passphrase");
+    request.enable_auth("wip");
     println!("Auth enabled");
     
     // Set auth flags

@@ -129,6 +129,11 @@ impl ReportRequest {
         }
         
         if let Some(ref mut ext) = self.ext {
+            println!("[DEBUG] set_auth_flags()呼び出し:");
+            println!("  使用するpacket_id: {}", self.packet_id);
+            println!("  使用するtimestamp: {}", self.timestamp);
+            println!("  使用するpassphrase: '{}'", passphrase);
+            
             // 認証ハッシュを計算
             use crate::wip_common_rs::utils::auth::WIPAuth;
             let auth_hash_bytes = WIPAuth::calculate_auth_hash(
@@ -138,7 +143,8 @@ impl ReportRequest {
             );
             
             // バイト列をhex文字列として保存
-            let auth_hash_str = hex::encode(auth_hash_bytes);
+            let auth_hash_str = hex::encode(&auth_hash_bytes);
+            println!("[DEBUG] 拡張フィールドに設定するauth_hash: {}", auth_hash_str);
             
             // auth_hashフィールドを追加
             let field_def = FieldDefinition::new("auth_hash".to_string(), FieldType::String);
@@ -150,6 +156,8 @@ impl ReportRequest {
             
             // 認証フラグを設定
             self.request_auth = true;
+            
+            println!("[DEBUG] 認証フラグ設定完了");
         }
     }
 

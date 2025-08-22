@@ -228,7 +228,7 @@ async fn handle_report_mode(args: &ClientArgs) -> Result<(), Box<dyn std::error:
         }
     } else {
         // デフォルトのパスフレーズを使用（テスト用）
-        let default_passphrase = "test_passphrase";
+        let default_passphrase = "wip";
         report_request.enable_auth(default_passphrase);
         report_request.set_auth_flags();
         

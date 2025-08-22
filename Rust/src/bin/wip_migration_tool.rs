@@ -5,88 +5,87 @@
  * また、Python版とRust版の互換性をチェックする機能も提供
  */
 
-use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, exit};
 use regex::Regex;
-use clap::{App, Arg, SubCommand};
+use clap::{Command as ClapCommand, Arg};
 
 fn main() {
-    let matches = App::new("WIP Migration Tool")
+    let matches = ClapCommand::new("WIP Migration Tool")
         .version("1.0")
         .author("WIP Development Team")
         .about("Python → Rust migration and compatibility tool for WIP")
         .subcommand(
-            SubCommand::with_name("analyze")
+            ClapCommand::new("analyze")
                 .about("Analyze Python WIP code for migration readiness")
                 .arg(
-                    Arg::with_name("python_file")
+                    Arg::new("python_file")
                         .help("Python file to analyze")
                         .required(true)
                         .index(1),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("convert")
+            ClapCommand::new("convert")
                 .about("Convert Python WIP code to Rust equivalent")
                 .arg(
-                    Arg::with_name("python_file")
+                    Arg::new("python_file")
                         .help("Python file to convert")
                         .required(true)
                         .index(1),
                 )
                 .arg(
-                    Arg::with_name("output")
-                        .short("o")
+                    Arg::new("output")
+                        .short('o')
                         .long("output")
                         .value_name("FILE")
                         .help("Output Rust file")
-                        .takes_value(true),
+                        .action(clap::ArgAction::Set),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("test")
+            ClapCommand::new("test")
                 .about("Test compatibility between Python and Rust implementations")
                 .arg(
-                    Arg::with_name("python_script")
+                    Arg::new("python_script")
                         .help("Python script to test")
                         .required(false)
                         .index(1),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("benchmark")
+            ClapCommand::new("benchmark")
                 .about("Benchmark Python vs Rust performance")
                 .arg(
-                    Arg::with_name("iterations")
-                        .short("n")
+                    Arg::new("iterations")
+                        .short('n')
                         .long("iterations")
                         .value_name("NUMBER")
                         .help("Number of iterations for benchmark")
-                        .takes_value(true)
+                        .action(clap::ArgAction::Set)
                         .default_value("1000"),
                 ),
         )
         .get_matches();
 
     match matches.subcommand() {
-        ("analyze", Some(sub_matches)) => {
-            let python_file = sub_matches.value_of("python_file").unwrap();
+        Some(("analyze", sub_matches)) => {
+            let python_file = sub_matches.get_one::<String>("python_file").unwrap();
             analyze_python_code(python_file);
         }
-        ("convert", Some(sub_matches)) => {
-            let python_file = sub_matches.value_of("python_file").unwrap();
-            let output_file = sub_matches.value_of("output");
+        Some(("convert", sub_matches)) => {
+            let python_file = sub_matches.get_one::<String>("python_file").unwrap();
+            let output_file = sub_matches.get_one::<String>("output");
             convert_python_to_rust(python_file, output_file);
         }
-        ("test", Some(sub_matches)) => {
-            let python_script = sub_matches.value_of("python_script");
+        Some(("test", sub_matches)) => {
+            let python_script = sub_matches.get_one::<String>("python_script");
             test_compatibility(python_script);
         }
-        ("benchmark", Some(sub_matches)) => {
+        Some(("benchmark", sub_matches)) => {
             let iterations: usize = sub_matches
-                .value_of("iterations")
+                .get_one::<String>("iterations")
                 .unwrap()
                 .parse()
                 .expect("Invalid number of iterations");
@@ -128,7 +127,7 @@ fn analyze_python_code(python_file: &str) {
 
     // レポート出力
     println!("\n📊 Migration Analysis Report");
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     println!("Compatibility Score: {}/100", compatibility_score);
     
     if compatibility_score >= 90 {
@@ -164,7 +163,7 @@ fn analyze_python_code(python_file: &str) {
 }
 
 /// Python WIPコードをRust等価コードに変換
-fn convert_python_to_rust(python_file: &str, output_file: Option<&str>) {
+fn convert_python_to_rust(python_file: &str, output_file: Option<&String>) {
     println!("🔄 Converting Python WIP code to Rust: {}", python_file);
     
     let content = match fs::read_to_string(python_file) {
@@ -195,7 +194,7 @@ fn convert_python_to_rust(python_file: &str, output_file: Option<&str>) {
 
     // 出力ファイルを決定
     let output_path = match output_file {
-        Some(path) => path.to_string(),
+        Some(path) => path.clone(),
         None => {
             let base_name = Path::new(python_file)
                 .file_stem()
@@ -224,7 +223,7 @@ fn convert_python_to_rust(python_file: &str, output_file: Option<&str>) {
 }
 
 /// Python版とRust版の互換性をテスト
-fn test_compatibility(python_script: Option<&str>) {
+fn test_compatibility(python_script: Option<&String>) {
     println!("🧪 Testing Python-Rust compatibility");
     
     // デフォルトの互換性テストを実行
@@ -232,7 +231,7 @@ fn test_compatibility(python_script: Option<&str>) {
     
     // 指定されたPythonスクリプトがあれば実行
     if let Some(script) = python_script {
-        run_custom_python_test(script);
+        run_custom_python_test(script.as_str());
     }
 }
 
@@ -252,7 +251,7 @@ from WIPCommonPy.clients.weather_client import WeatherClient
 from WIPCommonPy.packet.types.query_packet import QueryRequest
 
 def benchmark_python():
-    iterations = {}
+    iterations = {iterations}
     
     # クライアント作成ベンチマーク
     start = time.time()
@@ -277,13 +276,13 @@ def benchmark_python():
         packet_bytes = request.to_bytes()
     packet_generation_time = time.time() - start
     
-    print(f"Python Results ({} iterations):")
+    print(f"Python Results ({iterations} iterations):")
     print(f"  Client creation: {{:.4f}}s ({{:.2f}} μs/op)".format(client_creation_time, client_creation_time * 1000000 / iterations))
     print(f"  Packet generation: {{:.4f}}s ({{:.2f}} μs/op)".format(packet_generation_time, packet_generation_time * 1000000 / iterations))
 
 if __name__ == "__main__":
     benchmark_python()
-"#, iterations);
+"#);
 
     // Pythonベンチマークを実行
     fs::write("temp_python_benchmark.py", python_benchmark).expect("Failed to write Python benchmark");
