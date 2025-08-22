@@ -13,6 +13,7 @@ use crate::wip_common_rs::packet::types::query_packet::QueryRequest;
 use crate::wip_common_rs::clients::report_client::{ReportClient, ReportClientImpl};
 use crate::wip_common_rs::packet::types::report_packet::ReportRequest;
 use crate::wip_common_rs::utils::config_loader::ConfigLoader;
+use crate::wip_common_rs::packet::core::extended_field::FieldValue;
 
 /// Python版WeatherClientと完全互換のクライアント
 #[derive(Debug)]
@@ -97,7 +98,30 @@ impl PythonCompatibleWeatherClient {
                 if let Some(precip) = response.precipitation {
                     result.insert("precipitation_probability".to_string(), serde_json::Value::Number(serde_json::Number::from(precip)));
                 }
-                
+
+                if let Some(ext) = &response.ex_field {
+                    if let Some(FieldValue::String(s)) = ext.get_value("alert") {
+                        let arr = s
+                            .split(',')
+                            .filter(|x| !x.is_empty())
+                            .map(|x| serde_json::Value::String(x.to_string()))
+                            .collect::<Vec<_>>();
+                        if !arr.is_empty() {
+                            result.insert("alert".to_string(), serde_json::Value::Array(arr));
+                        }
+                    }
+                    if let Some(FieldValue::String(s)) = ext.get_value("disaster") {
+                        let arr = s
+                            .split(',')
+                            .filter(|x| !x.is_empty())
+                            .map(|x| serde_json::Value::String(x.to_string()))
+                            .collect::<Vec<_>>();
+                        if !arr.is_empty() {
+                            result.insert("disaster".to_string(), serde_json::Value::Array(arr));
+                        }
+                    }
+                }
+
                 result.insert("success".to_string(), serde_json::Value::Bool(true));
                 
                 Ok(result)
