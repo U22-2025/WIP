@@ -181,40 +181,62 @@ impl WeatherClient {
     }
     
     /// リクエストに認証設定を適用
-    fn apply_auth_to_request(&self, _request: &mut QueryRequest) {
-        // TODO: QueryRequestに認証フィールドを追加する実装が必要
-        // 現在のQueryRequest構造体には認証関連フィールドがないため、
-        // まずはプレースホルダーとして実装
+    fn apply_auth_to_request(&self, request: &mut QueryRequest) {
         if self.auth_enabled && !self.auth_passphrase.is_empty() {
-            if self.debug {
-                println!("Auth enabled but QueryRequest auth fields not implemented yet");
-            }
+            let hash = WIPAuth::calculate_auth_hash(
+                request.packet_id,
+                request.timestamp,
+                &self.auth_passphrase,
+            );
+            request.auth_hash = Some(hash);
+            request.request_auth = true;
+            request.ex_flag = true;
+        }
+
+        if self.response_auth_enabled {
+            request.response_auth = true;
         }
     }
-    
+
     /// レスポンス認証を検証
-    fn verify_response_auth(&self, _response: &QueryResponse) -> bool {
-        // レスポンス認証が無効な場合は常にtrue
+    fn verify_response_auth(&self, response: &QueryResponse) -> bool {
         if !self.response_auth_enabled {
             return true;
         }
-        
-        // パスフレーズが設定されていない場合は失敗
+
         if self.auth_passphrase.is_empty() {
             if self.debug {
                 eprintln!("Response authentication enabled but passphrase not set");
             }
             return false;
         }
-        
-        // TODO: QueryResponseに認証関連フィールドを追加する実装が必要
-        // 現在のQueryResponse構造体には認証関連フィールドがないため、
-        // プレースホルダーとして実装
-        if self.debug {
-            println!("Response auth enabled but QueryResponse auth fields not implemented yet");
+
+        if !response.response_auth {
+            if self.debug {
+                eprintln!("Response auth flag not set");
+            }
+            return false;
         }
-        
-        // 暫定的にtrueを返す（認証フィールドが実装されるまで）
-        true
+
+        if let Some(ref hash) = response.auth_hash {
+            if WIPAuth::verify_auth_hash(
+                response.packet_id,
+                response.timestamp,
+                &self.auth_passphrase,
+                hash,
+            ) {
+                true
+            } else {
+                if self.debug {
+                    eprintln!("Response auth hash verification failed");
+                }
+                false
+            }
+        } else {
+            if self.debug {
+                eprintln!("Response auth hash missing");
+            }
+            false
+        }
     }
 }
