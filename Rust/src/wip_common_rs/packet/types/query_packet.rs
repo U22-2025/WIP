@@ -1,9 +1,10 @@
 use bitvec::prelude::*;
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, verify_checksum12};
+use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, verify_checksum12, embed_checksum12_at};
 use crate::wip_common_rs::packet::core::bit_utils::{bytes_to_u128_le, u128_to_bytes_le, PacketFields};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
-use crate::wip_common_rs::packet::core::extended_field::{unpack_ext_fields, FieldValue};
+use crate::wip_common_rs::packet::core::extended_field::{FieldValue, pack_ext_fields, unpack_ext_fields};
 use once_cell::sync::Lazy;
 
 // JSON仕様からフィールド定義を構築（コンパイル時埋め込み）
@@ -31,9 +32,12 @@ pub struct QueryRequest {
     pub alert_flag: bool,
     pub disaster_flag: bool,
     pub ex_flag: bool,
+    pub request_auth: bool,
+    pub response_auth: bool,
     pub timestamp: u64,
     pub day: u8,
     pub area_code: u32,
+    pub auth_hash: Option<Vec<u8>>,
 }
 
 impl QueryRequest {
@@ -61,9 +65,12 @@ impl QueryRequest {
             alert_flag: alert,
             disaster_flag: disaster,
             ex_flag: false,
+            request_auth: false,
+            response_auth: false,
             timestamp,
             day: day & 0x07,
             area_code: area_code & 0xFFFFF,
+            auth_hash: None,
         }
     }
 
@@ -88,9 +95,12 @@ impl QueryRequest {
             alert_flag: alert,
             disaster_flag: disaster,
             ex_flag: false,
+            request_auth: false,
+            response_auth: false,
             timestamp,
             day: day & 0x07,
             area_code: area_code & 0xFFFFF,
+            auth_hash: None,
         }
     }
 
@@ -138,79 +148,94 @@ impl QueryRequest {
         2  // Query packet type
     }
 
-    /// パケットをバイト列に変換する (Little Endian)
-    /// Python実装と互換性を保つため、手動でビットフィールドを配置
-    pub fn to_bytes(&self) -> [u8; 16] {
-        let mut out = [0u8; 16];
-        let mut bits_u128 = 0u128;
+    /// パケットをバイト列に変換する
+    /// 認証ハッシュが存在する場合は拡張フィールドとして付加する
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut fixed = [0u8; 16];
+        {
+            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut fixed);
+            bits[0..4].store(self.version);
+            bits[4..16].store(self.packet_id);
+            bits[16..19].store(2u8);
+            bits[19..20].store(self.weather_flag as u8);
+            bits[20..21].store(self.temperature_flag as u8);
+            bits[21..22].store(self.pop_flag as u8);
+            bits[22..23].store(self.alert_flag as u8);
+            bits[23..24].store(self.disaster_flag as u8);
+            bits[24..25].store(self.ex_flag as u8);
+            bits[25..26].store(self.request_auth as u8);
+            bits[26..27].store(self.response_auth as u8);
+            bits[27..30].store(self.day);
+            bits[30..32].store(0u8);
+            bits[32..96].store(self.timestamp);
+            bits[96..116].store(self.area_code);
+            bits[116..128].store(0u16);
+        }
 
-        // 正しいビット順序でフィールドを配置（Python実装準拠）
-        // bit 0-3: version (4ビット)
-        bits_u128 |= (self.version as u128) & 0x0F;
-        
-        // bit 4-15: packet_id (12ビット)  
-        bits_u128 |= ((self.packet_id as u128) & 0x0FFF) << 4;
-        
-        // bit 16-18: type (3ビット) = 2 (Query)
-        bits_u128 |= (2u128 & 0x07) << 16;
-        
-        // bit 19: weather_flag (1ビット)
-        if self.weather_flag {
-            bits_u128 |= 1u128 << 19;
-        }
-        
-        // bit 20: temperature_flag (1ビット)
-        if self.temperature_flag {
-            bits_u128 |= 1u128 << 20;
-        }
-        
-        // bit 21: pop_flag (1ビット)
-        if self.pop_flag {
-            bits_u128 |= 1u128 << 21;
-        }
-        
-        // bit 22: alert_flag (1ビット)
-        if self.alert_flag {
-            bits_u128 |= 1u128 << 22;
-        }
-        
-        // bit 23: disaster_flag (1ビット)
-        if self.disaster_flag {
-            bits_u128 |= 1u128 << 23;
-        }
-        
-        // bit 24: ex_flag (1ビット)
-        if self.ex_flag {
-            bits_u128 |= 1u128 << 24;
-        }
-        
-        // bit 25: request_auth (1ビット) = 0
-        // bit 26: response_auth (1ビット) = 0
-        
-        // bit 27-29: day (3ビット)
-        bits_u128 |= ((self.day as u128) & 0x07) << 27;
-        
-        // bit 30-31: reserved (2ビット) = 0
-        
-        // bit 32-95: timestamp (64ビット)
-        bits_u128 |= (self.timestamp as u128) << 32;
-        
-        // bit 96-115: area_code (20ビット)
-        bits_u128 |= ((self.area_code as u128) & 0xFFFFF) << 96;
-        
-        // bit 116-127: checksum (12ビット) - 一旦0で初期化
-        
-        // バイト配列に変換
-        u128_to_bytes_le(bits_u128, &mut out);
+        let mut packet = if let Some(hash) = &self.auth_hash {
+            let mut map = HashMap::new();
+            let hex_hash = hex::encode(hash);
+            map.insert("auth_hash".to_string(), FieldValue::String(hex_hash));
+            let ext = pack_ext_fields(&map);
+            let mut out = Vec::with_capacity(16 + ext.len());
+            out.extend_from_slice(&fixed);
+            out.extend_from_slice(&ext);
+            out
+        } else {
+            fixed.to_vec()
+        };
 
-        // チェックサム計算（ヘッダ16バイト）
-        let checksum = calc_checksum12(&out);
+        embed_checksum12_at(&mut packet, 116, 12);
+        packet
+    }
 
-        // チェックサム設定 (bit 116-127)
-        bits_u128 |= ((checksum as u128) & 0x0FFF) << 116;
-        u128_to_bytes_le(bits_u128, &mut out);
+    /// バイト列からQueryRequestを生成する
+    pub fn from_bytes(data: &[u8]) -> Option<Self> {
+        if data.len() < 16 {
+            return None;
+        }
+        let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..16]);
+        let version: u8 = bits[0..4].load();
+        let packet_id: u16 = bits[4..16].load();
+        let weather_flag = bits[19];
+        let temperature_flag = bits[20];
+        let pop_flag = bits[21];
+        let alert_flag = bits[22];
+        let disaster_flag = bits[23];
+        let ex_flag = bits[24];
+        let request_auth = bits[25];
+        let response_auth = bits[26];
+        let day: u8 = bits[27..30].load();
+        let timestamp: u64 = bits[32..96].load();
+        let area_code: u32 = bits[96..116].load();
 
-        out
+        let mut auth_hash = None;
+        if ex_flag && data.len() > 16 {
+            if let Ok(map) = unpack_ext_fields(&data[16..]) {
+                if let Some(FieldValue::String(s)) = map.get("auth_hash") {
+                    if let Ok(bytes) = hex::decode(s) {
+                        auth_hash = Some(bytes);
+                    }
+                }
+            }
+        }
+
+        Some(Self {
+            version,
+            packet_id,
+            weather_flag,
+            temperature_flag,
+            pop_flag,
+            alert_flag,
+            disaster_flag,
+            ex_flag,
+            request_auth,
+            response_auth,
+            timestamp,
+            day,
+            area_code,
+            auth_hash,
+        })
     }
 }
 
@@ -223,11 +248,42 @@ pub struct QueryResponse {
     pub weather_code: Option<u16>,
     pub temperature: Option<i8>,
     pub precipitation: Option<u8>,
-    pub alert: Option<Vec<String>>,
-    pub disaster: Option<Vec<String>>,
+    pub timestamp: u64,
+    pub response_auth: bool,
+    pub extended_fields: Option<HashMap<String, FieldValue>>,
 }
 
 impl QueryResponse {
+    /// 新規インスタンスを作成
+    pub fn new() -> Self {
+        Self {
+            version: 1,
+            packet_id: 0,
+            area_code: 0,
+            weather_code: None,
+            temperature: None,
+            precipitation: None,
+            timestamp: 0,
+            response_auth: false,
+            extended_fields: None,
+        }
+    }
+
+    /// 簡易的に成功レスポンスを生成
+    pub fn success(packet_id: u16, weather: u16, temperature: i8, pop: u8) -> Self {
+        Self {
+            version: 1,
+            packet_id,
+            area_code: 0,
+            weather_code: Some(weather),
+            temperature: Some(temperature),
+            precipitation: Some(pop),
+            timestamp: 0,
+            response_auth: false,
+            extended_fields: None,
+        }
+    }
+
     /// バイト列から QueryResponse を生成する
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         if data.len() < 20 {
@@ -242,13 +298,15 @@ impl QueryResponse {
             return None;
         }
 
-        // 固定レイアウトで抽出（JSON順序差異の影響を排除）
         let version: u8  = bits[0..4].load();
         let packet_id: u16 = bits[4..16].load();
+        let response_auth = bits[26];
+        let timestamp: u64 = bits[32..96].load();
         let area_code: u32 = bits[96..116].load();
         let weather_code: u16 = bits[128..144].load();
         let temp_raw: u8    = bits[144..152].load();
         let precip: u8      = bits[152..160].load();
+        let ex_flag = bits[24];
 
         // 温度は+100オフセットで格納される仕様（Python実装準拠）
         let temperature = if temp_raw != 0 {
@@ -264,32 +322,15 @@ impl QueryResponse {
         };
         let precipitation = if precip != 0 { Some(precip) } else { None };
 
-        // 拡張フィールドの解析
-        let mut alert: Option<Vec<String>> = None;
-        let mut disaster: Option<Vec<String>> = None;
-        if data.len() > 20 {
-            let map = unpack_ext_fields(&data[20..]);
-            if let Some(FieldValue::String(s)) = map.get("alert") {
-                let v = s
-                    .split(',')
-                    .filter(|x| !x.is_empty())
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>();
-                if !v.is_empty() {
-                    alert = Some(v);
-                }
+        // 拡張フィールドの処理
+        let extended_fields = if ex_flag && data.len() > 20 {
+            match unpack_ext_fields(&data[20..]) {
+                Ok(map) => Some(map),
+                Err(_) => None,
             }
-            if let Some(FieldValue::String(s)) = map.get("disaster") {
-                let v = s
-                    .split(',')
-                    .filter(|x| !x.is_empty())
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>();
-                if !v.is_empty() {
-                    disaster = Some(v);
-                }
-            }
-        }
+        } else {
+            None
+        };
 
         Some(Self {
             version,
@@ -298,9 +339,98 @@ impl QueryResponse {
             weather_code,
             temperature,
             precipitation,
-            alert,
-            disaster,
+            timestamp,
+            response_auth,
+            extended_fields,
         })
+    }
+
+    /// パケットをバイト列に変換する
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut fixed = [0u8; 20];
+        {
+            let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut fixed);
+            bits[0..4].store(self.version);
+            bits[4..16].store(self.packet_id);
+            bits[16..19].store(3u8);
+            bits[19..20].store(self.weather_code.is_some() as u8);
+            bits[20..21].store(self.temperature.is_some() as u8);
+            bits[21..22].store(self.precipitation.is_some() as u8);
+            bits[22..23].store(0u8);
+            bits[23..24].store(0u8);
+            let has_ext = self.extended_fields.is_some();
+            bits[24..25].store(has_ext as u8);
+            bits[25..26].store(0u8);
+            bits[26..27].store(self.response_auth as u8);
+            bits[27..30].store(0u8);
+            bits[30..32].store(0u8);
+            bits[32..96].store(self.timestamp);
+            bits[96..116].store(self.area_code);
+            bits[116..128].store(0u16);
+            bits[128..144].store(self.weather_code.unwrap_or(0));
+            let temp_store = self.temperature.map(|t| (t as i16 + 100) as u8).unwrap_or(0);
+            bits[144..152].store(temp_store);
+            bits[152..160].store(self.precipitation.unwrap_or(0));
+        }
+
+        let mut packet = if let Some(ref ext_fields) = self.extended_fields {
+            let ext = pack_ext_fields(ext_fields);
+            let mut out = Vec::with_capacity(20 + ext.len());
+            out.extend_from_slice(&fixed);
+            out.extend_from_slice(&ext);
+            out
+        } else {
+            fixed.to_vec()
+        };
+
+        embed_checksum12_at(&mut packet, 116, 12);
+        packet
+    }
+
+    /// 拡張フィールドからalertを取得
+    pub fn get_alert(&self) -> Option<Vec<String>> {
+        if let Some(ref ext_fields) = self.extended_fields {
+            if let Some(FieldValue::String(s)) = ext_fields.get("alert") {
+                let v: Vec<String> = s
+                    .split(',')
+                    .filter(|x| !x.is_empty())
+                    .map(|x| x.to_string())
+                    .collect();
+                if !v.is_empty() {
+                    return Some(v);
+                }
+            }
+        }
+        None
+    }
+
+    /// 拡張フィールドからdisasterを取得
+    pub fn get_disaster(&self) -> Option<Vec<String>> {
+        if let Some(ref ext_fields) = self.extended_fields {
+            if let Some(FieldValue::String(s)) = ext_fields.get("disaster") {
+                let v: Vec<String> = s
+                    .split(',')
+                    .filter(|x| !x.is_empty())
+                    .map(|x| x.to_string())
+                    .collect();
+                if !v.is_empty() {
+                    return Some(v);
+                }
+            }
+        }
+        None
+    }
+
+    /// 拡張フィールドからauth_hashを取得
+    pub fn get_auth_hash(&self) -> Option<Vec<u8>> {
+        if let Some(ref ext_fields) = self.extended_fields {
+            if let Some(FieldValue::String(hex_str)) = ext_fields.get("auth_hash") {
+                if let Ok(bytes) = hex::decode(hex_str) {
+                    return Some(bytes);
+                }
+            }
+        }
+        None
     }
 }
 
