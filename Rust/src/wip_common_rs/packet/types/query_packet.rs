@@ -237,7 +237,7 @@ impl QueryResponse {
         let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
 
         // ヘッダ部のチェックサムを検証
-        if !verify_checksum12(header, 116, 12) {
+        if !verify_checksum12(&data[..16], 116, 12) {
             eprintln!("DEBUG: QueryResponse::from_bytes - checksum verification failed");
             return None;
         }
