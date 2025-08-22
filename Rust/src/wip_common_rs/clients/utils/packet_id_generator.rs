@@ -1,5 +1,5 @@
-use std::sync::Mutex;
-use std::sync::OnceLock;
+use rand::Rng;
+use std::sync::{Mutex, OnceLock};
 
 /// 12ビットパケットIDを生成する
 #[derive(Debug)]
@@ -10,17 +10,14 @@ pub struct PacketIDGenerator12Bit {
 impl PacketIDGenerator12Bit {
     /// 新しいパケットIDジェネレーターを作成
     pub fn new() -> Self {
-        // テストの安定性のため、初期値は1で固定（12ビット範囲内を循環）
-        Self { current_id: 1 }
+        let current_id = rand::thread_rng().gen_range(0..=0x0FFF);
+        Self { current_id }
     }
 
     /// 次のパケットIDを生成（12ビット範囲内で循環）
     pub fn next_id(&mut self) -> u16 {
         let id = self.current_id;
         self.current_id = (self.current_id + 1) & 0x0FFF; // 12ビットマスク
-        if self.current_id == 0 {
-            self.current_id = 1; // 0は避ける
-        }
         id
     }
 }
@@ -32,11 +29,9 @@ impl PacketIdGenerator {
     /// 次のパケットIDを生成（スレッドセーフ）
     pub fn next_id() -> u16 {
         static GENERATOR: OnceLock<Mutex<PacketIDGenerator12Bit>> = OnceLock::new();
-        
-        let generator = GENERATOR.get_or_init(|| {
-            Mutex::new(PacketIDGenerator12Bit::new())
-        });
-        
+
+        let generator = GENERATOR.get_or_init(|| Mutex::new(PacketIDGenerator12Bit::new()));
+
         let mut gen = generator.lock().unwrap();
         gen.next_id()
     }
@@ -54,25 +49,37 @@ mod tests {
 
     #[test]
     fn packet_id_generation() {
+        use std::collections::HashSet;
+
         let mut generator = PacketIDGenerator12Bit::new();
-        
-        let id1 = generator.next_id();
-        let id2 = generator.next_id();
-        
-        assert_eq!(id1, 1);
-        assert_eq!(id2, 2);
-        assert_ne!(id1, id2);
+
+        let first_id = generator.next_id();
+        assert!(first_id <= 0x0FFF);
+
+        let mut ids = HashSet::new();
+        ids.insert(first_id);
+
+        for _ in 0..0x0FFF {
+            let id = generator.next_id();
+            assert!(id <= 0x0FFF);
+            assert!(ids.insert(id), "duplicate id {id}");
+        }
+
+        assert_eq!(ids.len(), 0x1000);
+
+        let wrapped_id = generator.next_id();
+        assert_eq!(wrapped_id, first_id);
     }
 
     #[test]
     fn packet_id_wraps_at_12_bits() {
         let mut generator = PacketIDGenerator12Bit::new();
         generator.current_id = 0xFFF; // 12ビット最大値
-        
+
         let last_id = generator.next_id();
         let wrapped_id = generator.next_id();
-        
+
         assert_eq!(last_id, 0xFFF);
-        assert_eq!(wrapped_id, 1); // 0をスキップして1に戻る
+        assert_eq!(wrapped_id, 0); // 0へラップする
     }
 }
