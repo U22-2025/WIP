@@ -184,6 +184,8 @@ impl QueryRequest {
             alert_flag,
             disaster_flag,
             ex_flag,
+            request_auth: false,
+            response_auth: false,
             timestamp,
             day,
             area_code,
@@ -333,17 +335,17 @@ impl QueryResponse {
 
         // 拡張フィールド
         let ex_field = if ex_flag && data.len() > 20 {
-            match unpack_ext_fields(&data[20..]) {
-                Ok(map) if !map.is_empty() => {
-                    let mut mgr = ExtendedFieldManager::new();
-                    for (k, v) in map {
-                        let def = FieldDefinition::new(k.clone(), v.get_type());
-                        mgr.add_definition(def);
-                        let _ = mgr.set_value(k, v);
-                    }
-                    Some(mgr)
-                },
-                _ => None,
+            let map = unpack_ext_fields(&data[20..]);
+            if !map.is_empty() {
+                let mut mgr = ExtendedFieldManager::new();
+                for (k, v) in map {
+                    let def = FieldDefinition::new(k.clone(), v.get_type());
+                    mgr.add_definition(def);
+                    let _ = mgr.set_value(k, v);
+                }
+                Some(mgr)
+            } else {
+                None
             }
         } else {
             None

@@ -80,19 +80,27 @@ impl PythonCompatibleWeatherClient {
                 serde_json::Value::Number(serde_json::Number::from(precip)),
             );
         }
-        if let Some(alerts) = &response.alert {
-            let arr = alerts
-                .iter()
-                .map(|a| serde_json::Value::String(a.clone()))
-                .collect();
-            result.insert("alert".to_string(), serde_json::Value::Array(arr));
-        }
-        if let Some(disasters) = &response.disaster {
-            let arr = disasters
-                .iter()
-                .map(|d| serde_json::Value::String(d.clone()))
-                .collect();
-            result.insert("disaster".to_string(), serde_json::Value::Array(arr));
+        if let Some(ext) = &response.ex_field {
+            if let Some(FieldValue::String(s)) = ext.get_value("alert") {
+                let arr = s
+                    .split(',')
+                    .filter(|x| !x.is_empty())
+                    .map(|x| serde_json::Value::String(x.to_string()))
+                    .collect::<Vec<_>>();
+                if !arr.is_empty() {
+                    result.insert("alert".to_string(), serde_json::Value::Array(arr));
+                }
+            }
+            if let Some(FieldValue::String(s)) = ext.get_value("disaster") {
+                let arr = s
+                    .split(',')
+                    .filter(|x| !x.is_empty())
+                    .map(|x| serde_json::Value::String(x.to_string()))
+                    .collect::<Vec<_>>();
+                if !arr.is_empty() {
+                    result.insert("disaster".to_string(), serde_json::Value::Array(arr));
+                }
+            }
         }
         result.insert("success".to_string(), serde_json::Value::Bool(true));
         result
@@ -123,9 +131,6 @@ impl PythonCompatibleWeatherClient {
 
         // 内部クライアントを使用してデータを取得
         match self.inner_client.get_weather_simple(area_code, weather, temperature, precipitation_prob, alert, disaster, day) {
-<<<<<<< HEAD
-            Ok(Some(response)) => Ok(self.map_from_response(&response)),
-=======
             Ok(Some(response)) => {
                 let mut result = HashMap::new();
                 
@@ -171,7 +176,6 @@ impl PythonCompatibleWeatherClient {
                 
                 Ok(result)
             }
->>>>>>> origin/codex/introduce-extendedfieldmanager-and-extend-serialization
             Ok(None) => {
                 Err("No weather data received".to_string())
             }
