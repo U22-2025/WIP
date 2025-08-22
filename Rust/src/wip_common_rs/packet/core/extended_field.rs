@@ -379,15 +379,10 @@ fn encode_value(key: &str, v: &FieldValue) -> (Vec<u8>, String) {
                 }
             }
         }
-        // auth_hash は16進文字列をバイト列に変換して送信（長さプレフィックスなし）
+        // auth_hash は文字列のUTF-8バイト列をそのまま送信（長さプレフィックスなし）
         "auth_hash" => {
             if let FieldValue::String(s) = v {
-                if let Ok(bytes) = hex::decode(s) {
-                    return (bytes, "auth_hash".into());
-                } else {
-                    // hex decodeに失敗した場合は文字列として送信
-                    return (s.as_bytes().to_vec(), "auth_hash".into());
-                }
+                return (s.as_bytes().to_vec(), "auth_hash".into());
             }
         }
         _ => {}
