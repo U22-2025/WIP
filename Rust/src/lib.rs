@@ -109,12 +109,15 @@ pub mod prelude {
     
     // Async clients
     pub use crate::wip_common_rs::clients::async_weather_client::AsyncWeatherClient;
-    
+
     // Packet types
     pub use crate::wip_common_rs::packet::types::location_packet::{LocationRequest, LocationResponse};
     pub use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
     pub use crate::wip_common_rs::packet::types::report_packet::{ReportRequest, ReportResponse};
     pub use crate::wip_common_rs::packet::types::error_response::ErrorResponse;
+
+    // Unified client
+    pub use crate::wip_common_rs::client::WipClient;
     
     // Core traits
     pub use crate::wip_common_rs::packet::core::PacketFormat;

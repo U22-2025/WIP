@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::error::Error;
-use wip_rust::wip_common_rs::clients::report_client::{ReportClient, ReportClientImpl};
+use wip_rust::wip_common_rs::client::WipClient;
+use wip_rust::wip_common_rs::packet::types::report_packet::ReportRequest;
 
 #[derive(Parser)]
 #[command(name = "wip-report")]
@@ -171,7 +172,7 @@ fn disaster_type_to_japanese(disaster_type: &str) -> &'static str {
 }
 
 async fn send_disaster_report(
-    client: &ReportClientImpl,
+    client: &WipClient,
     disaster_type: &str,
     severity: u8,
     description: &str,
@@ -201,7 +202,7 @@ async fn send_disaster_report(
 }
 
 async fn send_sensor_report(
-    client: &ReportClientImpl,
+    client: &WipClient,
     area_code: u32,
     weather_code: Option<u16>,
     temperature: Option<f64>,
@@ -228,24 +229,27 @@ async fn send_sensor_report(
         println!("災害情報: {:?}", disaster_info);
     }
 
-    // センサーデータを基にレポート作成（簡易実装）
-    let description = format!(
-        "センサーデータ報告 - エリア:{}, 天気:{:?}, 気温:{:?}°C, 降水確率:{:?}%",
-        area_code, weather_code, temperature, precipitation
+    let report = ReportRequest::create_sensor_data_report(
+        &format!("{:06}", area_code),
+        weather_code,
+        temperature,
+        precipitation,
+        if alerts.is_empty() { None } else { Some(alerts.to_vec()) },
+        if disaster_info.is_empty() { None } else { Some(disaster_info.to_vec()) },
+        1,
+        0,
     );
 
-    // TODO: Create proper ReportRequest for sensor data
-    println!("⚠️ センサーレポート送信機能は現在実装中です");
-    let report_id = format!("SENSOR-{}", fastrand::u32(10000..99999));
-
+    let response = client.send_report(report).await?;
+    let report_id = format!("{}", response.packet_id);
     println!("✅ センサーレポート送信完了");
     println!("📋 レポートID: {}", report_id);
-    
+
     Ok(report_id)
 }
 
 async fn send_test_reports(
-    client: &ReportClientImpl,
+    client: &WipClient,
     pattern: &str,
     count: usize,
     seed: Option<u64>,
@@ -317,8 +321,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         env_logger::init();
     }
 
-    let server_addr = format!("{}:{}", cli.host, cli.port);
-    let client = ReportClientImpl::new(&cli.host, cli.port).await?;
+    let client = WipClient::new(&cli.host, 4111, 4109, 4111, cli.port, cli.debug).await?;
 
     if let Some(_token) = cli.auth_token {
         println!("⚠️ 認証トークン機能は現在実装中です");
