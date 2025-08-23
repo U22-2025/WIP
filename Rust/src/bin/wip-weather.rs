@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 use log::debug;
 use std::{env, error::Error};
+use wip_rust::wip_common_rs::client::WipClient;
 use wip_rust::wip_common_rs::clients::location_client::{LocationClient, LocationClientImpl};
-use wip_rust::wip_common_rs::clients::weather_client::WeatherClient;
 
 #[derive(Parser)]
 #[command(name = "wip-weather")]
@@ -156,7 +156,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         env_logger::init();
     }
 
-    let mut client = WeatherClient::new(&cli.host, cli.port, cli.debug)?;
+    let mut client = WipClient::new(&cli.host, cli.port, 4109, cli.port, 4112, cli.debug).await?;
 
     if let Some(_token) = cli.auth_token {
         println!("⚠️ 認証トークン機能は現在実装中です");
@@ -173,8 +173,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             day,
         } => {
             println!("エリアコード {} の気象データを取得中...", area_code);
-
-            match client.get_weather_simple(area_code, weather, temperature, precipitation, alerts, disaster, day)? {
+            client.set_area_code(area_code);
+            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -225,8 +225,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             };
 
             println!("取得エリアコード: {}", area_code);
-
-            match client.get_weather_simple(area_code, weather, temperature, precipitation, alerts, disaster, day)? {
+            client.set_area_code(area_code);
+            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -249,7 +249,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 println!("\n--- {} ---", day_name);
 
-                match client.get_weather_simple(area_code, true, true, true, false, false, day)? {
+                client.set_area_code(area_code);
+                match client.get_weather(true, true, true, false, false, day).await? {
                     Some(response) => {
                         if let Some(weather_code) = response.weather_code {
                             println!("天気: {}", weather_code_to_string(weather_code));
