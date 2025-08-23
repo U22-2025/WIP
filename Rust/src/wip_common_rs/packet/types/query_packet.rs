@@ -258,6 +258,8 @@ pub struct QueryResponse {
     pub weather_code: Option<u16>,
     pub temperature: Option<i8>,
     pub precipitation: Option<u8>,
+    pub alert_flag: bool,
+    pub disaster_flag: bool,
     pub timestamp: u64,
     pub response_auth: bool,
     pub ex_field: Option<ExtendedFieldManager>,
@@ -273,6 +275,8 @@ impl QueryResponse {
             weather_code: None,
             temperature: None,
             precipitation: None,
+            alert_flag: false,
+            disaster_flag: false,
             timestamp: 0,
             response_auth: false,
             ex_field: None,
@@ -288,6 +292,8 @@ impl QueryResponse {
             weather_code: Some(weather),
             temperature: Some(temperature),
             precipitation: Some(pop),
+            alert_flag: false,
+            disaster_flag: false,
             timestamp: 0,
             response_auth: false,
             ex_field: None,
@@ -310,14 +316,15 @@ impl QueryResponse {
 
         let version: u8  = bits[0..4].load();
         let packet_id: u16 = bits[4..16].load();
+        let alert_flag_bit = bits[22];
+        let disaster_flag_bit = bits[23];
+        let ex_flag = bits[24];
         let response_auth = bits[26];
         let timestamp: u64 = bits[32..96].load();
         let area_code: u32 = bits[96..116].load();
-        let ex_flag = bits[24];
         let weather_code: u16 = bits[128..144].load();
         let temp_raw: u8    = bits[144..152].load();
         let precip: u8      = bits[152..160].load();
-        let ex_flag = bits[24];
 
         // 温度は+100オフセットで格納される仕様（Python実装準拠）
         let temperature = if temp_raw != 0 {
@@ -351,6 +358,15 @@ impl QueryResponse {
             None
         };
 
+        let alert_flag = alert_flag_bit
+            && ex_field
+                .as_ref()
+                .map_or(false, |ext| ext.get_value("alert").is_some());
+        let disaster_flag = disaster_flag_bit
+            && ex_field
+                .as_ref()
+                .map_or(false, |ext| ext.get_value("disaster").is_some());
+
         Some(Self {
             version,
             packet_id,
@@ -358,6 +374,8 @@ impl QueryResponse {
             weather_code,
             temperature,
             precipitation,
+             alert_flag,
+             disaster_flag,
             timestamp,
             response_auth,
             ex_field,
@@ -375,8 +393,10 @@ impl QueryResponse {
             bits[19..20].store(self.weather_code.is_some() as u8);
             bits[20..21].store(self.temperature.is_some() as u8);
             bits[21..22].store(self.precipitation.is_some() as u8);
-            bits[22..23].store(0u8);
-            bits[23..24].store(0u8);
+            let alert_bit = self.alert_flag || self.get_alert().is_some();
+            let disaster_bit = self.disaster_flag || self.get_disaster().is_some();
+            bits[22..23].store(alert_bit as u8);
+            bits[23..24].store(disaster_bit as u8);
             let has_ext = self.ex_field.is_some();
             bits[24..25].store(has_ext as u8);
             bits[25..26].store(0u8);
@@ -412,15 +432,17 @@ impl QueryResponse {
 
     /// 拡張フィールドからalertを取得
     pub fn get_alert(&self) -> Option<Vec<String>> {
-        if let Some(ref ext) = self.ex_field {
-            if let Some(FieldValue::String(s)) = ext.get_value("alert") {
-                let v: Vec<String> = s
-                    .split(',')
-                    .filter(|x| !x.is_empty())
-                    .map(|x| x.to_string())
-                    .collect();
-                if !v.is_empty() {
-                    return Some(v);
+        if self.alert_flag {
+            if let Some(ref ext) = self.ex_field {
+                if let Some(FieldValue::String(s)) = ext.get_value("alert") {
+                    let v: Vec<String> = s
+                        .split(',')
+                        .filter(|x| !x.is_empty())
+                        .map(|x| x.to_string())
+                        .collect();
+                    if !v.is_empty() {
+                        return Some(v);
+                    }
                 }
             }
         }
@@ -429,15 +451,17 @@ impl QueryResponse {
 
     /// 拡張フィールドからdisasterを取得
     pub fn get_disaster(&self) -> Option<Vec<String>> {
-        if let Some(ref ext) = self.ex_field {
-            if let Some(FieldValue::String(s)) = ext.get_value("disaster") {
-                let v: Vec<String> = s
-                    .split(',')
-                    .filter(|x| !x.is_empty())
-                    .map(|x| x.to_string())
-                    .collect();
-                if !v.is_empty() {
-                    return Some(v);
+        if self.disaster_flag {
+            if let Some(ref ext) = self.ex_field {
+                if let Some(FieldValue::String(s)) = ext.get_value("disaster") {
+                    let v: Vec<String> = s
+                        .split(',')
+                        .filter(|x| !x.is_empty())
+                        .map(|x| x.to_string())
+                        .collect();
+                    if !v.is_empty() {
+                        return Some(v);
+                    }
                 }
             }
         }
@@ -474,6 +498,8 @@ mod tests {
         bits[0..4].store(1u8);
         bits[4..16].store(1u16);
         bits[16..19].store(3u8);
+        bits.set(22, true);
+        bits.set(23, true);
         bits[96..116].store(123u32);
         bits[128..144].store(10u16);
         bits[144..152].store(120u8);
@@ -501,8 +527,18 @@ mod tests {
         assert_eq!(resp.weather_code, Some(10));
         assert_eq!(resp.temperature, Some(20i8));
         assert_eq!(resp.precipitation, Some(80u8));
+        assert!(resp.alert_flag);
+        assert!(resp.disaster_flag);
         let ext = resp.ex_field.expect("ext");
         assert_eq!(ext.get_value("alert"), Some(&FieldValue::String("A,B".into())));
         assert_eq!(ext.get_value("disaster"), Some(&FieldValue::String("X".into())));
+
+        let encoded = resp.to_bytes();
+        let bits2 = BitSlice::<u8, Lsb0>::from_slice(&encoded[..20]);
+        assert!(bits2[22]);
+        assert!(bits2[23]);
+        let resp2 = QueryResponse::from_bytes(&encoded).unwrap();
+        assert!(resp2.alert_flag);
+        assert!(resp2.disaster_flag);
     }
 }
