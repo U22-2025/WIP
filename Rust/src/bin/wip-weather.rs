@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use std::error::Error;
+use std::{env, error::Error};
 use wip_rust::wip_common_rs::clients::weather_client::WeatherClient;
 
 #[derive(Parser)]
@@ -8,12 +8,12 @@ use wip_rust::wip_common_rs::clients::weather_client::WeatherClient;
 #[command(version = "0.1.0")]
 struct Cli {
     /// サーバーホスト
-    #[arg(short = 'H', long, default_value = "127.0.0.1")]
-    host: String,
+    #[arg(short = 'H', long)]
+    host: Option<String>,
 
     /// サーバーポート
-    #[arg(short, long, default_value = "4111")]
-    port: u16,
+    #[arg(short, long)]
+    port: Option<u16>,
 
     /// デバッグモード
     #[arg(short, long)]
@@ -115,14 +115,20 @@ fn weather_code_to_string(code: u16) -> &'static str {
     }
 }
 
-fn print_weather_response(response: &wip_rust::wip_common_rs::packet::types::query_packet::QueryResponse) {
+fn print_weather_response(
+    response: &wip_rust::wip_common_rs::packet::types::query_packet::QueryResponse,
+) {
     println!("=== 気象データ ===");
     println!("エリアコード: {}", response.area_code);
     println!("パケットID: {}", response.packet_id);
     println!("バージョン: {}", response.version);
 
     if let Some(weather_code) = response.weather_code {
-        println!("天気: {} (コード: {})", weather_code_to_string(weather_code), weather_code);
+        println!(
+            "天気: {} (コード: {})",
+            weather_code_to_string(weather_code),
+            weather_code
+        );
     }
 
     if let Some(temperature) = response.temperature {
@@ -144,7 +150,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         env_logger::init();
     }
 
-    let mut client = WeatherClient::new(&cli.host, cli.port, cli.debug)?;
+    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let env_port = env::var("WEATHER_SERVER_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(4111);
+
+    let host = cli.host.unwrap_or(env_host);
+    let port = cli.port.unwrap_or(env_port);
+
+    let mut client = WeatherClient::new(&host, port, cli.debug)?;
 
     if let Some(_token) = cli.auth_token {
         println!("⚠️ 認証トークン機能は現在実装中です");
@@ -162,7 +177,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         } => {
             println!("エリアコード {} の気象データを取得中...", area_code);
 
-            match client.get_weather_simple(area_code, weather, temperature, precipitation, alerts, disaster, day)? {
+            match client.get_weather_simple(
+                area_code,
+                weather,
+                temperature,
+                precipitation,
+                alerts,
+                disaster,
+                day,
+            )? {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -183,14 +206,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
             day,
         } => {
             // 座標から気象データを取得する場合は、まず座標をLocationRequestで送信する必要がある
-            println!("座標 ({:.4}, {:.4}) から気象データを取得中...", latitude, longitude);
+            println!(
+                "座標 ({:.4}, {:.4}) から気象データを取得中...",
+                latitude, longitude
+            );
             println!("注意: この機能には位置解決サービスとの連携が必要です");
 
             // 今のところ、座標から直接エリアコードを推定（簡易実装）
             let estimated_area_code = estimate_area_code_from_coords(latitude, longitude);
             println!("推定エリアコード: {}", estimated_area_code);
 
-            match client.get_weather_simple(estimated_area_code, weather, temperature, precipitation, alerts, disaster, day)? {
+            match client.get_weather_simple(
+                estimated_area_code,
+                weather,
+                temperature,
+                precipitation,
+                alerts,
+                disaster,
+                day,
+            )? {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -206,7 +240,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             for day in 0..days.min(7) {
                 let day_name = match day {
                     0 => "今日",
-                    1 => "明日", 
+                    1 => "明日",
                     2 => "明後日",
                     _ => &format!("{}日後", day),
                 };
