@@ -76,7 +76,7 @@ impl PythonCompatibleWeatherClient {
         }
         if let Some(precip) = response.precipitation {
             result.insert(
-                "precipitation_probability".to_string(),
+                "precipitation_prob".to_string(),
                 serde_json::Value::Number(serde_json::Number::from(precip)),
             );
         }
@@ -146,7 +146,7 @@ impl PythonCompatibleWeatherClient {
                 }
                 
                 if let Some(precip) = response.precipitation {
-                    result.insert("precipitation_probability".to_string(), serde_json::Value::Number(serde_json::Number::from(precip)));
+                    result.insert("precipitation_prob".to_string(), serde_json::Value::Number(serde_json::Number::from(precip)));
                 }
 
                 if let Some(ext) = &response.ex_field {
@@ -471,7 +471,7 @@ impl PythonCompatibleQueryClient {
                 }
                 
                 if let Some(precip) = response.precipitation {
-                    result.insert("precipitation_probability".to_string(), serde_json::Value::Number(serde_json::Number::from(precip)));
+                    result.insert("precipitation_prob".to_string(), serde_json::Value::Number(serde_json::Number::from(precip)));
                 }
                 
                 result.insert("success".to_string(), serde_json::Value::Bool(true));
@@ -550,6 +550,26 @@ impl PythonCompatibleReportClient {
             }
             Err(e) => Err(format!("Sensor data transmission failed: {}", e))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn map_from_response_uses_precipitation_prob_key() {
+        let client = PythonCompatibleWeatherClient::new(Some("localhost"), Some(4110), Some(false)).unwrap();
+        let mut response = QueryResponse::new();
+        response.area_code = 11000;
+        response.weather_code = Some(100);
+        response.temperature = Some(25);
+        response.precipitation = Some(60);
+
+        let map = client.map_from_response(&response);
+        assert_eq!(map.get("precipitation_prob"), Some(&json!(60)));
+        assert!(!map.contains_key("precipitation_probability"));
     }
 }
 
