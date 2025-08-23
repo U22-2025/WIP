@@ -666,7 +666,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 # .env ファイル例
 WIP_SERVER_HOST=127.0.0.1
-WIP_WEATHER_PORT=4110
+WIP_WEATHER_PORT=4110  # Rust/Python共通
 WIP_LOCATION_PORT=4109
 WIP_QUERY_PORT=4111
 WIP_REPORT_PORT=4112

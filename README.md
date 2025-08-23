@@ -5,7 +5,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 ## 概要
 
 - **プロトコル**: NTPベースのUDPアプリケーションプロトコル
-- **ポート番号**: UDP/4110
+- **ポート番号**: UDP/4110（Rust/Python共通）
 - **データサイズ**: 基本16バイト程度の軽量パケット
 - **通信方式**: 1:1のリクエスト・レスポンス形式
 - **データソース**: 気象庁公開データ（XML/JSON形式）
@@ -38,7 +38,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 
 ### サーバ構成
 
-1. **Weather Server (Port 4110)** - プロキシサーバ
+1. **Weather Server (Port 4110)** - プロキシサーバ（Rust/Python共通ポート）
    - クライアントからのリクエストを受信
    - 適切なサーバへリクエストを転送
    - レスポンスをクライアントに返送
@@ -151,7 +151,7 @@ pip install "wiplib[all]"
 `.env`ファイルを作成し、以下を設定：
 ```env
 # サーバ設定
-WEATHER_SERVER_PORT=4110
+WEATHER_SERVER_PORT=4110  # Rust/Python共通
 LOCATION_RESOLVER_HOST=localhost
 LOCATION_RESOLVER_PORT=4109
 QUERY_GENERATOR_HOST=localhost
