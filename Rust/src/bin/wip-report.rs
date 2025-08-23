@@ -178,7 +178,7 @@ async fn send_disaster_report(
     description: &str,
     latitude: Option<f64>,
     longitude: Option<f64>,
-) -> Result<ReportResponse, Box<dyn Error>> {
+) -> Result<ReportResponse, Box<dyn Error + Send + Sync>> {
     validate_disaster_type(disaster_type)?;
     validate_severity(severity)?;
 
@@ -220,7 +220,7 @@ async fn send_sensor_report(
     precipitation: Option<u8>,
     alerts: &[String],
     disaster_info: &[String],
-) -> Result<String, Box<dyn Error>> {
+) -> Result<String, Box<dyn Error + Send + Sync>> {
     println!("📊 センサーデータレポート送信中...");
     println!("エリアコード: {}", area_code);
     
@@ -264,7 +264,7 @@ async fn send_test_reports(
     pattern: &str,
     count: usize,
     seed: Option<u64>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("🧪 テストレポート送信中 (パターン: {}, 件数: {})", pattern, count);
 
     let mut rng = if let Some(seed) = seed {
@@ -325,7 +325,7 @@ async fn send_test_reports(
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let cli = Cli::parse();
 
     if cli.debug {

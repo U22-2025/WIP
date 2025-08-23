@@ -74,7 +74,7 @@ impl WeatherClient {
             
             let mut buf = [0u8; 1024];
             match self.socket.recv_from(&mut buf) {
-                Ok((size, addr)) => {
+                Ok((size, _addr)) => {
                     
                     if size >= 2 {
                         let value = u16::from_le_bytes([buf[0], buf[1]]);

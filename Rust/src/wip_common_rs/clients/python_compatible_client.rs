@@ -315,7 +315,7 @@ impl PythonCompatibleLocationClient {
         let cache_ttl_minutes = cache_ttl_minutes.unwrap_or(30);
         let cache_enabled = cache_enabled.unwrap_or(true);
         
-        let server_addr = format!("{}:{}", host, port);
+        let _server_addr = format!("{}:{}", host, port);
         
         let inner_client = LocationClientImpl::new(host, port).await?;
         
@@ -369,9 +369,9 @@ impl PythonCompatibleLocationClient {
     /// ```
     pub fn get_area_code_from_coordinates(
         &self,
-        latitude: f64,
-        longitude: f64,
-        source: Option<(String, u16)>,
+        _latitude: f64,
+        _longitude: f64,
+        _source: Option<(String, u16)>,
     ) -> Result<serde_json::Value, String> {
         // This method should be async too since get_area_code_simple is async
         panic!("get_area_code_from_coordinates requires async context - should be made async")
@@ -415,7 +415,7 @@ impl PythonCompatibleQueryClient {
         });
         let debug = debug.unwrap_or(false);
         
-        let server_addr = format!("{}:{}", host, port);
+        let _server_addr = format!("{}:{}", host, port);
         
         let inner_client = QueryClientImpl::new(host, port).await?;
         
@@ -506,7 +506,7 @@ impl PythonCompatibleReportClient {
         });
         let debug = debug.unwrap_or(false);
         
-        let server_addr = format!("{}:{}", host, port);
+        let _server_addr = format!("{}:{}", host, port);
         
         let inner_client = ReportClientImpl::new(host, port).await?;
         
@@ -525,7 +525,7 @@ impl PythonCompatibleReportClient {
         weather_code: Option<u16>,
         temperature_c: Option<f64>,
         humidity_percent: Option<f64>,
-        pressure_hpa: Option<f64>,
+        _pressure_hpa: Option<f64>,
         packet_id: u16,
     ) -> Result<HashMap<String, serde_json::Value>, String> {
 
@@ -574,7 +574,6 @@ mod tests {
 }
 
 
-#[cfg(disabled)]
 #[allow(dead_code)]
 mod disabled_tests_for_now {
     use super::*;

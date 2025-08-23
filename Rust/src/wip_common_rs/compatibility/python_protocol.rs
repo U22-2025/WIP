@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use serde::{Deserialize, Serialize};
-use crate::wip_common_rs::utils::config_loader::ConfigLoader;
+// Note: ConfigLoader import unused but kept for future features
 
 /// Python版と完全互換のエラーコード定義
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

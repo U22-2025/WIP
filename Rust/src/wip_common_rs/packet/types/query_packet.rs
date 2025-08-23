@@ -2,10 +2,10 @@ use bitvec::prelude::*;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, verify_checksum12, embed_checksum12_at};
-use crate::wip_common_rs::packet::core::bit_utils::{bytes_to_u128_le, u128_to_bytes_le, PacketFields};
+use crate::wip_common_rs::packet::core::bit_utils::{u128_to_bytes_le, PacketFields};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
 use crate::wip_common_rs::packet::core::extended_field::{
-    ExtendedFieldManager, FieldDefinition, FieldType, FieldValue,
+    ExtendedFieldManager, FieldDefinition, FieldValue,
     pack_ext_fields, unpack_ext_fields
 };
 use once_cell::sync::Lazy;
