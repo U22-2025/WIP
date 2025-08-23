@@ -11,8 +11,8 @@ struct Cli {
     #[arg(short = 'H', long, default_value = "127.0.0.1")]
     host: String,
 
-    /// サーバーポート
-    #[arg(short, long, default_value = "4111")]
+    /// サーバーポート (デフォルト: 4110)
+    #[arg(short, long, default_value = "4110")]
     port: u16,
 
     /// デバッグモード

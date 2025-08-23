@@ -42,8 +42,8 @@ enum Commands {
     /// 気象データサービス (ポート 4110)
     #[command(alias = "w")]
     Weather {
-        /// サーバーポート
-        #[arg(short, long, default_value = "4111")]
+        /// サーバーポート (デフォルト: 4110)
+        #[arg(short, long, default_value = "4110")]
         port: u16,
 
         #[command(subcommand)]
