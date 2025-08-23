@@ -10,12 +10,12 @@ use wip_rust::wip_common_rs::clients::location_client::{LocationClient, Location
 #[command(version = "0.1.0")]
 struct Cli {
     /// サーバーホスト
-    #[arg(short = 'H', long, default_value = "127.0.0.1")]
-    host: String,
+    #[arg(short = 'H', long)]
+    host: Option<String>,
 
-    /// サーバーポート (デフォルト: 4110)
-    #[arg(short, long, default_value = "4110")]
-    port: u16,
+    /// サーバーポート
+    #[arg(short, long)]
+    port: Option<u16>,
 
     /// デバッグモード
     #[arg(short, long)]
@@ -117,14 +117,20 @@ fn weather_code_to_string(code: u16) -> &'static str {
     }
 }
 
-fn print_weather_response(response: &wip_rust::wip_common_rs::packet::types::query_packet::QueryResponse) {
+fn print_weather_response(
+    response: &wip_rust::wip_common_rs::packet::types::query_packet::QueryResponse,
+) {
     println!("=== 気象データ ===");
     println!("エリアコード: {}", response.area_code);
     println!("パケットID: {}", response.packet_id);
     println!("バージョン: {}", response.version);
 
     if let Some(weather_code) = response.weather_code {
-        println!("天気: {} (コード: {})", weather_code_to_string(weather_code), weather_code);
+        println!(
+            "天気: {} (コード: {})",
+            weather_code_to_string(weather_code),
+            weather_code
+        );
     }
 
     if let Some(temperature) = response.temperature {
@@ -156,7 +162,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         env_logger::init();
     }
 
-    let mut client = WipClient::new(&cli.host, cli.port, 4109, cli.port, 4112, cli.debug).await?;
+    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let env_port = env::var("WEATHER_SERVER_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(4110);
+
+    let host = cli.host.unwrap_or(env_host);
+    let port = cli.port.unwrap_or(env_port);
+
+    let mut client = WipClient::new(&host, port, 4109, port, 4112, cli.debug).await?;
 
     if let Some(_token) = cli.auth_token {
         println!("⚠️ 認証トークン機能は現在実装中です");
@@ -242,7 +257,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             for day in 0..days.min(7) {
                 let day_name = match day {
                     0 => "今日",
-                    1 => "明日", 
+                    1 => "明日",
                     2 => "明後日",
                     _ => &format!("{}日後", day),
                 };

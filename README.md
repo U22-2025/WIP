@@ -167,6 +167,18 @@ LOG_REDIS_HOST=localhost
 LOG_REDIS_PORT=6380
 LOG_REDIS_DB=1
 ```
+
+#### クライアント環境変数
+
+Rust 版の `wip-weather` および統合 CLI `wip` は、Python 版と同様に環境変数 `WEATHER_SERVER_HOST` と `WEATHER_SERVER_PORT` を参照します。これらが未設定の場合はそれぞれ `127.0.0.1` と `4111` が使用され、コマンドラインの `--host` / `--port` オプションが指定された場合はそちらが優先されます。
+
+例:
+```bash
+export WEATHER_SERVER_HOST=weather.example.com
+export WEATHER_SERVER_PORT=5000
+wip-weather get 11000 --weather
+```
+
 KeyDB を使用してログを配信する場合は、以下の例のように Docker で起動できます。
 ```bash
 docker run -d --name keydb -p 6380:6379 eqalpha/keydb
