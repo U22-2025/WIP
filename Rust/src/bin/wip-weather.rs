@@ -133,7 +133,17 @@ fn print_weather_response(response: &wip_rust::wip_common_rs::packet::types::que
         println!("降水確率: {}%", precipitation);
     }
 
-    // Note: alert_flag and disaster_flag are not available in current QueryResponse struct
+    if let Some(alerts) = response.get_alert() {
+        if !alerts.is_empty() {
+            println!("警報: {}", alerts.join(", "));
+        }
+    }
+
+    if let Some(disaster) = response.get_disaster() {
+        if !disaster.is_empty() {
+            println!("災害情報: {}", disaster.join(", "));
+        }
+    }
 }
 
 #[tokio::main]
