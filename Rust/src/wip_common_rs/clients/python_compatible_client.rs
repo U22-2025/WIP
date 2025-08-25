@@ -364,17 +364,19 @@ impl PythonCompatibleLocationClient {
     }
 
     /// Python版の get_area_code_from_coordinates メソッド（後方互換性）
+    ///
+    /// 非同期関数のため、呼び出し側では `.await` が必要です。
     /// ```python
     /// def get_area_code_from_coordinates(self, latitude, longitude, source=None):
     /// ```
-    pub fn get_area_code_from_coordinates(
+    pub async fn get_area_code_from_coordinates(
         &self,
-        _latitude: f64,
-        _longitude: f64,
-        _source: Option<(String, u16)>,
+        latitude: f64,
+        longitude: f64,
+        source: Option<(String, u16)>,
     ) -> Result<serde_json::Value, String> {
-        // This method should be async too since get_area_code_simple is async
-        panic!("get_area_code_from_coordinates requires async context - should be made async")
+        self.get_area_code_simple(latitude, longitude, source, None, None)
+            .await
     }
 
     /// Python版の get_cache_stats メソッドと完全互換
