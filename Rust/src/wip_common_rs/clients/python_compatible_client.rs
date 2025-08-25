@@ -187,7 +187,7 @@ impl PythonCompatibleWeatherClient {
     /// ```python
     /// def get_weather_simple(self, area_code, include_all=False, day=0):
     /// ```
-    pub async fn get_weather_simple(
+    pub fn get_weather_simple(
         &mut self,
         area_code: u32,
         include_all: Option<bool>,
