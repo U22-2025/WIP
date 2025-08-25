@@ -19,10 +19,6 @@ struct Cli {
     #[arg(short, long)]
     debug: bool,
 
-    /// 認証トークン
-    #[arg(short, long)]
-    auth_token: Option<String>,
-
     #[command(subcommand)]
     command: Commands,
 }
@@ -155,10 +151,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let server_addr = format!("{}:{}", cli.host, cli.port);
     let client = LocationClientImpl::new(&cli.host, cli.port).await?;
-
-    if let Some(_token) = cli.auth_token {
-        println!("⚠️ 認証トークン機能は現在実装中です");
-    }
 
     match cli.command {
         Commands::Resolve { latitude, longitude, verbose } => {

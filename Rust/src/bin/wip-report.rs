@@ -20,10 +20,6 @@ struct Cli {
     #[arg(short, long)]
     debug: bool,
 
-    /// 認証トークン
-    #[arg(short, long)]
-    auth_token: Option<String>,
-
     #[command(subcommand)]
     command: Commands,
 }
@@ -333,10 +329,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     let client = WipClient::new(&cli.host, 4111, 4109, 4111, cli.port, cli.debug).await?;
-
-    if let Some(_token) = cli.auth_token {
-        println!("⚠️ 認証トークン機能は現在実装中です");
-    }
 
     match cli.command {
         Commands::Disaster {

@@ -29,10 +29,6 @@ struct Cli {
     #[arg(short, long, global = true)]
     debug: bool,
 
-    /// 認証トークン
-    #[arg(short, long, global = true)]
-    auth_token: Option<String>,
-
     #[command(subcommand)]
     command: Commands,
 }
@@ -279,7 +275,6 @@ enum AuthCommands {
 async fn run_weather_command(
     host: &str,
     port: u16,
-    auth_token: Option<String>,
     debug: bool,
     command: WeatherCommands,
 ) -> Result<(), Box<dyn Error>> {
@@ -291,10 +286,6 @@ async fn run_weather_command(
 
     if debug {
         cmd.arg("-d");
-    }
-
-    if let Some(token) = auth_token {
-        cmd.args(&["-a", &token]);
     }
 
     match command {
@@ -430,7 +421,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .and_then(|p| p.parse().ok())
                     .unwrap_or(4110)
             });
-            run_weather_command(&default_host, port, cli.auth_token, cli.debug, command).await?;
+            run_weather_command(&default_host, port, cli.debug, command).await?;
         }
 
         Commands::Location { port, command } => {
