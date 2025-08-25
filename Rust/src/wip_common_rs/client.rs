@@ -8,6 +8,7 @@ use crate::wip_common_rs::packet::types::{
     query_packet::QueryResponse,
     report_packet::{ReportRequest, ReportResponse},
 };
+use log::warn;
 use std::error::Error;
 
 /// Python版と同等の統合クライアント
@@ -59,6 +60,14 @@ impl WipClient {
         latitude: f64,
         longitude: f64,
     ) -> Result<u32, Box<dyn Error + Send + Sync>> {
+        if !(-90.0..=90.0).contains(&latitude) {
+            warn!("Latitude out of range: {}", latitude);
+            return Err("latitude out of range".into());
+        }
+        if !(-180.0..=180.0).contains(&longitude) {
+            warn!("Longitude out of range: {}", longitude);
+            return Err("longitude out of range".into());
+        }
         let area_code = self
             .location_client
             .resolve_coordinates(latitude, longitude)
@@ -82,10 +91,7 @@ impl WipClient {
             Some(code) => code,
             None => {
                 if let Some((lat, lng)) = self.coordinates {
-                    let code = self
-                        .location_client
-                        .resolve_coordinates(lat, lng)
-                        .await?;
+                    let code = self.location_client.resolve_coordinates(lat, lng).await?;
                     self.area_code = Some(code);
                     code
                 } else {
@@ -118,4 +124,3 @@ impl WipClient {
         &self.report_client
     }
 }
-
