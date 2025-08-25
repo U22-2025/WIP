@@ -8,6 +8,11 @@ from typing import Optional, Dict, Any, List
 import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import configparser
+try:
+    import schedule  # lightweight scheduler for specific daily times
+except Exception:  # pragma: no cover
+    schedule = None  # handled at runtime
 
 from WIPServerPy.data.alert_processor import AlertDataProcessor
 from WIPServerPy.data.controllers.unified_data_processor import UnifiedDataProcessor
@@ -21,6 +26,7 @@ DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 WEATHER_FILE = DATA_DIR / "weather_store.json"
 HAZARD_FILE = DATA_DIR / "hazard_store.json"
+CONFIG_INI = (Path(__file__).resolve().parent / "config.ini")
 
 
 class UpdateResponse(BaseModel):
@@ -78,6 +84,38 @@ def _save_json(path: Path, data: Dict[str, Any]) -> None:
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
     tmp.replace(path)
+
+
+def _load_update_times_from_ini() -> List[str]:
+    """Load daily weather update times from config.ini (readable format).
+
+    INI layout example:
+    [schedule]
+    weather_times = 05:00,11:00,17:00
+
+    Env override WEATHER_API_CONFIG_FILE to point to another ini path.
+    Env override WEATHER_API_UPDATE_TIMES to provide comma-separated HH:MM.
+    """
+    # 1) env override string takes highest precedence if provided
+    env_times = os.getenv("WEATHER_API_UPDATE_TIMES")
+    if env_times:
+        times = [t.strip() for t in env_times.split(",") if t.strip()]
+        return times
+
+    # 2) ini file (default path or env-provided path)
+    ini_path = Path(os.getenv("WEATHER_API_CONFIG_FILE") or CONFIG_INI)
+    cfg = configparser.ConfigParser()
+    if ini_path.exists():
+        try:
+            cfg.read(ini_path, encoding="utf-8")
+            raw = cfg.get("schedule", "weather_times", fallback="")
+            if raw:
+                return [t.strip() for t in raw.split(",") if t.strip()]
+        except Exception:
+            pass
+
+    # 3) default times (as per requirement)
+    return ["05:00", "11:00", "17:00"]
 
 
 def _select_midday_indices(time_defines: List[str]) -> List[int]:
@@ -260,6 +298,21 @@ def update_hazard_json() -> None:
     _save_json(HAZARD_FILE, store)
 
 
+def _resolve_target_offices() -> List[str]:
+    offices_env = os.getenv("WEATHER_API_TARGET_OFFICES")
+    if offices_env:
+        return [s.strip() for s in offices_env.split(",") if s.strip()]
+    return get_all_prefecture_codes()
+
+
+def _update_weather_job() -> None:
+    try:
+        update_weather_json(_resolve_target_offices())
+    except Exception:
+        # swallow to keep scheduler alive
+        pass
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -382,52 +435,72 @@ def update_disaster() -> UpdateResponse:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _scheduler_loop() -> None:
-    # 簡易スケジューラ: 指定間隔で更新実行（デフォルト:10分）
-    weather_interval = int(os.getenv("WEATHER_API_WEATHER_INTERVAL_MIN", "180"))
+def _hazard_interval_loop() -> None:
+    # Hazard/alert updates stay interval-based (minutes)
     disaster_interval = int(os.getenv("WEATHER_API_DISASTER_INTERVAL_MIN", "10"))
-    w_next = time.time()
-    d_next = time.time()
+    next_run = time.time()
     while True:
         now = time.time()
+        if now >= next_run:
+            try:
+                update_hazard_json()
+            except Exception:
+                pass
+            next_run = now + disaster_interval * 60
+        time.sleep(10)
+
+
+def _start_weather_schedule_by_times(times: List[str]) -> None:
+    """Schedule weather updates at specific daily times using schedule.
+
+    times: list of 'HH:MM' strings in local time.
+    """
+    if schedule is None:  # pragma: no cover
+        # schedule not available; cannot continue without schedule
+        # As a safe fallback, just run once at startup; admins should install schedule.
+        _update_weather_job()
+        return
+
+    # Clear any previous jobs in this process (safety if reloaded)
+    try:
+        schedule.clear()
+    except Exception:
+        pass
+
+    for tstr in times:
         try:
-            if now >= w_next:
-                try:
-                    offices_env = os.getenv("WEATHER_API_TARGET_OFFICES")
-                    if offices_env:
-                        offices = [s.strip() for s in offices_env.split(",") if s.strip()]
-                    else:
-                        # デフォルトで全都道府県を取得
-                        offices = get_all_prefecture_codes()
-                    update_weather_json(offices)
-                except Exception:
-                    pass
-                w_next = now + weather_interval * 60
-            if now >= d_next:
-                try:
-                    update_hazard_json()
-                except Exception:
-                    pass
-                d_next = now + disaster_interval * 60
-        finally:
+            # Validate basic format; schedule will raise if invalid
+            hh, mm = tstr.split(":")
+            int(hh); int(mm)
+            schedule.every().day.at(tstr).do(_update_weather_job)
+        except Exception:
+            # ignore invalid entries
+            continue
+
+    def _runner():
+        while True:
+            try:
+                schedule.run_pending()
+            except Exception:
+                pass
             time.sleep(10)
+
+    threading.Thread(target=_runner, daemon=True).start()
 
 
 @app.on_event("startup")
 def on_startup() -> None:
     if os.getenv("WEATHER_API_SCHEDULE_ENABLED", "true").lower() == "true":
-        t = threading.Thread(target=_scheduler_loop, daemon=True)
-        t.start()
+        times = _load_update_times_from_ini()
+        _start_weather_schedule_by_times(times)
+
+        # start hazard updater loop (interval-based)
+        threading.Thread(target=_hazard_interval_loop, daemon=True).start()
+
     # 初回更新（非同期）
     def _initial_update():
         try:
-            offices_env = os.getenv("WEATHER_API_TARGET_OFFICES")
-            if offices_env:
-                offices = [s.strip() for s in offices_env.split(",") if s.strip()]
-            else:
-                # デフォルトで全都道府県を取得
-                offices = get_all_prefecture_codes()
-            update_weather_json(offices)
+            update_weather_json(_resolve_target_offices())
         except Exception:
             pass
         try:
