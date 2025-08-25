@@ -1,9 +1,13 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
-use crate::wip_common_rs::packet::types::location_packet::{LocationRequest, LocationResponse, LocationResponseEx};
+use crate::wip_common_rs::packet::core::extended_field::{unpack_ext_fields, FieldValue};
 use crate::wip_common_rs::packet::core::format_base::PacketFormat;
+use crate::wip_common_rs::packet::types::location_packet::{LocationRequest, LocationResponse, LocationResponseEx};
+use crate::wip_common_rs::utils::auth::WIPAuth;
 use async_trait::async_trait;
+use bitvec::prelude::*;
 use log::{debug, info};
 use std::collections::HashMap;
+use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -119,6 +123,10 @@ pub struct LocationClientImpl {
     pidg: Arc<Mutex<PacketIDGenerator12Bit>>,
     cache: Arc<RwLock<HashMap<String, CachedLocationResult>>>,
     stats: Arc<RwLock<LocationStats>>,
+    // 認証設定
+    auth_enabled: bool,
+    response_auth_enabled: bool,
+    auth_passphrase: String,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -148,6 +156,8 @@ impl LocationClientImpl {
 
         let socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await?);
 
+        let (auth_enabled, response_auth_enabled, auth_passphrase) = Self::init_auth_config();
+
         Ok(Self {
             host: host.to_string(),
             port,
@@ -157,7 +167,23 @@ impl LocationClientImpl {
             pidg: Arc::new(Mutex::new(PacketIDGenerator12Bit::new())),
             cache: Arc::new(RwLock::new(HashMap::new())),
             stats: Arc::new(RwLock::new(LocationStats::default())),
+            auth_enabled,
+            response_auth_enabled,
+            auth_passphrase,
         })
+    }
+
+    fn init_auth_config() -> (bool, bool, String) {
+        let auth_enabled = env::var("LOCATION_RESOLVER_REQUEST_AUTH_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .to_lowercase()
+            == "true";
+        let response_auth_enabled = env::var("LOCATION_RESOLVER_RESPONSE_AUTH_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .to_lowercase()
+            == "true";
+        let auth_passphrase = env::var("LOCATION_SERVER_PASSPHRASE").unwrap_or_default();
+        (auth_enabled, response_auth_enabled, auth_passphrase)
     }
 
     async fn generate_packet_id(&self) -> u16 {
@@ -218,24 +244,66 @@ impl LocationClientImpl {
         cache.retain(|_, cached| !cached.is_expired(self.config.cache_ttl));
     }
 
+    fn verify_response_auth(&self, data: &[u8]) -> bool {
+        if !self.response_auth_enabled {
+            return true;
+        }
+
+        if self.auth_passphrase.is_empty() {
+            return false;
+        }
+
+        if data.len() < 20 {
+            return false;
+        }
+
+        let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
+        if !bits[26] {
+            return true;
+        }
+
+        let packet_id: u16 = bits[4..16].load();
+        let timestamp: u64 = bits[32..96].load();
+
+        if data.len() <= 20 {
+            return false;
+        }
+
+        let map = unpack_ext_fields(&data[20..]);
+        if let Some(FieldValue::String(hex_hash)) = map.get("auth_hash") {
+            if let Ok(hash) = hex::decode(hex_hash) {
+                return WIPAuth::verify_auth_hash(packet_id, timestamp, &self.auth_passphrase, &hash);
+            }
+        }
+
+        false
+    }
+
     async fn send_location_request(&self, latitude: f64, longitude: f64) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
         let packet_id = self.generate_packet_id().await;
-        let request = LocationRequest::new(
+        let mut request = LocationRequest::new(
             packet_id,
-            latitude, 
+            latitude,
             longitude,
             false, // weather
-            false, // temperature  
+            false, // temperature
             false, // precipitation_prob
             false, // alert
             false, // disaster
             0,     // day
         );
-        // packet_id is already set in constructor
+        // 認証設定を適用
+        if self.auth_enabled && !self.auth_passphrase.is_empty() {
+            request.enable_auth(&self.auth_passphrase);
+            request.set_auth_flags();
+        }
+        if self.response_auth_enabled {
+            request.response_auth = true;
+        }
 
         let data = request.to_bytes();
         debug!("Sending location request for ({}, {}) with packet ID {}", latitude, longitude, packet_id);
-        
+
         self.socket.send_to(&data, &self.addr).await?;
 
         let result = timeout(self.config.timeout, async {
@@ -249,6 +317,10 @@ impl LocationClientImpl {
                     let raw = u16::from_le_bytes([response_data[0], response_data[1]]);
                     let response_packet_id = (raw >> 4) & 0x0FFF; // version(4bit) + packet_id(12bit)
                     if response_packet_id == packet_id {
+                        if !self.verify_response_auth(response_data) {
+                            return Err("Response authentication verification failed".into());
+                        }
+
                         // Try extended response parsing first (more robust for 32-byte responses)
                         if let Some(response_ex) = LocationResponseEx::from_bytes(response_data) {
                             return Ok(response_ex.area_code);
@@ -376,6 +448,9 @@ impl Clone for LocationClientImpl {
             pidg: self.pidg.clone(),
             cache: self.cache.clone(),
             stats: self.stats.clone(),
+            auth_enabled: self.auth_enabled,
+            response_auth_enabled: self.response_auth_enabled,
+            auth_passphrase: self.auth_passphrase.clone(),
         }
     }
 }
