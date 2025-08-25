@@ -1,6 +1,9 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
+use crate::wip_common_rs::packet::core::extended_field::{
+    ExtendedFieldManager, FieldDefinition, FieldValue,
+};
+use crate::wip_common_rs::packet::types::error_response::ErrorResponse;
 use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
-use crate::wip_common_rs::packet::core::extended_field::{FieldValue, ExtendedFieldManager, FieldDefinition};
 use crate::wip_common_rs::utils::auth::WIPAuth;
 use std::env;
 use std::io;
@@ -39,12 +42,13 @@ impl WeatherClient {
         // 認証設定を環境変数から読み込み
         let auth_enabled = env::var("WEATHER_SERVER_REQUEST_AUTH_ENABLED")
             .unwrap_or_else(|_| "false".to_string())
-            .to_lowercase() == "true";
-        let auth_passphrase = env::var("WEATHER_SERVER_PASSPHRASE")
-            .unwrap_or_default();
+            .to_lowercase()
+            == "true";
+        let auth_passphrase = env::var("WEATHER_SERVER_PASSPHRASE").unwrap_or_default();
         let response_auth_enabled = env::var("WEATHER_SERVER_RESPONSE_AUTH_ENABLED")
             .unwrap_or_else(|_| "false".to_string())
-            .to_lowercase() == "true";
+            .to_lowercase()
+            == "true";
 
         Ok(Self {
             host: host.to_string(),
@@ -62,32 +66,31 @@ impl WeatherClient {
     fn receive_with_id(&self, expected_id: u16) -> io::Result<Vec<u8>> {
         let start_time = std::time::Instant::now();
         let timeout = Duration::from_secs(10);
-        
+
         loop {
             let elapsed = start_time.elapsed();
             if elapsed >= timeout {
                 return Err(io::Error::new(io::ErrorKind::TimedOut, "receive timeout"));
             }
-            
+
             let remaining = timeout - elapsed;
             self.socket.set_read_timeout(Some(remaining))?;
-            
+
             let mut buf = [0u8; 1024];
             match self.socket.recv_from(&mut buf) {
                 Ok((size, _addr)) => {
-                    
                     if size >= 2 {
                         let value = u16::from_le_bytes([buf[0], buf[1]]);
                         let packet_id = (value >> 4) & 0x0FFF;
-                        
-                        
+
                         if packet_id == expected_id {
                             return Ok(buf[..size].to_vec());
                         }
                     }
                 }
                 Err(e) => {
-                    if e.kind() == io::ErrorKind::TimedOut || e.kind() == io::ErrorKind::WouldBlock {
+                    if e.kind() == io::ErrorKind::TimedOut || e.kind() == io::ErrorKind::WouldBlock
+                    {
                         continue;
                     }
                     return Err(e);
@@ -103,17 +106,19 @@ impl WeatherClient {
                 return Err(e);
             }
         }
-        
+
         // Extract packet ID from sent data for matching response
         if data.len() >= 2 {
             let value = u16::from_le_bytes([data[0], data[1]]);
             let packet_id = (value >> 4) & 0x0FFF;
-            
-            
+
             return self.receive_with_id(packet_id);
         }
-        
-        Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid packet data"))
+
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Invalid packet data",
+        ))
     }
 
     /// area_code を指定して QueryRequest を送信する簡易メソッド
@@ -137,13 +142,38 @@ impl WeatherClient {
             disaster,
             day,
         );
-        
+
         // 認証設定を適用
         self.apply_auth_to_request(&mut req);
-        
+
         let bytes = req.to_bytes();
         let resp_bytes = self.send_raw(&bytes)?;
-        
+
+        // パケットタイプを確認してエラー応答を処理
+        if resp_bytes.len() >= 3 {
+            let packet_type = resp_bytes[2] & 0x07;
+            if packet_type == 7 {
+                match ErrorResponse::from_bytes(&resp_bytes) {
+                    Ok(err_resp) => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!(
+                                "Server returned error {}: {}",
+                                err_resp.error_code,
+                                err_resp.get_error_type()
+                            ),
+                        ));
+                    }
+                    Err(_) => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "Failed to parse error response",
+                        ));
+                    }
+                }
+            }
+        }
+
         if let Some(response) = QueryResponse::from_bytes(&resp_bytes) {
             // レスポンス認証検証
             if self.verify_response_auth(&response) {
@@ -158,7 +188,7 @@ impl WeatherClient {
             Ok(None)
         }
     }
-    
+
     /// Python版と同一のAPIを提供するメイン関数
     pub fn get_weather_data(
         &mut self,
@@ -180,7 +210,7 @@ impl WeatherClient {
             day.unwrap_or(0),
         )
     }
-    
+
     /// リクエストに認証設定を適用
     fn apply_auth_to_request(&self, request: &mut QueryRequest) {
         if self.auth_enabled && !self.auth_passphrase.is_empty() {
@@ -190,9 +220,15 @@ impl WeatherClient {
                 &self.auth_passphrase,
             );
             let mut ext = ExtendedFieldManager::new();
-            let def = FieldDefinition::new("auth_hash".to_string(), FieldValue::String("".to_string()).get_type());
+            let def = FieldDefinition::new(
+                "auth_hash".to_string(),
+                FieldValue::String("".to_string()).get_type(),
+            );
             ext.add_definition(def);
-            let _ = ext.set_value("auth_hash".to_string(), FieldValue::String(hex::encode(hash)));
+            let _ = ext.set_value(
+                "auth_hash".to_string(),
+                FieldValue::String(hex::encode(hash)),
+            );
             request.ex_field = Some(ext);
             request.request_auth = true;
             request.ex_flag = true;
