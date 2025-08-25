@@ -1,6 +1,17 @@
 use clap::{Parser, Subcommand};
 use log::debug;
 use std::{env, error::Error};
+
+fn default_host() -> String {
+    env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
+}
+
+fn default_port() -> u16 {
+    env::var("WEATHER_SERVER_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(4110)
+}
 use wip_rust::wip_common_rs::client::WipClient;
 use wip_rust::wip_common_rs::clients::location_client::{LocationClient, LocationClientImpl};
 
@@ -10,12 +21,12 @@ use wip_rust::wip_common_rs::clients::location_client::{LocationClient, Location
 #[command(version = "0.1.0")]
 struct Cli {
     /// サーバーホスト
-    #[arg(short = 'H', long)]
-    host: Option<String>,
+    #[arg(short = 'H', long, default_value_t = default_host())]
+    host: String,
 
     /// サーバーポート
-    #[arg(short, long)]
-    port: Option<u16>,
+    #[arg(short, long, default_value_t = default_port())]
+    port: u16,
 
     /// デバッグモード
     #[arg(short, long)]
@@ -156,22 +167,15 @@ fn print_weather_response(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    dotenvy::dotenv().ok();
     let cli = Cli::parse();
 
     if cli.debug {
         env_logger::init();
     }
 
-    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let env_port = env::var("WEATHER_SERVER_PORT")
-        .ok()
-        .and_then(|p| p.parse().ok())
-        .unwrap_or(4110);
-
-    let host = cli.host.unwrap_or(env_host);
-    let port = cli.port.unwrap_or(env_port);
-
-    let mut client = WipClient::new(&host, port, 4109, port, 4112, cli.debug).await?;
+    let mut client =
+        WipClient::new(&cli.host, cli.port, 4109, cli.port, 4112, cli.debug).await?;
 
     if let Some(_token) = cli.auth_token {
         println!("⚠️ 認証トークン機能は現在実装中です");

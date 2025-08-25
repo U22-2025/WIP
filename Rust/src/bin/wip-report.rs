@@ -1,5 +1,16 @@
 use clap::{Parser, Subcommand};
-use std::error::Error;
+use std::{env, error::Error};
+
+fn default_host() -> String {
+    env::var("REPORT_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
+}
+
+fn default_port() -> u16 {
+    env::var("REPORT_SERVER_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(4112)
+}
 use wip_rust::wip_common_rs::client::WipClient;
 use wip_rust::wip_common_rs::packet::types::report_packet::{ReportRequest, ReportResponse};
 
@@ -9,11 +20,11 @@ use wip_rust::wip_common_rs::packet::types::report_packet::{ReportRequest, Repor
 #[command(version = "0.1.0")]
 struct Cli {
     /// サーバーホスト
-    #[arg(short = 'H', long, default_value = "127.0.0.1")]
+    #[arg(short = 'H', long, default_value_t = default_host())]
     host: String,
 
     /// サーバーポート
-    #[arg(short, long, default_value = "4112")]
+    #[arg(short, long, default_value_t = default_port())]
     port: u16,
 
     /// デバッグモード
@@ -326,6 +337,7 @@ async fn send_test_reports(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    dotenvy::dotenv().ok();
     let cli = Cli::parse();
 
     if cli.debug {
