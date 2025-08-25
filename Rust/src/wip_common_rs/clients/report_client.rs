@@ -1,9 +1,13 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
+use crate::wip_common_rs::packet::core::extended_field::{unpack_ext_fields, FieldValue};
 use crate::wip_common_rs::packet::types::error_response::ErrorResponse;
 use crate::wip_common_rs::packet::types::report_packet::{ReportRequest, ReportResponse};
+use crate::wip_common_rs::utils::auth::WIPAuth;
 use async_trait::async_trait;
+use bitvec::prelude::*;
 use log::{debug, error, info, warn};
 use std::collections::VecDeque;
+use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -76,10 +80,17 @@ pub struct ReportClientConfig {
     pub enable_debug: bool,
     pub auth_enabled: bool,
     pub auth_passphrase: Option<String>,
+    pub response_auth_enabled: bool,
 }
 
 impl Default for ReportClientConfig {
     fn default() -> Self {
+        let response_auth_enabled = env::var("REPORT_SERVER_RESPONSE_AUTH_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .to_lowercase()
+            == "true";
+        let auth_passphrase = env::var("REPORT_SERVER_PASSPHRASE").ok();
+
         Self {
             timeout: Duration::from_secs(10),
             max_concurrent_reports: 100,
@@ -90,7 +101,8 @@ impl Default for ReportClientConfig {
             batching: BatchConfig::default(),
             enable_debug: false,
             auth_enabled: false,
-            auth_passphrase: None,
+            auth_passphrase,
+            response_auth_enabled,
         }
     }
 }
@@ -300,6 +312,47 @@ impl ReportClientImpl {
         Ok(encrypted)
     }
 
+    fn _verify_response_auth(&self, response: &ReportResponse, raw: &[u8]) -> bool {
+        if !self.config.response_auth_enabled {
+            return true;
+        }
+
+        let passphrase = match &self.config.auth_passphrase {
+            Some(p) => p,
+            None => return false,
+        };
+
+        if raw.len() < 20 {
+            return false;
+        }
+
+        let bits = BitSlice::<u8, Lsb0>::from_slice(&raw[..20]);
+        let response_auth_flag = bits[26];
+        if !response_auth_flag {
+            return true;
+        }
+
+        let timestamp: u64 = bits[32..96].load();
+        let ex_flag = bits[24];
+        if !ex_flag || raw.len() <= 20 {
+            return false;
+        }
+
+        let map = unpack_ext_fields(&raw[20..]);
+        if let Some(FieldValue::String(hex_hash)) = map.get("auth_hash") {
+            if let Ok(hash) = hex::decode(hex_hash) {
+                return WIPAuth::verify_auth_hash(
+                    response.packet_id,
+                    timestamp,
+                    passphrase,
+                    &hash,
+                );
+            }
+        }
+
+        false
+    }
+
     async fn process_report_data(
         &self,
         data: &[u8],
@@ -383,7 +436,11 @@ impl ReportClientImpl {
                     if response_packet_id == packet_id {
                         // まずReportResponseとしてパース試行
                         if let Some(response) = ReportResponse::from_bytes(response_data) {
-                            return Ok(response);
+                            if self._verify_response_auth(&response, response_data) {
+                                return Ok(response);
+                            } else {
+                                return Err("Response authentication failed".into());
+                            }
                         }
 
                         // ReportResponseパースが失敗した場合、ErrorResponseとして試行

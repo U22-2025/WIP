@@ -35,6 +35,7 @@ async fn test_auth_hash_included_when_auth_enabled() {
         enable_debug: false,
         auth_enabled: true,
         auth_passphrase: Some("test_pass".into()),
+        response_auth_enabled: false,
     };
     let client = ReportClientImpl::with_config("127.0.0.1", server_port, config)
         .await
