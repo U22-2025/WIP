@@ -189,7 +189,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         } => {
             println!("エリアコード {} の気象データを取得中...", area_code);
             client.set_area_code(area_code);
-            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
+            match client
+                .get_weather(weather, temperature, precipitation, alerts, disaster, day, true)
+                .await?
+            {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -241,7 +244,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
             println!("取得エリアコード: {}", area_code);
             client.set_area_code(area_code);
-            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
+            match client
+                .get_weather(weather, temperature, precipitation, alerts, disaster, day, true)
+                .await?
+            {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -265,7 +271,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 println!("\n--- {} ---", day_name);
 
                 client.set_area_code(area_code);
-                match client.get_weather(true, true, true, false, false, day).await? {
+                match client
+                    .get_weather(true, true, true, false, false, day, true)
+                    .await?
+                {
                     Some(response) => {
                         if let Some(weather_code) = response.weather_code {
                             println!("天気: {}", weather_code_to_string(weather_code));

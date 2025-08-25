@@ -71,7 +71,10 @@ use wip_rust::wip_common_rs::client::WipClient;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = WipClient::new("127.0.0.1", 4111, 4109, 4111, 4112, false).await?;
     client.set_area_code(11000);
-    if let Some(resp) = client.get_weather(true, true, true, false, false, 0).await? {
+    if let Some(resp) = client
+        .get_weather(true, true, true, false, false, 0, true)
+        .await?
+    {
         if let Some(temp) = resp.temperature {
             println!("Temperature: {}°C", temp);
         }

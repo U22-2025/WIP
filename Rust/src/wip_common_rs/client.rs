@@ -1,11 +1,11 @@
 use crate::wip_common_rs::clients::{
     location_client::{LocationClient, LocationClientImpl},
-    query_client::QueryClientImpl,
+    query_client::{QueryClient, QueryClientImpl},
     report_client::{ReportClient, ReportClientImpl},
     weather_client::WeatherClient,
 };
 use crate::wip_common_rs::packet::types::{
-    query_packet::QueryResponse,
+    query_packet::{QueryRequest, QueryResponse},
     report_packet::{ReportRequest, ReportResponse},
 };
 use std::error::Error;
@@ -77,6 +77,7 @@ impl WipClient {
         alert: bool,
         disaster: bool,
         day: u8,
+        proxy: bool,
     ) -> Result<Option<QueryResponse>, Box<dyn Error + Send + Sync>> {
         let area_code = match self.area_code {
             Some(code) => code,
@@ -93,16 +94,32 @@ impl WipClient {
                 }
             }
         };
-        let resp = self.weather_client.get_weather_simple(
-            area_code,
-            weather,
-            temperature,
-            precipitation,
-            alert,
-            disaster,
-            day,
-        )?;
-        Ok(resp)
+
+        if proxy {
+            let resp = self.weather_client.get_weather_simple(
+                area_code,
+                weather,
+                temperature,
+                precipitation,
+                alert,
+                disaster,
+                day,
+            )?;
+            Ok(resp)
+        } else {
+            let query = QueryRequest::new(
+                area_code,
+                0,
+                weather,
+                temperature,
+                precipitation,
+                alert,
+                disaster,
+                day,
+            );
+            let resp = self.query_client.execute_query(query).await?;
+            Ok(Some(resp))
+        }
     }
 
     /// ReportServerにレポートを送信する。

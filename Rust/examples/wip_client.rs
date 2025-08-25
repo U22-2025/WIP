@@ -8,7 +8,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // エリアコードを設定して気象データを取得
     client.set_area_code(11000);
-    if let Some(resp) = client.get_weather(true, true, true, false, false, 0).await? {
+    if let Some(resp) = client
+        .get_weather(true, true, true, false, false, 0, true)
+        .await?
+    {
         println!("Area Code: {}", resp.area_code);
     }
 
