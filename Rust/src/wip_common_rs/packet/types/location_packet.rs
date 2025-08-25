@@ -7,7 +7,7 @@ use crate::wip_common_rs::packet::core::{
 };
 use crate::wip_common_rs::packet::core::checksum::{embed_checksum12_at};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
-use crate::wip_common_rs::packet::core::extended_field::{ExtendedFieldManager, FieldDefinition, FieldType, FieldValue, unpack_ext_fields, pack_ext_fields};
+use crate::wip_common_rs::packet::core::extended_field::{FieldValue, unpack_ext_fields, pack_ext_fields};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};

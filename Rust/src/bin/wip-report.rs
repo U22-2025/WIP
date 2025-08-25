@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::error::Error;
-use wip_rust::wip_common_rs::clients::report_client::{ReportClient, ReportClientImpl};
+use wip_rust::wip_common_rs::client::WipClient;
+use wip_rust::wip_common_rs::packet::types::report_packet::{ReportRequest, ReportResponse};
 
 #[derive(Parser)]
 #[command(name = "wip-report")]
@@ -171,13 +172,13 @@ fn disaster_type_to_japanese(disaster_type: &str) -> &'static str {
 }
 
 async fn send_disaster_report(
-    client: &ReportClientImpl,
+    client: &WipClient,
     disaster_type: &str,
     severity: u8,
     description: &str,
     latitude: Option<f64>,
     longitude: Option<f64>,
-) -> Result<String, Box<dyn Error>> {
+) -> Result<ReportResponse, Box<dyn Error + Send + Sync>> {
     validate_disaster_type(disaster_type)?;
     validate_severity(severity)?;
 
@@ -185,30 +186,41 @@ async fn send_disaster_report(
     println!("災害タイプ: {} ({})", disaster_type_to_japanese(disaster_type), disaster_type);
     println!("重要度: {} ({})", severity, severity_to_string(severity));
     println!("説明: {}", description);
-    
+
     if let (Some(lat), Some(lng)) = (latitude, longitude) {
         println!("位置: ({:.6}, {:.6})", lat, lng);
     }
+    let report = ReportRequest::new_disaster(
+        disaster_type,
+        severity,
+        description,
+        latitude,
+        longitude,
+    );
 
-    // TODO: Create proper ReportRequest for disaster
-    println!("⚠️ 災害レポート送信機能は現在実装中です");
-    let report_id = format!("DISASTER-{}", fastrand::u32(10000..99999));
-
-    println!("✅ レポート送信完了");
-    println!("📋 レポートID: {}", report_id);
-    
-    Ok(report_id)
+    match client.send_report(report).await {
+        Ok(response) => {
+            println!("✅ レポート送信完了");
+            println!("📋 レスポンス: {:?}", response);
+            Ok(response)
+        }
+        Err(e) => {
+            println!("❌ レポート送信失敗: {}", e);
+            println!("💡 ネットワークを確認し、再試行してください。");
+            Err(e)
+        }
+    }
 }
 
 async fn send_sensor_report(
-    client: &ReportClientImpl,
+    client: &WipClient,
     area_code: u32,
     weather_code: Option<u16>,
     temperature: Option<f64>,
     precipitation: Option<u8>,
     alerts: &[String],
     disaster_info: &[String],
-) -> Result<String, Box<dyn Error>> {
+) -> Result<String, Box<dyn Error + Send + Sync>> {
     println!("📊 センサーデータレポート送信中...");
     println!("エリアコード: {}", area_code);
     
@@ -228,28 +240,31 @@ async fn send_sensor_report(
         println!("災害情報: {:?}", disaster_info);
     }
 
-    // センサーデータを基にレポート作成（簡易実装）
-    let description = format!(
-        "センサーデータ報告 - エリア:{}, 天気:{:?}, 気温:{:?}°C, 降水確率:{:?}%",
-        area_code, weather_code, temperature, precipitation
+    let report = ReportRequest::create_sensor_data_report(
+        &format!("{:06}", area_code),
+        weather_code,
+        temperature,
+        precipitation,
+        if alerts.is_empty() { None } else { Some(alerts.to_vec()) },
+        if disaster_info.is_empty() { None } else { Some(disaster_info.to_vec()) },
+        1,
+        0,
     );
 
-    // TODO: Create proper ReportRequest for sensor data
-    println!("⚠️ センサーレポート送信機能は現在実装中です");
-    let report_id = format!("SENSOR-{}", fastrand::u32(10000..99999));
-
+    let response = client.send_report(report).await?;
+    let report_id = format!("{}", response.packet_id);
     println!("✅ センサーレポート送信完了");
     println!("📋 レポートID: {}", report_id);
-    
+
     Ok(report_id)
 }
 
 async fn send_test_reports(
-    client: &ReportClientImpl,
+    client: &WipClient,
     pattern: &str,
     count: usize,
     seed: Option<u64>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("🧪 テストレポート送信中 (パターン: {}, 件数: {})", pattern, count);
 
     let mut rng = if let Some(seed) = seed {
@@ -292,9 +307,9 @@ async fn send_test_reports(
         let full_description = format!("{} #{}", description, i + 1);
         
         match send_disaster_report(client, disaster_type, severity, &full_description, None, None).await {
-            Ok(report_id) => {
+            Ok(resp) => {
                 success_count += 1;
-                println!("✅ テスト #{}: {}", i + 1, report_id);
+                println!("✅ テスト #{}: packet_id {}", i + 1, resp.packet_id);
             }
             Err(e) => {
                 println!("❌ テスト #{} 失敗: {}", i + 1, e);
@@ -310,15 +325,14 @@ async fn send_test_reports(
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let cli = Cli::parse();
 
     if cli.debug {
         env_logger::init();
     }
 
-    let server_addr = format!("{}:{}", cli.host, cli.port);
-    let client = ReportClientImpl::new(&cli.host, cli.port).await?;
+    let client = WipClient::new(&cli.host, 4111, 4109, 4111, cli.port, cli.debug).await?;
 
     if let Some(_token) = cli.auth_token {
         println!("⚠️ 認証トークン機能は現在実装中です");
@@ -385,4 +399,44 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bitvec::prelude::*;
+    use tokio::net::UdpSocket;
+    use wip_rust::wip_common_rs::packet::core::checksum::embed_checksum12_at;
+
+    #[tokio::test]
+    async fn test_send_disaster_report() {
+        let server = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let addr = server.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let mut buf = [0u8; 2048];
+            let (len, src) = server.recv_from(&mut buf).await.unwrap();
+            let _ = len;
+            let pid_raw = u16::from_le_bytes([buf[0], buf[1]]);
+            let packet_id = (pid_raw >> 4) & 0x0FFF;
+
+            let mut resp = [0u8; 20];
+            {
+                let bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut resp);
+                bits[0..4].store(1u8);
+                bits[4..16].store(packet_id);
+                bits[16..19].store(5u8);
+                bits[96..116].store(0u32);
+                bits[116..128].store(0u16);
+            }
+            embed_checksum12_at(&mut resp, 116, 12);
+            let _ = server.send_to(&resp, src).await;
+        });
+
+        let client = WipClient::new("127.0.0.1", 4111, 4109, 4111, addr.port(), false).await.unwrap();
+        let resp = send_disaster_report(&client, "earthquake", 5, "test", Some(1.0), Some(2.0))
+            .await
+            .unwrap();
+        assert!(resp.packet_id > 0);
+    }
 }

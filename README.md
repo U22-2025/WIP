@@ -5,7 +5,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 ## 概要
 
 - **プロトコル**: NTPベースのUDPアプリケーションプロトコル
-- **ポート番号**: UDP/4110
+- **ポート番号**: UDP/4110（Rust/Python共通）
 - **データサイズ**: 基本16バイト程度の軽量パケット
 - **通信方式**: 1:1のリクエスト・レスポンス形式
 - **データソース**: 気象庁公開データ（XML/JSON形式）
@@ -38,7 +38,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 
 ### サーバ構成
 
-1. **Weather Server (Port 4110)** - プロキシサーバ
+1. **Weather Server (Port 4110)** - プロキシサーバ（Rust/Python共通ポート）
    - クライアントからのリクエストを受信
    - 適切なサーバへリクエストを転送
    - レスポンスをクライアントに返送
@@ -151,7 +151,7 @@ pip install "wiplib[all]"
 `.env`ファイルを作成し、以下を設定：
 ```env
 # サーバ設定
-WEATHER_SERVER_PORT=4110
+WEATHER_SERVER_PORT=4110  # Rust/Python共通
 LOCATION_RESOLVER_HOST=localhost
 LOCATION_RESOLVER_PORT=4109
 QUERY_GENERATOR_HOST=localhost
@@ -167,6 +167,18 @@ LOG_REDIS_HOST=localhost
 LOG_REDIS_PORT=6380
 LOG_REDIS_DB=1
 ```
+
+#### クライアント環境変数
+
+Rust 版の `wip-weather` および統合 CLI `wip` は、Python 版と同様に環境変数 `WEATHER_SERVER_HOST` と `WEATHER_SERVER_PORT` を参照します。これらが未設定の場合はそれぞれ `127.0.0.1` と `4111` が使用され、コマンドラインの `--host` / `--port` オプションが指定された場合はそちらが優先されます。
+
+例:
+```bash
+export WEATHER_SERVER_HOST=weather.example.com
+export WEATHER_SERVER_PORT=5000
+wip-weather get 11000 --weather
+```
+
 KeyDB を使用してログを配信する場合は、以下の例のように Docker で起動できます。
 ```bash
 docker run -d --name keydb -p 6380:6379 eqalpha/keydb

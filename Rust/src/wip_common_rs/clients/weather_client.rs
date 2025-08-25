@@ -1,5 +1,6 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
 use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
+use crate::wip_common_rs::packet::core::extended_field::{FieldValue, ExtendedFieldManager, FieldDefinition};
 use crate::wip_common_rs::utils::auth::WIPAuth;
 use std::env;
 use std::io;
@@ -73,7 +74,7 @@ impl WeatherClient {
             
             let mut buf = [0u8; 1024];
             match self.socket.recv_from(&mut buf) {
-                Ok((size, addr)) => {
+                Ok((size, _addr)) => {
                     
                     if size >= 2 {
                         let value = u16::from_le_bytes([buf[0], buf[1]]);
@@ -181,40 +182,71 @@ impl WeatherClient {
     }
     
     /// リクエストに認証設定を適用
-    fn apply_auth_to_request(&self, _request: &mut QueryRequest) {
-        // TODO: QueryRequestに認証フィールドを追加する実装が必要
-        // 現在のQueryRequest構造体には認証関連フィールドがないため、
-        // まずはプレースホルダーとして実装
+    fn apply_auth_to_request(&self, request: &mut QueryRequest) {
         if self.auth_enabled && !self.auth_passphrase.is_empty() {
-            if self.debug {
-                println!("Auth enabled but QueryRequest auth fields not implemented yet");
-            }
+            let hash = WIPAuth::calculate_auth_hash(
+                request.packet_id,
+                request.timestamp,
+                &self.auth_passphrase,
+            );
+            let mut ext = ExtendedFieldManager::new();
+            let def = FieldDefinition::new("auth_hash".to_string(), FieldValue::String("".to_string()).get_type());
+            ext.add_definition(def);
+            let _ = ext.set_value("auth_hash".to_string(), FieldValue::String(hex::encode(hash)));
+            request.ex_field = Some(ext);
+            request.request_auth = true;
+            request.ex_flag = true;
+        }
+
+        if self.response_auth_enabled {
+            request.response_auth = true;
         }
     }
-    
+
     /// レスポンス認証を検証
-    fn verify_response_auth(&self, _response: &QueryResponse) -> bool {
-        // レスポンス認証が無効な場合は常にtrue
+    fn verify_response_auth(&self, response: &QueryResponse) -> bool {
         if !self.response_auth_enabled {
             return true;
         }
-        
-        // パスフレーズが設定されていない場合は失敗
+
         if self.auth_passphrase.is_empty() {
             if self.debug {
                 eprintln!("Response authentication enabled but passphrase not set");
             }
             return false;
         }
-        
-        // TODO: QueryResponseに認証関連フィールドを追加する実装が必要
-        // 現在のQueryResponse構造体には認証関連フィールドがないため、
-        // プレースホルダーとして実装
-        if self.debug {
-            println!("Response auth enabled but QueryResponse auth fields not implemented yet");
+
+        if !response.response_auth {
+            if self.debug {
+                eprintln!("Response auth flag not set");
+            }
+            return false;
         }
-        
-        // 暫定的にtrueを返す（認証フィールドが実装されるまで）
-        true
+
+        // 拡張フィールドからauth_hashを取得して検証
+        if let Some(ref ext) = response.ex_field {
+            if let Some(FieldValue::String(hex_hash)) = ext.get_value("auth_hash") {
+                if let Ok(hash) = hex::decode(hex_hash) {
+                    if WIPAuth::verify_auth_hash(
+                        response.packet_id,
+                        response.timestamp,
+                        &self.auth_passphrase,
+                        &hash,
+                    ) {
+                        return true;
+                    } else {
+                        if self.debug {
+                            eprintln!("Response auth hash verification failed");
+                        }
+                        return false;
+                    }
+                }
+            }
+        }
+
+        if self.debug {
+            eprintln!("Response auth hash missing");
+        }
+        false
     }
 }

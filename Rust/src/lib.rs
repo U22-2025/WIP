@@ -109,12 +109,15 @@ pub mod prelude {
     
     // Async clients
     pub use crate::wip_common_rs::clients::async_weather_client::AsyncWeatherClient;
-    
+
     // Packet types
     pub use crate::wip_common_rs::packet::types::location_packet::{LocationRequest, LocationResponse};
     pub use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
     pub use crate::wip_common_rs::packet::types::report_packet::{ReportRequest, ReportResponse};
     pub use crate::wip_common_rs::packet::types::error_response::ErrorResponse;
+
+    // Unified client
+    pub use crate::wip_common_rs::client::WipClient;
     
     // Core traits
     pub use crate::wip_common_rs::packet::core::PacketFormat;
@@ -130,11 +133,3 @@ pub mod prelude {
     };
 }
 
-// 後方互換性のための古い構造（廃止予定）
-// 旧構成はテストからは除外（レガシーモジュールのテストが新仕様と競合するため）
-#[cfg(not(test))]
-#[path = "../common/mod.rs"]
-pub mod common;
-#[cfg(not(test))]
-#[path = "../WIP_Client/mod.rs"]
-pub mod wip_client;

@@ -1,8 +1,6 @@
 use bitvec::prelude::*;
 use crate::wip_common_rs::packet::core::checksum::verify_checksum12;
-use crate::wip_common_rs::packet::core::bit_utils::bytes_to_u128_le;
-use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
-use once_cell::sync::Lazy;
+// Note: Imports currently unused but kept for future features
 
 /// Minimal packet debug logger to mirror Python's packet inspection utilities.
 /// - Pretty prints header fields and verifies checksum

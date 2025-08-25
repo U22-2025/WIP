@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
-use std::error::Error;
-use wip_rust::wip_common_rs::clients::weather_client::WeatherClient;
+use log::debug;
+use std::{env, error::Error};
+use wip_rust::wip_common_rs::client::WipClient;
+use wip_rust::wip_common_rs::clients::location_client::{LocationClient, LocationClientImpl};
 
 #[derive(Parser)]
 #[command(name = "wip-weather")]
@@ -8,12 +10,12 @@ use wip_rust::wip_common_rs::clients::weather_client::WeatherClient;
 #[command(version = "0.1.0")]
 struct Cli {
     /// サーバーホスト
-    #[arg(short = 'H', long, default_value = "127.0.0.1")]
-    host: String,
+    #[arg(short = 'H', long)]
+    host: Option<String>,
 
     /// サーバーポート
-    #[arg(short, long, default_value = "4111")]
-    port: u16,
+    #[arg(short, long)]
+    port: Option<u16>,
 
     /// デバッグモード
     #[arg(short, long)]
@@ -115,14 +117,20 @@ fn weather_code_to_string(code: u16) -> &'static str {
     }
 }
 
-fn print_weather_response(response: &wip_rust::wip_common_rs::packet::types::query_packet::QueryResponse) {
+fn print_weather_response(
+    response: &wip_rust::wip_common_rs::packet::types::query_packet::QueryResponse,
+) {
     println!("=== 気象データ ===");
     println!("エリアコード: {}", response.area_code);
     println!("パケットID: {}", response.packet_id);
     println!("バージョン: {}", response.version);
 
     if let Some(weather_code) = response.weather_code {
-        println!("天気: {} (コード: {})", weather_code_to_string(weather_code), weather_code);
+        println!(
+            "天気: {} (コード: {})",
+            weather_code_to_string(weather_code),
+            weather_code
+        );
     }
 
     if let Some(temperature) = response.temperature {
@@ -133,18 +141,37 @@ fn print_weather_response(response: &wip_rust::wip_common_rs::packet::types::que
         println!("降水確率: {}%", precipitation);
     }
 
-    // Note: alert_flag and disaster_flag are not available in current QueryResponse struct
+    if let Some(alerts) = response.get_alert() {
+        if !alerts.is_empty() {
+            println!("警報: {}", alerts.join(", "));
+        }
+    }
+
+    if let Some(disaster) = response.get_disaster() {
+        if !disaster.is_empty() {
+            println!("災害情報: {}", disaster.join(", "));
+        }
+    }
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let cli = Cli::parse();
 
     if cli.debug {
         env_logger::init();
     }
 
-    let mut client = WeatherClient::new(&cli.host, cli.port, cli.debug)?;
+    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let env_port = env::var("WEATHER_SERVER_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(4110);
+
+    let host = cli.host.unwrap_or(env_host);
+    let port = cli.port.unwrap_or(env_port);
+
+    let mut client = WipClient::new(&host, port, 4109, port, 4112, cli.debug).await?;
 
     if let Some(_token) = cli.auth_token {
         println!("⚠️ 認証トークン機能は現在実装中です");
@@ -161,8 +188,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             day,
         } => {
             println!("エリアコード {} の気象データを取得中...", area_code);
-
-            match client.get_weather_simple(area_code, weather, temperature, precipitation, alerts, disaster, day)? {
+            client.set_area_code(area_code);
+            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -182,15 +209,39 @@ async fn main() -> Result<(), Box<dyn Error>> {
             disaster,
             day,
         } => {
-            // 座標から気象データを取得する場合は、まず座標をLocationRequestで送信する必要がある
+            // 座標から気象データを取得する場合は、位置解決サービスを使用する
             println!("座標 ({:.4}, {:.4}) から気象データを取得中...", latitude, longitude);
             println!("注意: この機能には位置解決サービスとの連携が必要です");
 
-            // 今のところ、座標から直接エリアコードを推定（簡易実装）
-            let estimated_area_code = estimate_area_code_from_coords(latitude, longitude);
-            println!("推定エリアコード: {}", estimated_area_code);
+            let loc_host = env::var("LOCATION_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+            let loc_port = env::var("LOCATION_SERVER_PORT")
+                .ok()
+                .and_then(|v| v.parse::<u16>().ok())
+                .unwrap_or(4109);
+            debug!("Location server: {}:{}", loc_host, loc_port);
 
-            match client.get_weather_simple(estimated_area_code, weather, temperature, precipitation, alerts, disaster, day)? {
+            let loc_client = match LocationClientImpl::new(&loc_host, loc_port).await {
+                Ok(c) => c,
+                Err(e) => {
+                    println!("❌ Locationクライアントの初期化に失敗しました: {}", e);
+                    return Ok(());
+                }
+            };
+
+            let area_code = match loc_client.resolve_coordinates(latitude, longitude).await {
+                Ok(code) => {
+                    debug!("Resolved area code: {}", code);
+                    code
+                }
+                Err(e) => {
+                    println!("❌ 座標の解決に失敗しました: {}", e);
+                    return Ok(());
+                }
+            };
+
+            println!("取得エリアコード: {}", area_code);
+            client.set_area_code(area_code);
+            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
                 Some(response) => {
                     print_weather_response(&response);
                 }
@@ -206,14 +257,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             for day in 0..days.min(7) {
                 let day_name = match day {
                     0 => "今日",
-                    1 => "明日", 
+                    1 => "明日",
                     2 => "明後日",
                     _ => &format!("{}日後", day),
                 };
 
                 println!("\n--- {} ---", day_name);
 
-                match client.get_weather_simple(area_code, true, true, true, false, false, day)? {
+                client.set_area_code(area_code);
+                match client.get_weather(true, true, true, false, false, day).await? {
                     Some(response) => {
                         if let Some(weather_code) = response.weather_code {
                             println!("天気: {}", weather_code_to_string(weather_code));
@@ -237,20 +289,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
-}
-
-// 簡易的な座標からエリアコード推定（実際には位置解決サービスを使用）
-fn estimate_area_code_from_coords(lat: f64, lng: f64) -> u32 {
-    // 日本の主要都市の座標範囲からエリアコードを推定
-    if lat >= 35.6 && lat <= 35.8 && lng >= 139.6 && lng <= 139.8 {
-        11000 // 東京
-    } else if lat >= 34.6 && lat <= 34.8 && lng >= 135.4 && lng <= 135.6 {
-        12000 // 大阪（仮想エリアコード）
-    } else if lat >= 43.0 && lat <= 43.1 && lng >= 141.3 && lng <= 141.4 {
-        13000 // 札幌（仮想エリアコード）
-    } else if lat >= 33.5 && lat <= 33.7 && lng >= 130.3 && lng <= 130.5 {
-        14000 // 福岡（仮想エリアコード）
-    } else {
-        11000 // デフォルトは東京
-    }
 }

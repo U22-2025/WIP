@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use std::error::Error;
+use std::{env, error::Error};
 
 #[derive(Parser)]
 #[command(name = "wip")]
@@ -43,8 +43,8 @@ enum Commands {
     #[command(alias = "w")]
     Weather {
         /// サーバーポート
-        #[arg(short, long, default_value = "4111")]
-        port: u16,
+        #[arg(short, long)]
+        port: Option<u16>,
 
         #[command(subcommand)]
         command: WeatherCommands,
@@ -109,28 +109,41 @@ enum WeatherCommands {
     Get {
         /// エリアコード
         area_code: u32,
-        #[arg(short, long)] weather: bool,
-        #[arg(short, long)] temperature: bool,
-        #[arg(short = 'p', long)] precipitation: bool,
-        #[arg(short = 'A', long)] alerts: bool,
-        #[arg(short = 'D', long)] disaster: bool,
-        #[arg(short = 'T', long, default_value = "0")] day: u8,
+        #[arg(short, long)]
+        weather: bool,
+        #[arg(short, long)]
+        temperature: bool,
+        #[arg(short = 'p', long)]
+        precipitation: bool,
+        #[arg(short = 'A', long)]
+        alerts: bool,
+        #[arg(short = 'D', long)]
+        disaster: bool,
+        #[arg(short = 'T', long, default_value = "0")]
+        day: u8,
     },
     /// 座標から気象データを取得
     Coords {
         latitude: f64,
         longitude: f64,
-        #[arg(short, long)] weather: bool,
-        #[arg(short, long)] temperature: bool,
-        #[arg(short = 'p', long)] precipitation: bool,
-        #[arg(short = 'A', long)] alerts: bool,
-        #[arg(short = 'D', long)] disaster: bool,
-        #[arg(short = 'T', long, default_value = "0")] day: u8,
+        #[arg(short, long)]
+        weather: bool,
+        #[arg(short, long)]
+        temperature: bool,
+        #[arg(short = 'p', long)]
+        precipitation: bool,
+        #[arg(short = 'A', long)]
+        alerts: bool,
+        #[arg(short = 'D', long)]
+        disaster: bool,
+        #[arg(short = 'T', long, default_value = "0")]
+        day: u8,
     },
     /// 複数日の予報を取得
     Forecast {
         area_code: u32,
-        #[arg(short = 'T', long, default_value = "3")] days: u8,
+        #[arg(short = 'T', long, default_value = "3")]
+        days: u8,
     },
 }
 
@@ -140,54 +153,67 @@ enum LocationCommands {
     Resolve {
         latitude: f64,
         longitude: f64,
-        #[arg(short, long)] verbose: bool,
+        #[arg(short, long)]
+        verbose: bool,
     },
     /// バッチ処理
     Batch {
-        #[arg(short, long)] file: String,
+        #[arg(short, long)]
+        file: String,
     },
     /// 主要都市の解決
     Cities {
-        #[arg(short, long, default_value = "10")] count: usize,
+        #[arg(short, long, default_value = "10")]
+        count: usize,
     },
     /// 座標検証
-    Validate {
-        latitude: f64,
-        longitude: f64,
-    },
+    Validate { latitude: f64, longitude: f64 },
 }
 
 #[derive(Subcommand)]
 enum QueryCommands {
     /// システム状態クエリ
     Status {
-        #[arg(short, long)] region: Option<String>,
-        #[arg(short, long)] verbose: bool,
+        #[arg(short, long)]
+        region: Option<String>,
+        #[arg(short, long)]
+        verbose: bool,
     },
     /// 気象警報クエリ
     Alerts {
-        #[arg(short, long)] region: Option<String>,
-        #[arg(short, long, default_value = "medium")] severity: String,
-        #[arg(short = 'v', long)] active_only: bool,
+        #[arg(short, long)]
+        region: Option<String>,
+        #[arg(short, long, default_value = "medium")]
+        severity: String,
+        #[arg(short = 'v', long)]
+        active_only: bool,
     },
     /// 履歴データクエリ
     History {
-        #[arg(short, long, default_value = "all")] data_type: String,
-        #[arg(short, long)] from: Option<String>,
-        #[arg(short, long)] to: Option<String>,
-        #[arg(short, long, default_value = "10")] limit: u32,
+        #[arg(short, long, default_value = "all")]
+        data_type: String,
+        #[arg(short, long)]
+        from: Option<String>,
+        #[arg(short, long)]
+        to: Option<String>,
+        #[arg(short, long, default_value = "10")]
+        limit: u32,
     },
     /// 予報データクエリ
     Forecast {
-        #[arg(short, long, default_value = "tokyo")] location: String,
-        #[arg(short, long, default_value = "24h")] period: String,
-        #[arg(short = 'D', long, default_value = "basic")] detail: String,
+        #[arg(short, long, default_value = "tokyo")]
+        location: String,
+        #[arg(short, long, default_value = "24h")]
+        period: String,
+        #[arg(short = 'D', long, default_value = "basic")]
+        detail: String,
     },
     /// カスタムクエリ
     Custom {
         query_type: String,
         parameters: String,
-        #[arg(short, long, default_value = "table")] format: String,
+        #[arg(short, long, default_value = "table")]
+        format: String,
     },
 }
 
@@ -196,22 +222,32 @@ enum ReportCommands {
     /// 災害レポート送信
     Disaster {
         disaster_type: String,
-        #[arg(short, long)] severity: u8,
-        #[arg(short = 'D', long)] description: String,
-        #[arg(short = 'L', long)] latitude: Option<f64>,
-        #[arg(short = 'G', long)] longitude: Option<f64>,
+        #[arg(short, long)]
+        severity: u8,
+        #[arg(short = 'D', long)]
+        description: String,
+        #[arg(short = 'L', long)]
+        latitude: Option<f64>,
+        #[arg(short = 'G', long)]
+        longitude: Option<f64>,
     },
     /// センサーデータレポート
     Sensor {
-        #[arg(short, long, default_value = "11000")] area_code: u32,
-        #[arg(short, long)] weather_code: Option<u16>,
-        #[arg(short, long)] temperature: Option<f64>,
-        #[arg(short = 'p', long)] precipitation: Option<u8>,
+        #[arg(short, long, default_value = "11000")]
+        area_code: u32,
+        #[arg(short, long)]
+        weather_code: Option<u16>,
+        #[arg(short, long)]
+        temperature: Option<f64>,
+        #[arg(short = 'p', long)]
+        precipitation: Option<u8>,
     },
     /// テストレポート送信
     Test {
-        #[arg(short, long, default_value = "basic")] pattern: String,
-        #[arg(short, long, default_value = "5")] count: usize,
+        #[arg(short, long, default_value = "basic")]
+        pattern: String,
+        #[arg(short, long, default_value = "5")]
+        count: usize,
     },
 }
 
@@ -220,72 +256,119 @@ enum AuthCommands {
     /// ユーザー作成
     CreateUser {
         username: String,
-        #[arg(short, long)] password: Option<String>,
-        #[arg(short, long)] admin: bool,
+        #[arg(short, long)]
+        password: Option<String>,
+        #[arg(short, long)]
+        admin: bool,
     },
     /// トークン生成
     Token {
         username: String,
-        #[arg(short, long)] password: Option<String>,
+        #[arg(short, long)]
+        password: Option<String>,
     },
     /// ユーザー一覧
     List {
-        #[arg(short, long)] verbose: bool,
+        #[arg(short, long)]
+        verbose: bool,
     },
     /// ポリシー表示
     Policy,
 }
 
-async fn run_weather_command(host: &str, port: u16, auth_token: Option<String>, debug: bool, command: WeatherCommands) -> Result<(), Box<dyn Error>> {
+async fn run_weather_command(
+    host: &str,
+    port: u16,
+    auth_token: Option<String>,
+    debug: bool,
+    command: WeatherCommands,
+) -> Result<(), Box<dyn Error>> {
     use std::process::Command;
-    
+
     let mut cmd = Command::new("cargo");
     cmd.args(&["run", "--bin", "wip-weather", "--"]);
     cmd.args(&["-H", host, "-p", &port.to_string()]);
-    
+
     if debug {
         cmd.arg("-d");
     }
-    
+
     if let Some(token) = auth_token {
         cmd.args(&["-a", &token]);
     }
-    
+
     match command {
-        WeatherCommands::Get { area_code, weather, temperature, precipitation, alerts, disaster, day } => {
+        WeatherCommands::Get {
+            area_code,
+            weather,
+            temperature,
+            precipitation,
+            alerts,
+            disaster,
+            day,
+        } => {
             cmd.args(&["get", &area_code.to_string()]);
-            if weather { cmd.arg("-w"); }
-            if temperature { cmd.arg("-t"); }
-            if precipitation { cmd.arg("-p"); }
-            if alerts { cmd.arg("-A"); }
-            if disaster { cmd.arg("-D"); }
+            if weather {
+                cmd.arg("-w");
+            }
+            if temperature {
+                cmd.arg("-t");
+            }
+            if precipitation {
+                cmd.arg("-p");
+            }
+            if alerts {
+                cmd.arg("-A");
+            }
+            if disaster {
+                cmd.arg("-D");
+            }
             cmd.args(&["-T", &day.to_string()]);
         }
-        WeatherCommands::Coords { latitude, longitude, weather, temperature, precipitation, alerts, disaster, day } => {
+        WeatherCommands::Coords {
+            latitude,
+            longitude,
+            weather,
+            temperature,
+            precipitation,
+            alerts,
+            disaster,
+            day,
+        } => {
             cmd.args(&["coords", &latitude.to_string(), &longitude.to_string()]);
-            if weather { cmd.arg("-w"); }
-            if temperature { cmd.arg("-t"); }
-            if precipitation { cmd.arg("-p"); }
-            if alerts { cmd.arg("-A"); }
-            if disaster { cmd.arg("-D"); }
+            if weather {
+                cmd.arg("-w");
+            }
+            if temperature {
+                cmd.arg("-t");
+            }
+            if precipitation {
+                cmd.arg("-p");
+            }
+            if alerts {
+                cmd.arg("-A");
+            }
+            if disaster {
+                cmd.arg("-D");
+            }
             cmd.args(&["-T", &day.to_string()]);
         }
         WeatherCommands::Forecast { area_code, days } => {
             cmd.args(&["forecast", &area_code.to_string(), "-T", &days.to_string()]);
         }
     }
-    
+
     let output = cmd.output()?;
     print!("{}", String::from_utf8_lossy(&output.stdout));
     eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    
+
     Ok(())
 }
 
 async fn check_server_status(service: &str, host: &str) -> bool {
-    use std::net::{TcpStream, SocketAddr};
+    use std::net::{SocketAddr, TcpStream};
     use std::time::Duration;
-    
+
     let port = match service {
         "weather" => 4110,
         "location" => 4109,
@@ -293,7 +376,7 @@ async fn check_server_status(service: &str, host: &str) -> bool {
         "report" => 4112,
         _ => return false,
     };
-    
+
     if let Ok(addr) = format!("{}:{}", host, port).parse::<SocketAddr>() {
         TcpStream::connect_timeout(&addr, Duration::from_secs(3)).is_ok()
     } else {
@@ -335,25 +418,42 @@ async fn main() -> Result<(), Box<dyn Error>> {
         env_logger::init();
     }
 
-    let default_host = cli.host.as_deref().unwrap_or("127.0.0.1");
+    let default_host = cli.host.unwrap_or_else(|| {
+        env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
+    });
 
     match cli.command {
         Commands::Weather { port, command } => {
-            run_weather_command(default_host, port, cli.auth_token, cli.debug, command).await?;
+            let port = port.unwrap_or_else(|| {
+                env::var("WEATHER_SERVER_PORT")
+                    .ok()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(4110)
+            });
+            run_weather_command(&default_host, port, cli.auth_token, cli.debug, command).await?;
         }
 
         Commands::Location { port, command } => {
-            println!("🌍 Location サービスを呼び出し中... ({}:{})", default_host, port);
+            println!(
+                "🌍 Location サービスを呼び出し中... ({}:{})",
+                default_host, port
+            );
             println!("⚠️ 詳細実装は wip-location バイナリを直接使用してください");
         }
 
         Commands::Query { port, command } => {
-            println!("🔍 Query サービスを呼び出し中... ({}:{})", default_host, port);
+            println!(
+                "🔍 Query サービスを呼び出し中... ({}:{})",
+                default_host, port
+            );
             println!("⚠️ 詳細実装は wip-query バイナリを直接使用してください");
         }
 
         Commands::Report { port, command } => {
-            println!("📋 Report サービスを呼び出し中... ({}:{})", default_host, port);
+            println!(
+                "📋 Report サービスを呼び出し中... ({}:{})",
+                default_host, port
+            );
             println!("⚠️ 詳細実装は wip-report バイナリを直接使用してください");
         }
 
@@ -362,7 +462,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("⚠️ 詳細実装は wip-auth バイナリを直接使用してください");
         }
 
-        Commands::Status { service, server_host } => {
+        Commands::Status {
+            service,
+            server_host,
+        } => {
             println!("📊 WIPサーバー状態確認:");
             println!("ホスト: {}", server_host);
             println!();

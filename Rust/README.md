@@ -2,6 +2,8 @@
 
 Weather Information Protocol (WIP) クライアントライブラリのRust実装です。
 
+現在は `wip_common_rs` が正式な実装であり、従来の `common/` と `WIP_Client/` ディレクトリは `deprecated/` 以下に移動して非推奨となりました。
+
 ## 構造
 
 ```
@@ -58,6 +60,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### 統合クライアント `WipClient`
+
+Python版 `WIPClientPy.Client` と同じ操作感を提供する高レベルAPIです。
+
+```rust
+use wip_rust::wip_common_rs::client::WipClient;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut client = WipClient::new("127.0.0.1", 4111, 4109, 4111, 4112, false).await?;
+    client.set_area_code(11000);
+    if let Some(resp) = client.get_weather(true, true, true, false, false, 0).await? {
+        if let Some(temp) = resp.temperature {
+            println!("Temperature: {}°C", temp);
+        }
+    }
+    Ok(())
+}
+```
+
 ### サンプル実行
 
 ```bash
@@ -89,8 +111,9 @@ cargo run --example packet_showcase
 | `WIPCommonPy/packet/types/query_packet.py` | `wip_common_rs/packet/types/query_packet.rs` |
 | `WIPCommonPy/packet/types/location_packet.py` | `wip_common_rs/packet/types/location_packet.rs` |
 | `WIPCommonPy/packet/types/report_packet.py` | `wip_common_rs/packet/types/report_packet.rs` |
+| `WIPClientPy.Client` | `wip_common_rs/client.rs` |
 
-> Note: `Rust/common/*` は旧構成として残していますが非推奨です。新規実装・サンプルは `src/wip_common_rs/*` を参照してください。
+> Note: 旧構成は `deprecated/common/*` や `deprecated/WIP_Client/*` に移動され非推奨です。新規実装・サンプルは `src/wip_common_rs/*` を参照してください。
 
 ### 互換性ノート（重要）
 
