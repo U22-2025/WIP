@@ -5,9 +5,10 @@ use crate::wip_common_rs::packet::core::checksum::{calc_checksum12, verify_check
 use crate::wip_common_rs::packet::core::bit_utils::{u128_to_bytes_le, PacketFields};
 use crate::wip_common_rs::packet::core::format_base::JsonPacketSpecLoader;
 use crate::wip_common_rs::packet::core::extended_field::{
-    ExtendedFieldManager, FieldDefinition, FieldValue,
+    ExtendedFieldManager, FieldDefinition, FieldValue, FieldType,
     pack_ext_fields, unpack_ext_fields
 };
+use crate::wip_common_rs::utils::auth::WIPAuth;
 use once_cell::sync::Lazy;
 
 // JSON仕様からフィールド定義を構築（コンパイル時埋め込み）
@@ -41,6 +42,8 @@ pub struct QueryRequest {
     pub day: u8,
     pub area_code: u32,
     pub ex_field: Option<ExtendedFieldManager>,
+    _auth_enabled: bool,
+    _auth_passphrase: Option<String>,
 }
 
 impl QueryRequest {
@@ -74,6 +77,8 @@ impl QueryRequest {
             day: day & 0x07,
             area_code: area_code & 0xFFFFF,
             ex_field: None,
+            _auth_enabled: false,
+            _auth_passphrase: None,
         }
     }
 
@@ -104,6 +109,8 @@ impl QueryRequest {
             day: day & 0x07,
             area_code: area_code & 0xFFFFF,
             ex_field: None,
+            _auth_enabled: false,
+            _auth_passphrase: None,
         }
     }
 
@@ -137,6 +144,39 @@ impl QueryRequest {
         );
         s.version = version;
         s
+    }
+
+    /// 認証機能を有効化しパスフレーズを設定
+    pub fn enable_auth(&mut self, passphrase: &str) {
+        self._auth_enabled = true;
+        self._auth_passphrase = Some(passphrase.to_string());
+    }
+
+    /// 認証フラグを設定しauth_hashを拡張フィールドに追加
+    pub fn set_auth_flags(&mut self) {
+        if !self._auth_enabled {
+            return;
+        }
+        let passphrase = match &self._auth_passphrase {
+            Some(p) => p,
+            None => return,
+        };
+
+        if self.ex_field.is_none() {
+            self.ex_field = Some(ExtendedFieldManager::new());
+        }
+
+        if let Some(ref mut ext) = self.ex_field {
+            let auth_hash_bytes =
+                WIPAuth::calculate_auth_hash(self.packet_id, self.timestamp, passphrase);
+            let auth_hash_str = hex::encode(&auth_hash_bytes);
+            let field_def = FieldDefinition::new("auth_hash".to_string(), FieldType::String);
+            ext.add_definition(field_def);
+            let _ = ext.set_value("auth_hash".to_string(), FieldValue::String(auth_hash_str));
+
+            self.ex_flag = true;
+            self.request_auth = true;
+        }
     }
 
     /// バイト列から QueryRequest を生成する
@@ -190,6 +230,8 @@ impl QueryRequest {
             day,
             area_code,
             ex_field,
+            _auth_enabled: false,
+            _auth_passphrase: None,
         })
     }
 

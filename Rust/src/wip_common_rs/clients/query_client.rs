@@ -1,8 +1,10 @@
 use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
 use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
+use crate::wip_common_rs::utils::auth::WIPAuth;
 use async_trait::async_trait;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
+use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -41,6 +43,9 @@ pub struct QueryClientConfig {
     pub retry_delay: Duration,
     pub optimization: QueryOptimization,
     pub enable_debug: bool,
+    pub auth_enabled: bool,
+    pub auth_passphrase: Option<String>,
+    pub response_auth_enabled: bool,
 }
 
 impl Default for QueryClientConfig {
@@ -52,6 +57,9 @@ impl Default for QueryClientConfig {
             retry_delay: Duration::from_millis(200),
             optimization: QueryOptimization::default(),
             enable_debug: false,
+            auth_enabled: false,
+            auth_passphrase: None,
+            response_auth_enabled: false,
         }
     }
 }
@@ -123,7 +131,20 @@ impl QueryClientImpl {
         Self::with_config(host, port, QueryClientConfig::default()).await
     }
 
-    pub async fn with_config(host: &str, port: u16, config: QueryClientConfig) -> tokio::io::Result<Self> {
+    pub async fn with_config(host: &str, port: u16, mut config: QueryClientConfig) -> tokio::io::Result<Self> {
+        // 認証設定を環境変数から読み込み
+        let auth_enabled = env::var("QUERY_GENERATOR_REQUEST_AUTH_ENABLED")
+            .unwrap_or_else(|_| "false".into())
+            .to_lowercase()
+            == "true";
+        let response_auth_enabled = env::var("QUERY_SERVER_RESPONSE_AUTH_ENABLED")
+            .unwrap_or_else(|_| "false".into())
+            .to_lowercase()
+            == "true";
+        let auth_passphrase = env::var("QUERY_SERVER_PASSPHRASE").ok();
+        config.auth_enabled = auth_enabled;
+        config.response_auth_enabled = response_auth_enabled;
+        config.auth_passphrase = auth_passphrase;
         // localhostを127.0.0.1に解決
         let resolved_host = if host == "localhost" {
             "127.0.0.1"
@@ -214,6 +235,19 @@ impl QueryClientImpl {
         let packet_id = self.generate_packet_id().await;
         query.set_packet_id(packet_id);
 
+        // 認証設定が有効な場合はリクエストに認証情報を付与
+        if self.config.auth_enabled {
+            if let Some(passphrase) = &self.config.auth_passphrase {
+                query.enable_auth(passphrase);
+                query.set_auth_flags();
+            }
+        }
+
+        // レスポンス認証を要求する場合はフラグを設定
+        if self.config.response_auth_enabled {
+            query.response_auth = true;
+        }
+
         loop {
             attempts += 1;
             
@@ -257,6 +291,9 @@ impl QueryClientImpl {
                     let response_packet_id = (raw >> 4) & 0x0FFF; // version(4bit) + packet_id(12bit)
                     if response_packet_id == packet_id {
                         let response = QueryResponse::from_bytes(response_data).ok_or("Failed to parse QueryResponse")?;
+                        if !self._verify_response_auth(&response) {
+                            return Err("Response authentication failed".into());
+                        }
                         return Ok(response);
                     }
                 }
@@ -272,6 +309,41 @@ impl QueryClientImpl {
                 let mut stats = self.stats.write().await;
                 stats.timeouts += 1;
                 Err("Query timeout".into())
+            }
+        }
+    }
+
+    fn _verify_response_auth(&self, response: &QueryResponse) -> bool {
+        if !self.config.response_auth_enabled {
+            return true;
+        }
+
+        if !response.response_auth {
+            debug!("Response authentication skipped - response_auth flag not set");
+            return true;
+        }
+
+        let passphrase = match &self.config.auth_passphrase {
+            Some(p) => p,
+            None => {
+                warn!("Response authentication enabled but passphrase not set");
+                return false;
+            }
+        };
+
+        match response.get_auth_hash() {
+            Some(hash) => {
+                if WIPAuth::verify_auth_hash(response.packet_id, response.timestamp, passphrase, &hash) {
+                    debug!("Response authentication verification successful");
+                    true
+                } else {
+                    error!("Response authentication verification failed");
+                    false
+                }
+            }
+            None => {
+                warn!("Response authentication required but no auth_hash found");
+                false
             }
         }
     }
