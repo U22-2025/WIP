@@ -11,6 +11,7 @@ use crate::wip_common_rs::clients::location_client::{LocationClient, LocationCli
 use crate::wip_common_rs::clients::query_client::{QueryClient, QueryClientImpl};
 use crate::wip_common_rs::packet::types::query_packet::{QueryRequest, QueryResponse};
 use crate::wip_common_rs::clients::report_client::{ReportClient, ReportClientImpl};
+use crate::wip_common_rs::clients::utils::packet_id_generator::PacketIDGenerator12Bit;
 use crate::wip_common_rs::packet::types::report_packet::ReportRequest;
 use crate::wip_common_rs::utils::config_loader::ConfigLoader;
 use crate::wip_common_rs::packet::core::extended_field::FieldValue;
@@ -397,7 +398,9 @@ pub struct PythonCompatibleQueryClient {
     host: String,
     port: u16,
     debug: bool,
-    
+
+    pidg: PacketIDGenerator12Bit,
+
     // 内部的にRust版クライアントを使用
     inner_client: QueryClientImpl,
 }
@@ -418,18 +421,19 @@ impl PythonCompatibleQueryClient {
         let _server_addr = format!("{}:{}", host, port);
         
         let inner_client = QueryClientImpl::new(host, port).await?;
-        
+
         Ok(Self {
             host: host.to_string(),
             port,
             debug,
+            pidg: PacketIDGenerator12Bit::new(),
             inner_client,
         })
     }
 
     /// 直接クエリサーバーに問い合わせ（Python版互換）
     pub async fn query_weather_data(
-        &self,
+        &mut self,
         area_code: u32,
         weather: Option<bool>,
         temperature: Option<bool>,
@@ -448,7 +452,7 @@ impl PythonCompatibleQueryClient {
 
         let query_request = QueryRequest::new(
             area_code,
-            1, // packet_id - for now using 1, in production should be generated
+            self.pidg.next_id(),
             weather,
             temperature,
             precipitation_prob,
