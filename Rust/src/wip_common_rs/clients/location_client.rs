@@ -357,11 +357,23 @@ impl LocationClient for LocationClientImpl {
     }
 
     fn get_cache_stats(&self) -> HashMap<String, usize> {
-        // Simplified synchronous version
-        let mut stats = HashMap::new();
-        stats.insert("cache_size".to_string(), 0); // Placeholder
-        stats.insert("expired_entries".to_string(), 0); // Placeholder
-        stats
+        tokio::runtime::Handle::current().block_on(async {
+            let cache = self.cache.read().await;
+            let stats_guard = self.stats.read().await;
+
+            let cache_size = cache.len();
+            let expired_entries = cache
+                .values()
+                .filter(|entry| entry.is_expired(self.config.cache_ttl))
+                .count();
+
+            let mut stats = HashMap::new();
+            stats.insert("cache_size".to_string(), cache_size);
+            stats.insert("expired_entries".to_string(), expired_entries);
+            stats.insert("cache_hits".to_string(), stats_guard.cache_hits);
+            stats.insert("cache_misses".to_string(), stats_guard.cache_misses);
+            stats
+        })
     }
 }
 

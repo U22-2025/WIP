@@ -384,9 +384,18 @@ impl PythonCompatibleLocationClient {
     pub fn get_cache_stats(&self) -> HashMap<String, serde_json::Value> {
         let mut stats = HashMap::new();
         stats.insert("enabled".to_string(), serde_json::Value::Bool(self.cache_enabled));
-        stats.insert("ttl_minutes".to_string(), serde_json::Value::Number(serde_json::Number::from(self.cache_ttl_minutes)));
-        stats.insert("hits".to_string(), serde_json::Value::Number(serde_json::Number::from(0))); // TODO: 実装
-        stats.insert("misses".to_string(), serde_json::Value::Number(serde_json::Number::from(0))); // TODO: 実装
+        stats.insert(
+            "ttl_minutes".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.cache_ttl_minutes)),
+        );
+
+        for (key, value) in self.inner_client.get_cache_stats() {
+            stats.insert(
+                key,
+                serde_json::Value::Number(serde_json::Number::from(value as u64)),
+            );
+        }
+
         stats
     }
 }
