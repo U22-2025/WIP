@@ -299,7 +299,8 @@ async fn configured_location_client() -> Result<(), Box<dyn std::error::Error>> 
         bounds: CoordinateBounds::japan(), // 日本国内のみ
         enable_validation: true,
         cache_enabled: true,
-        cache_ttl: Duration::from_hours(1),
+        cache_ttl: Duration::from_secs(3600),
+        ..Default::default()
     };
     
     let mut location_client = LocationClient::with_config("127.0.0.1:4109".parse()?, config).await?;

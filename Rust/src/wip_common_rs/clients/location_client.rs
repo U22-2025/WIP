@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::net::UdpSocket;
@@ -54,6 +55,8 @@ pub struct LocationClientConfig {
     pub enable_validation: bool,
     pub cache_enabled: bool,
     pub cache_ttl: Duration,
+    pub cache_file_path: Option<PathBuf>,
+    pub persistent_cache: bool,
 }
 
 impl Default for LocationClientConfig {
@@ -65,6 +68,8 @@ impl Default for LocationClientConfig {
             enable_validation: true,
             cache_enabled: true,
             cache_ttl: Duration::from_secs(3600),
+            cache_file_path: Some(PathBuf::from("coordinate_cache.json")),
+            persistent_cache: false,
         }
     }
 }
@@ -148,7 +153,7 @@ impl LocationClientImpl {
 
         let socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await?);
 
-        Ok(Self {
+        let client = Self {
             host: host.to_string(),
             port,
             addr,
@@ -157,7 +162,25 @@ impl LocationClientImpl {
             pidg: Arc::new(Mutex::new(PacketIDGenerator12Bit::new())),
             cache: Arc::new(RwLock::new(HashMap::new())),
             stats: Arc::new(RwLock::new(LocationStats::default())),
-        })
+        };
+
+        client.load_persistent_cache().await;
+
+        if client.config.persistent_cache {
+            if let Some(path) = client.config.cache_file_path.clone() {
+                let cache = client.cache.clone();
+                let ttl = client.config.cache_ttl;
+                tokio::spawn(async move {
+                    let mut interval = tokio::time::interval(Duration::from_secs(60));
+                    loop {
+                        interval.tick().await;
+                        let _ = LocationClientImpl::save_cache_to_path(cache.clone(), path.clone(), ttl).await;
+                    }
+                });
+            }
+        }
+
+        Ok(client)
     }
 
     async fn generate_packet_id(&self) -> u16 {
@@ -165,16 +188,11 @@ impl LocationClientImpl {
         pidg.next_id()
     }
 
-    fn normalize_coordinates(&self, latitude: f64, longitude: f64) -> (f64, f64) {
-        let precision = 10_f64.powi(self.config.precision_digits as i32);
-        let normalized_lat = (latitude * precision).round() / precision;
-        let normalized_lon = (longitude * precision).round() / precision;
-        (normalized_lat, normalized_lon)
-    }
-
-    fn cache_key(&self, latitude: f64, longitude: f64, precision: u8) -> String {
-        let (norm_lat, norm_lon) = self.normalize_coordinates(latitude, longitude);
-        format!("{}:{}:{}", norm_lat, norm_lon, precision)
+    fn cache_key(&self, latitude: f64, longitude: f64) -> String {
+        let precision = 10_f64.powi(4);
+        let norm_lat = (latitude * precision).round() / precision;
+        let norm_lon = (longitude * precision).round() / precision;
+        format!("coord:{:.4},{:.4}", norm_lat, norm_lon)
     }
 
     async fn get_from_cache(&self, latitude: f64, longitude: f64, precision: u8) -> Option<u32> {
@@ -182,11 +200,11 @@ impl LocationClientImpl {
             return None;
         }
 
-        let key = self.cache_key(latitude, longitude, precision);
+        let key = self.cache_key(latitude, longitude);
         let cache = self.cache.read().await;
         
         if let Some(cached) = cache.get(&key) {
-            if !cached.is_expired(self.config.cache_ttl) {
+            if !cached.is_expired(self.config.cache_ttl) && cached.precision_level >= precision {
                 let mut stats = self.stats.write().await;
                 stats.cache_hits += 1;
                 debug!("Cache hit for coordinates ({}, {})", latitude, longitude);
@@ -204,18 +222,108 @@ impl LocationClientImpl {
             return;
         }
 
-        let key = self.cache_key(latitude, longitude, precision);
+        let key = self.cache_key(latitude, longitude);
         let cached_result = CachedLocationResult::new(area_code, precision, self.config.cache_ttl);
-        
+
         let mut cache = self.cache.write().await;
         cache.insert(key, cached_result);
-        
+
         self.cleanup_expired_cache(&mut cache).await;
+        drop(cache);
+
+        if self.config.persistent_cache {
+            if let Some(path) = &self.config.cache_file_path {
+                if let Err(e) = Self::save_cache_to_path(self.cache.clone(), path.clone(), self.config.cache_ttl).await {
+                    debug!("Failed to save cache to file: {}", e);
+                }
+            }
+        }
     }
 
     async fn cleanup_expired_cache(&self, cache: &mut HashMap<String, CachedLocationResult>) {
         let _now = Instant::now();
         cache.retain(|_, cached| !cached.is_expired(self.config.cache_ttl));
+    }
+
+    async fn load_persistent_cache(&self) {
+        if !self.config.persistent_cache {
+            return;
+        }
+        let path = match &self.config.cache_file_path {
+            Some(p) => p.clone(),
+            None => return,
+        };
+
+        let data = match tokio::fs::read_to_string(&path).await {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+
+        #[derive(serde::Deserialize)]
+        struct CacheEntry { area_code: String, timestamp: f64 }
+
+        let parsed: HashMap<String, CacheEntry> = match serde_json::from_str(&data) {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64();
+
+        let mut cache = self.cache.write().await;
+        for (key, entry) in parsed {
+            if let Ok(code) = entry.area_code.parse::<u32>() {
+                let age = now - entry.timestamp;
+                if age <= self.config.cache_ttl.as_secs_f64() {
+                    let cached_at = Instant::now() - Duration::from_secs_f64(age);
+                    cache.insert(
+                        key,
+                        CachedLocationResult {
+                            area_code: code,
+                            cached_at,
+                            precision_level: self.config.precision_digits,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    async fn save_cache_to_path(
+        cache: Arc<RwLock<HashMap<String, CachedLocationResult>>>,
+        path: PathBuf,
+        ttl: Duration,
+    ) -> std::io::Result<()> {
+        let cache_guard = cache.read().await;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default();
+
+        #[derive(serde::Serialize)]
+        struct CacheEntry {
+            area_code: String,
+            timestamp: f64,
+        }
+
+        let mut map: HashMap<String, CacheEntry> = HashMap::new();
+        for (key, value) in cache_guard.iter() {
+            if value.is_expired(ttl) {
+                continue;
+            }
+            let age = value.cached_at.elapsed();
+            let ts = now - age;
+            let entry = CacheEntry {
+                area_code: value.area_code.to_string(),
+                timestamp: ts.as_secs_f64(),
+            };
+            map.insert(key.clone(), entry);
+        }
+
+        drop(cache_guard);
+        let json = serde_json::to_string_pretty(&map)?;
+        tokio::fs::write(path, json).await
     }
 
     async fn send_location_request(&self, latitude: f64, longitude: f64) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
