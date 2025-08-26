@@ -27,6 +27,155 @@ class WeatherRequestHandlers:
         super().__init__(*args, **kwargs)
         self.packet_debug_logger = PacketDebugLogger("WeatherServer")
 
+    # ----------------------
+    # Internal small helpers
+    # ----------------------
+    def _extract_coordinates(self, obj):
+        """Safely extract (lat, lon) from packet or its ex_field.
+
+        Returns (lat, lon) or (None, None).
+        """
+        lat = None
+        lon = None
+        try:
+            if hasattr(obj, "get_coordinates") and callable(obj.get_coordinates):
+                coords = obj.get_coordinates()
+                if coords:
+                    lat, lon = coords
+            if (lat is None or lon is None) and hasattr(obj, "ex_field") and obj.ex_field:
+                # ExtendedField may support dict-like access
+                try:
+                    lat = lat if lat is not None else obj.ex_field.get("latitude")
+                    lon = lon if lon is not None else obj.ex_field.get("longitude")
+                except Exception:
+                    # Fallback to attribute access
+                    lat = lat if lat is not None else getattr(obj.ex_field, "latitude", None)
+                    lon = lon if lon is not None else getattr(obj.ex_field, "longitude", None)
+        except Exception:
+            pass
+        return lat, lon
+
+    def _ensure_ex_field(self, packet, set_flag=True):
+        """Ensure packet.ex_field exists and optionally set ex_flag=1.
+
+        Returns the ExtendedField instance.
+        """
+        if not hasattr(packet, "ex_field") or packet.ex_field is None:
+            packet.ex_field = ExtendedField()
+        if set_flag and hasattr(packet, "ex_flag"):
+            packet.ex_flag = 1
+        return packet.ex_field
+
+    def _set_source(self, packet, source_info):
+        """Ensure ex_field exists and set source tuple."""
+        ex = self._ensure_ex_field(packet, set_flag=True)
+        ex.source = source_info
+
+    def _get_source_from_request(self, request):
+        """Return (host, port) tuple if present in request.ex_field.source, else None."""
+        try:
+            if hasattr(request, "ex_field") and request.ex_field and request.ex_field.contains("source"):
+                cand = request.ex_field.source
+                if isinstance(cand, tuple) and len(cand) == 2:
+                    return cand
+        except Exception:
+            pass
+        return None
+
+    def _validate_source_info(self, source_info):
+        """Accept tuple or "host:port" string. Return (host, int_port) or raise ValueError."""
+        if not source_info:
+            raise ValueError("missing source_info")
+        if isinstance(source_info, tuple) and len(source_info) == 2:
+            host, port = source_info
+            port = int(port)
+            if not (0 < port <= 65535):
+                raise ValueError("Invalid port number")
+            return host, port
+        if isinstance(source_info, str) and ":" in source_info:
+            host, port_str = source_info.split(":", 1)
+            port = int(port_str)
+            if not (0 < port <= 65535):
+                raise ValueError("Invalid port number")
+            return host, port
+        raise ValueError(f"invalid source_info format: {source_info}")
+
+    def _strip_source_from_ex_field(self, packet):
+        """Remove source from ex_field and normalize flag when empty."""
+        try:
+            if hasattr(packet, "ex_field") and packet.ex_field:
+                if hasattr(packet.ex_field, "remove"):
+                    packet.ex_field.remove("source")
+                # Normalize flag if empty
+                if hasattr(packet.ex_field, "is_empty") and packet.ex_field.is_empty():
+                    setattr(packet.ex_field, "flag", 0)
+        except Exception:
+            pass
+
+    def _add_auth_hash(self, packet, passphrase_key):
+        """Add auth hash into ex_field if auth is enabled.
+
+        Returns True on success or when auth disabled; False on failure.
+        """
+        if not getattr(self, "auth_enabled", False):
+            return True
+        try:
+            from WIPCommonPy.utils.auth import WIPAuth
+
+            passphrase = self.passphrases[passphrase_key]
+            auth_hash = WIPAuth.calculate_auth_hash(
+                packet.packet_id, packet.timestamp, passphrase
+            )
+            ex = self._ensure_ex_field(packet, set_flag=True)
+            ex.auth_hash = auth_hash.hex()
+            return True
+        except Exception:
+            return False
+
+    def _send_error_to_dest(self, code, packet_id, dest):
+        """Build and send ErrorResponse with ex_field.source set to dest, if valid."""
+        try:
+            error_response = ErrorResponse(
+                version=self.version,
+                packet_id=packet_id,
+                error_code=code,
+                timestamp=int(datetime.now().timestamp()),
+            )
+            try:
+                valid = self._validate_source_info(dest)
+            except Exception:
+                valid = None
+            if valid:
+                error_response.ex_field.source = valid
+                self.sock.sendto(error_response.to_bytes(), valid)
+        except Exception:
+            # Swallow to avoid masking original errors
+            pass
+
+    def _send_error_to_request_source(self, code, packet_id, request):
+        """Send ErrorResponse to request.ex_field.source if available."""
+        dest = self._get_source_from_request(request)
+        if dest:
+            self._send_error_to_dest(code, packet_id, dest)
+
+    def _send_and_check(self, data, host, port):
+        """Send using send_udp_packet and validate size."""
+        bytes_sent = self.send_udp_packet(data, host, port)
+        if bytes_sent != len(data):
+            raise RuntimeError(
+                f"404: 不正なパケット長: (expected: {len(data)}, sent: {bytes_sent})"
+            )
+        return bytes_sent
+
+    def _sendto_and_check(self, data, dest_addr):
+        """Send using sock.sendto and validate size."""
+        bytes_sent = self.sock.sendto(data, dest_addr)
+        if bytes_sent != len(data):
+            raise RuntimeError(
+                f"送信バイト数不一致: {bytes_sent}/{len(data)}"
+            )
+        return bytes_sent
+
     def _handle_location_request(self, request, addr):
         """座標解決リクエストの処理（Type 0・改良版）"""
         source_info = (addr[0], addr[1])  # タプル形式で保持
@@ -136,80 +285,23 @@ class WeatherRequestHandlers:
             location_request.ex_flag = 1
 
             # 認証が有効な場合は認証ハッシュを追加
-            if self.auth_enabled:
-                try:
-                    from WIPCommonPy.utils.auth import WIPAuth
-
-                    passphrase = self.passphrases["location_server"]
-                    auth_hash = WIPAuth.calculate_auth_hash(
-                        location_request.packet_id,
-                        location_request.timestamp,
-                        passphrase,
-                    )
-                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
-                    location_request.ex_field.auth_hash = auth_hash.hex()
-                except Exception as auth_e:
-                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=request.packet_id,
-                        error_code=401,  # 認証エラー
-                        timestamp=int(datetime.now().timestamp()),
-                    )
-                    if (
-                        hasattr(request, "ex_field")
-                        and request.ex_field
-                        and request.ex_field.contains("source")
-                    ):
-                        dest = request.ex_field.source
-                        if isinstance(dest, tuple) and len(dest) == 2:
-                            error_response.ex_field.source = dest
-                            self.sock.sendto(error_response.to_bytes(), dest)
-                    return
+            if not self._add_auth_hash(location_request, "location_server"):
+                self._send_error_to_request_source(401, request.packet_id, request)
+                return
 
             # Location Resolverに転送
             packet_data = location_request.to_bytes()
 
             # メインソケットを使用して送信
             try:
-                bytes_sent = self.send_udp_packet(
+                self._send_and_check(
                     packet_data,
                     self.location_resolver_host,
                     self.location_resolver_port,
                 )
-                if bytes_sent != len(packet_data):
-                    raise RuntimeError(
-                        f"404: 不正なパケット長 (expected: {len(packet_data)}, sent: {bytes_sent})"
-                    )
             except Exception as e:
                 self.logger.debug(traceback.format_exc())
-                # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=request.packet_id,
-                    error_code=410,
-                    timestamp=int(datetime.now().timestamp()),
-                )
-                dest = None
-                if (
-                    hasattr(request, "ex_field")
-                    and request.ex_field
-                    and request.ex_field.contains("source")
-                ):
-                    cand = request.ex_field.source
-                    if isinstance(cand, tuple) and len(cand) == 2:
-                        dest = cand
-
-                if dest:
-                    error_response.ex_field.source = dest
-                    self.sock.sendto(error_response.to_bytes(), dest)
-                    self.logger.debug(
-                        f"[{threading.current_thread().name}] Error response sent to {dest}"
-                    )
-                else:
-                    self.logger.debug(
-                        f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません"
-                    )
+                self._send_error_to_request_source(410, request.packet_id, request)
                 return
 
         except Exception as e:
@@ -218,32 +310,7 @@ class WeatherRequestHandlers:
             )
             self.logger.debug(traceback.format_exc())
             # ErrorResponseを作成して返す
-            error_response = ErrorResponse(
-                version=self.version,
-                packet_id=request.packet_id,
-                error_code=530,
-                timestamp=int(datetime.now().timestamp()),
-            )
-            dest = None
-            if (
-                hasattr(request, "ex_field")
-                and request.ex_field
-                and request.ex_field.contains("source")
-            ):
-                cand = request.ex_field.source
-                if isinstance(cand, tuple) and len(cand) == 2:
-                    dest = cand
-
-            if dest:
-                error_response.ex_field.source = dest
-                self.sock.sendto(error_response.to_bytes(), dest)
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] Error response sent to {dest}"
-                )
-            else:
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません"
-                )
+            self._send_error_to_request_source(530, request.packet_id, request)
             return
 
     def _handle_location_response(self, data, addr):
@@ -317,19 +384,11 @@ class WeatherRequestHandlers:
                     source_info = response.get_source_info()
 
                     if source_info:
-                        # source_infoがタプルの場合と文字列の場合を処理
-                        if isinstance(source_info, tuple):
-                            host, port_str = source_info[0], str(source_info[1])
-                        else:
-                            host, port_str = source_info.split(":")
-                        port = int(port_str)
+                        # source_infoがタプル/文字列の双方に対応
+                        host, port = self._validate_source_info(source_info)
                         source_addr = (host, port)
 
-                        bytes_sent = self.sock.sendto(response_data, source_addr)
-                        if bytes_sent != len(response_data):
-                            raise RuntimeError(
-                                f"送信バイト数不一致: {bytes_sent}/{len(response_data)}"
-                            )
+                        self._sendto_and_check(response_data, source_addr)
 
                         # 統一されたデバッグ出力を追加
                         execution_time = time.time() - start_time
@@ -358,70 +417,34 @@ class WeatherRequestHandlers:
             query_request = QueryRequest.from_location_response(response)
 
             # 認証が有効な場合は認証ハッシュを追加
-            if self.auth_enabled:
+            if not self._add_auth_hash(query_request, "query_server"):
+                # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
+                src = response.get_source_info()
                 try:
-                    from WIPCommonPy.utils.auth import WIPAuth
-
-                    passphrase = self.passphrases["query_server"]
-                    auth_hash = WIPAuth.calculate_auth_hash(
-                        query_request.packet_id, query_request.timestamp, passphrase
-                    )
-                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
-                    if (
-                        not hasattr(query_request, "ex_field")
-                        or query_request.ex_field is None
-                    ):
-                        query_request.ex_field = ExtendedField()
-                    query_request.ex_field.auth_hash = auth_hash.hex()
-                    query_request.ex_flag = 1
-                except Exception as auth_e:
-                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=response.packet_id,
-                        error_code=401,  # 認証エラー
-                        timestamp=int(datetime.now().timestamp()),
-                    )
-                    source_info = response.get_source_info()
-                    if (
-                        source_info
-                        and isinstance(source_info, tuple)
-                        and len(source_info) == 2
-                    ):
-                        error_response.ex_field.source = source_info
-                        self.sock.sendto(error_response.to_bytes(), source_info)
-                    return
+                    host, port = self._validate_source_info(src)
+                    self._send_error_to_dest(401, response.packet_id, (host, port))
+                except Exception:
+                    pass
+                return
 
             # Query Generatorに送信
             packet_data = query_request.to_bytes()
 
             # メインソケットを使用して送信
-            bytes_sent = self.send_udp_packet(
+            self._send_and_check(
                 packet_data, self.query_generator_host, self.query_generator_port
             )
-            if bytes_sent != len(packet_data):
-                raise RuntimeError(
-                    f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})"
-                )
 
         except Exception as e:
             print(
                 f"107: [{self.server_name}] 位置情報レスポンスの処理中にエラーが発生しました: {e}"
             )
             self.logger.debug(traceback.format_exc())
-            source_ip, source_port = data.get_source_info()
-            if not (source_ip and source_port):
+            try:
+                host, port = self._validate_source_info(response.get_source_info())
+                self._send_error_to_dest(107, response.packet_id, (host, port))
+            except Exception:
                 print("sourceが不正なためエラーパケットを送信できません")
-                return
-            # ErrorResponseを作成して返す
-            error_response = ErrorResponse(
-                version=self.version,
-                packet_id=response.packet_id,
-                error_code=107,
-                timestamp=int(datetime.now().timestamp()),
-            )
-            error_response.ex_field.source = (source_ip, source_port)
-            self.sock.sendto(error_response.to_bytes(), (source_ip, source_port))
             return
 
     def _handle_query_request(self, request, addr):
@@ -510,123 +533,37 @@ class WeatherRequestHandlers:
             except Exception as e:
                 pass  # 通常のクエリサーバ転送にフォールバック
 
-            # 既にQueryRequestの場合は、source情報を追加
+            # 既にQueryRequestの場合は、source情報を追加し、認証付与
             query_request = request
+            self._set_source(query_request, source_info)
 
-            # 拡張フィールドが存在しない場合は作成
-            if not hasattr(query_request, "ex_field") or query_request.ex_field is None:
-                query_request.ex_field = ExtendedField()
-
-            # source情報をセット
-            query_request.ex_field.source = source_info
-            query_request.ex_flag = 1  # 拡張フィールドを使用するのでフラグを1に
-
-            # 認証が有効な場合は認証ハッシュを追加
-            if self.auth_enabled:
-                try:
-                    from WIPCommonPy.utils.auth import WIPAuth
-
-                    passphrase = self.passphrases["query_server"]
-                    auth_hash = WIPAuth.calculate_auth_hash(
-                        query_request.packet_id, query_request.timestamp, passphrase
-                    )
-                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
-                    query_request.ex_field.auth_hash = auth_hash.hex()
-                except Exception as auth_e:
-                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=request.packet_id,
-                        error_code=401,  # 認証エラー
-                        timestamp=int(datetime.now().timestamp()),
-                    )
-                    if (
-                        hasattr(request, "ex_field")
-                        and request.ex_field
-                        and request.ex_field.contains("source")
-                    ):
-                        dest = request.ex_field.source
-                        if isinstance(dest, tuple) and len(dest) == 2:
-                            error_response.ex_field.source = dest
-                            self.sock.sendto(error_response.to_bytes(), dest)
-                    return
+            # 認証ハッシュを付与（失敗時は401エラー送信）
+            if not self._add_auth_hash(query_request, "query_server"):
+                self._send_error_to_request_source(401, request.packet_id, request)
+                return
 
             # Query Generatorに転送
             packet_data = query_request.to_bytes()
 
             # メインソケットを使用して送信
             try:
-                bytes_sent = self.send_udp_packet(
+                self._send_and_check(
                     packet_data, self.query_generator_host, self.query_generator_port
                 )
-                if bytes_sent != len(packet_data):
-                    raise RuntimeError(
-                        f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})"
-                    )
             except Exception as e:
                 print(
                     f"クエリリクエストの転送に失敗しました: {self.query_generator_host}:{self.query_generator_port} - {str(e)}"
                 )
                 self.logger.debug(traceback.format_exc())
-                # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=request.packet_id,
-                    error_code=420,
-                    timestamp=int(datetime.now().timestamp()),
-                )
-                dest = None
-                if (
-                    hasattr(request, "ex_field")
-                    and request.ex_field
-                    and request.ex_field.contains("source")
-                ):
-                    cand = request.ex_field.source
-                    if isinstance(cand, tuple) and len(cand) == 2:
-                        dest = cand
-
-                if dest:
-                    error_response.ex_field.source = dest
-                    self.sock.sendto(error_response.to_bytes(), dest)
-                    self.logger.debug(
-                        f"[{threading.current_thread().name}] Error response sent to {dest}"
-                    )
-                else:
-                    self.logger.debug(
-                        f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません"
-                    )
+                # エラーレスポンスを送信
+                self._send_error_to_request_source(420, request.packet_id, request)
                 return
 
         except Exception as e:
             print(f"420: クエリサーバが見つからない: {e}")
             self.logger.debug(traceback.format_exc())
             # ErrorResponseを作成して返す
-            error_response = ErrorResponse(
-                version=self.version,
-                packet_id=request.packet_id,
-                error_code=420,
-                timestamp=int(datetime.now().timestamp()),
-            )
-            dest = None
-            if (
-                hasattr(request, "ex_field")
-                and request.ex_field
-                and request.ex_field.contains("source")
-            ):
-                cand = request.ex_field.source
-                if isinstance(cand, tuple) and len(cand) == 2:
-                    dest = cand
-
-            if dest:
-                error_response.ex_field.source = dest
-                self.sock.sendto(error_response.to_bytes(), dest)
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] Error response sent to {dest}"
-                )
-            else:
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません"
-                )
+            self._send_error_to_request_source(420, request.packet_id, request)
             return
 
     def _handle_query_response(self, data, addr):
@@ -648,29 +585,16 @@ class WeatherRequestHandlers:
                     )
                 return
 
-            # 既にタプル形式なのでそのまま使用
-            if isinstance(source_info, tuple) and len(source_info) == 2:
-                host, port = source_info
-                try:
-                    port = int(port)  # ポート番号のバリデーション
-                    if not (0 < port <= 65535):
-                        raise ValueError("Invalid port number")
-                    dest_addr = (host, port)
-                except (ValueError, TypeError) as e:
-                    print(f"[{self.server_name}] 不正なポート番号: {port}")
-                    return
-            else:
+            # source情報の検証と正規化
+            try:
+                host, port = self._validate_source_info(source_info)
+                dest_addr = (host, port)
+            except Exception:
                 print(f"[{self.server_name}] 不正なsource_info形式: {source_info}")
                 return
 
-            # source情報を変数に格納したので拡張フィールドから削除
-            if hasattr(response, "ex_field") and response.ex_field:
-                # sourceフィールドを削除
-                response.ex_field.remove("source")
-
-                # 拡張フィールドが空になった場合はフラグを0にする
-                if response.ex_field.is_empty():
-                    response.ex_field.flag = 0
+            # source情報を変数に格納したので拡張フィールドから削除（共通ヘルパー）
+            self._strip_source_from_ex_field(response)
 
             try:
                 response.version = self.version  # バージョンを正規化
@@ -678,11 +602,7 @@ class WeatherRequestHandlers:
 
                 # 元のクライアントに送信
                 try:
-                    bytes_sent = self.sock.sendto(final_data, dest_addr)
-                    if bytes_sent != len(final_data):
-                        raise RuntimeError(
-                            f"パケット長エラー: (expected: {len(final_data)}, sent: {bytes_sent})"
-                        )
+                    self._sendto_and_check(final_data, dest_addr)
 
                     # 統一されたデバッグ出力を追加
                     execution_time = time.time() - start_time
@@ -711,13 +631,7 @@ class WeatherRequestHandlers:
                 except Exception as e:
                     self.logger.debug(traceback.format_exc())
                     # ErrorResponseを作成して返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=response.packet_id,
-                        error_code=530,
-                        timestamp=int(datetime.now().timestamp()),
-                    )
-                    self.sock.sendto(error_response.to_bytes(), dest_addr)
+                    self._send_error_to_dest(530, response.packet_id, dest_addr)
                     raise RuntimeError(
                         f"気象サーバでの処理エラー: クライアントへの転送に失敗 {str(e)}"
                     )
@@ -726,27 +640,14 @@ class WeatherRequestHandlers:
                 print(f"530: 気象サーバでの処理エラー: {conv_e}")
                 self.logger.debug(traceback.format_exc())
                 # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=response.packet_id,
-                    error_code=530,
-                    timestamp=int(datetime.now().timestamp()),
-                )
-                error_response.ex_field.source = dest_addr
-                self.sock.sendto(error_response.to_bytes(), dest_addr)
+                self._send_error_to_dest(530, response.packet_id, dest_addr)
                 return
 
         except Exception as e:
             print(f"530: [{self.server_name}] 基本エラー: リクエスト処理失敗: {e}")
             self.logger.debug(traceback.format_exc())
             # ErrorResponseを作成して返す
-            error_response = ErrorResponse(
-                version=self.version,
-                packet_id=response.packet_id,
-                error_code=530,
-                timestamp=int(datetime.now().timestamp()),
-            )
-            self.sock.sendto(error_response.to_bytes(), dest_addr)
+            self._send_error_to_dest(530, response.packet_id, dest_addr)
             return
 
     def _handle_error_packet(self, request, addr):
@@ -755,24 +656,15 @@ class WeatherRequestHandlers:
             # 拡張フィールドからsourceを取得
             if request.ex_field and request.ex_field.contains("source"):
                 source = request.ex_field.source
-
-                # エラーパケットを送信
-                # インスタンス化済みエラーパケットのsourceは常にタプル形式であるべき
-                if isinstance(source, tuple) and len(source) == 2:
-                    host, port = source
-                    try:
-                        port = int(port)  # ポート番号のバリデーション
-                        if not (0 < port <= 65535):
-                            raise ValueError("Invalid port number")
-                        dest_addr = (host, port)
-                        self.sock.sendto(request.to_bytes(), dest_addr)
-                    except (ValueError, TypeError) as e:
-                        print(f"[{self.server_name}] 不正なポート番号: {port} - {e}")
-                else:
+                try:
+                    dest_addr = self._validate_source_info(source)
+                except Exception:
                     print(
                         f"[{self.server_name}] 不正なsource形式: {source} (type: {type(source)})"
                     )
                     return
+                # エラーパケットを送信（長さ検証付き）
+                self._sendto_and_check(request.to_bytes(), dest_addr)
             else:
                 print(
                     f"[{self.server_name}] エラー: エラーパケットにsourceが含まれていません"
@@ -784,32 +676,7 @@ class WeatherRequestHandlers:
             )
             self.logger.debug(traceback.format_exc())
             # ErrorResponseを作成して返す
-            error_response = ErrorResponse(
-                version=self.version,
-                packet_id=request.packet_id,
-                error_code=530,
-                timestamp=int(datetime.now().timestamp()),
-            )
-            dest = None
-            if (
-                hasattr(request, "ex_field")
-                and request.ex_field
-                and request.ex_field.contains("source")
-            ):
-                cand = request.ex_field.source
-                if isinstance(cand, tuple) and len(cand) == 2:
-                    dest = cand
-
-            if dest:
-                error_response.ex_field.source = dest
-                self.sock.sendto(error_response.to_bytes(), dest)
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] Error response sent to {dest}"
-                )
-            else:
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません"
-                )
+            self._send_error_to_request_source(530, request.packet_id, request)
             return
 
     def _handle_report_request(self, request, addr):
@@ -818,135 +685,28 @@ class WeatherRequestHandlers:
             source_info = (addr[0], addr[1])  # タプル形式で保持
 
             # ReportRequestにsource情報を追加（強化版）
-
-            try:
-                # 拡張フィールドフラグが0でも強制的にsource情報を追加
-
-                # 既存の拡張フィールドデータを保持
-                existing_data = {}
-                if hasattr(request, "ex_field") and request.ex_field:
-                    try:
-                        if hasattr(request.ex_field, "to_dict"):
-                            existing_data = request.ex_field.to_dict()
-                        elif hasattr(request.ex_field, "__dict__"):
-                            existing_data = {
-                                k: v
-                                for k, v in request.ex_field.__dict__.items()
-                                if not k.startswith("_")
-                            }
-                    except Exception as preserve_e:
-                        self.logger.debug(f"  既存データ保持エラー: {preserve_e}")
-
-                # 新しい拡張フィールドを作成
-                request.ex_field = ExtendedField()
-
-                # 既存データを復元
-                for key, value in existing_data.items():
-                    if key != "source":  # sourceは新しく設定するので除外
-                        try:
-                            setattr(request.ex_field, key, value)
-                        except Exception as restore_e:
-                            self.logger.debug(
-                                f"  データ復元エラー ({key}): {restore_e}"
-                            )
-
-                # source情報を追加
-                request.ex_field.source = source_info
-
-                # 拡張フィールドフラグを強制的に1に設定
-                request.ex_flag = 1
-
-            except Exception as ex_e:
-                print(f"❌ 拡張フィールドへのsource追加に失敗: {ex_e}")
-                self.logger.debug(traceback.format_exc())
-
-                # 最終手段：エラーレスポンスを送信
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=request.packet_id,
-                    error_code=530,
-                    timestamp=int(datetime.now().timestamp()),
-                )
-                try:
-                    self.sock.sendto(error_response.to_bytes(), source_info)
-                except Exception as send_e:
-                    print(f"エラーレスポンス送信も失敗: {send_e}")
-                return
+            self._set_source(request, source_info)
 
             # 認証が有効な場合は認証ハッシュを追加
-            if self.auth_enabled:
-                try:
-                    from WIPCommonPy.utils.auth import WIPAuth
-
-                    passphrase = self.passphrases["report_server"]
-                    auth_hash = WIPAuth.calculate_auth_hash(
-                        request.packet_id, request.timestamp, passphrase
-                    )
-                    # 拡張フィールドに認証ハッシュを追加（hex文字列に変換）
-                    request.ex_field.auth_hash = auth_hash.hex()
-                except Exception as auth_e:
-                    # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=request.packet_id,
-                        error_code=401,  # 認証エラー
-                        timestamp=int(datetime.now().timestamp()),
-                    )
-                    if (
-                        hasattr(request, "ex_field")
-                        and request.ex_field
-                        and request.ex_field.contains("source")
-                    ):
-                        dest = request.ex_field.source
-                        if isinstance(dest, tuple) and len(dest) == 2:
-                            error_response.ex_field.source = dest
-                            self.sock.sendto(error_response.to_bytes(), dest)
-                    return
+            if not self._add_auth_hash(request, "report_server"):
+                # 認証ハッシュ追加に失敗した場合はエラーレスポンスを返す
+                self._send_error_to_request_source(401, request.packet_id, request)
+                return
 
             # レポートサーバーに転送
             packet_data = request.to_bytes()
 
             try:
-                bytes_sent = self.send_udp_packet(
+                self._send_and_check(
                     packet_data, self.report_server_host, self.report_server_port
                 )
-                if bytes_sent != len(packet_data):
-                    raise RuntimeError(
-                        f"404: 不正なパケット長: (expected: {len(packet_data)}, sent: {bytes_sent})"
-                    )
-
             except Exception as e:
                 print(
                     f"レポートリクエストの転送に失敗しました: {self.report_server_host}:{self.report_server_port} - {str(e)}"
                 )
                 self.logger.debug(traceback.format_exc())
                 # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=request.packet_id,
-                    error_code=420,
-                    timestamp=int(datetime.now().timestamp()),
-                )
-                dest = None
-                if (
-                    hasattr(request, "ex_field")
-                    and request.ex_field
-                    and request.ex_field.contains("source")
-                ):
-                    cand = request.ex_field.source
-                    if isinstance(cand, tuple) and len(cand) == 2:
-                        dest = cand
-
-                if dest:
-                    error_response.ex_field.source = dest
-                    self.sock.sendto(error_response.to_bytes(), dest)
-                    self.logger.debug(
-                        f"[{threading.current_thread().name}] Error response sent to {dest}"
-                    )
-                else:
-                    self.logger.debug(
-                        f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません"
-                    )
+                self._send_error_to_request_source(420, request.packet_id, request)
                 return
 
         except Exception as e:
@@ -955,32 +715,7 @@ class WeatherRequestHandlers:
             )
             self.logger.debug(traceback.format_exc())
             # ErrorResponseを作成して返す
-            error_response = ErrorResponse(
-                version=self.version,
-                packet_id=request.packet_id,
-                error_code=530,
-                timestamp=int(datetime.now().timestamp()),
-            )
-            dest = None
-            if (
-                hasattr(request, "ex_field")
-                and request.ex_field
-                and request.ex_field.contains("source")
-            ):
-                cand = request.ex_field.source
-                if isinstance(cand, tuple) and len(cand) == 2:
-                    dest = cand
-
-            if dest:
-                error_response.ex_field.source = dest
-                self.sock.sendto(error_response.to_bytes(), dest)
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] Error response sent to {dest}"
-                )
-            else:
-                self.logger.debug(
-                    f"[{threading.current_thread().name}] sourceが無いためエラーパケットを送信しません"
-                )
+            self._send_error_to_request_source(530, request.packet_id, request)
             return
 
     def _handle_report_response(self, data, addr):
@@ -1002,29 +737,16 @@ class WeatherRequestHandlers:
                     )
                 return
 
-            # 既にタプル形式なのでそのまま使用
-            if isinstance(source_info, tuple) and len(source_info) == 2:
-                host, port = source_info
-                try:
-                    port = int(port)  # ポート番号のバリデーション
-                    if not (0 < port <= 65535):
-                        raise ValueError("Invalid port number")
-                    dest_addr = (host, port)
-                except (ValueError, TypeError) as e:
-                    print(f"[{self.server_name}] 不正なポート番号: {port}")
-                    return
-            else:
+            # source情報の検証と正規化
+            try:
+                host, port = self._validate_source_info(source_info)
+                dest_addr = (host, port)
+            except Exception:
                 print(f"[{self.server_name}] 不正なsource_info形式: {source_info}")
                 return
 
             # source情報を変数に格納したので拡張フィールドから削除
-            if hasattr(response, "ex_field") and response.ex_field:
-                # sourceフィールドを削除
-                response.ex_field.remove("source")
-
-                # 拡張フィールドが空になった場合はフラグを0にする
-                if response.ex_field.is_empty():
-                    response.ex_field.flag = 0
+            self._strip_source_from_ex_field(response)
 
             try:
                 # レスポンスのバージョンを現在のサーバーバージョンで設定
@@ -1033,11 +755,7 @@ class WeatherRequestHandlers:
 
                 # 元のクライアントに送信
                 try:
-                    bytes_sent = self.sock.sendto(final_data, dest_addr)
-                    if bytes_sent != len(final_data):
-                        raise RuntimeError(
-                            f"パケット長エラー: (expected: {len(final_data)}, sent: {bytes_sent})"
-                        )
+                    self._sendto_and_check(final_data, dest_addr)
 
                     # 統一されたデバッグ出力を追加
                     execution_time = time.time() - start_time
@@ -1060,13 +778,7 @@ class WeatherRequestHandlers:
                 except Exception as e:
                     self.logger.debug(traceback.format_exc())
                     # ErrorResponseを作成して返す
-                    error_response = ErrorResponse(
-                        version=self.version,
-                        packet_id=response.packet_id,
-                        error_code=530,
-                        timestamp=int(datetime.now().timestamp()),
-                    )
-                    self.sock.sendto(error_response.to_bytes(), dest_addr)
+                    self._send_error_to_dest(530, response.packet_id, dest_addr)
                     raise RuntimeError(
                         f"天気サーバーでの処理エラー: クライアントへの転送に失敗 {str(e)}"
                     )
@@ -1075,14 +787,7 @@ class WeatherRequestHandlers:
                 print(f"530: [{self.server_name}] 処理エラー: {conv_e}")
                 self.logger.debug(traceback.format_exc())
                 # ErrorResponseを作成して返す
-                error_response = ErrorResponse(
-                    version=self.version,
-                    packet_id=response.packet_id,
-                    error_code=530,
-                    timestamp=int(datetime.now().timestamp()),
-                )
-                error_response.ex_field.source = dest_addr
-                self.sock.sendto(error_response.to_bytes(), dest_addr)
+                self._send_error_to_dest(530, response.packet_id, dest_addr)
                 return
 
         except Exception as e:
@@ -1094,15 +799,9 @@ class WeatherRequestHandlers:
             packet_id = (
                 getattr(response, "packet_id", 0) if "response" in locals() else 0
             )
-            error_response = ErrorResponse(
-                version=self.version,
-                packet_id=packet_id,
-                error_code=530,
-                timestamp=int(datetime.now().timestamp()),
-            )
             # dest_addrが未定義の場合はaddrを使用
             dest_addr = locals().get("dest_addr", addr)
-            self.sock.sendto(error_response.to_bytes(), dest_addr)
+            self._send_error_to_dest(530, packet_id, dest_addr)
             return
 
     def create_response(self, request):
