@@ -99,7 +99,7 @@ NTPをベースとした軽量気象情報プロトコルで、IoT機器向け�
 
 **注意点:**
 - 注意報・警報(`000001`)および災害情報(`000010`)のデータは、ヌル文字(`\0`)で区切られた文字列として格納されます
-- 認証ハッシュ(`000100`)は16バイト固定長のMD5ハッシュ値として格納されます
+- 認証ハッシュ(`000100`)は32バイト固定長のHMAC-SHA256ハッシュ値として格納されます（旧仕様ではMD5を使用）
 
 ## サーバ・クライアントの動作
 ### WIPサーバ
@@ -206,27 +206,20 @@ sequenceDiagram
 
 **認証方式**
 1. 予めクライアントとサーバ間でパスフレーズを共有しておく
-2. 送信時に以下の値を結合してMD5ハッシュを計算する：
-   - パケットID (12bit)
-   - タイムスタンプ (64bit)
-   - パスフレーズ (文字列)
-3. 計算したハッシュ値を拡張フィールド内の認証フィールド（`000100`）に格納して送信
+2. 送信時に`"{packet_id}:{timestamp}:{passphrase}"`という文字列を生成し、パスフレーズをキーとしてHMAC-SHA256ハッシュを計算する
+3. 計算した32バイトのハッシュ値を拡張フィールド内の認証フィールド（`000100`）に格納して送信
 4. 受信側は同じ手順でハッシュ値を計算し、受信したハッシュ値と照合
 5. 一致した場合のみ後続の処理を実行
 
 **ハッシュ計算手順**
 ```python
+import hmac
 import hashlib
 
 def calculate_auth_hash(packet_id: int, timestamp: int, passphrase: str) -> bytes:
-    # パケットIDとタイムスタンプをバイト列に変換 (リトルエンディアンで実装)
-    packet_id_bytes = packet_id.to_bytes(2, byteorder='little')  # 12bitを2バイトに
-    timestamp_bytes = timestamp.to_bytes(8, byteorder='little')  # 64bitを8バイトに
-    passphrase_bytes = passphrase.encode('utf-8')
-    
-    # 結合してハッシュ化
-    combined = packet_id_bytes + timestamp_bytes + passphrase_bytes
-    return hashlib.md5(combined).digest()  # 16バイトのハッシュ値
+    message = f"{packet_id}:{timestamp}:{passphrase}".encode("utf-8")
+    key = passphrase.encode("utf-8")
+    return hmac.new(key, message, hashlib.sha256).digest()  # 32バイトのハッシュ値
 ```
 
 **パケット受信後の処理順序**
@@ -248,7 +241,7 @@ def calculate_auth_hash(packet_id: int, timestamp: int, passphrase: str) -> byte
 **セキュリティ考慮事項**
 - パケットIDの一意性によりリプレイアタック対策
 - 送信パケット内のタイムスタンプを使用するため、クライアント・サーバ間の時刻同期は不要
-- MD5の高速性によりIoT機器での処理負荷を最小化
+- HMAC-SHA256により強固なハッシュ検証が可能（旧仕様ではMD5を使用）
 - パスフレーズはパケットで送信せずに秘匿
 - パスフレーズの管理はユーザ実装に委ねる（設定ファイル、環境変数等）
 
@@ -266,7 +259,7 @@ pip install -r requirements.txt
 redis-server
 
 # メインサーバ起動
-python WIP_Server/main.py
+python WIPServerPy/main.py
 ```
 
 ### クライアント実装例
@@ -291,8 +284,8 @@ docker-compose up -d
 ### ディレクトリ構成
 ```
 .
-├── WIP_Server/          # サーバ実装
-├── WIP_Client/          # クライアント実装
+├── WIPServerPy/          # サーバ実装
+├── WIPClientPy/          # クライアント実装
 ├── common/              # 共通ライブラリ
 │   └── packet/          # パケット処理関連
 ├── docs/                # ドキュメント
@@ -306,11 +299,11 @@ docker-compose up -d
 pytest tests/
 
 # カバレッジ計測
-pytest --cov=WIP_Server tests/
+pytest --cov=WIPServerPy tests/
 
 # 静的解析
-flake8 WIP_Server/
-mypy WIP_Server/
+flake8 WIPServerPy/
+mypy WIPServerPy/
 ```
 
 ## 貢献方法

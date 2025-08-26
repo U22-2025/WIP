@@ -1,0 +1,12 @@
+aioquic
+fastapi
+geopy
+hypercorn
+psycopg2
+python-dateutil
+python-dotenv
+quart
+redis
+requests
+schedule
+uvicorn

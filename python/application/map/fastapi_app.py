@@ -15,13 +15,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 
-# 直接実行時のパス調整
-
-if __name__ == "__main__":
-    sys.path.insert(
-        0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    )
-
 # Windows環境では ProactorEventLoop がデフォルトとなるが、このイベントループは
 # sock_sendto が実装されていないため非同期クライアントでエラーになる。
 # そのため SelectorEventLoop を使用するようにポリシーを設定する。
@@ -30,21 +23,22 @@ if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     except Exception:  # pragma: no cover - Windows 環境以外では実行されない
         pass
-from common.clients.location_client import LocationClient
-from common.clients.query_client import QueryClient
-from common.utils.config_loader import ConfigLoader
-from common.utils.redis_log_handler import RedisLogHandler
+from WIPClientPy import ClientAsync
+from WIPCommonPy.utils.config_loader import ConfigLoader
+from WIPCommonPy.utils.redis_log_handler import RedisLogHandler
 import redis.asyncio as aioredis
+
 # ドキュメントエンドポイントを有効化
 app = FastAPI()
 script_dir = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(script_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(script_dir / "templates"))
 
-LOCATION_SERVER_HOST = os.getenv("LOCATION_RESOLVER_HOST", "localhost")
-LOCATION_SERVER_PORT = int(os.getenv("LOCATION_RESOLVER_PORT", 4109))
-QUERY_SERVER_HOST = os.getenv("QUERY_GENERATOR_HOST", "localhost")
-QUERY_SERVER_PORT = int(os.getenv("QUERY_GENERATOR_PORT", 4111))
+# Health endpoint for compatibility when API is mounted under /api
+@app.get("/health")
+async def health_root() -> dict:
+    return {"status": "ok"}
+
 
 LOG_REDIS_HOST = os.getenv("LOG_REDIS_HOST", "localhost")
 LOG_REDIS_PORT = int(os.getenv("LOG_REDIS_PORT", 6380))
@@ -101,7 +95,7 @@ class ConnectionManager:
         """単発メッセージ配信（互換用）。"""
         self.logs.append(message)
         if len(self.logs) > self.log_limit:
-            self.logs = self.logs[-self.log_limit:]
+            self.logs = self.logs[-self.log_limit :]
 
         for ws in list(self.active):
             try:
@@ -114,7 +108,7 @@ class ConnectionManager:
         # 履歴は個別ログ文字列で保持（新規 WS 接続時の replay 用）
         self.logs.extend(batch)
         if len(self.logs) > self.log_limit:
-            self.logs = self.logs[-self.log_limit:]
+            self.logs = self.logs[-self.log_limit :]
 
         objs = []
         for s in batch:
@@ -122,19 +116,24 @@ class ConnectionManager:
                 objs.append(json.loads(s))
             except Exception:
                 # parse できなかった行もログ化して捨てない
-                objs.append({
-                    "type": "log",
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "info",
-                    "message": s,
-                    "details": {"raw": True},
-                })
+                objs.append(
+                    {
+                        "type": "log",
+                        "timestamp": datetime.now().isoformat(),
+                        "level": "info",
+                        "message": s,
+                        "details": {"raw": True},
+                    }
+                )
 
-        payload = json.dumps({
-            "type": "bulk",
-            "count": len(objs),
-            "logs": objs,   # ← ここがオブジェクト配列になる！
-        }, ensure_ascii=False)
+        payload = json.dumps(
+            {
+                "type": "bulk",
+                "count": len(objs),
+                "logs": objs,  # ← ここがオブジェクト配列になる！
+            },
+            ensure_ascii=False,
+        )
 
         for ws in list(self.active):
             try:
@@ -155,7 +154,7 @@ class ConnectionManager:
                     batch.append(await self.queue.get())
 
                 if len(batch) == 1:
-                    await self._broadcast(batch[0])     # 従来互換
+                    await self._broadcast(batch[0])  # 従来互換
                 else:
                     await self._broadcast_batch(batch)  # bulk 送信
         except asyncio.CancelledError:
@@ -206,6 +205,7 @@ async def startup_event() -> None:
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     await manager.stop()
+
 
 # メトリクス用グローバル変数
 total_accesses = 0
@@ -342,24 +342,9 @@ def _create_fallback_weather_data(area_code: str, days_offset: int = 0) -> dict:
 # Dependency
 # ----------------------------------------------------------------------
 
-async def get_location_client() -> AsyncGenerator[LocationClient, None]:
-    client = LocationClient(
-        host=LOCATION_SERVER_HOST,
-        port=LOCATION_SERVER_PORT,
-        debug=True,
-    )
-    try:
-        yield client
-    finally:
-        client.close()
 
-
-async def get_query_client() -> AsyncGenerator[QueryClient, None]:
-    client = QueryClient(
-        host=QUERY_SERVER_HOST,
-        port=QUERY_SERVER_PORT,
-        debug=True,
-    )
+async def get_wip_client() -> AsyncGenerator[ClientAsync, None]:
+    client = ClientAsync(debug=True)
     try:
         yield client
     finally:
@@ -376,13 +361,65 @@ async def index(request: Request):
     await log_event("GET /")
     return templates.TemplateResponse("map.html", {"request": request})
 
+# ----------------------------------------------------------------------
+# Mount External Weather API under /api
+# ----------------------------------------------------------------------
+# application/weather_api を import できるようにパスを追加
+try:
+    sys.path.insert(0, str(script_dir.parent))  # python/application
+    from weather_api.app import (
+        app as weather_api_app,  # type: ignore
+        list_areas as _api_list_areas,
+        get_weather as _api_get_weather,
+        update_weather as _api_update_weather,
+        update_disaster as _api_update_disaster,
+    )
+
+    # サブアプリとして /api にマウント
+    app.mount("/api", weather_api_app)
+    logger.info("Mounted External Weather API at /api")
+
+    # 互換エイリアス: 既存テストやクライアントが / に向けて叩くため
+    @app.post("/update/weather")
+    async def _alias_update_weather():  # type: ignore
+        return _api_update_weather()
+
+    @app.post("/update/disaster")
+    async def _alias_update_disaster():  # type: ignore
+        return _api_update_disaster()
+
+    @app.get("/areas")
+    async def _alias_list_areas():  # type: ignore
+        return _api_list_areas()
+
+    @app.get("/weather")
+    async def _alias_get_weather(
+        area_code: str,
+        day: int = 0,
+        weather_flag: int = 1,
+        temperature_flag: int = 1,
+        pop_flag: int = 1,
+        alert_flag: int = 1,
+        disaster_flag: int = 1,
+    ):  # type: ignore
+        return _api_get_weather(
+            area_code=area_code,
+            day=day,
+            weather_flag=weather_flag,
+            temperature_flag=temperature_flag,
+            pop_flag=pop_flag,
+            alert_flag=alert_flag,
+            disaster_flag=disaster_flag,
+        )
+except Exception as e:  # pragma: no cover
+    logger.error(f"Failed to mount External Weather API at /api: {e}")
+
 
 @app.post("/weekly_forecast")
 async def weekly_forecast(
     request: Request,
     coords: Coordinates,
-    loc_client: LocationClient = Depends(get_location_client),
-    query_client: QueryClient = Depends(get_query_client),
+    client: ClientAsync = Depends(get_wip_client),
 ):
     lat = coords.lat
     lng = coords.lng
@@ -398,21 +435,34 @@ async def weekly_forecast(
         )
 
     try:
-        location_response, _ = await call_with_metrics(
-            loc_client.get_location_data_async,
-            latitude=lat,
-            longitude=lng,
-            use_cache=True,
+        today_weather = await call_with_metrics(
+            client.get_weather_by_coordinates,
+            lat,
+            lng,
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            alert=True,
+            disaster=True,
+            day=0,
             ip=ip,
-            context={"coords": f"{lat},{lng}"},
+            context={"coords": f"{lat},{lng}", "day": 0},
         )
-        if not location_response or not location_response.is_valid():
+        if not today_weather or (
+            isinstance(today_weather, dict)
+            and ("error" in today_weather or "error_code" in today_weather)
+        ):
             return JSONResponse(
                 {"status": "error", "message": "エリアコードの取得に失敗しました"},
                 status_code=500,
             )
 
-        area_code = location_response.get_area_code()
+        area_code = today_weather.get("area_code")
+        if not area_code:
+            return JSONResponse(
+                {"status": "error", "message": "エリアコードの取得に失敗しました"},
+                status_code=500,
+            )
 
         async def fetch(day: int):
             try:
@@ -424,11 +474,10 @@ async def weekly_forecast(
                     "disaster": True,
                 }
                 weather_data = await call_with_metrics(
-                    query_client.get_weather_data_async,
+                    client.get_weather_by_area_code,
                     area_code=area_code,
                     **flags,
                     day=day,
-                    use_cache=True,
                     ip=ip,
                     context={
                         "area_code": area_code,
@@ -446,9 +495,10 @@ async def weekly_forecast(
                 weather_data = _create_fallback_weather_data(area_code, day)
             return _add_date_info(weather_data, day)
 
-        tasks = [fetch(day) for day in range(7)]
+        tasks = [fetch(day) for day in range(1, 7)]
         results = await asyncio.gather(*tasks)
-        weekly_forecast_list = sorted(results, key=lambda x: x["day"])
+        weekly_forecast_list = [_add_date_info(today_weather, 0)] + results
+        weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
 
         return JSONResponse(
             {

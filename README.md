@@ -5,8 +5,8 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 ## 概要
 
 - **プロトコル**: NTPベースのUDPアプリケーションプロトコル
-- **ポート番号**: UDP/4110
-- **データサイズ**: 48バイト程度の軽量パケット
+- **ポート番号**: UDP/4110（Rust/Python共通）
+- **データサイズ**: 基本16バイト程度の軽量パケット
 - **通信方式**: 1:1のリクエスト・レスポンス形式
 - **データソース**: 気象庁公開データ（XML/JSON形式）
 - **対応データ**: 気象情報、災害情報、注意報・警報
@@ -15,7 +15,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 
 ### 軽量設計
 - バイナリ形式でのデータ転送
-- 基本パケットサイズ48バイト
+- 基本パケットサイズ16バイト
 - IoT機器での使用を想定した省帯域設計
 
 ### 分散アーキテクチャ
@@ -38,7 +38,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 
 ### サーバ構成
 
-1. **Weather Server (Port 4110)** - プロキシサーバ
+1. **Weather Server (Port 4110)** - プロキシサーバ（Rust/Python共通ポート）
    - クライアントからのリクエストを受信
    - 適切なサーバへリクエストを転送
    - レスポンスをクライアントに返送
@@ -52,6 +52,10 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
    - 気象データのキャッシュ管理
    - レスポンスパケットの生成
 
+4. **Report Server (Port 4112)** - センサーデータレポートサーバ
+   - IoT機器からのレポートデータを受信
+   - データの検証と蓄積を担当
+
 ## プロトコル仕様
 
 ### パケットフォーマット
@@ -61,7 +65,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|　Ver　|  　　  Packet ID 　    |Typ|W|T|P|A|D|E|  Day  |Reserv |
+|　Ver　|  　　  Packet ID 　    |Typ|W|T|P|A|D|E|RA|RS| Day |Res |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                           Timestamp                           |
 |                                                               |
@@ -78,17 +82,20 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
   - 1: 座標解決レスポンス
   - 2: 気象データリクエスト
   - 3: 気象データレスポンス
-- **フラグフィールド (6bit)**:
+- **フラグフィールド (8bit)**:
   - W: 天気データ取得
   - T: 気温データ取得
   - P: 降水確率取得
   - A: 注意報・警報取得
   - D: 災害情報取得
   - E: 拡張フィールド使用
-- **Day (3bit)**: 予報日（0=当日、1=翌日...）
-- **Timestamp (64bit)**: UNIX時間
-- **Area Code (20bit)**: 気象庁地域コード
-- **Checksum (12bit)**: パケット誤り検出
+  - RA: リクエスト認証フラグ
+  - RS: レスポンス認証フラグ
+  - **Day (3bit)**: 予報日（0=当日、1=翌日...）
+  - **Reserved (2bit)**: 予約領域
+  - **Timestamp (64bit)**: UNIX時間
+  - **Area Code (20bit)**: 気象庁地域コード
+  - **Checksum (12bit)**: パケット誤り検出
 
 #### レスポンス専用フィールド
 - **Weather Code (16bit)**: 天気コード
@@ -100,6 +107,7 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 - **データ種別**:
   - 000001: 注意報・警報
   - 000010: 災害情報
+  - 000100: 認証ハッシュ
   - 100001: 緯度
   - 100010: 経度
   - 101000: 送信元IPアドレス
@@ -116,18 +124,34 @@ WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象�
 ### 依存関係のインストール
 ```bash
 # Condaを使用する場合
-conda env create -f environment.yml
-conda activate U22-2025
+conda env create -f yml/env311.yml
+conda activate U22-WIP
 
 # pipを使用する場合
 pip install -r requirements.txt
+
+# ライブラリとして開発モードでインストールする場合
+pip install -e .
+
+# テスト環境を構築する場合
+pip install -e .[dev]
+
+# サーバーを個別にインストールする場合
+pip install -e .[location_server]
+pip install -e .[query_server]
+
+# すべてのサーバーをインストールする場合
+pip install -e .[servers]
+
+# PyPI から全機能をインストールする場合
+pip install "wiplib[all]"
 ```
 
 ### 環境変数設定
 `.env`ファイルを作成し、以下を設定：
 ```env
 # サーバ設定
-WEATHER_SERVER_PORT=4110
+WEATHER_SERVER_PORT=4110  # Rust/Python共通
 LOCATION_RESOLVER_HOST=localhost
 LOCATION_RESOLVER_PORT=4109
 QUERY_GENERATOR_HOST=localhost
@@ -143,6 +167,18 @@ LOG_REDIS_HOST=localhost
 LOG_REDIS_PORT=6380
 LOG_REDIS_DB=1
 ```
+
+#### クライアント環境変数
+
+Rust 版の `wip-weather` および統合 CLI `wip` は、Python 版と同様に環境変数 `WEATHER_SERVER_HOST` と `WEATHER_SERVER_PORT` を参照します。これらが未設定の場合はそれぞれ `127.0.0.1` と `4111` が使用され、コマンドラインの `--host` / `--port` オプションが指定された場合はそちらが優先されます。
+
+例:
+```bash
+export WEATHER_SERVER_HOST=weather.example.com
+export WEATHER_SERVER_PORT=5000
+wip-weather get 11000 --weather
+```
+
 KeyDB を使用してログを配信する場合は、以下の例のように Docker で起動できます。
 ```bash
 docker run -d --name keydb -p 6380:6379 eqalpha/keydb
@@ -205,17 +241,41 @@ client.close()
 #### コマンドライン実行
 ```bash
 # クライアントのテスト実行
-python -m common.clients.weather_client
+python -m WIPCommonPy.clients.weather_client
 
 # 座標解決のテスト
-python -m common.clients.location_client
+python -m WIPCommonPy.clients.location_client
 
 # 気象データクエリのテスト
-python -m common.clients.query_client
+python -m WIPCommonPy.clients.query_client
 
 # センサーデータレポートのテスト
-python -m common.clients.report_client
+python -m WIPCommonPy.clients.report_client
 ```
+
+#### 迅速な疎通テスト（Pythonモックサーバー + C++ CLI）
+本番サーバ群の代わりに、簡易モックサーバーで C++ クライアントの疎通確認ができます。
+
+1) モックサーバー起動（別ターミナル）
+```bash
+python python/tools/mock_weather_server.py  # UDP/4110 を待受
+```
+
+2) C++ CLI ビルド（CMake なしの場合）
+```bash
+# Windows (Developer Command Prompt)
+cpp\tools\build_no_cmake.bat
+
+# Linux/macOS/MSYS2
+bash cpp/tools/build_no_cmake.sh
+```
+
+3) 疎通確認
+```bash
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature
+```
+
+モックサーバーは有効な WeatherResponse を即時返却します（エリアコード: 130010、天気コード: 100、温度: 22℃、降水確率: 10%）。
 
 ## データ形式
 
@@ -310,6 +370,78 @@ python test/api_test.py
 python -m wip.packet.format  # パケット形式テスト
 ```
 
+### C++ クライアント（wiplib-cpp）
+このリポジトリには C++20 実装（クライアントおよびパケットコーデック）が含まれます。ビルド手順:
+
+```bash
+# CMake 3.20+ と C++20 対応コンパイラを用意してください
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build --config Release
+
+# 単体テスト（簡易）
+./cpp/build/wiplib_tests
+
+# CLI ツール実行例（Python サーバ群起動後）
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature --precipitation
+
+# 座標指定の例（東京）
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --coords 35.6895 139.6917 --weather --temperature --precipitation
+```
+
+CLI オプション:
+- `--host`, `--port`: 接続先 Weather Server (UDP/4110)
+- `--coords <lat> <lon>` または `--area <6桁コード>`
+- `--weather|--no-weather`, `--temperature|--no-temperature`, `--precipitation`, `--alerts`, `--disaster`, `--day <0-7>`
+
+備考:
+- C++ 実装は Python 実装と同じリトルエンディアン表現・12bitチェックサム（1の補数折返し）で動作します。相互運用で不一致があれば Issue へ報告ください。
+
+### ゴールデンベクタ生成（Python → C++ 検証）
+Python 実装から既知のパケットを生成して C++ でデコード検証できます。
+
+```bash
+# 1) ゴールデンベクタを生成（dist/golden/*.bin）
+python python/tools/generate_golden_vectors.py
+
+# 2) C++ 側で検証実行
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
+cmake --build cpp/build --config Debug
+./cpp/build/wiplib_golden
+```
+
+### ソケット無しの相互運用テスト
+C++で生成したリクエストをPythonが解釈、Pythonが生成したレスポンスをC++が解釈するテストを自動実行できます。
+
+```bash
+# C++ツールのビルド（gen/decode）
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug
+cmake --build cpp/build --config Debug --target wip_packet_gen wip_packet_decode
+
+# パス指定してテスト実行（Windowsは exe 拡張子）
+export WIP_CPP_BIN_DIR=cpp/build
+python python/tools/interop_no_socket.py
+```
+
+#### CMake なしでビルドする場合（全OS対応）
+
+環境に CMake が無い場合でも、同梱スクリプトでビルドできます。
+
+- Windows（MSVC / Developer Command Prompt）
+  - `cpp\tools\build_no_cmake.bat`
+  - 出力: `cpp\build\wip_client_cli.exe`, `cpp\build\wiplib_tests.exe`
+- Windows（MSYS2/MinGW）/ Linux / macOS（clang++/g++）
+  - `bash cpp/tools/build_no_cmake.sh`
+  - 出力: `cpp/build/wip_client_cli`, `cpp/build/wiplib_tests`
+
+実行例:
+```bash
+# CLI
+./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature
+
+# テスト（コーデックの往復確認）
+./cpp/build/wiplib_tests
+```
+
 ### ログ出力
 デバッグモードでの詳細ログ出力：
 ```python
@@ -323,7 +455,7 @@ client = WeatherClient(debug=True)
 ### ベンチマーク結果
 - **レスポンス時間**: 平均 < 100ms
 - **スループット**: > 100 req/sec
-- **パケットサイズ**: 基本48バイト、拡張時最大1024バイト
+ - **パケットサイズ**: 基本16バイト、拡張時最大1023バイト
 - **同時接続**: 最大100接続
 
 ### 最適化ポイント
@@ -359,7 +491,7 @@ python test/api_test.py
 - 成功率
 
 ### WIPの優位性
-- **軽量**: 48バイトの小さなパケットサイズ
+ - **軽量**: 16バイトの小さなパケットサイズ
 - **高速**: 平均100ms以下のレスポンス時間
 - **効率**: バイナリ形式による効率的なデータ転送
 - **拡張性**: 災害情報・警報データの統合配信
@@ -395,7 +527,7 @@ python wip/scripts/update_weather_data.py
 - 地域コードキャッシュ（`cache/area_cache.json`）
 - 気象データキャッシュ（TTL: 1時間）
 - 各キャッシュは設定ファイルの `enable_*_cache` オプションで有効/無効を切り替え可能
-- WIP_Client の座標キャッシュは `python/WIP_Client/config.ini` の
+- WIPClientPy の座標キャッシュは `python/WIPClientPy/config.ini` の
   `enable_coordinate_cache` でオン/オフを設定
 
 ## トラブルシューティング
@@ -459,32 +591,7 @@ python debug_tools/performance/performance_debug_tool.py
 - **サーバエラー**: 適切なエラーコード返送
 
 ## ライセンス
-
-このプロジェクトはMITライセンスの下で公開されています。
-
-```
-MIT License
-
-Copyright (c) 2025 WIP Project
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+このプロジェクトはMITライセンスの下で公開されています。詳しくは [LICENSE](LICENSE) をご覧ください。
 
 ## 貢献
 
@@ -532,7 +639,7 @@ SOFTWARE.
 - [debug_tools/docs/extended_field_fix_report.md](debug_tools/docs/extended_field_fix_report.md) - 拡張フィールド修正レポート
 
 ### 設定ファイル
-- [environment.yml](environment.yml) - Conda環境設定
+- [yml/env311.yml](yml/env311.yml) - Conda環境設定
 - [weather_code.json](weather_code.json) - 天気コード定義
 - [start_servers.bat](start_servers.bat) - サーバ起動スクリプト
 
@@ -548,7 +655,7 @@ SOFTWARE.
 
 #### 主要機能
 - NTPベースのUDPプロトコル
-- 48バイト軽量パケット
+ - 16バイト軽量パケット
 - 座標解決機能
 - 気象データ配信
 - 災害情報配信
@@ -571,4 +678,4 @@ SOFTWARE.
 
 **WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
 
-プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/your-repo/wip)をご確認ください。
+プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/U22-2025/WIP)をご確認ください。

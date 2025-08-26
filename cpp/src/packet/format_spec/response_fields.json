@@ -1,0 +1,94 @@
+{
+  "packet_type": "response",
+  "total_size_bytes": 16,
+  "fields": [
+    {
+      "name": "version",
+      "bit_offset": 0,
+      "bit_length": 4,
+      "type": "uint",
+      "description": "Protocol version",
+      "default_value": 1
+    },
+    {
+      "name": "packet_id",
+      "bit_offset": 4,
+      "bit_length": 12,
+      "type": "uint",
+      "description": "Unique packet identifier"
+    },
+    {
+      "name": "type",
+      "bit_offset": 16,
+      "bit_length": 3,
+      "type": "enum",
+      "description": "Packet type identifier"
+    },
+    {
+      "name": "flags",
+      "bit_offset": 19,
+      "bit_length": 8,
+      "type": "flags",
+      "description": "Control flags"
+    },
+    {
+      "name": "day",
+      "bit_offset": 27,
+      "bit_length": 3,
+      "type": "uint",
+      "description": "Day offset (0-7)"
+    },
+    {
+      "name": "reserved1",
+      "bit_offset": 30,
+      "bit_length": 2,
+      "type": "reserved",
+      "description": "Reserved bits"
+    },
+    {
+      "name": "timestamp",
+      "bit_offset": 32,
+      "bit_length": 64,
+      "type": "timestamp",
+      "description": "Unix timestamp"
+    },
+    {
+      "name": "area_code",
+      "bit_offset": 96,
+      "bit_length": 20,
+      "type": "uint",
+      "description": "Geographic area code"
+    },
+    {
+      "name": "checksum",
+      "bit_offset": 116,
+      "bit_length": 12,
+      "type": "checksum",
+      "description": "12-bit packet checksum"
+    },
+    {
+      "name": "weather_code",
+      "bit_offset": 128,
+      "bit_length": 16,
+      "type": "uint",
+      "description": "Weather condition code",
+      "is_optional": false
+    },
+    {
+      "name": "temperature",
+      "bit_offset": 144,
+      "bit_length": 8,
+      "type": "int",
+      "description": "Temperature (signed, +100 offset)",
+      "is_optional": false
+    },
+    {
+      "name": "precipitation_prob",
+      "bit_offset": 152,
+      "bit_length": 8,
+      "type": "uint",
+      "description": "Precipitation probability percentage",
+      "is_optional": false
+    }
+  ]
+}
