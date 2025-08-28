@@ -33,7 +33,7 @@ class ReportClient:
             debug: デバッグモード
         """
         if host is None:
-            host = os.getenv("REPORT_SERVER_HOST", "localhost")
+            host = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl")
         if port is None:
             port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
 

@@ -48,7 +48,7 @@ LocationClient LocationClient::from_env() {
 std::string LocationClient::default_host() {
   (void)wiplib::utils::load_dotenv(".env", false, 3);
   if (const char* h = std::getenv("LOCATION_RESOLVER_HOST")) return h;
-  return "127.0.0.1";
+  return "wip.ncc.onl";
 }
 
 uint16_t LocationClient::default_port() {

@@ -37,6 +37,8 @@ ReportClient::ReportClient(std::string host, uint16_t port, bool debug)
         const char* env_host = std::getenv("REPORT_SERVER_HOST");
         if (env_host) {
             host_ = env_host;
+        } else {
+            host_ = "wip.ncc.onl";
         }
     }
     

@@ -35,7 +35,7 @@ class WeatherClient:
 
     def __init__(self, host=None, port=None, debug=False):
         if host is None:
-            host = os.getenv("WEATHER_SERVER_HOST", "localhost")
+            host = os.getenv("WEATHER_SERVER_HOST", "wip.ncc.onl")
         if port is None:
             port = int(os.getenv("WEATHER_SERVER_PORT", "4110"))
         """
