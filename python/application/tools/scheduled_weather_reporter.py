@@ -142,12 +142,18 @@ class ScheduledWeatherReporter:
                             return v[0] if v else None
                         return v
 
-                    weather_code = pick(data.get("weather"))
+                    w = pick(data.get("weather"))
+                    try:
+                        weather_code = int(w) if w not in (None, "") else None
+                    except Exception:
+                        weather_code = None
+                    
                     t = pick(data.get("temperature"))
                     try:
                         temperature = int(t) if t not in (None, "") else None
                     except Exception:
                         temperature = None
+                    
                     pop = pick(data.get("precipitation_prob"))
                     try:
                         precipitation_prob = int(pop) if pop not in (None, "") else None
