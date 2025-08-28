@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--noupdate",
         action="store_true",
-        help="Queryサーバーの起動時自動更新をスキップ",
+        help="Queryサーバーの起動時自動更新とScheduled Weather Reporterをスキップ",
     )
 
     args = parser.parse_args()
@@ -174,7 +174,16 @@ def main():
         )
         processes.append(("api", proc))
 
-    print(f"{len(threads)}個のサーバー、{len(processes)}個のアプリを起動しました。")
+    # Scheduled Weather Reporterを起動（--noupdateが指定されていない場合のみ）
+    if not args.noupdate and ("query" in servers_to_start or "report" in servers_to_start or args.all):
+        proc = _start_process(
+            "Scheduled Weather Reporter",
+            ["python/application/tools/scheduled_weather_reporter.py", "--mode", "schedule"],
+        )
+        processes.append(("scheduled_reporter", proc))
+
+    total_processes = len(processes)
+    print(f"{len(threads)}個のサーバー、{total_processes}個のアプリを起動しました。")
     if start_map:
         print("  Map:           http://localhost")
         print("  Weather API:   http://localhost/api")
