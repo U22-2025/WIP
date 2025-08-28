@@ -1,6 +1,6 @@
-# WIP (Weather Transfer Protocol)
+# WIP (Weather Information Protocol)
 
-WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象データ転送プロトコルです。IoT機器でも使用できるよう、小さなデータサイズでの通信を実現し、気象庁の公開データを効率的に配信します。
+WIP（Weather Information Protocol）は、NTPをベースとした軽量な気象データ転送プロトコルです。IoT機器でも使用できるよう、小さなデータサイズでの通信を実現し、気象庁の公開データを効率的に配信します。
 
 ## 概要
 
@@ -170,7 +170,7 @@ LOG_REDIS_DB=1
 
 #### クライアント環境変数
 
-Rust 版の `wip-weather` および統合 CLI `wip` は、Python 版と同様に環境変数 `WEATHER_SERVER_HOST` と `WEATHER_SERVER_PORT` を参照します。これらが未設定の場合はそれぞれ `127.0.0.1` と `4111` が使用され、コマンドラインの `--host` / `--port` オプションが指定された場合はそちらが優先されます。
+Rust 版の `wip-weather` と Python 版の `WeatherClient` は、環境変数 `WEATHER_SERVER_HOST` と `WEATHER_SERVER_PORT` を参照します。未設定の場合はそれぞれ `127.0.0.1` と `4110` が使用され、コマンドラインの `--host` / `--port` オプションが指定された場合はそちらが優先されます。
 
 例:
 ```bash
@@ -197,61 +197,54 @@ RedisJSON モジュールは特に必要ありません。
 # Windowsの場合
 start_servers.bat
 
-# 手動で個別起動
-python -m wip.servers.weather_server.weather_server
-python -m wip.servers.location_server.location_server
-python -m wip.servers.query_server.query_server
+# 手動で個別起動（Python ランチャー経由）
+python python/launch_server.py --weather
+python python/launch_server.py --location
+python python/launch_server.py --query
+python python/launch_server.py --report
 ```
 
 ### クライアントの使用
 
 #### 基本的な使用例
 ```python
-from wip.clients.weather_client import WeatherClient
+from WIPCommonPy.clients.weather_client import WeatherClient
+from WIPCommonPy.packet import LocationRequest
 
 # クライアント初期化（"localhost" は自動で IPv4 に解決されます）
 client = WeatherClient(host='localhost', port=4110, debug=True)
 
-# 座標から天気情報を取得
-result = client.get_weather_by_coordinates(
+# 座標から天気情報を取得（座標→エリア解決→天気データ）
+req = LocationRequest.create_coordinate_lookup(
     latitude=35.6895,   # 東京の緯度
     longitude=139.6917, # 東京の経度
-    weather=True,       # 天気データ
-    temperature=True,   # 気温データ
-    precipitation_prob=True  # 降水確率
+    packet_id=1,
+    weather=True,
+    temperature=True,
+    precipitation_prob=True,
+    version=1,
 )
+result = client._execute_location_request(req)
 
-print(f"Area Code: {result['area_code']}")
-print(f"Weather Code: {result['weather_code']}")
-print(f"Temperature: {result['temperature']}°C")
-print(f"precipitation_prob: {result['precipitation_prob']}%")
+if result:
+    print(f"Area Code: {result['area_code']}")
+    print(f"Weather Code: {result['weather_code']}")
+    print(f"Temperature: {result['temperature']}°C")
+    print(f"precipitation_prob: {result['precipitation_prob']}%")
 
 # エリアコードから直接取得
 result = client.get_weather_by_area_code(
     area_code="130010",  # 東京都東京地方
     weather=True,
     temperature=True,
-    alerts=True,         # 警報情報
-    disaster=True        # 災害情報
+    precipitation_prob=True,
 )
 
 client.close()
 ```
 
-#### コマンドライン実行
-```bash
-# クライアントのテスト実行
-python -m WIPCommonPy.clients.weather_client
-
-# 座標解決のテスト
-python -m WIPCommonPy.clients.location_client
-
-# 気象データクエリのテスト
-python -m WIPCommonPy.clients.query_client
-
-# センサーデータレポートのテスト
-python -m WIPCommonPy.clients.report_client
-```
+#### 簡易実行のヒント
+- Python クライアント各モジュールはスクリプト実行用エントリは提供していません。上記のサンプルのように API から呼び出してください。
 
 #### 迅速な疎通テスト（Pythonモックサーバー + C++ CLI）
 本番サーバ群の代わりに、簡易モックサーバーで C++ クライアントの疎通確認ができます。
@@ -334,41 +327,15 @@ bash cpp/tools/build_no_cmake.sh
 
 ## 開発・デバッグ
 
-### デバッグツール
-プロジェクトには包括的なデバッグツールが含まれています：
+### デバッグツール（同梱）
+- Python モックサーバー: `python python/tools/mock_weather_server.py`（UDP/4110 を待受）
+- C++ デバッグ/検証ツール: `cpp/tools/*.cpp`（CMake もしくは付属スクリプトでビルド）
 
-#### 統合デバッグスイート
-```bash
-# フルテスト実行（推奨）
-python debug_tools/core/integrated_debug_suite.py --mode full
-
-# クイック検証のみ
-python debug_tools/core/integrated_debug_suite.py --mode quick
-
-# パフォーマンステストをスキップ
-python debug_tools/core/integrated_debug_suite.py --mode full --no-performance
-```
-
-#### 個別デバッグツール
-```bash
-# パフォーマンス分析
-python debug_tools/performance/performance_debug_tool.py
-
-# 個別フィールドデバッグ
-python debug_tools/individual/debug_extended_field.py
-
-# エンコード・デコード詳細追跡
-python debug_tools/individual/debug_encoding_step_by_step.py
-```
-
-### テスト実行
-```bash
-# API性能テスト
-python test/api_test.py
-
-# プロトコルテスト
-python -m wip.packet.format  # パケット形式テスト
-```
+### テスト/検証
+- C++ 単体テスト: `./cpp/build/wiplib_tests`
+- ゴールデンベクタ検証:
+  - 生成: `python python/tools/generate_golden_vectors.py`
+  - 検証: `cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug && cmake --build cpp/build --config Debug && ./cpp/build/wiplib_golden`
 
 ### C++ クライアント（wiplib-cpp）
 このリポジトリには C++20 実装（クライアントおよびパケットコーデック）が含まれます。ビルド手順:
@@ -465,17 +432,11 @@ client = WeatherClient(debug=True)
 - 座標解決結果のキャッシュ
 
 ### パフォーマンス測定
-```bash
-# 統合パフォーマンステスト
-python debug_tools/performance/performance_debug_tool.py
-
-# 外部API比較テスト
-python test/api_test.py
-```
+性能評価には C++ 実装のベンチツール（`cpp/` 配下）や実運用環境でのメトリクス収集をご利用ください。
 
 ## API比較
 
-外部気象APIとの性能比較（`test/api_test.py`で測定可能）：
+外部気象APIとの性能比較（ベンチマークは別途ツール/環境で実施）：
 
 ### 対象API
 - **Open-Meteo API**: 無料の気象データAPI
@@ -512,22 +473,22 @@ python test/api_test.py
 
 ### Wiresharkプロトコル解析
 ```bash
-# Wiresharkでのパケット解析用Luaスクリプト
-# wireshark.luaをWiresharkのプラグインディレクトリに配置
+# Wiresharkでのパケット解析用 Lua スクリプト
+# lua/wireshark.lua を Wireshark のプラグインディレクトリに配置
 ```
 
 ### 自動データ更新
 ```bash
 # 気象データの定期更新スクリプト
-python wip/scripts/update_weather_data.py
+python src/WIPServerPy/scripts/update_weather_data.py
 ```
 
 ### キャッシュ管理
 - Redis による高速キャッシュ
-- 地域コードキャッシュ（`cache/area_cache.json`）
+- 地域コードキャッシュ（クライアント側: `src/WIPClientPy/coordinate_cache.json`）
 - 気象データキャッシュ（TTL: 1時間）
 - 各キャッシュは設定ファイルの `enable_*_cache` オプションで有効/無効を切り替え可能
-- WIPClientPy の座標キャッシュは `python/WIPClientPy/config.ini` の
+- WIPClientPy の座標キャッシュは `src/WIPClientPy/config.ini` の
   `enable_coordinate_cache` でオン/オフを設定
 
 ## トラブルシューティング
@@ -545,16 +506,15 @@ netstat -an | grep 4110
 ```
 
 #### 2. パケット解析エラー
-```bash
-# デバッグモードでパケット内容確認
-python -m wip.clients.weather_client
+```python
+# デバッグモードでパケット内容確認（Python クライアント）
+from WIPCommonPy.clients.weather_client import WeatherClient
+client = WeatherClient(debug=True)
+# 以降、通常の API 呼び出しで詳細ログが出力されます
 ```
 
 #### 3. パフォーマンス問題
-```bash
-# パフォーマンス詳細分析
-python debug_tools/performance/performance_debug_tool.py
-```
+- ボトルネックの切り分けに C++ ベンチ（`cpp/`）や外部モニタリングを使用してください。
 
 ### ログレベル
 - `[INFO]`: 一般的な情報
@@ -630,13 +590,8 @@ python debug_tools/performance/performance_debug_tool.py
 ## 関連ドキュメント
 
 ### 技術文書
-- [WIP仕様表.md](WIP仕様表.md) - 詳細な技術仕様
-- [project_detail.md](project_detail.md) - プロジェクト詳細
-- [protocol_format.xlsx](protocol_format.xlsx) - パケット形式詳細
-
-### デバッグ文書
-- [debug_tools/docs/DEBUG_TOOLS_README.md](debug_tools/docs/DEBUG_TOOLS_README.md) - デバッグツール使用方法
-- [debug_tools/docs/extended_field_fix_report.md](debug_tools/docs/extended_field_fix_report.md) - 拡張フィールド修正レポート
+- [docs/project_detail.md](docs/project_detail.md) - プロジェクト詳細
+- [docs/protocol_format.xlsx](docs/protocol_format.xlsx) - パケット形式詳細
 
 ### 設定ファイル
 - [yml/env311.yml](yml/env311.yml) - Conda環境設定
@@ -676,6 +631,6 @@ python debug_tools/performance/performance_debug_tool.py
 
 ---
 
-**WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
+**WIP (Weather Information Protocol)** - 軽量で効率的な気象データ転送プロトコル
 
 プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/U22-2025/WIP)をご確認ください。
