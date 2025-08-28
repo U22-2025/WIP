@@ -47,6 +47,7 @@ class ReportRequest(Response):
         alert: Optional[List[str]] = None,
         disaster: Optional[List[str]] = None,
         version: int = 1,
+        day: int = 0,
     ) -> "ReportRequest":
         """
         センサーデータレポートリクエストを作成（Type 4）
@@ -117,7 +118,7 @@ class ReportRequest(Response):
             alert_flag=alert_flag,
             disaster_flag=disaster_flag,
             ex_flag=1 if ex_field else 0,
-            day=0,  # リアルタイムデータ
+            day=day,  # 指定された日数
             timestamp=int(datetime.now().timestamp()),
             area_code=area_code_str,
             # 固定長フィールドに値を設定

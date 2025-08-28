@@ -179,6 +179,7 @@ class ScheduledWeatherReporter:
                             precipitation_prob=precipitation_prob,
                             alert=alerts,
                             disaster=disasters,
+                            day=day,
                         )
                         res = rc.send_report_data()
                         if res and res.get("success"):
