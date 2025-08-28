@@ -16,7 +16,11 @@
   - [4.3 APT リポジトリを追加（拡張子は .list！）](#43-apt-リポジトリを追加拡張子は-list)
   - [4.4 パッケージリスト更新 \& インストール](#44-パッケージリスト更新--インストール)
   - [4.5 サービス起動と自動起動設定](#45-サービス起動と自動起動設定)
-  - [4.6 バージョン \& JSON コマンド確認](#46-バージョン--json-コマンド確認)
+  - [4.6 ポート設定変更（6380番ポートで動作させる）](#46-ポート設定変更6380番ポートで動作させる)
+  - [4.7 バージョン \& JSON コマンド確認](#47-バージョン--json-コマンド確認)
+- [5. Dragonfly セットアップ](#5-dragonfly-セットアップ)
+  - [5.1 Dragonfly インストール](#51-dragonfly-インストール)
+  - [5.2 サービス確認と動作テスト](#52-サービス確認と動作テスト)
 
 ---
 
@@ -112,11 +116,40 @@ sudo apt-get install -y redis-server
 sudo systemctl enable --now redis-server
 sudo systemctl status redis-server --no-pager
 ```
-## 4.6 バージョン & JSON コマンド確認
+
+## 4.6 ポート設定変更（6380番ポートで動作させる）
+```bash
+# 設定ファイルの場所を確認
+ls /etc/redis/
+sudo ls /etc/redis/
+
+# redis.conf 内の "port 6379" を "port 6380" に書き換える
+sudo sed -i 's/^port 6379/port 6380/' /etc/redis/redis.conf
+
+# Redis サーバーを再起動
+sudo systemctl restart redis-server
+```
+## 4.7 バージョン & JSON コマンド確認
 ```bash
 redis-server --version
 redis-cli ping              # → PONG
 redis-cli JSON.SET test $ '{"hello":"world"}'  # → OK
 redis-cli JSON.GET test     # → "{\"hello\":\"world\"}"
 redis-cli del test          # → (integer) 1
+```
+
+---
+
+# 5. Dragonfly セットアップ
+## 5.1 Dragonfly インストール
+```bash
+wget https://dragonflydb.gateway.scarf.sh/latest/dragonfly_amd64.deb
+ls
+sudo apt install -y ./dragonfly_amd64.deb
+```
+
+## 5.2 サービス確認と動作テスト
+```bash
+sudo systemctl status dragonfly.service
+redis-cli -p 6379 ping
 ```
