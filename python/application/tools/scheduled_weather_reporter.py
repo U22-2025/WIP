@@ -125,66 +125,71 @@ class ScheduledWeatherReporter:
             return []
 
     def send_weather_all_areas(self):
-        """全エリアの気象情報（天気/気温/降水/警報/災害）を送信"""
+        """全エリアの気象情報（天気/気温/降水/警報/災害）を7日分送信"""
         try:
             self.logger.info(f"\n{'='*70}")
-            self.logger.info(f"全エリア気象送信開始: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            self.logger.info(f"全エリア気象送信開始（7日分）: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             self.logger.info('='*70)
             success = 0
             total = 0
 
             for area_code in self.area_codes:
-                total += 1
-                data = fetch_api_weather(self.api_base_url, area_code, day=0)
-                if not data:
-                    continue
+                # 7日分のデータを送信（day=0-6）
+                for day in range(7):
+                    total += 1
+                    data = fetch_api_weather(self.api_base_url, area_code, day=day)
+                    if not data:
+                        continue
 
-                # ReportClient で送信（全フィールド）
-                rc = ReportClient(host=self.report_host, port=self.report_port, debug=self.debug)
-                try:
-                    # 値の正規化（push_api_to_report と整合）
-                    def pick(v):
-                        if v is None:
-                            return None
-                        if isinstance(v, list):
-                            return v[0] if v else None
-                        return v
-
-                    w = pick(data.get("weather"))
+                    # ReportClient で送信（全フィールド）
+                    rc = ReportClient(host=self.report_host, port=self.report_port, debug=self.debug)
                     try:
-                        weather_code = int(w) if w not in (None, "") else None
-                    except Exception:
-                        weather_code = None
-                    
-                    t = pick(data.get("temperature"))
-                    try:
-                        temperature = int(t) if t not in (None, "") else None
-                    except Exception:
-                        temperature = None
-                    
-                    pop = pick(data.get("precipitation_prob"))
-                    try:
-                        precipitation_prob = int(pop) if pop not in (None, "") else None
-                    except Exception:
-                        precipitation_prob = None
-                    alerts = data.get("warnings") or []
-                    disasters = data.get("disaster") or []
+                        # 値の正規化（push_api_to_report と整合）
+                        def pick(v):
+                            if v is None:
+                                return None
+                            if isinstance(v, list):
+                                return v[day] if len(v) > day else (v[0] if v else None)
+                            return v
 
-                    rc.set_sensor_data(
-                        area_code=area_code,
-                        weather_code=weather_code,
-                        temperature=temperature,
-                        precipitation_prob=precipitation_prob,
-                        alert=alerts,
-                        disaster=disasters,
-                    )
-                    res = rc.send_report_data()
-                    if res and res.get("success"):
-                        success += 1
-                finally:
-                    rc.close()
+                        w = pick(data.get("weather"))
+                        try:
+                            weather_code = int(w) if w not in (None, "") else None
+                        except Exception:
+                            weather_code = None
+                        
+                        t = pick(data.get("temperature"))
+                        try:
+                            temperature = int(t) if t not in (None, "") else None
+                        except Exception:
+                            temperature = None
+                        
+                        pop = pick(data.get("precipitation_prob"))
+                        try:
+                            precipitation_prob = int(pop) if pop not in (None, "") else None
+                        except Exception:
+                            precipitation_prob = None
+                        alerts = data.get("warnings") or []
+                        disasters = data.get("disaster") or []
 
-                time.sleep(0.1)  # API/サーバー負荷を緩和
+                        rc.set_sensor_data(
+                            area_code=area_code,
+                            weather_code=weather_code,
+                            temperature=temperature,
+                            precipitation_prob=precipitation_prob,
+                            alert=alerts,
+                            disaster=disasters,
+                        )
+                        res = rc.send_report_data()
+                        if res and res.get("success"):
+                            success += 1
+                        
+                        if self.debug and day == 0:  # 最初の日のみログ出力
+                            self.logger.debug(f"エリア {area_code}: 7日分データ送信開始")
+                    finally:
+                        rc.close()
+
+                    time.sleep(0.05)  # API/サーバー負荷を緩和（7倍多くなるので間隔短縮）
 
             rate = (success / max(total, 1)) * 100.0
             self.logger.info(f"全エリア気象送信完了: 成功 {success}/{total} ({rate:.1f}%)")

@@ -462,12 +462,11 @@ class ReportServer(BaseServer):
                 return
 
             # 既存データを取得してマージ
-            existing = rm.get_weather_data(area_code) or {
-                "area_name": "",
-                "weather": [],
-                "temperature": [],
-                "precipitation_prob": [],
-            }
+            existing = rm.get_weather_data(area_code)
+            if existing is None:
+                # 新規キーの場合は7要素の空配列で初期化
+                existing = rm._create_default_weather_data()
+                existing["area_name"] = ""
 
             new_data = existing.copy()
 
