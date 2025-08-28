@@ -89,7 +89,7 @@ class ScheduledWeatherReporter:
         self.running = False
     
     def _load_all_area_codes(self, area_codes_path: str | None) -> list[str]:
-        """docs/area_codes.json から全てのエリアコード（トップレベルキー）を取得"""
+        """docs/area_codes.json から全ての地域コード（第2レベルキー）を取得"""
         try:
             if area_codes_path:
                 json_path = Path(area_codes_path)
@@ -103,12 +103,20 @@ class ScheduledWeatherReporter:
                 data = json.load(f)
 
             if isinstance(data, dict):
-                codes = sorted(list(data.keys()))
-                if not codes:
-                    self.logger.warning("area_codes.json にエリアコードがありません")
+                all_area_codes = []
+                # 都道府県コード（トップレベル）をスキップし、地域コード（第2レベルキー）のみ取得
+                for prefecture_code, prefecture_data in data.items():
+                    if isinstance(prefecture_data, dict):
+                        # 地域コード（例: 150010, 150020）を取得
+                        for area_code in prefecture_data.keys():
+                            all_area_codes.append(area_code)
+                
+                all_area_codes = sorted(list(set(all_area_codes)))  # 重複削除とソート
+                if not all_area_codes:
+                    self.logger.warning("area_codes.json に地域コードがありません")
                 else:
-                    self.logger.info(f"エリアコード読込: {len(codes)} 件")
-                return codes
+                    self.logger.info(f"地域コード読込: {len(all_area_codes)} 件")
+                return all_area_codes
             else:
                 self.logger.error("area_codes.json の形式が不正です（辞書を期待）")
                 return []
