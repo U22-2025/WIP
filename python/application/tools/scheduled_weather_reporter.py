@@ -139,39 +139,70 @@ class ScheduledWeatherReporter:
                     total += 1
                     data = fetch_api_weather(self.api_base_url, area_code, day=day)
                     if not data:
+                        if self.debug:
+                            self.logger.warning(f"API応答なし: {area_code} day={day}")
                         continue
+                    
+                    if self.debug and day == 0:  # 初回のみデータ構造をログ出力
+                        self.logger.debug(f"API応答構造 {area_code}: {data}")
 
                     # ReportClient で送信（全フィールド）
                     rc = ReportClient(host=self.report_host, port=self.report_port, debug=self.debug)
                     try:
                         # 値の正規化（push_api_to_report と整合）
-                        def pick(v):
+                        def pick(v, field_name="unknown"):
                             if v is None:
+                                if self.debug:
+                                    self.logger.debug(f"{area_code} day={day} {field_name}: None")
                                 return None
                             if isinstance(v, list):
-                                return v[day] if len(v) > day else (v[0] if v else None)
+                                if len(v) > day:
+                                    result = v[day]
+                                    if self.debug:
+                                        self.logger.debug(f"{area_code} day={day} {field_name}: {result} (from array[{day}])")
+                                    return result
+                                elif len(v) > 0:
+                                    result = v[0]
+                                    if self.debug:
+                                        self.logger.warning(f"{area_code} day={day} {field_name}: {result} (fallback to [0], array length={len(v)})")
+                                    return result
+                                else:
+                                    if self.debug:
+                                        self.logger.warning(f"{area_code} day={day} {field_name}: None (empty array)")
+                                    return None
+                            if self.debug:
+                                self.logger.debug(f"{area_code} day={day} {field_name}: {v} (scalar)")
                             return v
 
-                        w = pick(data.get("weather"))
+                        w = pick(data.get("weather"), "weather")
                         try:
                             weather_code = int(w) if w not in (None, "") else None
-                        except Exception:
+                        except Exception as e:
+                            if self.debug:
+                                self.logger.error(f"{area_code} day={day} weather conversion error: {w} -> {e}")
                             weather_code = None
                         
-                        t = pick(data.get("temperature"))
+                        t = pick(data.get("temperature"), "temperature")
                         try:
                             temperature = int(t) if t not in (None, "") else None
-                        except Exception:
+                        except Exception as e:
+                            if self.debug:
+                                self.logger.error(f"{area_code} day={day} temperature conversion error: {t} -> {e}")
                             temperature = None
                         
-                        pop = pick(data.get("precipitation_prob"))
+                        pop = pick(data.get("precipitation_prob"), "precipitation_prob")
                         try:
                             precipitation_prob = int(pop) if pop not in (None, "") else None
-                        except Exception:
+                        except Exception as e:
+                            if self.debug:
+                                self.logger.error(f"{area_code} day={day} precipitation conversion error: {pop} -> {e}")
                             precipitation_prob = None
                         alerts = data.get("warnings") or []
                         disasters = data.get("disaster") or []
 
+                        if self.debug:
+                            self.logger.debug(f"送信データ {area_code} day={day}: weather={weather_code}, temp={temperature}, pop={precipitation_prob}")
+                        
                         rc.set_sensor_data(
                             area_code=area_code,
                             weather_code=weather_code,
@@ -184,6 +215,8 @@ class ScheduledWeatherReporter:
                         res = rc.send_report_data()
                         if res and res.get("success"):
                             success += 1
+                        elif self.debug:
+                            self.logger.error(f"送信失敗 {area_code} day={day}: {res}")
                         
                         if self.debug and day == 0:  # 最初の日のみログ出力
                             self.logger.debug(f"エリア {area_code}: 7日分データ送信開始")
