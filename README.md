@@ -1,6 +1,6 @@
-# WIP (Weather Transfer Protocol)
+# WIP (Weather Information Protocol)
 
-WIP（Weather Transfer Protocol）は、NTPをベースとした軽量な気象データ転送プロトコルです。IoT機器でも使用できるよう、小さなデータサイズでの通信を実現し、気象庁の公開データを効率的に配信します。
+WIP（Weather Information Protocol）は、NTPをベースとした軽量な気象データ転送プロトコルです。IoT機器でも使用できるよう、小さなデータサイズでの通信を実現し、気象庁の公開データを効率的に配信します。
 
 ## 概要
 
@@ -631,6 +631,6 @@ client = WeatherClient(debug=True)
 
 ---
 
-**WIP (Weather Transfer Protocol)** - 軽量で効率的な気象データ転送プロトコル
+**WIP (Weather Information Protocol)** - 軽量で効率的な気象データ転送プロトコル
 
 プロジェクトの詳細情報や最新の更新については、[GitHub リポジトリ](https://github.com/U22-2025/WIP)をご確認ください。
