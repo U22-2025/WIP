@@ -200,9 +200,9 @@ jobs:
         run: |
           set -e
           retry() {
-            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose && return 0
+            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose && return 0
             sleep 1
-            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose
+            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose
           }
           retry
 
@@ -414,8 +414,8 @@ jobs:
         run: |
           set -e
           retry() {
-            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose && return 0
+            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose && return 0
             sleep 1
-            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose
+            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose
           }
           retry
