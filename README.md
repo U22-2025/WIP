@@ -118,8 +118,8 @@ WIP（Weather Information Protocol）は、NTPをベースとした軽量な気�
 - Python 3.10+
 - PostgreSQL (座標解決用)
 - PostGIS (地理情報処理)
-- Redis (キャッシュ)
-- KeyDB (ログ配信用)
+- Dragonfly (キャッシュ)
+- Dragonfly (ログ配信用)
 
 ### 依存関係のインストール
 ```bash

@@ -1,155 +1,300 @@
 # 目次
 - [目次](#目次)
+- [0. 前提条件](#0-前提条件)
 - [1. リポジトリのクローン](#1-リポジトリのクローン)
-- [2. Ubuntu 24.04 インストール](#2-ubuntu-2404-インストール)
-- [3. PostgreSQL セットアップ](#3-postgresql-セットアップ)
+- [2. 必要パッケージのインストール](#2-必要パッケージのインストール)
+- [3. PostgreSQL + PostGIS セットアップ](#3-postgresql--postgis-セットアップ)
   - [3.1 PostgreSQL インストール](#31-postgresql-インストール)
-  - [3.2 データベース設定](#32-データベース設定)
-  - [3.3 データベース作成](#33-データベース作成)
-  - [3.4 PostGIS 拡張機能インストール](#34-postgis-拡張機能インストール)
-  - [3.5 空間データインポート](#35-空間データインポート)
-    - [3.5.1 気象庁GISデータのダウンロード](#351-気象庁gisデータのダウンロード)
-    - [3.5.2 GISデータのインポート](#352-gisデータのインポート)
-- [4. RedisJSON セットアップ](#4-redisjson-セットアップ)
-  - [4.1 依存ツールを用意](#41-依存ツールを用意)
-  - [4.2 公式 GPG キーを登録](#42-公式-gpg-キーを登録)
-  - [4.3 APT リポジトリを追加（拡張子は .list！）](#43-apt-リポジトリを追加拡張子は-list)
-  - [4.4 パッケージリスト更新 \& インストール](#44-パッケージリスト更新--インストール)
-  - [4.5 サービス起動と自動起動設定](#45-サービス起動と自動起動設定)
-  - [4.6 ポート設定変更（6380番ポートで動作させる）](#46-ポート設定変更6380番ポートで動作させる)
-  - [4.7 バージョン \& JSON コマンド確認](#47-バージョン--json-コマンド確認)
-- [5. Dragonfly セットアップ](#5-dragonfly-セットアップ)
-  - [5.1 Dragonfly インストール](#51-dragonfly-インストール)
-  - [5.2 サービス確認と動作テスト](#52-サービス確認と動作テスト)
+  - [3.2 初期設定とユーザ作成](#32-初期設定とユーザ作成)
+  - [3.3 データベース作成と拡張](#33-データベース作成と拡張)
+  - [3.4 空間データインポート（JMA 一次細分区域）](#34-空間データインポートjma-一次細分区域)
+- [4. Dragonfly セットアップ（Redis互換 + JSON + Pub/Sub, 必須）](#4-dragonfly-セットアップredis互換--json--pubsub-必須)
+  - [4.1 インストール（.deb）](#41-インストールdeb)
+  - [4.2 データディレクトリ作成](#42-データディレクトリ作成)
+  - [4.3 systemd ユニット作成（2 インスタンス）](#43-systemd-ユニット作成2-インスタンス)
+- [5. Python 環境構築](#5-python-環境構築)
+- [6. .env の用意と編集](#6-env-の用意と編集)
+- [7. サーバ群とアプリの起動](#7-サーバ群とアプリの起動)
+  - [7.1 起動](#71-起動)
+  - [7.2 初期データ更新（気象庁から取得）](#72-初期データ更新気象庁から取得)
+  - [7.3 動作確認（Map/API）](#73-動作確認mapapi)
+- [8. Report サーバへ気象情報をアップロード](#8-report-サーバへ気象情報をアップロード)
+- [9. C++ のビルドと確認](#9-c-のビルドと確認)
+- [10. Rust のビルドと確認](#10-rust-のビルドと確認)
+- [疎通テスト（エリアコード）](#疎通テストエリアコード)
+- [座標指定の例](#座標指定の例)
+
+---
+
+# 0. 前提条件
+- 対象 OS: Ubuntu 24.04 LTS（サーバ/デスクトップどちらでも可）
+- ネットワーク接続（気象庁/JMA への HTTP アクセスが必要）
+- 管理者権限（`sudo`）
 
 ---
 
 # 1. リポジトリのクローン
 ```bash
 git clone https://github.com/U22-2025/WIP.git
+cd WIP
 ```
 
 ---
 
-# 2. Ubuntu 24.04 インストール
-- Ubuntu 24.04 LTS(または22.04 LTS) をインストール
+# 2. 必要パッケージのインストール
+```bash
+sudo apt update
+sudo apt install -y \
+  git curl build-essential cmake pkg-config \
+  python3 python3-venv python3-pip \
+  postgresql postgresql-contrib postgis gdal-bin \
+  libpq-dev \
+  jq
+```
+補足:
+- `jq` は API 応答の JSON 整形/抽出に使用（後述の Report 手順で使用）
+- Port 80 は root 権限が必要なため、Map/Weather API は 8000/8001 を使用します
 
 ---
 
-# 3. PostgreSQL セットアップ
+# 3. PostgreSQL + PostGIS セットアップ
 ## 3.1 PostgreSQL インストール
+上のパッケージインストールに含まれています（`postgresql`, `postgis`）。
+
+## 3.2 初期設定とユーザ作成
 ```bash
-$ sudo apt install postgresql postgresql-contrib
+sudo systemctl enable --now postgresql
+sudo -u postgres psql
+```
+psql 内で以下を実行（自分のユーザ名/パスワードに置換）：
+```sql
+CREATE ROLE wip WITH LOGIN PASSWORD 'wippass';
+ALTER ROLE wip CREATEDB;
 ```
 
-## 3.2 データベース設定
+## 3.3 データベース作成と拡張
+```sql
+CREATE DATABASE weather_forecast_map OWNER wip;
+\c weather_forecast_map
+CREATE EXTENSION postgis;
+CREATE EXTENSION postgis_topology;
+\q
+```
+
+## 3.4 空間データインポート（JMA 一次細分区域）
+JMA の一次細分区域 Shapefile を取り込み、座標→区域コード解決に使用します。
+
+1) データ取得（公式 URL 例）
 ```bash
-$ sudo -u postgres psql
+cd /tmp
+wget -O jma_area.zip "https://www.data.jma.go.jp/developer/gis/20190125_AreaForecastLocalM_1saibun_GIS.zip"
+unzip jma_area.zip -d jma_area
 ```
-- ユーザ作成:
-```sql
-> CREATE USER [ユーザ名];
-```
-
-## 3.3 データベース作成
-```sql
-> CREATE DATABASE weather_forecast_map OWNER [ユーザ名];
-> \q
-```
-
-## 3.4 PostGIS 拡張機能インストール
-```
-$ psql --version
-psql (PostgreSQL) 16.9 (Ubuntu 16.9-0ubuntu0.24.04.1)
-
-$ sudo apt install postgis postgresql-16-postgis-3
-(( sudo apt install postgis postgresql-{psqlのバージョン番号}-postgis-3 ))
-```
-
-```sql
-> CREATE EXTENSION postgis;
-> CREATE EXTENSION postgis_topology;
-> \q
-```
-
-## 3.5 空間データインポート
-### 3.5.1 気象庁GISデータのダウンロード
-気象庁の[GISデータ](https://www.data.jma.go.jp/developer/gis/20190125_AreaForecastLocalM_1saibun_GIS.zip)をダウンロード。
-### 3.5.2 GISデータのインポート
+2) Shapefile を PostGIS に投入（SRID 6668）
 ```bash
-$ shp2pgsql -W utf-8 -D -I -s 6668 20190125_AreaForecastLocalM_1saibun_GIS/一次細分区域等.shp > insert.sql
-$ psql weather_forecast_map
-
-> \i insert.sql
+shp2pgsql -W utf-8 -D -I -s 6668 \
+  "jma_area/一次細分区域等.shp" public.jma_districts_raw > /tmp/jma_insert.sql
+psql -h 127.0.0.1 -U wip -d weather_forecast_map -f /tmp/jma_insert.sql
 ```
-テーブル名がエラーを起こしそうなので変更しておく。
+3) アプリが期待するテーブル名/カラムに整備
+```bash
+ psql -h 127.0.0.1 -U wip -d weather_forecast_map
+```
+psql 内で以下を実行：
 ```sql
-> ALTER TABLE 一次細分区域等 RENAME TO districts;
+-- 名前に日本語が含まれるため、アプリ互換名へリネーム
+ALTER TABLE IF EXISTS jma_districts_raw RENAME TO districts;
+-- コード列が 'code' で無い場合に備え、代表コード列を code に揃える（存在チェックのうえ調整）
+-- 例: ALTER TABLE districts RENAME COLUMN 区域コード TO code;
+-- 例: ALTER TABLE districts RENAME COLUMN geom TO geom; -- 既に geom であれば不要
+-- 最低限、以下の列が存在する必要があります：
+--   geom: geometry(Polygon/MultiPolygon, 6668)
+--   code: varchar/text（6桁地域コード）
+\q
 ```
 
 ---
 
-# 4. RedisJSON セットアップ
-## 4.1 依存ツールを用意
-```bashsudo apt-get update
-sudo apt-get install -y lsb-release curl gpg
-```
-## 4.2 公式 GPG キーを登録
-```bash
-curl -fsSL https://packages.redis.io/gpg \
- | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
-sudo chmod 644 /usr/share/keyrings/redis-archive-keyring.gpg
-```
-## 4.3 APT リポジトリを追加（拡張子は .list！）
-```bash
-echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] \
-https://packages.redis.io/deb $(lsb_release -cs) main" \
- | sudo tee /etc/apt/sources.list.d/redis.list
-```
-## 4.4 パッケージリスト更新 & インストール
-```bash
-sudo apt-get update
-sudo apt-get install -y redis-server
-```
-## 4.5 サービス起動と自動起動設定
-```bash
-sudo systemctl enable --now redis-server
-sudo systemctl status redis-server --no-pager
-```
+# 4. Dragonfly セットアップ（Redis互換 + JSON + Pub/Sub, 必須）
+Query/Report パイプラインは JSON 機能が必須です。Dragonfly は Redis 互換で JSON/PubSub をデフォルトで利用できます。
 
-## 4.6 ポート設定変更（6380番ポートで動作させる）
+ここでは .deb パッケージで Dragonfly を導入し、2 インスタンス（データ:6379、ログ:6380）を systemd で常駐起動します。
+
+## 4.1 インストール（.deb）
 ```bash
-# 設定ファイルの場所を確認
-ls /etc/redis/
-sudo ls /etc/redis/
-
-# redis.conf 内の "port 6379" を "port 6380" に書き換える
-sudo sed -i 's/^port 6379/port 6380/' /etc/redis/redis.conf
-
-# Redis サーバーを再起動
-sudo systemctl restart redis-server
-```
-## 4.7 バージョン & JSON コマンド確認
-```bash
-redis-server --version
-redis-cli ping              # → PONG
-redis-cli JSON.SET test $ '{"hello":"world"}'  # → OK
-redis-cli JSON.GET test     # → "{\"hello\":\"world\"}"
-redis-cli del test          # → (integer) 1
-```
-
----
-
-# 5. Dragonfly セットアップ
-## 5.1 Dragonfly インストール
-```bash
-wget https://dragonflydb.gateway.scarf.sh/latest/dragonfly_amd64.deb
-ls
+cd /tmp
+wget -O dragonfly_amd64.deb \
+  https://dragonflydb.gateway.scarf.sh/latest/dragonfly_amd64.deb
 sudo apt install -y ./dragonfly_amd64.deb
+
+# 動作確認（バージョン表示）
+dragonfly --version || /usr/bin/dragonfly --version || true
 ```
 
-## 5.2 サービス確認と動作テスト
+## 4.2 データディレクトリ作成
 ```bash
-sudo systemctl status dragonfly.service
-redis-cli -p 6379 ping
+sudo mkdir -p /var/lib/dragonfly/6379 /var/lib/dragonfly/6380
 ```
+
+## 4.3 systemd ユニット作成（2 インスタンス）
+`/etc/systemd/system/dragonfly-6379.service` を作成：
+```ini
+[Unit]
+Description=Dragonfly (data) on 6379
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/dragonfly --port=6379 --dir=/var/lib/dragonfly/6379
+Restart=always
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/systemd/system/dragonfly-6380.service` を作成：
+```ini
+[Unit]
+Description=Dragonfly (log pubsub) on 6380
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/dragonfly --port=6380 --dir=/var/lib/dragonfly/6380
+Restart=always
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target
+```
+
+ユニットを読み込み・自動起動・起動：
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now dragonfly-6379 dragonfly-6380
+sudo systemctl --no-pager --full status dragonfly-6379
+```
+
+以降の `.env` では次を前提とします：
+- `REDIS_PORT=6379`（データ: Query/Report 用, Dragonfly JSON）
+- `LOG_REDIS_PORT=6380`（Map 共有ログ: Pub/Sub 用 Dragonfly）
+
+---
+
+# 5. Python 環境構築
+```bash
+# プロジェクト直下で実行
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# 本リポジトリのパッケージ群を開発モードで導入（src/ を import 可能に）
+pip install -e .[all]
+```
+
+---
+
+# 6. .env の用意と編集
+```bash
+cp .env.example .env
+```
+
+---
+
+# 7. サーバ群とアプリの起動
+## 7.1 起動
+全サーバ（Weather/Location/Query/Report）と Map+Weather API をまとめて起動：
+```bash
+source .venv/bin/activate
+python python/launch_server.py --apps
+python python/launch_server.py --report
+python python/launch_server.py --location
+python python/launch_server.py --query 
+python python/launch_server.py --weather
+
+```
+表示:
+- Map: `http://localhost:8000`
+- Weather API: `http://localhost:8001/api`（Map にサブマウント）
+
+## 7.2 初期データ更新（気象庁から取得）
+起動直後はデータが空の場合があります。API を叩いて強制更新してください：
+```bash
+curl -X POST http://localhost:8001/api/update/weather    # 天気・気温・降水確率更新
+curl -X POST http://localhost:8001/api/update/disaster   # 注意報/警報・災害/地震情報更新
+```
+
+任意：対象オフィス（都道府県）を絞りたい場合は `.env` に以下を追加（カンマ区切り）：
+```env
+WEATHER_API_TARGET_OFFICES=130000,270000
+```
+
+## 7.3 動作確認（Map/API）
+```bash
+# API 健康確認
+curl http://localhost:8001/api/health
+
+# 任意の地域コード（例: 東京 130010）のデータ取得
+curl "http://localhost:8001/api/weather?area_code=130010" | jq
+
+# 週間予報（座標指定）
+curl -X POST http://localhost:8000/weekly_forecast \
+  -H 'Content-Type: application/json' \
+  -d '{"lat":35.6895, "lng":139.6917}' | jq
+```
+
+---
+
+# 8. Report サーバへ気象情報をアップロード
+「気象庁から取得した最新データ」を Report サーバに送る手順です。
+
+1) 最新データを API で取得（例: 東京 130010）
+```bash
+read WC TEMP POP < <(curl -s "http://localhost:8000/api/weather?area_code=130010" \
+  | jq -r '[.weather,.temperature,.precipitation_prob] | @tsv')
+echo "weather=$WC temp=$TEMP pop=$POP"
+```
+2) 取得値をレポート送信（UDP/4112, ReportServer）
+```bash
+source .venv/bin/activate
+python python/client.py --report \
+  --area 130010 \
+  --weather "$WC" \
+  --pops "$POP" \
+  --temp "$TEMP"
+```
+成功時は `OK Report sent successfully!` が表示されます。
+
+（備考）`--alert` や `--disaster` オプションで追加情報も送信可能です。
+
+---
+
+# 9. C++ のビルドと確認
+依存：`build-essential`, `cmake`, `g++`（前述インストール済）
+
+```bash
+# CMake ビルド（ユーティリティCLIを含む）
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build -j
+
+# 疎通テスト（Weather Server へ UDP リクエスト）
+./cpp/build/unified_client_cli weather --area 130010 --host 127.0.0.1 --proxy
+```
+オプション例：
+- 座標指定: `./cpp/build/unified_client_cli weather --coords 35.6895 139.6917`
+- 直接 WeatherServer: `--host 127.0.0.1 --port 4110`
+
+---
+
+# 10. Rust のビルドと確認
+依存：`rustup`/`cargo`
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+
+cd Rust
+cargo build --release --bins
+
+# 疎通テスト（エリアコード）
+./target/release/wip-weather get 130010 --weather --temperature --precipitation
+
+# 座標指定の例
+./target/release/wip-weather coords 35.6895 139.6917 --weather --temperature --precipitation

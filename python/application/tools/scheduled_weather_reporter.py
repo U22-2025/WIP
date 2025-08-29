@@ -45,7 +45,7 @@ class ScheduledWeatherReporter:
     def __init__(self,
                  api_base_url: str = None,
                  report_server_host: str = "localhost",
-                 report_server_port: int = 9999,
+                 report_server_port: int = 4112,
                  debug: bool = False,
                  area_codes_path: str = None):
         """
@@ -333,7 +333,7 @@ def main():
                        help="実行モード: schedule(定期実行) または once(一回限り)")
     parser.add_argument("--host", default="localhost", 
                        help="レポートサーバーホスト")
-    parser.add_argument("--port", type=int, default=9999,
+    parser.add_argument("--port", type=int, default=4112,
                        help="レポートサーバーポート") 
     parser.add_argument("--debug", action="store_true",
                        help="デバッグモード")
