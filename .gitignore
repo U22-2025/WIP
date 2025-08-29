@@ -29,7 +29,7 @@ logs/reports
 
 # Rust
 /Rust/target/
-
+/Rust/Cargo.lock
 # C++ builds (CMake/VS)
 cpp/build/
 cpp/build2/
