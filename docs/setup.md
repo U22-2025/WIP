@@ -21,7 +21,8 @@
 - [8. Report サーバへ気象情報をアップロード](#8-report-サーバへ気象情報をアップロード)
 - [9. C++ のビルドと確認](#9-c-のビルドと確認)
 - [10. Rust のビルドと確認](#10-rust-のビルドと確認)
-- [付録: トラブルシューティング](#付録-トラブルシューティング)
+- [疎通テスト（エリアコード）](#疎通テストエリアコード)
+- [座標指定の例](#座標指定の例)
 
 ---
 
@@ -297,20 +298,3 @@ cargo build --release --bins
 
 # 座標指定の例
 ./target/release/wip-weather coords 35.6895 139.6917 --weather --temperature --precipitation
-```
-
----
-
-# 付録: トラブルシューティング
-- Map/Weather API が 80 番ポートで失敗する:
-  - `.env` で `MAP_HTTP_PORT=8000`, `WEATHER_API_PORT=8001` に変更（本手順通り）
-- LocationServer が DB 接続に失敗する:
-  - `.env` の `DB_*` が DB 実体と一致しているか確認（ユーザ/パスワード/DB 名）
-  - `psql -U wip -d weather_forecast_map -c "SELECT 1"` で疎通確認
-- 地域コード解決が常に失敗する:
-  - PostGIS テーブル `districts(geom, code)` が存在するか確認
-  - SRID 6668 で取り込まれているか確認（`geometry_columns` 参照）
-- Dragonfly（Redis互換）関連のエラー:
-  - `docker ps` で `dfly-data` / `dfly-log` が起動中か確認
-  - `redis-cli -p 6379 ping` / `redis-cli -p 6380 ping` で疎通確認
-  - JSON コマンドが失敗する場合は `dfly-data` に対して実行しているか確認（6379）
