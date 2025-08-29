@@ -184,7 +184,7 @@ sudo systemctl --no-pager --full status dragonfly-6379
 # プロジェクト直下で実行
 python3 -m venv .venv
 source .venv/bin/activate
-
+pip install -r requirements.txt
 # 本リポジトリのパッケージ群を開発モードで導入（src/ を import 可能に）
 pip install -e .[all]
 ```
@@ -203,17 +203,22 @@ cp .env.example .env
 全サーバ（Weather/Location/Query/Report）と Map+Weather API をまとめて起動：
 ```bash
 source .venv/bin/activate
-python python/launch_server.py --all
+python python/launch_server.py --apps
+python python/launch_server.py --report
+python python/launch_server.py --location
+python python/launch_server.py --query 
+python python/launch_server.py --weather
+
 ```
 表示:
 - Map: `http://localhost:8000`
-- Weather API: `http://localhost:8000/api`（Map にサブマウント）
+- Weather API: `http://localhost:8001/api`（Map にサブマウント）
 
 ## 7.2 初期データ更新（気象庁から取得）
 起動直後はデータが空の場合があります。API を叩いて強制更新してください：
 ```bash
-curl -X POST http://localhost:8000/api/update/weather    # 天気・気温・降水確率更新
-curl -X POST http://localhost:8000/api/update/disaster   # 注意報/警報・災害/地震情報更新
+curl -X POST http://localhost:8001/api/update/weather    # 天気・気温・降水確率更新
+curl -X POST http://localhost:8001/api/update/disaster   # 注意報/警報・災害/地震情報更新
 ```
 
 任意：対象オフィス（都道府県）を絞りたい場合は `.env` に以下を追加（カンマ区切り）：
@@ -224,10 +229,10 @@ WEATHER_API_TARGET_OFFICES=130000,270000
 ## 7.3 動作確認（Map/API）
 ```bash
 # API 健康確認
-curl http://localhost:8000/api/health
+curl http://localhost:8001/api/health
 
 # 任意の地域コード（例: 東京 130010）のデータ取得
-curl "http://localhost:8000/api/weather?area_code=130010" | jq
+curl "http://localhost:8001/api/weather?area_code=130010" | jq
 
 # 週間予報（座標指定）
 curl -X POST http://localhost:8000/weekly_forecast \
