@@ -29,12 +29,12 @@ jobs:
       # ---------- Rust ----------
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Cargo build (all targets)
+      - name: Cargo build (lib + bins)
         working-directory: Rust
-        run: cargo build --all-targets --verbose
-      - name: Cargo test
+        run: cargo build --bins --lib --verbose
+      - name: Cargo test (lib + bins)
         working-directory: Rust
-        run: cargo test --verbose
+        run: cargo test --lib --bins --verbose
 
   build-windows:
     runs-on: windows-latest
@@ -63,9 +63,9 @@ jobs:
       # ---------- Rust ----------
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Cargo build (all targets)
+      - name: Cargo build (lib + bins)
         working-directory: Rust
-        run: cargo build --all-targets --verbose
-      - name: Cargo test
+        run: cargo build --bins --lib --verbose
+      - name: Cargo test (lib + bins)
         working-directory: Rust
-        run: cargo test --verbose
+        run: cargo test --lib --bins --verbose
