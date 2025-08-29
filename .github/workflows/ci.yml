@@ -243,6 +243,22 @@ jobs:
           }
           retry
 
+      - name: Rust coords weather via proxy (4110)
+        working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
+        run: |
+          set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
+          # Ensure LocationClient uses an IP (SocketAddr::parse requires IP literal)
+          export LOCATION_SERVER_HOST="$HOST_IP"
+          export LOCATION_SERVER_PORT=4109
+          cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 coords 35.6812 139.7671 --weather --temperature --precipitation
+
 
 
   build-windows:
@@ -493,3 +509,18 @@ jobs:
             cargo run --quiet --bin wip-location -- -H "$HOST_IP" -p 4109 resolve 35.6812 139.7671 --verbose
           }
           retry
+
+      - name: Rust coords weather via proxy (Windows)
+        working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
+        run: |
+          set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
+          export LOCATION_SERVER_HOST="$HOST_IP"
+          export LOCATION_SERVER_PORT=4109
+          cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 coords 35.6812 139.7671 --weather --temperature --precipitation

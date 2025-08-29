@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::net::UdpSocket;
+use tokio::net::{UdpSocket, lookup_host};
 use tokio::sync::{Mutex, RwLock, Semaphore};
 use tokio::time::{sleep, timeout};
 
@@ -131,8 +131,16 @@ impl QueryClientImpl {
             host
         };
         
-        let addr: SocketAddr = format!("{}:{}", resolved_host, port).parse()
-            .map_err(|e| tokio::io::Error::new(tokio::io::ErrorKind::InvalidInput, e))?;
+        // Resolve FQDN to SocketAddr (accept hostnames like WeatherClient)
+        let mut iter = lookup_host((resolved_host, port)).await
+            .map_err(|e| tokio::io::Error::new(
+                tokio::io::ErrorKind::InvalidInput,
+                format!("DNS resolve failed for {}:{}: {}", resolved_host, port, e),
+            ))?;
+        let addr: SocketAddr = iter.next().ok_or_else(|| tokio::io::Error::new(
+            tokio::io::ErrorKind::InvalidInput,
+            format!("No address found for {}:{}", resolved_host, port),
+        ))?;
 
         let socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await?);
         let semaphore = Arc::new(Semaphore::new(config.max_concurrent_queries));
