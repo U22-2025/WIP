@@ -89,40 +89,40 @@ impl ConfigLoader {
     }
 
     // Python互換用のメソッド
-    pub fn get_string(&self, section: &str, key: &str, default: &str) -> String {
+    pub fn get_string(&self, _section: &str, _key: &str, default: &str) -> String {
         // 仮実装 - 実際の設定ファイル読み込みロジックは省略
         default.to_string()
     }
 
-    pub fn get_u16(&self, section: &str, key: &str, default: u16) -> u16 {
+    pub fn get_u16(&self, _section: &str, _key: &str, default: u16) -> u16 {
         default
     }
 
-    pub fn get_u32(&self, section: &str, key: &str, default: u32) -> u32 {
+    pub fn get_u32(&self, _section: &str, _key: &str, default: u32) -> u32 {
         default
     }
 
-    pub fn get_u64(&self, section: &str, key: &str, default: u64) -> u64 {
+    pub fn get_u64(&self, _section: &str, _key: &str, default: u64) -> u64 {
         default
     }
 
-    pub fn get_f64(&self, section: &str, key: &str, default: f64) -> f64 {
+    pub fn get_f64(&self, _section: &str, _key: &str, default: f64) -> f64 {
         default
     }
 
-    pub fn getboolean(&self, section: &str, key: &str, default: bool) -> bool {
+    pub fn getboolean(&self, _section: &str, _key: &str, default: bool) -> bool {
         default
     }
 
-    pub fn get_optional_string(&self, section: &str, key: &str) -> Option<String> {
+    pub fn get_optional_string(&self, _section: &str, _key: &str) -> Option<String> {
         None
     }
 
-    pub fn get_optional_u32(&self, section: &str, key: &str) -> Option<u32> {
+    pub fn get_optional_u32(&self, _section: &str, _key: &str) -> Option<u32> {
         None
     }
 
-    pub fn get_optional_u64(&self, section: &str, key: &str) -> Option<u64> {
+    pub fn get_optional_u64(&self, _section: &str, _key: &str) -> Option<u64> {
         None
     }
 }

@@ -27,7 +27,7 @@ class WeatherAPIReporter:
     
     def __init__(self, 
                  api_key: str = None,
-                 report_server_host: str = "localhost",
+                 report_server_host: str = "wip.ncc.onl",
                  report_server_port: int = 9999,
                  debug: bool = False):
         """

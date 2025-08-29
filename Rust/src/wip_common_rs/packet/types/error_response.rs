@@ -189,6 +189,12 @@ impl PacketFormat for ErrorResponse {
             field.set(&mut bits_data, self.error_code as u128);
         }
         
+        // チェックサムを自動計算
+        let checksum = self.calculate_checksum();
+        if let Some(field) = fields.get_field("checksum") {
+            field.set(&mut bits_data, checksum as u128);
+        }
+        
         u128_to_bytes_le(bits_data, &mut data);
         data.to_vec()
     }

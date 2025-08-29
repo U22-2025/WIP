@@ -64,7 +64,7 @@ public:
      * @param port サーバーポート
      */
     explicit EnhancedLocationClient(
-        const std::string& host = "localhost", 
+        const std::string& host = "wip.ncc.onl", 
         uint16_t port = 4111
     );
     

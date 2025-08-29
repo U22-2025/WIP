@@ -170,7 +170,7 @@ if use_report:
 
     print("\nSending report to Report Server...")
     # レポートモードでは常に直接レポートサーバへ送信
-    report_host = os.getenv("REPORT_SERVER_HOST", "localhost")
+    report_host = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl")
     report_port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
     report_client = ReportClient(
         host=report_host, port=report_port, debug=debug_enabled
@@ -273,7 +273,7 @@ if "--disaster" in sys.argv:
     # --proxyがない場合は直接reportサーバへ送信
     if use_proxy:
         # プロキシ経由（weatherサーバ経由）
-        weather_host = os.getenv("WEATHER_SERVER_HOST", "localhost")
+        weather_host = os.getenv("WEATHER_SERVER_HOST", "wip.ncc.onl")
         weather_port = int(os.getenv("WEATHER_SERVER_PORT", "4110"))
         report_client = ReportClient(
             host=weather_host, port=weather_port, debug=debug_enabled
@@ -283,7 +283,7 @@ if "--disaster" in sys.argv:
         )
     else:
         # 直接reportサーバへ送信
-        report_host = os.getenv("REPORT_SERVER_HOST", "localhost")
+        report_host = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl")
         report_port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
         report_client = ReportClient(
             host=report_host, port=report_port, debug=debug_enabled
@@ -367,7 +367,7 @@ if result:
         print(f"  {key}: {value}")
     if use_report:
         print("\n--- Sending data to Report Server ---")
-        report_host = os.getenv("REPORT_SERVER_HOST", "localhost")
+        report_host = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl")
         report_port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
         report_client = ReportClient(
             host=report_host, port=report_port, debug=debug_enabled

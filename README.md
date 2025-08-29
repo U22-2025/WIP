@@ -151,10 +151,11 @@ pip install "wiplib[all]"
 `.env`ファイルを作成し、以下を設定：
 ```env
 # サーバ設定
+WEATHER_SERVER_HOST=wip.ncc.onl
 WEATHER_SERVER_PORT=4110  # Rust/Python共通
-LOCATION_RESOLVER_HOST=localhost
+LOCATION_RESOLVER_HOST=wip.ncc.onl
 LOCATION_RESOLVER_PORT=4109
-QUERY_GENERATOR_HOST=localhost
+QUERY_GENERATOR_HOST=wip.ncc.onl
 QUERY_GENERATOR_PORT=4111
 
 # データベース設定
@@ -170,7 +171,9 @@ LOG_REDIS_DB=1
 
 #### クライアント環境変数
 
-Rust 版の `wip-weather` と Python 版の `WeatherClient` は、環境変数 `WEATHER_SERVER_HOST` と `WEATHER_SERVER_PORT` を参照します。未設定の場合はそれぞれ `127.0.0.1` と `4110` が使用され、コマンドラインの `--host` / `--port` オプションが指定された場合はそちらが優先されます。
+Rust 版の `wip-weather` と Python 版の `WeatherClient` は、環境変数 `WEATHER_SERVER_HOST` と `WEATHER_SERVER_PORT` を参照します。未設定の場合はそれぞれ `wip.ncc.onl` と `4110` が使用され、コマンドラインの `--host` / `--port` オプションが指定された場合はそちらが優先されます。
+
+補足: 本リポジトリのCIでは、ビルド後に `wip.ncc.onl` に対して DNS 解決および HTTP(S) 疎通確認を行い、基本的な接続性を検証します。
 
 例:
 ```bash
@@ -186,7 +189,7 @@ docker run -d --name keydb -p 6380:6379 eqalpha/keydb
 # docker run -d --name keydb -v $(pwd)/conf/keydb_log.conf:/etc/keydb/keydb.conf eqalpha/keydb keydb-server /etc/keydb/keydb.conf
 ```
 RedisJSON モジュールは特に必要ありません。
-`localhost` を指定した場合は内部で IPv4 アドレス `127.0.0.1` に解決されます。環境によっては直接 `127.0.0.1` を指定することもできます。
+既定の接続先ホストは `wip.ncc.onl` です。ローカル検証時は `--host 127.0.0.1` などで上書きしてください。
 
 ## 使用方法
 
@@ -211,8 +214,8 @@ python python/launch_server.py --report
 from WIPCommonPy.clients.weather_client import WeatherClient
 from WIPCommonPy.packet import LocationRequest
 
-# クライアント初期化（"localhost" は自動で IPv4 に解決されます）
-client = WeatherClient(host='localhost', port=4110, debug=True)
+# クライアント初期化（既定は wip.ncc.onl。環境変数/引数で上書き可）
+client = WeatherClient(host='wip.ncc.onl', port=4110, debug=True)
 
 # 座標から天気情報を取得（座標→エリア解決→天気データ）
 req = LocationRequest.create_coordinate_lookup(
@@ -402,8 +405,8 @@ python python/tools/interop_no_socket.py
 
 実行例:
 ```bash
-# CLI
-./cpp/build/wip_client_cli --host 127.0.0.1 --port 4110 --area 130010 --weather --temperature
+# CLI（既定ホストに接続する例）
+./cpp/build/wip_client_cli --host wip.ncc.onl --port 4110 --area 130010 --weather --temperature
 
 # テスト（コーデックの往復確認）
 ./cpp/build/wiplib_tests

@@ -79,10 +79,10 @@ private:
   WeatherClient proxy_client_;
   AuthConfig auth_cfg_{};
 
-  // direct mode endpoints (default localhost)
-  std::string location_host_ = "127.0.0.1"; // LOCATION_RESOLVER_HOST
+  // direct mode endpoints (default wip.ncc.onl)
+  std::string location_host_ = "wip.ncc.onl"; // LOCATION_RESOLVER_HOST
   uint16_t location_port_ = 4109;
-  std::string query_host_ = "127.0.0.1";    // QUERY_GENERATOR_HOST
+  std::string query_host_ = "wip.ncc.onl";    // QUERY_GENERATOR_HOST
   uint16_t query_port_ = 4111;
 };
 

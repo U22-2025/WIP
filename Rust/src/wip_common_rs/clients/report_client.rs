@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::net::UdpSocket;
+use tokio::net::{UdpSocket, lookup_host};
 use tokio::sync::{Mutex, RwLock, Semaphore};
 use tokio::time::{interval, sleep, timeout, Interval};
 
@@ -179,11 +179,17 @@ impl ReportClientImpl {
             host
         };
 
-        let addr_str = format!("{}:{}", resolved_host, port);
-        let addr: SocketAddr = addr_str.parse().map_err(|e| {
+        // Resolve FQDN to SocketAddr (accept hostnames like WeatherClient)
+        let mut iter = lookup_host((resolved_host, port)).await.map_err(|e| {
             tokio::io::Error::new(
                 tokio::io::ErrorKind::InvalidInput,
-                format!("Invalid socket address '{}': {}", addr_str, e),
+                format!("DNS resolve failed for {}:{}: {}", resolved_host, port, e),
+            )
+        })?;
+        let addr: SocketAddr = iter.next().ok_or_else(|| {
+            tokio::io::Error::new(
+                tokio::io::ErrorKind::InvalidInput,
+                format!("No address found for {}:{}", resolved_host, port),
             )
         })?;
 

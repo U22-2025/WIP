@@ -162,7 +162,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         env_logger::init();
     }
 
-    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
     let env_port = env::var("WEATHER_SERVER_PORT")
         .ok()
         .and_then(|p| p.parse().ok())
@@ -189,12 +189,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         } => {
             println!("エリアコード {} の気象データを取得中...", area_code);
             client.set_area_code(area_code);
-            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
+            match client
+                .get_weather(weather, temperature, precipitation, alerts, disaster, day)
+                .await? 
+            {
                 Some(response) => {
                     print_weather_response(&response);
                 }
                 None => {
                     println!("❌ レスポンスを取得できませんでした");
+                    return Err("no weather response".into());
                 }
             }
         }
@@ -213,7 +217,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             println!("座標 ({:.4}, {:.4}) から気象データを取得中...", latitude, longitude);
             println!("注意: この機能には位置解決サービスとの連携が必要です");
 
-            let loc_host = env::var("LOCATION_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+            let loc_host = env::var("LOCATION_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
             let loc_port = env::var("LOCATION_SERVER_PORT")
                 .ok()
                 .and_then(|v| v.parse::<u16>().ok())
@@ -224,7 +228,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 Ok(c) => c,
                 Err(e) => {
                     println!("❌ Locationクライアントの初期化に失敗しました: {}", e);
-                    return Ok(());
+                    return Err("location client init failed".into());
                 }
             };
 
@@ -235,18 +239,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 }
                 Err(e) => {
                     println!("❌ 座標の解決に失敗しました: {}", e);
-                    return Ok(());
+                    return Err("coordinate resolve failed".into());
                 }
             };
 
             println!("取得エリアコード: {}", area_code);
             client.set_area_code(area_code);
-            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
+            match client
+                .get_weather(weather, temperature, precipitation, alerts, disaster, day)
+                .await? 
+            {
                 Some(response) => {
                     print_weather_response(&response);
                 }
                 None => {
                     println!("❌ レスポンスを取得できませんでした");
+                    return Err("no weather response".into());
                 }
             }
         }

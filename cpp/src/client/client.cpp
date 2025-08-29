@@ -194,7 +194,7 @@ void Client::initialize_report_client(bool proxy, std::optional<ServerConfig> re
         port = config_.port;
     } else {
         const char* env_host = std::getenv("REPORT_SERVER_HOST");
-        host = env_host ? env_host : "127.0.0.1";
+        host = env_host ? env_host : "wip.ncc.onl";
         const char* env_port = std::getenv("REPORT_SERVER_PORT");
         port = env_port ? static_cast<uint16_t>(std::atoi(env_port)) : 4112;
     }

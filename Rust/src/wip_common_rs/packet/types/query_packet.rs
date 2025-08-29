@@ -306,13 +306,23 @@ impl QueryResponse {
             eprintln!("DEBUG: QueryResponse::from_bytes - insufficient data length: {}", data.len());
             return None;
         }
-        let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
 
-        // ヘッダ部のチェックサムを検証
-        if !verify_checksum12(&data[..16], 116, 12) {
+        // ヘッダ部のチェックサムを検証（互換性のため複数パターンを試す）
+        let mut checksum_ok = verify_checksum12(&data[..16], 116, 12);
+        if !checksum_ok {
+            if data.len() >= 20 {
+                checksum_ok = verify_checksum12(&data[..20], 116, 12);
+            }
+            if !checksum_ok {
+                checksum_ok = verify_checksum12(data, 116, 12);
+            }
+        }
+        if !checksum_ok {
             eprintln!("DEBUG: QueryResponse::from_bytes - checksum verification failed");
             return None;
         }
+
+        let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
 
         let version: u8  = bits[0..4].load();
         let packet_id: u16 = bits[4..16].load();
@@ -516,10 +526,8 @@ mod tests {
         packet.extend_from_slice(&base);
         packet.extend_from_slice(&ext);
 
-        // ヘッダ部（最初の16バイト）にチェックサムを埋め込む
-        let checksum = calc_checksum12(&packet);
-        let mut head_bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut packet[..16]);
-        head_bits[116..128].store(checksum);
+        // チェックサムを埋め込む（20バイトパケット全体を使用）
+        embed_checksum12_at(&mut packet, 116, 12);
 
         let resp = QueryResponse::from_bytes(&packet).unwrap();
         assert_eq!(resp.packet_id, 1);

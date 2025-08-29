@@ -12,7 +12,6 @@
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
 #include "wiplib/packet/report_packet_compat.hpp"
-#include "wiplib/packet/debug/debug_logger.hpp"
 #include "wiplib/utils/network.hpp"
 
 namespace wiplib::client {
@@ -45,7 +44,7 @@ public:
      * @param port Report Serverのポート番号
      * @param debug デバッグモードフラグ
      */
-    ReportClient(std::string host = "localhost", uint16_t port = 4112, bool debug = false);
+    ReportClient(std::string host = "wip.ncc.onl", uint16_t port = 4112, bool debug = false);
     
     /**
      * @brief デストラクタ
@@ -248,7 +247,7 @@ namespace wiplib::client::utils {
  * @return クライアントインスタンス
  */
 std::unique_ptr<ReportClient> create_report_client(
-    const std::string& host = "localhost", 
+    const std::string& host = "wip.ncc.onl", 
     uint16_t port = 4112, 
     bool debug = false
 );
@@ -273,7 +272,7 @@ Result<ReportResult> send_sensor_report(
     std::optional<int> precipitation_prob = {},
     std::optional<std::vector<std::string>> alert = {},
     std::optional<std::vector<std::string>> disaster = {},
-    const std::string& host = "localhost",
+    const std::string& host = "wip.ncc.onl",
     uint16_t port = 4112,
     bool debug = false
 );

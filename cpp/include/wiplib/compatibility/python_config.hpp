@@ -16,7 +16,7 @@ namespace wiplib::compatibility {
 class PythonConfig {
 public:
     struct ServerSettings {
-        std::string host = "localhost";
+        std::string host = "wip.ncc.onl";
         uint16_t port = 4110;
         bool use_ssl = false;
         std::optional<std::string> auth_token{};
