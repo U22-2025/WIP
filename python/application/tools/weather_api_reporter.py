@@ -275,7 +275,7 @@ def main():
     # 環境変数から設定を取得
     api_key = os.getenv("WEATHER_API_KEY")
     report_host = os.getenv("REPORT_SERVER_HOST", "localhost")
-    report_port = int(os.getenv("REPORT_SERVER_PORT", "9999"))
+    report_port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
     debug = os.getenv("DEBUG", "false").lower() == "true"
     
     # WeatherAPIReporterを初期化

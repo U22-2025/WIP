@@ -51,7 +51,7 @@ python scheduled_weather_reporter.py --mode once
 # 必要に応じて設定
 export WEATHER_API_KEY="your_api_key_here"
 export REPORT_SERVER_HOST="localhost" 
-export REPORT_SERVER_PORT="9999"
+export REPORT_SERVER_PORT="4112"
 export DEBUG="false"
 ```
 
@@ -61,7 +61,7 @@ export DEBUG="false"
 python scheduled_weather_reporter.py \
   --mode schedule \
   --host localhost \
-  --port 9999 \
+  --port 4112 \
   --debug \
   --api-key "your_api_key"
 ```
@@ -185,7 +185,7 @@ for city, success in results.items():
 python weather_api_reporter.py --debug
 
 # レポートサーバーの起動確認
-# サーバーが9999ポートで起動していることを確認
+# サーバーが4112ポートで起動していることを確認
 ```
 
 ### APIキーエラー
