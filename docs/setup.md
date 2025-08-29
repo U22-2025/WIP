@@ -276,11 +276,11 @@ cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
 cmake --build cpp/build -j
 
 # 疎通テスト（Weather Server へ UDP リクエスト）
-./cpp/build/unified_client_cli weather --area 130010 --host 127.0.0.1 --proxy
+./cpp/build/unified_client_cli weather --area 130010 --host wip.ncc.onl --proxy
 ```
 オプション例：
 - 座標指定: `./cpp/build/unified_client_cli weather --coords 35.6895 139.6917`
-- 直接 WeatherServer: `--host 127.0.0.1 --port 4110`
+- 直接 WeatherServer: `--host wip.ncc.onl --port 4110`
 
 ---
 
