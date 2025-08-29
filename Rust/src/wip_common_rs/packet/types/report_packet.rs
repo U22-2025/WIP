@@ -1,9 +1,7 @@
 use crate::wip_common_rs::packet::core::bit_utils::{
     PacketFields,
 };
-use crate::wip_common_rs::packet::core::checksum::{
-    calc_checksum12, verify_checksum12,
-};
+use crate::wip_common_rs::packet::core::checksum::verify_checksum12;
 use crate::wip_common_rs::packet::core::extended_field::{
     pack_ext_fields, unpack_ext_fields, ExtendedFieldManager, FieldDefinition, FieldType,
     FieldValue,
@@ -427,6 +425,7 @@ mod tests {
     use super::*;
     use bitvec::prelude::*;
     use std::collections::HashMap;
+    use crate::wip_common_rs::packet::core::checksum::calc_checksum12;
 
     #[test]
     fn test_report_request_to_bytes_checksum() {

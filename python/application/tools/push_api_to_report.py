@@ -41,7 +41,12 @@ def send_to_report(report_host: str, report_port: int, area_code: str, data: dic
             return v[0] if v else None
         return v
 
-    weather_code = pick(data.get("weather"))
+    w = pick(data.get("weather"))
+    try:
+        weather_code = int(w) if w not in (None, "") else None
+    except Exception:
+        weather_code = None
+    
     # temperature may be string; convert if numeric
     t = pick(data.get("temperature"))
     try:

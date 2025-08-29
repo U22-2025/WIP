@@ -37,7 +37,7 @@ class QueryClient:
         cache_enabled=True,
     ):
         if host is None:
-            host = os.getenv("QUERY_GENERATOR_HOST", "localhost")
+            host = os.getenv("QUERY_GENERATOR_HOST", "wip.ncc.onl")
         if port is None:
             port = int(os.getenv("QUERY_GENERATOR_PORT", "4111"))
         """

@@ -33,7 +33,7 @@ class ReportClient:
             debug: デバッグモード
         """
         if host is None:
-            host = os.getenv("REPORT_SERVER_HOST", "localhost")
+            host = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl")
         if port is None:
             port = int(os.getenv("REPORT_SERVER_PORT", "4112"))
 
@@ -59,6 +59,7 @@ class ReportClient:
         self.precipitation_prob: Optional[int] = None
         self.alert: Optional[List[str]] = None
         self.disaster: Optional[List[str]] = None
+        self.day: Optional[int] = None
 
     def _init_auth_config(self):
         """認証設定を環境変数から読み込み"""
@@ -150,6 +151,7 @@ class ReportClient:
         precipitation_prob: Optional[int] = None,
         alert: Optional[List[str]] = None,
         disaster: Optional[List[str]] = None,
+        day: Optional[int] = None,
     ):
         """センサーデータを設定"""
         self.area_code = area_code
@@ -158,11 +160,12 @@ class ReportClient:
         self.precipitation_prob = precipitation_prob
         self.alert = alert
         self.disaster = disaster
+        self.day = day
 
         if self.debug:
             self.logger.debug(
                 f"センサーデータを設定: エリア={area_code}, 天気={weather_code}, "
-                f"気温={temperature}℃, 降水確率={precipitation_prob}%"
+                f"気温={temperature}℃, 降水確率={precipitation_prob}%, day={day}"
             )
 
     def set_area_code(self, area_code: Union[str, int]):
@@ -206,6 +209,7 @@ class ReportClient:
                 alert=self.alert,
                 disaster=self.disaster,
                 version=self.VERSION,
+                day=self.day or 0,
             )
 
             # 認証設定を適用（認証が有効な場合）
@@ -317,6 +321,7 @@ class ReportClient:
                 alert=self.alert,
                 disaster=self.disaster,
                 version=self.VERSION,
+                day=self.day or 0,
             )
 
             if self.auth_enabled and self.auth_passphrase:

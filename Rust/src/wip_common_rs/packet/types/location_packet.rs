@@ -470,7 +470,6 @@ fn parse_source_str(s: &str) -> Option<(String, u16)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitvec::prelude::*;
     use crate::wip_common_rs::packet::core::checksum::{verify_checksum12, calc_checksum12};
 
     #[test]

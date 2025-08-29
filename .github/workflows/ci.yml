@@ -9,12 +9,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
+
+      # ---------- C++ (root demo) ----------
+      - name: Configure C++ (root)
         run: cmake -S . -B build
-      - name: Build
-        run: cmake --build build
-      - name: Test
-        run: ctest --test-dir build
+      - name: Build C++ (root)
+        run: cmake --build build --parallel
+      - name: CTest (root)
+        run: ctest --test-dir build --output-on-failure || true # no tests defined at root
+
+      # ---------- C++ (cpp subproject with tests) ----------
+      - name: Configure C++ (cpp/ with tests)
+        run: cmake -S cpp -B build/cpp -DWIPLIB_BUILD_TESTS=ON
+      - name: Build C++ (cpp/)
+        run: cmake --build build/cpp --parallel
+      - name: CTest (cpp/)
+        run: ctest --test-dir build/cpp --output-on-failure
+
+      # ---------- Rust ----------
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cargo build (all targets)
+        working-directory: Rust
+        run: cargo build --all-targets --verbose
+      - name: Cargo test
+        working-directory: Rust
+        run: cargo test --verbose
 
   build-windows:
     runs-on: windows-latest
@@ -23,9 +43,29 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
+
+      # ---------- C++ (root demo) ----------
+      - name: Configure C++ (root)
         run: cmake -S . -B build
-      - name: Build
-        run: cmake --build build
-      - name: Test
-        run: ctest --test-dir build
+      - name: Build C++ (root)
+        run: cmake --build build --config Debug --parallel
+      - name: CTest (root)
+        run: ctest --test-dir build -C Debug --output-on-failure || true # no tests defined at root
+
+      # ---------- C++ (cpp subproject with tests) ----------
+      - name: Configure C++ (cpp/ with tests)
+        run: cmake -S cpp -B build/cpp -DWIPLIB_BUILD_TESTS=ON
+      - name: Build C++ (cpp/)
+        run: cmake --build build/cpp --config Debug --parallel
+      - name: CTest (cpp/)
+        run: ctest --test-dir build/cpp -C Debug --output-on-failure
+
+      # ---------- Rust ----------
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cargo build (all targets)
+        working-directory: Rust
+        run: cargo build --all-targets --verbose
+      - name: Cargo test
+        working-directory: Rust
+        run: cargo test --verbose

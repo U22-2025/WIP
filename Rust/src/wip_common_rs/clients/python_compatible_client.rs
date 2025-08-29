@@ -34,7 +34,7 @@ impl PythonCompatibleWeatherClient {
     /// def __init__(self, host=None, port=None, debug=False):
     /// ```
     pub fn new(host: Option<&str>, port: Option<u16>, debug: Option<bool>) -> std::io::Result<Self> {
-        let default_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("WEATHER_SERVER_PORT")
@@ -220,7 +220,7 @@ impl PythonCompatibleWeatherClient {
         disaster: Option<bool>,
         day: Option<u8>,
     ) -> Result<HashMap<String, serde_json::Value>, String> {
-        let host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let port = env::var("LOCATION_RESOLVER_PORT")
             .unwrap_or_else(|_| "4109".to_string())
             .parse()
@@ -303,7 +303,7 @@ impl PythonCompatibleLocationClient {
     ) -> std::io::Result<Self> {
         let _config = config_path.map(|_path| ConfigLoader::new());
         
-        let default_host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("LOCATION_RESOLVER_PORT")
@@ -405,7 +405,7 @@ pub struct PythonCompatibleQueryClient {
 impl PythonCompatibleQueryClient {
     /// Python版と同一のコンストラクタ
     pub async fn new(host: Option<&str>, port: Option<u16>, debug: Option<bool>) -> std::io::Result<Self> {
-        let default_host = env::var("QUERY_SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("QUERY_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("QUERY_SERVER_PORT")
@@ -496,7 +496,7 @@ pub struct PythonCompatibleReportClient {
 impl PythonCompatibleReportClient {
     /// Python版と同一のコンストラクタ
     pub async fn new(host: Option<&str>, port: Option<u16>, debug: Option<bool>) -> std::io::Result<Self> {
-        let default_host = env::var("REPORT_SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("REPORT_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("REPORT_SERVER_PORT")
@@ -555,8 +555,9 @@ impl PythonCompatibleReportClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+    use super::PythonCompatibleWeatherClient;
+    use crate::wip_common_rs::packet::types::query_packet::QueryResponse;
 
     #[test]
     fn map_from_response_uses_precipitation_prob_key() {
@@ -576,21 +577,21 @@ mod tests {
 
 #[allow(dead_code)]
 mod disabled_tests_for_now {
-    use super::*;
+    use super::{PythonCompatibleWeatherClient, PythonCompatibleLocationClient};
 
     #[test]
     fn test_python_compatible_weather_client_creation() {
-        let client = PythonCompatibleWeatherClient::new(Some("localhost"), Some(4110), Some(true));
+        let client = PythonCompatibleWeatherClient::new(Some("localhost"), Some(4110), Some(true)).unwrap();
         assert_eq!(client.host, "localhost");
         assert_eq!(client.port, 4110);
         assert!(client.debug);
     }
 
-    #[test]
-    fn test_python_compatible_location_client_creation() {
+    #[tokio::test]
+    async fn test_python_compatible_location_client_creation() {
         let client = PythonCompatibleLocationClient::new(
             Some("localhost"), Some(4109), Some(false), Some(60), Some(false), None
-        );
+        ).await.unwrap();
         assert_eq!(client.server_host, "localhost");
         assert_eq!(client.server_port, 4109);
         assert!(!client.debug);
@@ -603,7 +604,7 @@ mod disabled_tests_for_now {
         std::env::set_var("WEATHER_SERVER_HOST", "test.example.com");
         std::env::set_var("WEATHER_SERVER_PORT", "8080");
         
-        let client = PythonCompatibleWeatherClient::new(None, None, None);
+        let client = PythonCompatibleWeatherClient::new(None, None, None).unwrap();
         assert_eq!(client.host, "test.example.com");
         assert_eq!(client.port, 8080);
         assert!(!client.debug);

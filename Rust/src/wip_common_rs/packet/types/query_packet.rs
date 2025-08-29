@@ -529,7 +529,7 @@ mod tests {
         assert_eq!(resp.precipitation, Some(80u8));
         assert!(resp.alert_flag);
         assert!(resp.disaster_flag);
-        let ext = resp.ex_field.expect("ext");
+        let ext = resp.ex_field.as_ref().expect("ext");
         assert_eq!(ext.get_value("alert"), Some(&FieldValue::String("A,B".into())));
         assert_eq!(ext.get_value("disaster"), Some(&FieldValue::String("X".into())));
 

@@ -1,9 +1,10 @@
 import os
 import sys
 from pathlib import Path
-
+from dotenv import load_dotenv
 import uvicorn
 
+load_dotenv()
 
 if __name__ == "__main__":
     # 現在のディレクトリ構造に合わせてパスを設定
@@ -17,6 +18,9 @@ if __name__ == "__main__":
     
     # 作業ディレクトリを設定
     os.chdir(current_dir)
+    
+    # 環境変数を読み込む
+    load_dotenv()
 
     # 既定ポートを 80 に統一（環境変数で上書き可能）
     port = int(os.getenv("WEATHER_API_PORT", "80"))

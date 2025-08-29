@@ -29,7 +29,7 @@ logs/reports
 
 # Rust
 /Rust/target/
-
+/Rust/Cargo.lock
 # C++ builds (CMake/VS)
 cpp/build/
 cpp/build2/
@@ -52,3 +52,6 @@ cpp/.vs/
 # Python distribution artifacts
 build/
 dist/
+/logs/reports
+!.env.example
+*.egg-info/
