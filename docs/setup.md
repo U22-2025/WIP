@@ -202,10 +202,9 @@ cp .env.example .env
   - `DB_PORT=5432`
   - `DB_NAME=weather_forecast_map`
   - `DB_USERNAME=wip`
-  - `DB_PASSWORD=wip_password`
-- ポート衝突回避（root 不要）
-  - `MAP_HTTP_PORT=8000`
-  - `WEATHER_API_PORT=8001`
+  - `DB_PASSWORD=wippass`
+  - `MAP_HTTP_PORT=80`
+  - `WEATHER_API_PORT=80`
 - Dragonfly（Redis互換）
   - `REDIS_PORT=6379`（データ: Query/Report 用, JSON 利用）
   - `LOG_REDIS_PORT=6380`（Map の共有ログ Pub/Sub 用）
