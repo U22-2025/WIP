@@ -5,8 +5,130 @@ import threading
 import argparse
 import subprocess
 from typing import List, Tuple
+from pathlib import Path
 
 from WIPServerPy import QueryServer, LocationServer, WeatherServer, ReportServer
+
+
+def _start_jma_auto_update(debug: bool = False):
+    """JMAからの自動データ更新プロセスを起動"""
+    try:
+        # 起動時に一度実行
+        print("JMA初回データ更新を実行しています...")
+        _run_jma_update_once(debug)
+        
+        # 定期実行用のデーモンスレッドを開始
+        update_thread = threading.Thread(
+            target=_jma_update_scheduler,
+            args=(debug,),
+            daemon=True,
+            name="JMA-Auto-Updater"
+        )
+        update_thread.start()
+        print("JMA自動データ更新スケジューラを開始しました")
+        
+    except Exception as e:
+        print(f"JMA自動更新の開始に失敗しました: {e}")
+
+
+def _run_jma_update_once(debug: bool = False):
+    """JMAデータの一回限り更新を実行"""
+    try:
+        # ワーキングディレクトリをプロジェクトルートに設定
+        cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        env = os.environ.copy()
+        env["PYTHONPATH"] = cwd + os.pathsep + env.get("PYTHONPATH", "")
+        
+        # 気象データ更新
+        print("  気象データを更新中...")
+        result = subprocess.run(
+            [sys.executable, "-c", 
+             "import sys; sys.path.insert(0, 'src'); from WIPServerPy.scripts.update_weather_data import update_redis_weather_data; from WIPServerPy.data.get_codes import get_all_area_codes; codes = get_all_area_codes(); update_redis_weather_data(debug=False, area_codes=codes)"],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5分でタイムアウト
+        )
+        
+        if result.returncode == 0:
+            print("  気象データ更新完了")
+        else:
+            print(f"  気象データ更新エラー: {result.stderr}")
+        
+        # 災害・警報データ更新
+        print("  災害・警報データを更新中...")
+        result = subprocess.run(
+            [sys.executable, "-c", 
+             "import sys; sys.path.insert(0, 'src'); from WIPServerPy.scripts.update_alert_disaster_data import main; main()"],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5分でタイムアウト
+        )
+        
+        if result.returncode == 0:
+            print("  災害・警報データ更新完了")
+        else:
+            print(f"  災害・警報データ更新エラー: {result.stderr}")
+            
+        print("JMAデータ更新が完了しました")
+        
+    except subprocess.TimeoutExpired:
+        print("JMAデータ更新がタイムアウトしました")
+    except Exception as e:
+        print(f"JMAデータ更新エラー: {e}")
+
+
+def _jma_update_scheduler(debug: bool = False):
+    """JMAデータの定期更新スケジューラ"""
+    import schedule
+    
+    # 気象データ更新: 1日3回（5:00, 11:00, 17:00）
+    schedule.every().day.at("05:00").do(_run_jma_update_once, debug)
+    schedule.every().day.at("11:00").do(_run_jma_update_once, debug)
+    schedule.every().day.at("17:00").do(_run_jma_update_once, debug)
+    
+    # 災害・警報データ更新: 10分間隔
+    def update_disaster_only():
+        try:
+            cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            env = os.environ.copy()
+            env["PYTHONPATH"] = cwd + os.pathsep + env.get("PYTHONPATH", "")
+            
+            result = subprocess.run(
+                [sys.executable, "-c", 
+                 "import sys; sys.path.insert(0, 'src'); from WIPServerPy.scripts.update_alert_disaster_data import main; main()"],
+                cwd=cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            
+            if debug and result.returncode != 0:
+                print(f"災害データ更新エラー: {result.stderr}")
+                
+        except Exception as e:
+            if debug:
+                print(f"災害データ更新エラー: {e}")
+    
+    schedule.every(10).minutes.do(update_disaster_only)
+    
+    print("JMAデータ更新スケジュール設定完了:")
+    print("  - 気象データ: 05:00, 11:00, 17:00")
+    print("  - 災害・警報データ: 10分間隔")
+    
+    # メインループ
+    while True:
+        try:
+            schedule.run_pending()
+            time.sleep(60)  # 1分間隔でチェック
+        except Exception as e:
+            if debug:
+                print(f"JMAスケジューラーエラー: {e}")
+            time.sleep(60)
 
 
 def _start_process(name: str, cmd: List[str]) -> subprocess.Popen:
@@ -48,7 +170,7 @@ def main():
     parser.add_argument(
         "--noupdate",
         action="store_true",
-        help="Queryサーバーの起動時自動更新とScheduled Weather Reporterをスキップ",
+        help="JMA自動データ更新、Queryサーバーの起動時自動更新とScheduled Weather Reporterをスキップ",
     )
 
     args = parser.parse_args()
@@ -181,6 +303,9 @@ def main():
             ["python/application/tools/scheduled_weather_reporter.py", "--mode", "schedule"],
         )
         processes.append(("scheduled_reporter", proc))
+        
+        # JMA自動更新プロセスを起動
+        _start_jma_auto_update(args.debug)
 
     total_processes = len(processes)
     print(f"{len(threads)}個のサーバー、{total_processes}個のアプリを起動しました。")

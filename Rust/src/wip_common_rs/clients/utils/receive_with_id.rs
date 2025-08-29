@@ -398,7 +398,7 @@ pub async fn receive_multiple_with_ids_async(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{SocketAddr, UdpSocket};
+    use std::net::SocketAddr;
     
     #[test]
     fn test_extract_packet_id() {
