@@ -150,6 +150,42 @@ jobs:
           sys.exit(1)
           PY
 
+      - name: Python client direct coords flow (Location->Query)
+        run: |
+          python - <<'PY'
+          import sys, time
+          from WIPClientPy import Client
+          # Direct flow: resolve coords via Location, then query Query server
+          c = Client(debug=False)
+          try:
+              c.set_coordinates(35.6812, 139.7671)
+              res = c.get_weather(weather=True, temperature=True, precipitation_prob=True, proxy=False)
+              assert isinstance(res, dict) and res, f"unexpected response: {res!r}"
+              print("Python direct coords OK:", {k: res.get(k) for k in ("area_code","weather_code","temperature","precipitation_prob")})
+          finally:
+              c.close()
+          PY
+
+      - name: Python report send to Report Server (4112)
+        env:
+          REPORT_SERVER_HOST: wip.ncc.onl
+          REPORT_SERVER_PORT: '4112'
+        run: |
+          python - <<'PY'
+          import os, sys
+          from WIPCommonPy.clients.report_client import ReportClient
+          host = os.getenv('REPORT_SERVER_HOST', 'wip.ncc.onl')
+          port = int(os.getenv('REPORT_SERVER_PORT','4112'))
+          rc = ReportClient(host=host, port=port, debug=False)
+          try:
+              rc.set_sensor_data(area_code=130010, weather_code=100, temperature=25.5, precipitation_prob=30, alert=["テスト警報"], disaster=["テスト災害"])
+              res = rc.send_report_data()
+              assert isinstance(res, dict) and res is not None, f"unexpected response: {res!r}"
+              print("Python report OK:", res)
+          finally:
+              rc.close()
+          PY
+
       # ---------- C++: roundtrip test to wip.ncc.onl ----------
       - name: C++ roundtrip to wip.ncc.onl
         run: |
@@ -187,6 +223,13 @@ jobs:
           }
           retry
 
+      - name: C++ unified client report to Report Server (4112)
+        run: |
+          set -e
+          exe=$(find build/cpp -type f -perm -111 -name 'unified_client_cli' -o -name 'unified_client_cli*' | head -n1)
+          echo "Using C++ unified client: $exe"
+          "$exe" report --host wip.ncc.onl --port 4112 --area 130010 --weather-code 100 --temp 25.5 --precipitation-prob 30 --alert テスト警報 --disaster テスト災害
+
       # ---------- Rust: roundtrip test to wip.ncc.onl ----------
       - name: Rust roundtrip to wip.ncc.onl
         working-directory: Rust
@@ -223,6 +266,32 @@ jobs:
             cargo run --quiet --bin wip-location -- -H "$HOST_IP" -p 4109 resolve 35.6812 139.7671 --verbose
           }
           retry
+
+      - name: Rust coords weather via proxy (4110)
+        working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
+        run: |
+          set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
+          cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 coords 35.6812 139.7671 --weather --temperature --precipitation
+
+      - name: Rust report send to Report Server (4112)
+        working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
+        run: |
+          set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
+          cargo run --quiet --bin wip-report -- -H "$HOST_IP" -p 4112 sensor --area-code 130010 --weather-code 100 --temperature 25.5 --precipitation 30 --alerts テスト警報 --disaster-info テスト災害
 
   build-windows:
     runs-on: windows-latest
@@ -372,6 +441,38 @@ jobs:
           sys.exit(1)
           PY
 
+      - name: Python client direct coords flow (Windows)
+        run: |
+          python - <<'PY'
+          from WIPClientPy import Client
+          c = Client(debug=False)
+          try:
+              c.set_coordinates(35.6812, 139.7671)
+              res = c.get_weather(weather=True, temperature=True, precipitation_prob=True, proxy=False)
+              assert isinstance(res, dict) and res, f"unexpected response: {res!r}"
+              print("Python direct coords OK:", {k: res.get(k) for k in ("area_code","weather_code","temperature","precipitation_prob")})
+          finally:
+              c.close()
+          PY
+
+      - name: Python report send to Report Server (Windows)
+        env:
+          REPORT_SERVER_HOST: wip.ncc.onl
+          REPORT_SERVER_PORT: '4112'
+        run: |
+          python - <<'PY'
+          import os
+          from WIPCommonPy.clients.report_client import ReportClient
+          rc = ReportClient(host=os.getenv('REPORT_SERVER_HOST','wip.ncc.onl'), port=int(os.getenv('REPORT_SERVER_PORT','4112')), debug=False)
+          try:
+              rc.set_sensor_data(area_code=130010, weather_code=100, temperature=25.5, precipitation_prob=30, alert=["テスト警報"], disaster=["テスト災害"])
+              res = rc.send_report_data()
+              assert isinstance(res, dict) and res is not None
+              print("Python report OK:", res)
+          finally:
+              rc.close()
+          PY
+
       # ---------- C++: roundtrip test to wip.ncc.onl (Windows) ----------
       - name: C++ roundtrip to wip.ncc.onl (Windows)
         run: |
@@ -419,6 +520,16 @@ jobs:
           }
           retry
 
+      - name: C++ unified client report to Report Server (Windows)
+        run: |
+          set -e
+          exe=$(find build/cpp -iname 'unified_client_cli*.exe' -type f | head -n1)
+          if [ -z "$exe" ]; then
+            exe=$(find build/cpp -type f -iname 'unified_client_cli.exe' | head -n1)
+          fi
+          echo "Using C++ unified client: $exe"
+          "$exe" report --host wip.ncc.onl --port 4112 --area 130010 --weather-code 100 --temp 25.5 --precipitation-prob 30 --alert テスト警報 --disaster テスト災害
+
       # ---------- Rust: roundtrip test to wip.ncc.onl (Windows) ----------
       - name: Rust roundtrip to wip.ncc.onl (Windows)
         working-directory: Rust
@@ -455,3 +566,29 @@ jobs:
             cargo run --quiet --bin wip-location -- -H "$HOST_IP" -p 4109 resolve 35.6812 139.7671 --verbose
           }
           retry
+
+      - name: Rust coords weather via proxy (Windows)
+        working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
+        run: |
+          set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
+          cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 coords 35.6812 139.7671 --weather --temperature --precipitation
+
+      - name: Rust report send to Report Server (Windows)
+        working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
+        run: |
+          set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
+          cargo run --quiet --bin wip-report -- -H "$HOST_IP" -p 4112 sensor --area-code 130010 --weather-code 100 --temperature 25.5 --precipitation 30 --alerts テスト警報 --disaster-info テスト災害
