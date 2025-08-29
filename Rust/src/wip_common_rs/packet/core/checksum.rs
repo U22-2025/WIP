@@ -378,7 +378,7 @@ pub fn embed_checksum12_at(packet: &mut [u8], checksum_start_bit: usize, checksu
     };
     
     // 計算されたチェックサムを元のパケットに埋め込み（ビット操作で）
-    let mut final_bitstr = bitstr_without_checksum | ((checksum as u128) << checksum_start_bit);
+    let final_bitstr = bitstr_without_checksum | ((checksum as u128) << checksum_start_bit);
     
     // 最終的なビット列をバイト列に変換して元のパケットを更新
     for i in 0..packet.len() {

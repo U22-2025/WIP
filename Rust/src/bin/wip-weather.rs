@@ -189,12 +189,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         } => {
             println!("エリアコード {} の気象データを取得中...", area_code);
             client.set_area_code(area_code);
-            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
+            match client
+                .get_weather(weather, temperature, precipitation, alerts, disaster, day)
+                .await? 
+            {
                 Some(response) => {
                     print_weather_response(&response);
                 }
                 None => {
                     println!("❌ レスポンスを取得できませんでした");
+                    return Err("no weather response".into());
                 }
             }
         }
@@ -224,7 +228,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 Ok(c) => c,
                 Err(e) => {
                     println!("❌ Locationクライアントの初期化に失敗しました: {}", e);
-                    return Ok(());
+                    return Err("location client init failed".into());
                 }
             };
 
@@ -235,18 +239,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 }
                 Err(e) => {
                     println!("❌ 座標の解決に失敗しました: {}", e);
-                    return Ok(());
+                    return Err("coordinate resolve failed".into());
                 }
             };
 
             println!("取得エリアコード: {}", area_code);
             client.set_area_code(area_code);
-            match client.get_weather(weather, temperature, precipitation, alerts, disaster, day).await? {
+            match client
+                .get_weather(weather, temperature, precipitation, alerts, disaster, day)
+                .await? 
+            {
                 Some(response) => {
                     print_weather_response(&response);
                 }
                 None => {
                     println!("❌ レスポンスを取得できませんでした");
+                    return Err("no weather response".into());
                 }
             }
         }

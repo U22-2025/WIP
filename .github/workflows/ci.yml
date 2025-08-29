@@ -31,9 +31,13 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Cargo build (lib + bins)
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: cargo build --bins --lib --verbose
       - name: Cargo test (lib + bins)
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: >-
           cargo test --lib --bins --verbose --
           --skip disabled_tests_for_now
@@ -186,6 +190,8 @@ jobs:
       # ---------- Rust: roundtrip test to wip.ncc.onl ----------
       - name: Rust roundtrip to wip.ncc.onl
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: |
           set -e
           HOST_IP=$(python - <<'PY'
@@ -202,6 +208,8 @@ jobs:
 
       - name: Rust direct test to Location Server (4109)
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: |
           set -e
           HOST_IP=$(python - <<'PY'
@@ -245,9 +253,13 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Cargo build (lib + bins)
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: cargo build --bins --lib --verbose
       - name: Cargo test (lib + bins)
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: >-
           cargo test --lib --bins --verbose --
           --skip disabled_tests_for_now
@@ -410,6 +422,8 @@ jobs:
       # ---------- Rust: roundtrip test to wip.ncc.onl (Windows) ----------
       - name: Rust roundtrip to wip.ncc.onl (Windows)
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: |
           set -e
           HOST_IP=$(python - <<'PY'
@@ -426,6 +440,8 @@ jobs:
 
       - name: Rust direct test to Location Server (4109) (Windows)
         working-directory: Rust
+        env:
+          RUSTFLAGS: -Awarnings
         run: |
           set -e
           HOST_IP=$(python - <<'PY'
