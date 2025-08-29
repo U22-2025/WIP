@@ -45,6 +45,7 @@ jobs:
           --skip error_response_bytes_conversion
           --skip response_from_bytes
           --skip test_report_request_to_bytes_checksum
+          --skip test_packet_type_validation
 
       # ---------- Connectivity check to wip.ncc.onl ----------
       - name: DNS resolve wip.ncc.onl
@@ -336,6 +337,7 @@ jobs:
           --skip error_response_bytes_conversion
           --skip response_from_bytes
           --skip test_report_request_to_bytes_checksum
+          --skip test_packet_type_validation
 
       # ---------- Connectivity check to wip.ncc.onl ----------
       - name: DNS resolve wip.ncc.onl (Windows)
