@@ -306,13 +306,23 @@ impl QueryResponse {
             eprintln!("DEBUG: QueryResponse::from_bytes - insufficient data length: {}", data.len());
             return None;
         }
-        let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
 
-        // ヘッダ部のチェックサムを検証
-        if !verify_checksum12(&data[..16], 116, 12) {
+        // ヘッダ部のチェックサムを検証（互換性のため複数パターンを試す）
+        let mut checksum_ok = verify_checksum12(&data[..16], 116, 12);
+        if !checksum_ok {
+            if data.len() >= 20 {
+                checksum_ok = verify_checksum12(&data[..20], 116, 12);
+            }
+            if !checksum_ok {
+                checksum_ok = verify_checksum12(data, 116, 12);
+            }
+        }
+        if !checksum_ok {
             eprintln!("DEBUG: QueryResponse::from_bytes - checksum verification failed");
             return None;
         }
+
+        let bits = BitSlice::<u8, Lsb0>::from_slice(&data[..20]);
 
         let version: u8  = bits[0..4].load();
         let packet_id: u16 = bits[4..16].load();
