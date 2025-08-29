@@ -195,21 +195,6 @@ pip install -e .[all]
 ```bash
 cp .env.example .env
 ```
-最低限、以下を環境に合わせて編集してください（`nano .env` 等）：
-
-- DB 系
-  - `DB_HOST=localhost`
-  - `DB_PORT=5432`
-  - `DB_NAME=weather_forecast_map`
-  - `DB_USERNAME=wip`
-  - `DB_PASSWORD=wippass`
-  - `MAP_HTTP_PORT=80`
-  - `WEATHER_API_PORT=80`
-- Dragonfly（Redis互換）
-  - `REDIS_PORT=6379`（データ: Query/Report 用, JSON 利用）
-  - `LOG_REDIS_PORT=6380`（Map の共有ログ Pub/Sub 用）
-
-他は既定値のままで問題ありません（必要に応じて `WEATHER_*_PORT` 等を調整）。
 
 ---
 
