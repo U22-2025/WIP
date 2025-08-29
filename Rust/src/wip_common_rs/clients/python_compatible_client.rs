@@ -575,6 +575,7 @@ mod tests {
 }
 
 
+#[cfg(test)]
 #[allow(dead_code)]
 mod disabled_tests_for_now {
     use super::{PythonCompatibleWeatherClient, PythonCompatibleLocationClient};
