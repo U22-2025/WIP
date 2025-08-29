@@ -191,7 +191,7 @@ jobs:
       - name: C++ roundtrip to wip.ncc.onl
         run: |
           set -e
-          exe=$(find build/cpp -type f -perm -111 -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' | head -n1)
+          exe=$(find build/cpp -type f \( -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' \) -perm -111 | head -n1)
           echo "Using C++ roundtrip binary: $exe"
           retry() {
             "$exe" --host wip.ncc.onl --port 4110 --area 130010 && return 0
@@ -203,7 +203,7 @@ jobs:
       - name: C++ direct test to Location Server (4109)
         run: |
           set -e
-          exe=$(find build/cpp -type f -perm -111 -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' | head -n1)
+          exe=$(find build/cpp -type f \( -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' \) -perm -111 | head -n1)
           echo "Using C++ roundtrip binary: $exe"
           retry() {
             "$exe" --host wip.ncc.onl --port 4109 --coords 35.6812 139.7671 && return 0
@@ -215,7 +215,7 @@ jobs:
       - name: C++ direct test to Query Server (4111)
         run: |
           set -e
-          exe=$(find build/cpp -type f -perm -111 -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' | head -n1)
+          exe=$(find build/cpp -type f \( -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' \) -perm -111 | head -n1)
           echo "Using C++ roundtrip binary: $exe"
           retry() {
             "$exe" --host wip.ncc.onl --port 4111 --area 130010 && return 0
@@ -227,7 +227,7 @@ jobs:
       - name: C++ unified client report to Report Server (4112)
         run: |
           set -e
-          exe=$(find build/cpp -type f -perm -111 -name 'unified_client_cli' -o -name 'unified_client_cli*' | head -n1)
+          exe=$(find build/cpp -type f \( -name 'unified_client_cli' -o -name 'unified_client_cli*' \) -perm -111 | head -n1)
           echo "Using C++ unified client: $exe"
           "$exe" report --host wip.ncc.onl --port 4112 --area 130010 --weather-code 100 --temp 25.5 --precipitation-prob 30 --alert テスト警報 --disaster テスト災害
 
