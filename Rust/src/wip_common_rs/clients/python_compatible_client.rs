@@ -555,8 +555,9 @@ impl PythonCompatibleReportClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+    use super::PythonCompatibleWeatherClient;
+    use crate::wip_common_rs::packet::types::query_packet::QueryResponse;
 
     #[test]
     fn map_from_response_uses_precipitation_prob_key() {
@@ -576,21 +577,21 @@ mod tests {
 
 #[allow(dead_code)]
 mod disabled_tests_for_now {
-    use super::*;
+    use super::{PythonCompatibleWeatherClient, PythonCompatibleLocationClient};
 
     #[test]
     fn test_python_compatible_weather_client_creation() {
-        let client = PythonCompatibleWeatherClient::new(Some("localhost"), Some(4110), Some(true));
+        let client = PythonCompatibleWeatherClient::new(Some("localhost"), Some(4110), Some(true)).unwrap();
         assert_eq!(client.host, "localhost");
         assert_eq!(client.port, 4110);
         assert!(client.debug);
     }
 
-    #[test]
-    fn test_python_compatible_location_client_creation() {
+    #[tokio::test]
+    async fn test_python_compatible_location_client_creation() {
         let client = PythonCompatibleLocationClient::new(
             Some("localhost"), Some(4109), Some(false), Some(60), Some(false), None
-        );
+        ).await.unwrap();
         assert_eq!(client.server_host, "localhost");
         assert_eq!(client.server_port, 4109);
         assert!(!client.debug);
@@ -603,7 +604,7 @@ mod disabled_tests_for_now {
         std::env::set_var("WEATHER_SERVER_HOST", "test.example.com");
         std::env::set_var("WEATHER_SERVER_PORT", "8080");
         
-        let client = PythonCompatibleWeatherClient::new(None, None, None);
+        let client = PythonCompatibleWeatherClient::new(None, None, None).unwrap();
         assert_eq!(client.host, "test.example.com");
         assert_eq!(client.port, 8080);
         assert!(!client.debug);
