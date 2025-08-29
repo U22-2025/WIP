@@ -9,7 +9,7 @@ use wip_rust::wip_common_rs::packet::types::report_packet::{ReportRequest, Repor
 #[command(version = "0.1.0")]
 struct Cli {
     /// サーバーホスト
-    #[arg(short = 'H', long, default_value = "127.0.0.1")]
+    #[arg(short = 'H', long, default_value = "wip.ncc.onl")]
     host: String,
 
     /// サーバーポート

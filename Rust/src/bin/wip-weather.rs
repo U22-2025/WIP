@@ -162,7 +162,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         env_logger::init();
     }
 
-    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let env_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
     let env_port = env::var("WEATHER_SERVER_PORT")
         .ok()
         .and_then(|p| p.parse().ok())
@@ -213,7 +213,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             println!("座標 ({:.4}, {:.4}) から気象データを取得中...", latitude, longitude);
             println!("注意: この機能には位置解決サービスとの連携が必要です");
 
-            let loc_host = env::var("LOCATION_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+            let loc_host = env::var("LOCATION_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
             let loc_port = env::var("LOCATION_SERVER_PORT")
                 .ok()
                 .and_then(|v| v.parse::<u16>().ok())

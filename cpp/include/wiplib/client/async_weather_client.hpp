@@ -146,7 +146,7 @@ public:
      * @param max_concurrent_requests 最大同時リクエスト数
      */
     explicit AsyncWeatherClient(
-        const std::string& host = "localhost", 
+        const std::string& host = "wip.ncc.onl", 
         uint16_t port = 4110,
         size_t max_concurrent_requests = 100
     );

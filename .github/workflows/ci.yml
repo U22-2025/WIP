@@ -42,6 +42,170 @@ jobs:
           --skip response_from_bytes
           --skip test_report_request_to_bytes_checksum
 
+      # ---------- Connectivity check to wip.ncc.onl ----------
+      - name: DNS resolve wip.ncc.onl
+        run: |
+          getent hosts wip.ncc.onl || nslookup wip.ncc.onl
+      - name: HTTP(S) reachability to wip.ncc.onl
+        run: |
+          (curl -I --max-time 10 --fail https://wip.ncc.onl || curl -I --max-time 10 --fail http://wip.ncc.onl)
+
+      # ---------- Python: install client library and roundtrip test ----------
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python package (client)
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+      - name: Python roundtrip to wip.ncc.onl
+        env:
+          WEATHER_SERVER_HOST: wip.ncc.onl
+          WEATHER_SERVER_PORT: '4110'
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          from WIPClientPy import Client
+
+          host = os.getenv("WEATHER_SERVER_HOST", "wip.ncc.onl")
+          port = int(os.getenv("WEATHER_SERVER_PORT", "4110"))
+
+          def try_once():
+              c = Client(host=host, port=port, debug=False)
+              try:
+                  res = c.get_weather_by_area_code(130010, weather=True, temperature=True, precipitation_prob=True, proxy=True)
+                  assert isinstance(res, dict) and res, f"unexpected response: {res!r}"
+                  print("Python OK:", {k: res.get(k) for k in ("area_code","weather_code","temperature","precipitation_prob")})
+                  return True
+              finally:
+                  c.close()
+
+          for i in range(2):
+              if try_once():
+                  sys.exit(0)
+              time.sleep(1)
+          sys.exit(1)
+          PY
+
+      - name: Python direct test to Location Server (4109)
+        env:
+          LOCATION_RESOLVER_HOST: wip.ncc.onl
+          LOCATION_RESOLVER_PORT: '4109'
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          from WIPCommonPy.clients.location_client import LocationClient
+
+          host = os.getenv("LOCATION_RESOLVER_HOST", "wip.ncc.onl")
+          port = int(os.getenv("LOCATION_RESOLVER_PORT", "4109"))
+
+          def try_once():
+              c = LocationClient(host=host, port=port, debug=False)
+              try:
+                  area = c.get_area_code_simple(35.6812, 139.7671, use_cache=False)
+                  assert area, f"no area code from {host}:{port}"
+                  print("Location OK:", area)
+                  return True
+              finally:
+                  c.close()
+
+          for _ in range(2):
+              if try_once():
+                  sys.exit(0)
+              time.sleep(1)
+          sys.exit(1)
+          PY
+
+      - name: Python direct test to Query Server (4111)
+        env:
+          QUERY_GENERATOR_HOST: wip.ncc.onl
+          QUERY_GENERATOR_PORT: '4111'
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          from WIPCommonPy.clients.query_client import QueryClient
+
+          host = os.getenv("QUERY_GENERATOR_HOST", "wip.ncc.onl")
+          port = int(os.getenv("QUERY_GENERATOR_PORT", "4111"))
+
+          def try_once():
+              q = QueryClient(host=host, port=port, debug=False)
+              try:
+                  res = q.get_weather_data(130010, weather=True, temperature=True, precipitation_prob=True)
+                  assert isinstance(res, dict) and res and not res.get("error_code"), f"unexpected response: {res!r}"
+                  print("Query OK:", {k: res.get(k) for k in ("area_code","weather_code","temperature","precipitation_prob")})
+                  return True
+              finally:
+                  q.close()
+
+          for _ in range(2):
+              if try_once():
+                  sys.exit(0)
+              time.sleep(1)
+          sys.exit(1)
+          PY
+
+      # ---------- C++: roundtrip test to wip.ncc.onl ----------
+      - name: C++ roundtrip to wip.ncc.onl
+        run: |
+          set -e
+          exe=$(find build/cpp -type f -perm -111 -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' | head -n1)
+          echo "Using C++ roundtrip binary: $exe"
+          retry() {
+            "$exe" --host wip.ncc.onl --port 4110 --area 130010 && return 0
+            sleep 1
+            "$exe" --host wip.ncc.onl --port 4110 --area 130010
+          }
+          retry
+
+      - name: C++ direct test to Location Server (4109)
+        run: |
+          set -e
+          exe=$(find build/cpp -type f -perm -111 -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' | head -n1)
+          echo "Using C++ roundtrip binary: $exe"
+          retry() {
+            "$exe" --host wip.ncc.onl --port 4109 --coords 35.6812 139.7671 && return 0
+            sleep 1
+            "$exe" --host wip.ncc.onl --port 4109 --coords 35.6812 139.7671
+          }
+          retry
+
+      - name: C++ direct test to Query Server (4111)
+        run: |
+          set -e
+          exe=$(find build/cpp -type f -perm -111 -name 'wip_packet_roundtrip' -o -name 'wip_packet_roundtrip*' | head -n1)
+          echo "Using C++ roundtrip binary: $exe"
+          retry() {
+            "$exe" --host wip.ncc.onl --port 4111 --area 130010 && return 0
+            sleep 1
+            "$exe" --host wip.ncc.onl --port 4111 --area 130010
+          }
+          retry
+
+      # ---------- Rust: roundtrip test to wip.ncc.onl ----------
+      - name: Rust roundtrip to wip.ncc.onl
+        working-directory: Rust
+        run: |
+          set -e
+          retry() {
+            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation && return 0
+            sleep 1
+            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation
+          }
+          retry
+
+      - name: Rust direct test to Location Server (4109)
+        working-directory: Rust
+        run: |
+          set -e
+          retry() {
+            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose && return 0
+            sleep 1
+            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose
+          }
+          retry
+
   build-windows:
     runs-on: windows-latest
     defaults:
@@ -81,3 +245,177 @@ jobs:
           --skip error_response_bytes_conversion
           --skip response_from_bytes
           --skip test_report_request_to_bytes_checksum
+
+      # ---------- Connectivity check to wip.ncc.onl ----------
+      - name: DNS resolve wip.ncc.onl (Windows)
+        run: |
+          nslookup wip.ncc.onl
+      - name: HTTP(S) reachability to wip.ncc.onl (Windows)
+        run: |
+          (curl -I --max-time 10 --fail https://wip.ncc.onl || curl -I --max-time 10 --fail http://wip.ncc.onl)
+
+      # ---------- Python: install client library and roundtrip test ----------
+      - name: Setup Python (Windows)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python package (client) (Windows)
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+      - name: Python roundtrip to wip.ncc.onl (Windows)
+        env:
+          WEATHER_SERVER_HOST: wip.ncc.onl
+          WEATHER_SERVER_PORT: '4110'
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          from WIPClientPy import Client
+
+          host = os.getenv("WEATHER_SERVER_HOST", "wip.ncc.onl")
+          port = int(os.getenv("WEATHER_SERVER_PORT", "4110"))
+
+          def try_once():
+              c = Client(host=host, port=port, debug=False)
+              try:
+                  res = c.get_weather_by_area_code(130010, weather=True, temperature=True, precipitation_prob=True, proxy=True)
+                  assert isinstance(res, dict) and res, f"unexpected response: {res!r}"
+                  print("Python OK:", {k: res.get(k) for k in ("area_code","weather_code","temperature","precipitation_prob")})
+                  return True
+              finally:
+                  c.close()
+
+          for i in range(2):
+              if try_once():
+                  sys.exit(0)
+              time.sleep(1)
+          sys.exit(1)
+          PY
+
+      - name: Python direct test to Location Server (4109) (Windows)
+        env:
+          LOCATION_RESOLVER_HOST: wip.ncc.onl
+          LOCATION_RESOLVER_PORT: '4109'
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          from WIPCommonPy.clients.location_client import LocationClient
+
+          host = os.getenv("LOCATION_RESOLVER_HOST", "wip.ncc.onl")
+          port = int(os.getenv("LOCATION_RESOLVER_PORT", "4109"))
+
+          def try_once():
+              c = LocationClient(host=host, port=port, debug=False)
+              try:
+                  area = c.get_area_code_simple(35.6812, 139.7671, use_cache=False)
+                  assert area, f"no area code from {host}:{port}"
+                  print("Location OK:", area)
+                  return True
+              finally:
+                  c.close()
+
+          for _ in range(2):
+              if try_once():
+                  sys.exit(0)
+              time.sleep(1)
+          sys.exit(1)
+          PY
+
+      - name: Python direct test to Query Server (4111) (Windows)
+        env:
+          QUERY_GENERATOR_HOST: wip.ncc.onl
+          QUERY_GENERATOR_PORT: '4111'
+        run: |
+          python - <<'PY'
+          import os, sys, time
+          from WIPCommonPy.clients.query_client import QueryClient
+
+          host = os.getenv("QUERY_GENERATOR_HOST", "wip.ncc.onl")
+          port = int(os.getenv("QUERY_GENERATOR_PORT", "4111"))
+
+          def try_once():
+              q = QueryClient(host=host, port=port, debug=False)
+              try:
+                  res = q.get_weather_data(130010, weather=True, temperature=True, precipitation_prob=True)
+                  assert isinstance(res, dict) and res and not res.get("error_code"), f"unexpected response: {res!r}"
+                  print("Query OK:", {k: res.get(k) for k in ("area_code","weather_code","temperature","precipitation_prob")})
+                  return True
+              finally:
+                  q.close()
+
+          for _ in range(2):
+              if try_once():
+                  sys.exit(0)
+              time.sleep(1)
+          sys.exit(1)
+          PY
+
+      # ---------- C++: roundtrip test to wip.ncc.onl (Windows) ----------
+      - name: C++ roundtrip to wip.ncc.onl (Windows)
+        run: |
+          set -e
+          exe=$(find build/cpp -iname 'wip_packet_roundtrip*.exe' -type f | head -n1)
+          if [ -z "$exe" ]; then
+            # MSVC may place it under a config dir
+            exe=$(find build/cpp -type f -iname 'wip_packet_roundtrip.exe' | head -n1)
+          fi
+          echo "Using C++ roundtrip binary: $exe"
+          retry() {
+            "$exe" --host wip.ncc.onl --port 4110 --area 130010 && return 0
+            sleep 1
+            "$exe" --host wip.ncc.onl --port 4110 --area 130010
+          }
+          retry
+
+      - name: C++ direct test to Location Server (4109) (Windows)
+        run: |
+          set -e
+          exe=$(find build/cpp -iname 'wip_packet_roundtrip*.exe' -type f | head -n1)
+          if [ -z "$exe" ]; then
+            exe=$(find build/cpp -type f -iname 'wip_packet_roundtrip.exe' | head -n1)
+          fi
+          echo "Using C++ roundtrip binary: $exe"
+          retry() {
+            "$exe" --host wip.ncc.onl --port 4109 --coords 35.6812 139.7671 && return 0
+            sleep 1
+            "$exe" --host wip.ncc.onl --port 4109 --coords 35.6812 139.7671
+          }
+          retry
+
+      - name: C++ direct test to Query Server (4111) (Windows)
+        run: |
+          set -e
+          exe=$(find build/cpp -iname 'wip_packet_roundtrip*.exe' -type f | head -n1)
+          if [ -z "$exe" ]; then
+            exe=$(find build/cpp -type f -iname 'wip_packet_roundtrip.exe' | head -n1)
+          fi
+          echo "Using C++ roundtrip binary: $exe"
+          retry() {
+            "$exe" --host wip.ncc.onl --port 4111 --area 130010 && return 0
+            sleep 1
+            "$exe" --host wip.ncc.onl --port 4111 --area 130010
+          }
+          retry
+
+      # ---------- Rust: roundtrip test to wip.ncc.onl (Windows) ----------
+      - name: Rust roundtrip to wip.ncc.onl (Windows)
+        working-directory: Rust
+        run: |
+          set -e
+          retry() {
+            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation && return 0
+            sleep 1
+            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation
+          }
+          retry
+
+      - name: Rust direct test to Location Server (4109) (Windows)
+        working-directory: Rust
+        run: |
+          set -e
+          retry() {
+            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose && return 0
+            sleep 1
+            cargo run --quiet --bin wip-location -- resolve 35.6812 139.7671 --verbose
+          }
+          retry

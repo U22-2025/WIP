@@ -43,7 +43,7 @@ struct CoordinateResult {
 
 class LocationClient {
 public:
-  LocationClient(std::string host = "127.0.0.1", uint16_t port = 4109)
+  LocationClient(std::string host = "wip.ncc.onl", uint16_t port = 4109)
     : host_(std::move(host)), port_(port) {
         // Python互換のキャッシュファイルパス
         cache_file_path_ = std::filesystem::current_path() / "coordinate_cache.json";
@@ -208,7 +208,7 @@ public:
      * @brief 基本LocationClientを作成
      */
     static std::unique_ptr<LocationClient> create_basic(
-        const std::string& host = "127.0.0.1", 
+        const std::string& host = "wip.ncc.onl", 
         uint16_t port = 4109
     );
     
@@ -216,7 +216,7 @@ public:
      * @brief 高精度LocationClientを作成
      */
     static std::unique_ptr<LocationClient> create_high_precision(
-        const std::string& host = "127.0.0.1", 
+        const std::string& host = "wip.ncc.onl", 
         uint16_t port = 4109
     );
 };

@@ -92,7 +92,7 @@ enum Commands {
         service: String,
 
         /// サーバーホスト
-        #[arg(long, default_value = "127.0.0.1")]
+        #[arg(long, default_value = "wip.ncc.onl")]
         server_host: String,
     },
     /// 設定情報表示
@@ -419,7 +419,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let default_host = cli.host.unwrap_or_else(|| {
-        env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
+        env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string())
     });
 
     match cli.command {

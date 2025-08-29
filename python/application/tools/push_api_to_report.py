@@ -83,7 +83,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Push External Weather API data to ReportServer")
     parser.add_argument("--base-url", dest="base_url", default=os.getenv("WEATHER_API_BASE_URL", "http://localhost/api"), help="External Weather API base URL (default: env WEATHER_API_BASE_URL or http://localhost/api)")
-    parser.add_argument("--host", dest="report_host", default=os.getenv("REPORT_SERVER_HOST", "localhost"), help="ReportServer host (default: env REPORT_SERVER_HOST or localhost)")
+    parser.add_argument("--host", dest="report_host", default=os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl"), help="ReportServer host (default: env REPORT_SERVER_HOST or wip.ncc.onl)")
     parser.add_argument("--port", dest="report_port", type=int, default=int(os.getenv("REPORT_SERVER_PORT", "4112")), help="ReportServer port (default: env REPORT_SERVER_PORT or 4112)")
     parser.add_argument("--delay", dest="delay", type=float, default=float(os.getenv("PUSH_DELAY_SEC", "0.1")), help="Delay seconds between sends (default: 0.1)")
     parser.add_argument("--limit", dest="limit", type=int, default=0, help="Limit number of area codes to send (0=all)")

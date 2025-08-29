@@ -44,7 +44,7 @@ class ScheduledWeatherReporter:
     
     def __init__(self,
                  api_base_url: str = None,
-                 report_server_host: str = "localhost",
+                 report_server_host: str = "wip.ncc.onl",
                  report_server_port: int = 4112,
                  debug: bool = False,
                  area_codes_path: str = None):
@@ -331,7 +331,7 @@ def main():
     parser = argparse.ArgumentParser(description="天気/災害データ定期レポーター")
     parser.add_argument("--mode", choices=["schedule", "once"], default="schedule",
                        help="実行モード: schedule(定期実行) または once(一回限り)")
-    parser.add_argument("--host", default="localhost", 
+    parser.add_argument("--host", default="wip.ncc.onl", 
                        help="レポートサーバーホスト")
     parser.add_argument("--port", type=int, default=4112,
                        help="レポートサーバーポート") 

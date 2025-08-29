@@ -8,7 +8,7 @@ use wip_rust::wip_common_rs::clients::query_client::{QueryClient, QueryClientImp
 #[command(version = "0.1.0")]
 struct Cli {
     /// サーバーホスト
-    #[arg(short = 'H', long, default_value = "127.0.0.1")]
+    #[arg(short = 'H', long, default_value = "wip.ncc.onl")]
     host: String,
 
     /// サーバーポート
