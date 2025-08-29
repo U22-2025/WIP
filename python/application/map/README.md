@@ -321,10 +321,10 @@ app.run(debug=True)  # Flask版
 
 ## 🔗 関連リンク
 
-- **WIPプロトコル仕様**: `../../WIP仕様表.md`
-- **サーバーサイド**: `../../WIP_Server/`
-- **クライアントライブラリ**: `../../WIPClientPy/`
-- **パケット処理**: `../../common/packet/`
+- **WIPプロトコル仕様**: `../../../docs/WIP仕様表.md`
+- **サーバーサイド**: `../WIP_Server/`
+- **クライアントライブラリ**: `../../../src/WIPCommonPy/`
+- **パケット処理**: `../../../src/WIPCommonPy/packet/`
 
 ---
 

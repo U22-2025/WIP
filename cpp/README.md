@@ -48,11 +48,19 @@ print(f"Temperature: {weather['temperature']}°C")
 ```cpp
 #include "wiplib/client/weather_client.hpp"
 
-wiplib::client::WeatherClient client("localhost", 4110, true);
-client.set_coordinates(35.6895, 139.6917);
-auto weather = client.get_weather();
-if (weather.has_value()) {
-    std::cout << "Temperature: " << weather->temperature << "°C" << std::endl;
+// 環境変数から設定を取得または直接指定
+auto client = wiplib::client::WeatherClient::from_env(); // 環境変数使用
+// または
+// wiplib::client::WeatherClient client("localhost", 4110, true);
+
+wiplib::client::QueryOptions options;
+options.weather = true;
+options.temperature = true;
+options.precipitation_prob = true;
+
+auto result = client.get_weather_by_coordinates(35.6895, 139.6917, options);
+if (result.has_value()) {
+    std::cout << "Temperature: " << result->temperature.value_or(-999) << "°C" << std::endl;
 }
 ```
 
@@ -72,9 +80,9 @@ print(f"Area code: {area_code}")
 #include "wiplib/client/location_client.hpp"
 
 wiplib::client::LocationClient client("localhost", 4109, true);
-auto area_code = client.get_area_code(35.6895, 139.6917);
-if (area_code.has_value()) {
-    std::cout << "Area code: " << area_code.value() << std::endl;
+auto result = client.get_area_code(35.6895, 139.6917);
+if (result.has_value()) {
+    std::cout << "Area code: " << result.value() << std::endl;
 }
 ```
 
@@ -95,10 +103,18 @@ print(f"Weather: {data['weather']}, Temp: {data['temperature']}")
 
 wiplib::client::QueryClient client("localhost", 4111, true);
 wiplib::client::QueryOptions options;
+options.weather = true;
+options.temperature = true;
 options.day = 0;
-auto data = client.get_weather_data("130010", options);
-if (data.has_value()) {
-    std::cout << "Weather: " << data->weather << ", Temp: " << data->temperature << std::endl;
+
+auto result = client.get_weather_data(130010, options);
+if (result.has_value()) {
+    if (result->weather_code.has_value()) {
+        std::cout << "Weather: " << result->weather_code.value() << std::endl;
+    }
+    if (result->temperature.has_value()) {
+        std::cout << "Temperature: " << result->temperature.value() << "°C" << std::endl;
+    }
 }
 ```
 
@@ -124,19 +140,22 @@ print(f"Success: {response['success']}")
 **C++版:**
 ```cpp
 #include "wiplib/client/report_client.hpp"
+#include "wiplib/packet/report_packet.hpp"
 
 wiplib::client::ReportClient client("localhost", 4112, true);
-client.set_sensor_data(
-    "130010",           // area_code
-    100,               // weather_code
-    25.5,              // temperature
-    30,                // precipitation_prob
-    {"大雨警報"},        // alerts
-    {"地震情報"}         // disasters
-);
-auto response = client.send_report_data();
-if (response.has_value()) {
-    std::cout << "Success: " << response->success << std::endl;
+
+// レポートデータ構造体を作成
+wiplib::packet::ReportData data;
+data.area_code = 130010;
+data.weather_code = 100;
+data.temperature = 25.5f;
+data.precipitation_prob = 30;
+data.alerts = {"大雨警報"};
+data.disasters = {"地震情報"};
+
+auto result = client.send_report(data);
+if (result.has_value()) {
+    std::cout << "Success: " << (result->success ? "true" : "false") << std::endl;
 }
 ```
 
@@ -144,7 +163,7 @@ if (response.has_value()) {
 
 **Python版:**
 ```python
-from WIPClientPy import Client
+from WIPClientPy.client import Client
 
 client = Client(
     latitude=35.6895,
@@ -162,20 +181,30 @@ weather = client.get_weather()
 
 **C++版:**
 ```cpp
-#include "wiplib/client/client.hpp"
+#include "wiplib/client/wip_client.hpp"
 
-wiplib::client::Client client(
-    35.6895,        // latitude
-    139.6917,       // longitude
-    "130010",       // area_code
-    "localhost",    // weather_host
-    4110,          // weather_port
-    "localhost",    // location_host
-    4109,          // location_port
-    "localhost",    // query_host
-    4111           // query_port
+// 統合クライアント作成
+wiplib::client::WipClient client(
+    "localhost", 4110, // weather server
+    "localhost", 4109, // location server
+    "localhost", 4111, // query server
+    "localhost", 4112, // report server (optional)
+    true               // debug mode
 );
-auto weather = client.get_weather();
+
+// 座標設定
+client.set_coordinates(35.6895, 139.6917);
+client.set_area_code("130010");
+
+wiplib::client::QueryOptions options;
+options.weather = true;
+options.temperature = true;
+options.precipitation_prob = true;
+
+auto weather = client.get_weather(options);
+if (weather.has_value()) {
+    std::cout << "Temperature: " << weather->temperature.value_or(-999) << "°C" << std::endl;
+}
 ```
 
 ### 6. 非同期処理
@@ -193,14 +222,25 @@ async def get_weather_async():
 
 **C++版:**
 ```cpp
-#include "wiplib/client/client_async.hpp"
+#include "wiplib/client/async_weather_client.hpp"
+#include <future>
 
-wiplib::client::ClientAsync async_client("localhost", 4110);
-async_client.set_coordinates(35.6895, 139.6917);
+wiplib::client::AsyncWeatherClient async_client("localhost", 4110, true);
 
-// 非同期実行
-auto future = async_client.get_weather_async();
+// 非同期で天気データを取得
+wiplib::client::QueryOptions options;
+options.weather = true;
+options.temperature = true;
+
+// std::futureを使用した非同期実行
+auto future = std::async(std::launch::async, [&]() {
+    return async_client.get_weather_by_coordinates(35.6895, 139.6917, options);
+});
+
 auto weather = future.get();
+if (weather.has_value()) {
+    std::cout << "Temperature: " << weather->temperature.value_or(-999) << "°C" << std::endl;
+}
 ```
 
 ## CLI完全使用ガイド
@@ -288,22 +328,34 @@ export WIP_AUTH_LOCATION="your_location_password"
 ./build/wip_packet_gen --type location --area 130010 --coords 35.6895 139.6917
 ```
 
-**設定検証**
+**パケット分析**
 ```bash
-# 設定ファイル検証
-./build/wip_config_validator --config ./config/client.json
-```
+# パケットラウンドトリップテスト
+./build/wip_packet_roundtrip --area 130010 --weather --temperature
 
-**パフォーマンステスト**
-```bash
-# 性能テスト実行
-./build/wip_performance_test --host localhost --requests 1000 --threads 10
+# パケット生成とデバッグ
+./build/packet_encoding_debug --coords 35.6895 139.6917
 ```
 
 **モックサーバー**
 ```bash
 # テスト用Report Server起動
 ./build/mock_report_server --port 4112 --debug
+```
+
+**非同期クライアント**
+```bash
+# 非同期天気クライアント
+./build/async_weather_cli --host localhost --port 4110 --area 130010 --weather
+
+# 認証変数テスト
+./build/test_auth_vars
+```
+
+**レポートツール**
+```bash
+# レポートデバッグツール
+./build/report_debug_tool --area 130010 --temperature 25.5
 ```
 
 ## 全パケットタイプ対応
@@ -351,18 +403,29 @@ client.set_auth_config(auth);
 
 **C++版エラーハンドリング:**
 ```cpp
-auto result = client.get_weather();
+#include "wiplib/client/weather_client.hpp"
+#include "wiplib/expected.hpp"
+
+wiplib::client::WeatherClient client("localhost", 4110, true);
+wiplib::client::QueryOptions options;
+options.weather = true;
+options.temperature = true;
+
+auto result = client.get_weather_by_coordinates(35.6895, 139.6917, options);
 if (!result.has_value()) {
     std::cerr << "Weather request failed" << std::endl;
     return 1;
 }
 
-// または例外形式
-try {
-    auto weather = client.get_weather_or_throw();
-    std::cout << "Temperature: " << weather.temperature << std::endl;
-} catch (const std::exception& e) {
-    std::cerr << "Error: " << e.what() << std::endl;
+// よりC++らしい記述
+if (result) {
+    if (result->temperature) {
+        std::cout << "Temperature: " << result->temperature.value() << "°C" << std::endl;
+    } else {
+        std::cout << "Temperature data not available" << std::endl;
+    }
+} else {
+    std::cerr << "Failed to retrieve weather data" << std::endl;
 }
 ```
 

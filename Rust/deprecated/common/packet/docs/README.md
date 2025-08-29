@@ -17,7 +17,7 @@ WIPパケットは以下の特徴を持つ2層構造のプロトコルです：
 ### 基本的な使用方法
 
 ```python
-from common.packet import Format
+from WIPCommonPy.packet import Format
 from datetime import datetime
 
 # 基本パケットの作成
@@ -57,7 +57,7 @@ alert_packet = Format(
 ## 📁 モジュール構成
 
 ```
-common/packet/
+WIPCommonPy/packet/
 ├── __init__.py
 ├── core/
 │   ├── __init__.py
@@ -77,13 +77,10 @@ common/packet/
 │   ├── query_packet.py
 │   ├── report_packet.py
 │   └── error_response.py
-├── examples/
-│   └── example_usage.py
 └── docs/
     ├── README.md
     ├── PACKET_STRUCTURE.md
     └── HIERARCHY.md
-```
 ```
 
 ## 🔧 メインクラス
@@ -93,7 +90,7 @@ common/packet/
 メインのパケットフォーマットクラス。基本フィールドと拡張フィールドの両方をサポート。
 
 ```python
-from common.packet import Format
+from WIPCommonPy.packet import Format
 
 # 初期化
 packet = Format(
@@ -119,8 +116,8 @@ packet = Format(
 特定用途に最適化されたパケットクラス：
 
 ```python
-from common.packet import LocationRequest
-from common.packet import QueryRequest
+from WIPCommonPy.packet import LocationRequest
+from WIPCommonPy.packet import QueryRequest
 
 # 位置情報リクエスト
 location = LocationRequest.create_coordinate_lookup(
@@ -205,7 +202,7 @@ alerts = packet.ex_field.alert
 ### ビット操作
 
 ```python
-from common.packet.bit_utils import extract_bits, set_bits
+from WIPCommonPy.packet.core.bit_utils import extract_bits, set_bits
 
 # ビット抽出
 value = extract_bits(data, position=0, length=4)
@@ -219,8 +216,8 @@ result = set_bits(data, position=0, length=4, value=15)
 `format_spec/` 以下の JSON を更新した後は、以下のように再読み込みを行います。
 
 ```python
-from common.packet.core.format_base import FormatBase
-from common.packet.models.request import Request
+from WIPCommonPy.packet.core.format_base import FormatBase
+from WIPCommonPy.packet.models.request import Request
 
 FormatBase.reload_field_spec("custom_request_fields.json")
 Request.reload_request_spec()
@@ -233,8 +230,8 @@ Request.reload_request_spec()
 ## 🔍 Request/Response パターン
 
 ```python
-from common.packet import Request
-from common.packet import Response
+from WIPCommonPy.packet.models.request import Request
+from WIPCommonPy.packet.models.response import Response
 
 # リクエストパケット
 request = Request(
@@ -274,7 +271,7 @@ response = Response(
 
 ```bash
 # 使用例の確認
-python -m common.packet.examples.example_usage
+python -m WIPCommonPy.packet.examples.example_usage
 ```
 
 ## 📝 使用例とベストプラクティス
