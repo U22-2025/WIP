@@ -516,10 +516,8 @@ mod tests {
         packet.extend_from_slice(&base);
         packet.extend_from_slice(&ext);
 
-        // ヘッダ部（最初の16バイト）にチェックサムを埋め込む
-        let checksum = calc_checksum12(&packet);
-        let mut head_bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut packet[..16]);
-        head_bits[116..128].store(checksum);
+        // チェックサムを埋め込む（20バイトパケット全体を使用）
+        embed_checksum12_at(&mut packet, 116, 12);
 
         let resp = QueryResponse::from_bytes(&packet).unwrap();
         assert_eq!(resp.packet_id, 1);

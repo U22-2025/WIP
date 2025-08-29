@@ -37,25 +37,6 @@ mockall = "0.11"
 default = []
 redis-logging = ["redis"]
 
-[[example]]
-name = "client"
-path = "examples/client.rs"
-test = false
-
-[[example]]
-name = "structured_client"
-path = "examples/structured_client.rs"
-test = false
-
-[[example]]
-name = "packet_showcase"
-path = "examples/packet_showcase.rs"
-test = false
-
-[[example]]
-name = "unified_client"
-path = "examples/unified_client.rs"
-test = false
 
 
 # CLI binaries

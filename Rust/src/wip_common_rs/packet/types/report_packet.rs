@@ -441,7 +441,7 @@ mod tests {
         );
         let bytes = req.to_bytes();
         assert!(bytes.len() >= 20);
-        assert!(verify_checksum12(&bytes[..16], 116, 12));
+        assert!(verify_checksum12(&bytes, 116, 12));
         // Type should be 4
         let head_bits = BitSlice::<u8, Lsb0>::from_slice(&bytes[..16]);
         let ty: u8 = head_bits[16..19].load();
@@ -471,10 +471,9 @@ mod tests {
         let mut data = [0u8; 20];
         data.copy_from_slice(bits.as_raw_slice());
 
-        // Compute checksum for header at fixed position and embed
-        let checksum = calc_checksum12(&data[..16]);
-        let mut head_bits = BitSlice::<u8, Lsb0>::from_slice_mut(&mut data[..16]);
-        head_bits[116..128].store(checksum);
+        // Compute checksum for the complete packet and embed
+        use crate::wip_common_rs::packet::core::checksum::embed_checksum12_at;
+        embed_checksum12_at(&mut data, 116, 12);
 
         let resp = ReportResponse::from_bytes(&data).expect("parse");
         assert_eq!(resp.version, 1);

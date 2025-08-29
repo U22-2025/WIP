@@ -238,7 +238,7 @@ impl PythonPacketFormatAdapter {
     /// Rust版フィールド定義をPython版に変換
     pub fn convert_from_rust_field(rust_field: &PacketField) -> PythonFieldDefinition {
         let field_type = match rust_field.field_type {
-            FieldType::Int => "int",
+            FieldType::Int => "uint", // uintに統一
             FieldType::Float => "float",
             FieldType::String => "string",
             FieldType::Bool => "bool",
