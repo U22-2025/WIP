@@ -158,9 +158,6 @@ LOCATION_RESOLVER_PORT=4109
 QUERY_GENERATOR_HOST=wip.ncc.onl
 QUERY_GENERATOR_PORT=4111
 
-# データベース設定
-DATABASE_URL=postgresql://user:password@localhost/wip_db
-
 # Redis設定
 REDIS_HOST=localhost
 REDIS_PORT=6379
@@ -182,13 +179,6 @@ export WEATHER_SERVER_PORT=5000
 wip-weather get 11000 --weather
 ```
 
-KeyDB を使用してログを配信する場合は、以下の例のように Docker で起動できます。
-```bash
-docker run -d --name keydb -p 6380:6379 eqalpha/keydb
-# conf/keydb_log.conf を使う場合
-# docker run -d --name keydb -v $(pwd)/conf/keydb_log.conf:/etc/keydb/keydb.conf eqalpha/keydb keydb-server /etc/keydb/keydb.conf
-```
-RedisJSON モジュールは特に必要ありません。
 既定の接続先ホストは `wip.ncc.onl` です。ローカル検証時は `--host 127.0.0.1` などで上書きしてください。
 
 ## 使用方法
@@ -199,6 +189,9 @@ RedisJSON モジュールは特に必要ありません。
 ```bash
 # Windowsの場合
 start_servers.bat
+
+# Linux/macOSの場合
+./start_servers.sh
 
 # 手動で個別起動（Python ランチャー経由）
 python python/launch_server.py --weather
@@ -482,8 +475,8 @@ client = WeatherClient(debug=True)
 
 ### 自動データ更新
 ```bash
-# 気象データの定期更新スクリプト
-python src/WIPServerPy/scripts/update_weather_data.py
+# 気象データの定期更新スクリプト（自動実行）
+# サーバー起動時に自動的に開始されます
 ```
 
 ### キャッシュ管理

@@ -170,7 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 **Python版:**
 ```python
-from WIPClientPy import Client
+from WIPClientPy.client import Client
 
 client = Client(
     latitude=35.6895,

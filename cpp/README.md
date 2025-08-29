@@ -144,7 +144,7 @@ if (response.has_value()) {
 
 **Python版:**
 ```python
-from WIPClientPy import Client
+from WIPClientPy.client import Client
 
 client = Client(
     latitude=35.6895,
