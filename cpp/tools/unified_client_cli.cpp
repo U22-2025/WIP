@@ -28,7 +28,8 @@ struct Args {
     bool temperature = true;
     bool precipitation = true;
     bool alerts = false;
-    bool disaster = false;
+    // Default to include disaster info automatically
+    bool disaster = true;
     uint8_t day = 0;
     
     // レポート送信用
@@ -71,7 +72,7 @@ WEATHER MODE OPTIONS:
   --precipitation       Include precipitation (default: on)
   --no-precipitation    Exclude precipitation
   --alerts              Include alerts (default: off)
-  --disaster            Include disaster info (default: off)
+  --disaster            Include disaster info (default: on)
   --day <0-7>           Day offset (default: 0)
 
 REPORT MODE OPTIONS:
