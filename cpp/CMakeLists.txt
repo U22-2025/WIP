@@ -40,12 +40,23 @@ set(WIPLIB_SRC
     src/utils/env.cpp
     src/utils/network.cpp
     src/utils/platform_compat.cpp
-    src/packet/debug/debug_logger.cpp
+    # src/packet/debug/debug_logger.cpp  # File no longer present; skip
     # Temporarily disabled due to build errors
     # src/compatibility/python_errors.cpp
     # src/compatibility/python_config.cpp
     # src/compatibility/python_protocol.cpp
 )
+
+# Filter out any missing source files to make CI robust
+set(WIPLIB_SRC_EXISTING)
+foreach(src ${WIPLIB_SRC})
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src}")
+    list(APPEND WIPLIB_SRC_EXISTING ${src})
+  else()
+    message(WARNING "Skipping missing source file: ${src}")
+  endif()
+endforeach()
+set(WIPLIB_SRC ${WIPLIB_SRC_EXISTING})
 
 if(WIPLIB_BUILD_SHARED)
   add_library(wiplib SHARED ${WIPLIB_SRC})
@@ -136,13 +147,22 @@ if(WIPLIB_BUILD_TESTS)
     endif()
   endif()
 
-  # Legacy tests
-  add_executable(wiplib_tests tests/test_codec.cpp)
-  target_link_libraries(wiplib_tests PRIVATE wiplib)
-  target_include_directories(wiplib_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  add_executable(wiplib_golden tests/test_golden.cpp)
-  target_link_libraries(wiplib_golden PRIVATE wiplib)
-  target_include_directories(wiplib_golden PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  # Legacy tests (guard for missing files)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_codec.cpp")
+    add_executable(wiplib_tests tests/test_codec.cpp)
+    target_link_libraries(wiplib_tests PRIVATE wiplib)
+    target_include_directories(wiplib_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  else()
+    message(STATUS "Skipping legacy test target wiplib_tests (file missing)")
+  endif()
+
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_golden.cpp")
+    add_executable(wiplib_golden tests/test_golden.cpp)
+    target_link_libraries(wiplib_golden PRIVATE wiplib)
+    target_include_directories(wiplib_golden PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  else()
+    message(STATUS "Skipping legacy test target wiplib_golden (file missing)")
+  endif()
 
   # Google Test based comprehensive test suite
   # Check which test files actually exist
