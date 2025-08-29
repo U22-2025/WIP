@@ -188,10 +188,15 @@ jobs:
         working-directory: Rust
         run: |
           set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
           retry() {
-            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation && return 0
+            cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 get 130010 --weather --temperature --precipitation && return 0
             sleep 1
-            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation
+            cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 get 130010 --weather --temperature --precipitation
           }
           retry
 
@@ -199,10 +204,15 @@ jobs:
         working-directory: Rust
         run: |
           set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
           retry() {
-            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose && return 0
+            cargo run --quiet --bin wip-location -- -H "$HOST_IP" -p 4109 resolve 35.6812 139.7671 --verbose && return 0
             sleep 1
-            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose
+            cargo run --quiet --bin wip-location -- -H "$HOST_IP" -p 4109 resolve 35.6812 139.7671 --verbose
           }
           retry
 
@@ -402,10 +412,15 @@ jobs:
         working-directory: Rust
         run: |
           set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
           retry() {
-            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation && return 0
+            cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 get 130010 --weather --temperature --precipitation && return 0
             sleep 1
-            cargo run --quiet --bin wip-weather -- -H wip.ncc.onl -p 4110 get 130010 --weather --temperature --precipitation
+            cargo run --quiet --bin wip-weather -- -H "$HOST_IP" -p 4110 get 130010 --weather --temperature --precipitation
           }
           retry
 
@@ -413,9 +428,14 @@ jobs:
         working-directory: Rust
         run: |
           set -e
+          HOST_IP=$(python - <<'PY'
+          import socket
+          print(socket.gethostbyname('wip.ncc.onl'))
+          PY
+          )
           retry() {
-            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose && return 0
+            cargo run --quiet --bin wip-location -- -H "$HOST_IP" -p 4109 resolve 35.6812 139.7671 --verbose && return 0
             sleep 1
-            cargo run --quiet --bin wip-location -- -H wip.ncc.onl -p 4109 resolve 35.6812 139.7671 --verbose
+            cargo run --quiet --bin wip-location -- -H "$HOST_IP" -p 4109 resolve 35.6812 139.7671 --verbose
           }
           retry
