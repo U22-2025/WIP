@@ -37,7 +37,7 @@ QueryClient QueryClient::from_env(bool debug) {
 std::string QueryClient::default_host() {
   (void)wiplib::utils::load_dotenv(".env", false, 3);
   if (const char* h = std::getenv("QUERY_GENERATOR_HOST")) return h;
-  return "127.0.0.1";
+  return "wip.ncc.onl";
 }
 
 uint16_t QueryClient::default_port() {

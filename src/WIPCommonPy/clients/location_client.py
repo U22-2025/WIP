@@ -49,7 +49,7 @@ class LocationClient:
         config = ConfigLoader(config_path)
 
         if host is None:
-            host = os.getenv("LOCATION_RESOLVER_HOST", "localhost")
+            host = os.getenv("LOCATION_RESOLVER_HOST", "wip.ncc.onl")
         if port is None:
             port = int(os.getenv("LOCATION_RESOLVER_PORT", "4109"))
         if cache_enabled is None:

@@ -143,9 +143,9 @@ impl WeatherClientAsync {
     }
 
     pub async fn with_config(host: &str, port: u16, config: ClientConfig) -> tokio::io::Result<Self> {
-        // localhostを127.0.0.1に解決
+        // localhostをwip.ncc.onlに解決
         let resolved_host = if host == "localhost" {
-            "127.0.0.1"
+            "wip.ncc.onl"
         } else {
             host
         };

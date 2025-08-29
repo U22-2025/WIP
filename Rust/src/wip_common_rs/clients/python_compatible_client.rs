@@ -34,7 +34,7 @@ impl PythonCompatibleWeatherClient {
     /// def __init__(self, host=None, port=None, debug=False):
     /// ```
     pub fn new(host: Option<&str>, port: Option<u16>, debug: Option<bool>) -> std::io::Result<Self> {
-        let default_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("WEATHER_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("WEATHER_SERVER_PORT")
@@ -220,7 +220,7 @@ impl PythonCompatibleWeatherClient {
         disaster: Option<bool>,
         day: Option<u8>,
     ) -> Result<HashMap<String, serde_json::Value>, String> {
-        let host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let port = env::var("LOCATION_RESOLVER_PORT")
             .unwrap_or_else(|_| "4109".to_string())
             .parse()
@@ -303,7 +303,7 @@ impl PythonCompatibleLocationClient {
     ) -> std::io::Result<Self> {
         let _config = config_path.map(|_path| ConfigLoader::new());
         
-        let default_host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("LOCATION_RESOLVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("LOCATION_RESOLVER_PORT")
@@ -405,7 +405,7 @@ pub struct PythonCompatibleQueryClient {
 impl PythonCompatibleQueryClient {
     /// Python版と同一のコンストラクタ
     pub async fn new(host: Option<&str>, port: Option<u16>, debug: Option<bool>) -> std::io::Result<Self> {
-        let default_host = env::var("QUERY_SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("QUERY_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("QUERY_SERVER_PORT")
@@ -496,7 +496,7 @@ pub struct PythonCompatibleReportClient {
 impl PythonCompatibleReportClient {
     /// Python版と同一のコンストラクタ
     pub async fn new(host: Option<&str>, port: Option<u16>, debug: Option<bool>) -> std::io::Result<Self> {
-        let default_host = env::var("REPORT_SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let default_host = env::var("REPORT_SERVER_HOST").unwrap_or_else(|_| "wip.ncc.onl".to_string());
         let host = host.unwrap_or(&default_host);
         let port = port.unwrap_or_else(|| {
             env::var("REPORT_SERVER_PORT")

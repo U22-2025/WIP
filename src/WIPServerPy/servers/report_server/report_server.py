@@ -462,22 +462,32 @@ class ReportServer(BaseServer):
                 return
 
             # 既存データを取得してマージ
-            existing = rm.get_weather_data(area_code) or {
-                "area_name": "",
-                "weather": [],
-                "temperature": [],
-                "precipitation_prob": [],
-            }
+            existing = rm.get_weather_data(area_code)
+            if existing is None:
+                # 新規キーの場合は7要素の空配列で初期化
+                existing = rm._create_default_weather_data()
+                existing["area_name"] = ""
 
             new_data = existing.copy()
 
-            # 単一値（現在値）の場合はスカラで保持。QueryServer側はlist/スカラ両対応。
+            # dayインデックスを取得（リクエストからdayフィールドを取得）
+            day_index = getattr(request, 'day', 0)
+            if day_index < 0 or day_index >= 7:
+                day_index = 0  # 範囲外の場合は0日目に格納
+
+            # 7要素配列の指定された位置に格納
             if "weather_code" in sensor_data:
-                new_data["weather"] = sensor_data["weather_code"]
+                if not isinstance(new_data["weather"], list):
+                    new_data["weather"] = [None] * 7
+                new_data["weather"][day_index] = sensor_data["weather_code"]
             if "temperature" in sensor_data:
-                new_data["temperature"] = sensor_data["temperature"]
+                if not isinstance(new_data["temperature"], list):
+                    new_data["temperature"] = [None] * 7
+                new_data["temperature"][day_index] = sensor_data["temperature"]
             if "precipitation_prob" in sensor_data:
-                new_data["precipitation_prob"] = sensor_data["precipitation_prob"]
+                if not isinstance(new_data["precipitation_prob"], list):
+                    new_data["precipitation_prob"] = [None] * 7
+                new_data["precipitation_prob"][day_index] = sensor_data["precipitation_prob"]
 
             # 警報・災害は配列をマージ（重複除去）
             if "alert" in sensor_data:
