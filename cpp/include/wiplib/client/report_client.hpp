@@ -12,7 +12,6 @@
 #include "wiplib/expected.hpp"
 #include "wiplib/error.hpp"
 #include "wiplib/packet/report_packet_compat.hpp"
-#include "wiplib/packet/debug/debug_logger.hpp"
 #include "wiplib/utils/network.hpp"
 
 namespace wiplib::client {
