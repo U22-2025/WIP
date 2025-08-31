@@ -13,6 +13,15 @@ from WIPServerPy.data.redis_manager import create_redis_manager, WeatherRedisMan
 
 
 # JSON_DIRの定義を削除（logs/jsonフォルダは使用しない）
+
+
+def pad_list(lst, length=7):
+    """リストが指定した長さになるまでNoneで埋める"""
+    while len(lst) < length:
+        lst.append(None)
+    return lst
+
+
 def get_data(area_codes: list, debug=False, save_to_redis=False):
     output = {"weather_reportdatetime": {}}
     output_lock = threading.Lock()
@@ -177,9 +186,11 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 if temp_avg is not None and temp_avg != "":
                     temps.append(str(temp_avg))
                 else:
-                    temps.append("")
-                temps += temps_max[-6:] if temps_max else [""] * 6
-                temps = temps[:7]
+                    temps.append(None)
+                temps += [
+                    t if t != "" else None
+                    for t in (temps_max[-6:] if temps_max else [None] * 6)
+                ]
 
                 if debug:
                     print(f"エリア {area_name}({code}) の気温データ: {temps}")
@@ -198,6 +209,9 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                                     add_pop = sub_area.get("pops", [])
                                     pop += add_pop[len(pop) : week_days]
                                 break
+                weather_codes = pad_list(weather_codes)[:7]
+                pop = pad_list(pop)[:7]
+                temps = pad_list(temps)[:7]
                 area_data = {
                     "parent_code": parent_code,
                     "area_name": area_name,
