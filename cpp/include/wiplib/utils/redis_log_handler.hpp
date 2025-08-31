@@ -338,7 +338,7 @@ private:
     std::atomic<bool> async_enabled_{false};
     std::vector<std::unique_ptr<std::thread>> worker_threads_;
     std::queue<QueuedLogEntry> log_queue_;
-    std::mutex queue_mutex_;
+    mutable std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
     std::atomic<bool> running_{true};
     

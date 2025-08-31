@@ -45,11 +45,12 @@ set(WIPLIB_SRC
     src/utils/env.cpp
     src/utils/network.cpp
     src/utils/platform_compat.cpp
-    src/utils/redis_log_handler.cpp
     src/packet/debug/debug_logger.cpp
-    src/compatibility/python_errors.cpp
-    src/compatibility/python_config.cpp
-    src/compatibility/python_protocol.cpp
+    # Temporarily disabled due to build errors
+    # src/utils/redis_log_handler.cpp
+    # src/compatibility/python_errors.cpp
+    # src/compatibility/python_config.cpp
+    # src/compatibility/python_protocol.cpp
 )
 
 if(WIPLIB_BUILD_SHARED)
@@ -173,18 +174,18 @@ add_executable(async_weather_cli tools/async_weather_cli.cpp)
 target_link_libraries(async_weather_cli PRIVATE wiplib)
 target_include_directories(async_weather_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Additional tools
-add_executable(wip_packet_analyzer tools/wip_packet_analyzer.cpp)
-target_link_libraries(wip_packet_analyzer PRIVATE wiplib)
-target_include_directories(wip_packet_analyzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Additional tools (temporarily disabled due to Python compatibility dependencies)
+# add_executable(wip_packet_analyzer tools/wip_packet_analyzer.cpp)
+# target_link_libraries(wip_packet_analyzer PRIVATE wiplib)
+# target_include_directories(wip_packet_analyzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(wip_config_validator tools/wip_config_validator.cpp)
-target_link_libraries(wip_config_validator PRIVATE wiplib)
-target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# add_executable(wip_config_validator tools/wip_config_validator.cpp)
+# target_link_libraries(wip_config_validator PRIVATE wiplib)
+# target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(wip_performance_test tools/wip_performance_test.cpp)
-target_link_libraries(wip_performance_test PRIVATE wiplib)
-target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# add_executable(wip_performance_test tools/wip_performance_test.cpp)
+# target_link_libraries(wip_performance_test PRIVATE wiplib)
+# target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(packet_encoding_debug tools/packet_encoding_debug.cpp)
 target_link_libraries(packet_encoding_debug PRIVATE wiplib)

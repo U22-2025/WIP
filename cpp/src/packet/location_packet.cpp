@@ -4,6 +4,7 @@
 #include "wiplib/packet/extended_field.hpp"
 #include <cmath>
 #include <algorithm>
+#include <ctime>
 
 namespace wiplib::packet {
 
@@ -14,7 +15,7 @@ LocationRequest LocationRequest::create(uint16_t packet_id, float latitude, floa
     request.header.version = 1;
     request.header.packet_id = packet_id;
     request.header.type = proto::PacketType::CoordinateRequest;
-    request.header.flags = 0;
+    request.header.flags = proto::Flags{};
     request.header.day = 0;
     request.header.timestamp = std::time(nullptr);
     request.header.area_code = 0; // リクエスト時は未設定
@@ -39,7 +40,7 @@ std::optional<LocationRequest> LocationRequest::decode(std::span<const uint8_t> 
         request.header.version = extract_bits(data, 0, 4);
         request.header.packet_id = extract_bits(data, 4, 12);
         request.header.type = static_cast<proto::PacketType>(extract_bits(data, 16, 3));
-        request.header.flags = extract_bits(data, 19, 8);
+        request.header.flags = proto::Flags::from_byte(extract_bits(data, 19, 8));
         request.header.day = extract_bits(data, 27, 3);
         
         uint64_t timestamp = extract_bits(data, 32, 64);
@@ -81,7 +82,7 @@ std::vector<uint8_t> LocationRequest::encode() const {
     set_bits(data, 0, 4, header.version);
     set_bits(data, 4, 12, header.packet_id);
     set_bits(data, 16, 3, static_cast<uint64_t>(header.type));
-    set_bits(data, 19, 8, header.flags);
+    set_bits(data, 19, 8, header.flags.to_byte());
     set_bits(data, 27, 3, header.day);
     set_bits(data, 32, 64, header.timestamp);
     set_bits(data, 96, 20, header.area_code);
@@ -123,7 +124,7 @@ LocationResponse LocationResponse::create(uint16_t request_packet_id, uint32_t a
     response.header.version = 1;
     response.header.packet_id = request_packet_id; // レスポンスは同じパケットIDを使用
     response.header.type = proto::PacketType::CoordinateResponse;
-    response.header.flags = 0;
+    response.header.flags = proto::Flags{};
     response.header.day = 0;
     response.header.timestamp = std::time(nullptr);
     response.header.area_code = area_code;
@@ -153,7 +154,7 @@ std::optional<LocationResponse> LocationResponse::decode(std::span<const uint8_t
         response.header.version = extract_bits(data, 0, 4);
         response.header.packet_id = extract_bits(data, 4, 12);
         response.header.type = static_cast<proto::PacketType>(extract_bits(data, 16, 3));
-        response.header.flags = extract_bits(data, 19, 8);
+        response.header.flags = proto::Flags::from_byte(extract_bits(data, 19, 8));
         response.header.day = extract_bits(data, 27, 3);
         
         uint64_t timestamp = extract_bits(data, 32, 64);
@@ -203,7 +204,7 @@ std::vector<uint8_t> LocationResponse::encode() const {
     set_bits(data, 0, 4, header.version);
     set_bits(data, 4, 12, header.packet_id);
     set_bits(data, 16, 3, static_cast<uint64_t>(header.type));
-    set_bits(data, 19, 8, header.flags);
+    set_bits(data, 19, 8, header.flags.to_byte());
     set_bits(data, 27, 3, header.day);
     set_bits(data, 32, 64, header.timestamp);
     set_bits(data, 96, 20, header.area_code);

@@ -4,6 +4,7 @@
 #include <sstream>
 #include <cstring>
 #include <algorithm>
+#include <ctime>
 
 namespace wiplib::packet {
 
@@ -15,7 +16,8 @@ ErrorResponse ErrorResponse::create(uint16_t request_packet_id, ErrorCode error_
     response.header.version = 1;
     response.header.packet_id = request_packet_id;
     response.header.type = proto::PacketType::ErrorResponse;
-    response.header.flags = message.empty() ? 0 : 1; // メッセージ有無をフラグで表現
+    response.header.flags = proto::Flags{};
+    response.header.flags.extended = !message.empty(); // メッセージ有無をフラグで表現
     response.header.day = 0;
     response.header.timestamp = std::time(nullptr);
     response.header.area_code = 0; // エラーレスポンスではエリアコードは未使用
@@ -54,7 +56,7 @@ std::optional<ErrorResponse> ErrorResponse::decode(std::span<const uint8_t> data
         response.header.version = extract_bits(data, 0, 4);
         response.header.packet_id = extract_bits(data, 4, 12);
         response.header.type = static_cast<proto::PacketType>(extract_bits(data, 16, 3));
-        response.header.flags = extract_bits(data, 19, 8);
+        response.header.flags = proto::Flags::from_byte(extract_bits(data, 19, 8));
         response.header.day = extract_bits(data, 27, 3);
         
         uint64_t timestamp = extract_bits(data, 32, 64);
@@ -130,7 +132,7 @@ std::vector<uint8_t> ErrorResponse::encode() const {
     set_bits(data, 0, 4, header.version);
     set_bits(data, 4, 12, header.packet_id);
     set_bits(data, 16, 3, static_cast<uint64_t>(header.type));
-    set_bits(data, 19, 8, header.flags);
+    set_bits(data, 19, 8, header.flags.to_byte());
     set_bits(data, 27, 3, header.day);
     set_bits(data, 32, 64, header.timestamp);
     set_bits(data, 96, 20, header.area_code);

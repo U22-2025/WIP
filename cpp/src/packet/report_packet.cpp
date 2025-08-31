@@ -5,6 +5,7 @@
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include <ctime>
 
 namespace wiplib::packet {
 
@@ -15,8 +16,9 @@ ReportRequest ReportRequest::create(uint16_t packet_id, const SensorData& sensor
     // ヘッダー設定
     request.header.version = 1;
     request.header.packet_id = packet_id;
-    request.header.type = proto::PacketType::DataReport;
-    request.header.flags = binary_data.empty() ? 0 : 1; // バイナリデータ有無をフラグで表現
+    request.header.type = proto::PacketType::ReportRequest;
+    request.header.flags = proto::Flags{};
+    request.header.flags.extended = !binary_data.empty(); // バイナリデータ有無をフラグで表現
     request.header.day = 0;
     request.header.timestamp = sensor_data.measurement_time ? sensor_data.measurement_time : std::time(nullptr);
     request.header.area_code = sensor_data.area_code;
@@ -44,7 +46,7 @@ std::optional<ReportRequest> ReportRequest::decode(std::span<const uint8_t> data
         request.header.version = extract_bits(data, 0, 4);
         request.header.packet_id = extract_bits(data, 4, 12);
         request.header.type = static_cast<proto::PacketType>(extract_bits(data, 16, 3));
-        request.header.flags = extract_bits(data, 19, 8);
+        request.header.flags = proto::Flags::from_byte(extract_bits(data, 19, 8));
         request.header.day = extract_bits(data, 27, 3);
         
         uint64_t timestamp = extract_bits(data, 32, 64);
@@ -105,7 +107,7 @@ std::vector<uint8_t> ReportRequest::encode() const {
     set_bits(data, 0, 4, header.version);
     set_bits(data, 4, 12, header.packet_id);
     set_bits(data, 16, 3, static_cast<uint64_t>(header.type));
-    set_bits(data, 19, 8, header.flags);
+    set_bits(data, 19, 8, header.flags.to_byte());
     set_bits(data, 27, 3, header.day);
     set_bits(data, 32, 64, header.timestamp);
     set_bits(data, 96, 20, header.area_code);
@@ -140,7 +142,7 @@ std::vector<uint8_t> ReportRequest::encode() const {
 
 bool ReportRequest::validate() const {
     // パケットタイプチェック
-    if (header.type != proto::PacketType::DataReport) {
+    if (header.type != proto::PacketType::ReportRequest) {
         return false;
     }
     
@@ -164,7 +166,7 @@ bool ReportRequest::validate() const {
     
     // タイムスタンプ妥当性チェック（過去100年以内）
     uint64_t current_time = std::time(nullptr);
-    uint64_t min_time = current_time - (100 * 365 * 24 * 3600); // 100年前
+    uint64_t min_time = current_time - (100ULL * 365 * 24 * 3600); // 100年前
     uint64_t max_time = current_time + (24 * 3600); // 1日先まで許可
     
     if (sensor_data.measurement_time < min_time || sensor_data.measurement_time > max_time) {
@@ -206,8 +208,9 @@ ReportResponse ReportResponse::create(uint16_t request_packet_id, uint8_t status
     // ヘッダー設定
     response.header.version = 1;
     response.header.packet_id = request_packet_id;
-    response.header.type = proto::PacketType::DataResponse;
-    response.header.flags = message.empty() ? 0 : 1; // メッセージ有無をフラグで表現
+    response.header.type = proto::PacketType::ReportResponse;
+    response.header.flags = proto::Flags{};
+    response.header.flags.extended = !message.empty(); // メッセージ有無をフラグで表現
     response.header.day = 0;
     response.header.timestamp = std::time(nullptr);
     response.header.area_code = 0; // レスポンスではエリアコードは未使用
@@ -238,7 +241,7 @@ std::optional<ReportResponse> ReportResponse::decode(std::span<const uint8_t> da
         response.header.version = extract_bits(data, 0, 4);
         response.header.packet_id = extract_bits(data, 4, 12);
         response.header.type = static_cast<proto::PacketType>(extract_bits(data, 16, 3));
-        response.header.flags = extract_bits(data, 19, 8);
+        response.header.flags = proto::Flags::from_byte(extract_bits(data, 19, 8));
         response.header.day = extract_bits(data, 27, 3);
         
         uint64_t timestamp = extract_bits(data, 32, 64);
@@ -288,7 +291,7 @@ std::vector<uint8_t> ReportResponse::encode() const {
     set_bits(data, 0, 4, header.version);
     set_bits(data, 4, 12, header.packet_id);
     set_bits(data, 16, 3, static_cast<uint64_t>(header.type));
-    set_bits(data, 19, 8, header.flags);
+    set_bits(data, 19, 8, header.flags.to_byte());
     set_bits(data, 27, 3, header.day);
     set_bits(data, 32, 64, header.timestamp);
     set_bits(data, 96, 20, header.area_code);
@@ -318,7 +321,7 @@ std::vector<uint8_t> ReportResponse::encode() const {
 
 bool ReportResponse::validate() const {
     // パケットタイプチェック
-    if (header.type != proto::PacketType::DataResponse) {
+    if (header.type != proto::PacketType::ReportResponse) {
         return false;
     }
     

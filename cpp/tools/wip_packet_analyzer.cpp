@@ -16,10 +16,8 @@
 
 #include "wiplib/packet/codec.hpp"
 #include "wiplib/packet/checksum.hpp"
-#include "wiplib/compatibility/python_protocol.hpp"
 
 using namespace wiplib::proto;
-using namespace wiplib::compatibility;
 
 class PacketAnalyzer {
 public:
@@ -148,7 +146,7 @@ public:
         out << "フラグ:\n";
         out << "  天気: " << (header.flags.weather ? "有効" : "無効") << "\n";
         out << "  気温: " << (header.flags.temperature ? "有効" : "無効") << "\n";
-        out << "  降水確率: " << (header.flags.precipitation_prob ? "有効" : "無効") << "\n";
+        out << "  降水: " << (header.flags.precipitation ? "有効" : "無効") << "\n";
         out << "  警報: " << (header.flags.alert ? "有効" : "無効") << "\n";
         out << "  災害情報: " << (header.flags.disaster ? "有効" : "無効") << "\n";
 
@@ -297,7 +295,7 @@ public:
                 out << "    \"flags\": {\n";
                 out << "      \"weather\": " << (header.flags.weather ? "true" : "false") << ",\n";
                 out << "      \"temperature\": " << (header.flags.temperature ? "true" : "false") << ",\n";
-                out << "      \"precipitation_prob\": " << (header.flags.precipitation_prob ? "true" : "false") << ",\n";
+                out << "      \"precipitation\": " << (header.flags.precipitation ? "true" : "false") << ",\n";
                 out << "      \"alert\": " << (header.flags.alert ? "true" : "false") << ",\n";
                 out << "      \"disaster\": " << (header.flags.disaster ? "true" : "false") << "\n";
                 out << "    },\n";
