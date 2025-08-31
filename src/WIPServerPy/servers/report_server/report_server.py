@@ -122,12 +122,8 @@ class ReportServer(BaseServer):
             self.forward_enabled = self.config.getboolean(
                 "forwarding", "enable_client_forward", False
             )
-            self.forward_host = self.config.get(
-                "forwarding", "forward_host", ""
-            )
-            self.forward_port = self.config.getint(
-                "forwarding", "forward_port", 0
-            )
+            self.forward_host = self.config.get("forwarding", "forward_host", "")
+            self.forward_port = self.config.getint("forwarding", "forward_port", 0)
             self.forward_async = self.config.getboolean(
                 "forwarding", "forward_async", True
             )
@@ -428,6 +424,18 @@ class ReportServer(BaseServer):
 
     # _log_report_data method removed
 
+    def _ensure_weekly_lists(self, data):
+        """weather・temperature・precipitation_prob の配列長を7に揃える"""
+        for key in ("weather", "temperature", "precipitation_prob"):
+            items = data.get(key)
+            if not isinstance(items, list):
+                items = []
+            if len(items) < 7:
+                items.extend([None] * (7 - len(items)))
+            elif len(items) > 7:
+                items = items[:7]
+            data[key] = items
+
     def _save_to_database(self, request, sensor_data, source_addr=None):
         """Redisに直接保存（QueryServer参照用のDB）。"""
         try:
@@ -469,37 +477,36 @@ class ReportServer(BaseServer):
                 existing["area_name"] = ""
 
             new_data = existing.copy()
+            self._ensure_weekly_lists(new_data)
 
             # dayインデックスを取得（リクエストからdayフィールドを取得）
-            day_index = getattr(request, 'day', 0)
+            day_index = getattr(request, "day", 0)
             if day_index < 0 or day_index >= 7:
                 day_index = 0  # 範囲外の場合は0日目に格納
 
             # 7要素配列の指定された位置に格納
             if "weather_code" in sensor_data:
-                if not isinstance(new_data["weather"], list):
-                    new_data["weather"] = [None] * 7
                 new_data["weather"][day_index] = sensor_data["weather_code"]
             if "temperature" in sensor_data:
-                if not isinstance(new_data["temperature"], list):
-                    new_data["temperature"] = [None] * 7
                 new_data["temperature"][day_index] = sensor_data["temperature"]
             if "precipitation_prob" in sensor_data:
-                if not isinstance(new_data["precipitation_prob"], list):
-                    new_data["precipitation_prob"] = [None] * 7
-                new_data["precipitation_prob"][day_index] = sensor_data["precipitation_prob"]
+                new_data["precipitation_prob"][day_index] = sensor_data[
+                    "precipitation_prob"
+                ]
 
             # 警報・災害は配列をマージ（重複除去）
             if "alert" in sensor_data:
                 alert_data = sensor_data.get("alert")
                 if isinstance(alert_data, str):
                     # 文字列の場合はカンマ区切りでリストに変換
-                    alerts = [item.strip() for item in alert_data.split(",") if item.strip()]
+                    alerts = [
+                        item.strip() for item in alert_data.split(",") if item.strip()
+                    ]
                 elif isinstance(alert_data, list):
                     alerts = alert_data
                 else:
                     alerts = []
-                
+
                 # 重複除去
                 alerts = list(dict.fromkeys(alerts))
                 if alerts:
@@ -508,29 +515,38 @@ class ReportServer(BaseServer):
                 disaster_data = sensor_data.get("disaster")
                 if isinstance(disaster_data, str):
                     # 文字列の場合はカンマ区切りでリストに変換
-                    disasters = [item.strip() for item in disaster_data.split(",") if item.strip()]
+                    disasters = [
+                        item.strip()
+                        for item in disaster_data.split(",")
+                        if item.strip()
+                    ]
                 elif isinstance(disaster_data, list):
                     disasters = disaster_data
                 else:
                     disasters = []
-                
+
                 # 重複除去
                 disasters = list(dict.fromkeys(disasters))
                 if disasters:
                     new_data["disaster"] = disasters
 
+            # データの長さを再調整して7日分を維持
+            self._ensure_weekly_lists(new_data)
+
             rm.update_weather_data(area_code, new_data)
-            
+
             # タイムスタンプを更新（レポートクライアント経由）
             current_time = datetime.now().isoformat()
             rm.update_timestamp(area_code, current_time, "report_client")
-            
+
             if self.debug:
                 ac_prop = getattr(request, "area_code", None)
                 print(
                     f"  [{self.server_name}] DB保存: key_prefix='{key_prefix}' area='{area_code}' (prop={ac_prop})"
                 )
-                print(f"  [{self.server_name}] タイムスタンプ更新: {area_code} - {current_time}")
+                print(
+                    f"  [{self.server_name}] タイムスタンプ更新: {area_code} - {current_time}"
+                )
         except Exception as e:
             if self.debug:
                 print(f"  [{self.server_name}] DB保存失敗: {e}")
@@ -584,7 +600,9 @@ class ReportServer(BaseServer):
                 if self.forward_async:
                     # スレッドプールで非同期転送（ACKはバックグラウンドで待機）
                     try:
-                        self.thread_pool.submit(self._forward_report_as_client, sensor_data)
+                        self.thread_pool.submit(
+                            self._forward_report_as_client, sensor_data
+                        )
                         if self.debug:
                             print(
                                 f"[{self.server_name}] Forward submitted to {self.forward_host}:{self.forward_port}"
@@ -681,8 +699,11 @@ class ReportServer(BaseServer):
         # パケットサイズの事前チェック
         if len(data) < 16:
             from WIPCommonPy.packet.core.exceptions import BitFieldError
-            raise BitFieldError(f"パケットサイズが不足しています。最小16バイト必要ですが、{len(data)}バイトしか受信していません。")
-        
+
+            raise BitFieldError(
+                f"パケットサイズが不足しています。最小16バイト必要ですが、{len(data)}バイトしか受信していません。"
+            )
+
         # まず基本的なパケットを解析してタイプを確認
         from WIPCommonPy.packet import Request
 
@@ -754,5 +775,3 @@ class ReportServer(BaseServer):
         """派生クラス固有のクリーンアップ処理"""
         if self.debug:
             print(f"[{self.server_name}] クリーンアップ完了")
-
-
