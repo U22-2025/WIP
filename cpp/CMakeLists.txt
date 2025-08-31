@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Silence CMake warning CMP0167 about FindBoost behavior when available
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
 project(wiplib_cpp VERSION 0.1.0 LANGUAGES CXX)
 
 option(WIPLIB_BUILD_TESTS "Build tests" OFF)
