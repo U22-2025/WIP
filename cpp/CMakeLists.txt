@@ -136,13 +136,13 @@ if(WIPLIB_BUILD_TESTS)
     endif()
   endif()
 
-  # Legacy tests
-  add_executable(wiplib_tests tests/test_codec.cpp)
-  target_link_libraries(wiplib_tests PRIVATE wiplib)
-  target_include_directories(wiplib_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  add_executable(wiplib_golden tests/test_golden.cpp)
-  target_link_libraries(wiplib_golden PRIVATE wiplib)
-  target_include_directories(wiplib_golden PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  # Legacy tests (disabled - test files not found)
+  # add_executable(wiplib_tests tests/test_codec.cpp)
+  # target_link_libraries(wiplib_tests PRIVATE wiplib)
+  # target_include_directories(wiplib_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  # add_executable(wiplib_golden tests/test_golden.cpp)
+  # target_link_libraries(wiplib_golden PRIVATE wiplib)
+  # target_include_directories(wiplib_golden PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
   # Google Test based comprehensive test suite
   # Check which test files actually exist

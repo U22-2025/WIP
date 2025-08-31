@@ -31,8 +31,6 @@ logs/reports
 /Rust/target/
 /Rust/Cargo.lock
 # C++ builds (CMake/VS)
-cpp/build/
-cpp/build2/
 cpp/**/CMakeFiles/
 cpp/**/CMakeCache.txt
 cpp/**/cmake_install.cmake

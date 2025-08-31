@@ -1,0 +1,3 @@
+/mnt/c/Users/pijon/Desktop/wip/build-wsl/CMakeFiles/thread_demo.dir
+/mnt/c/Users/pijon/Desktop/wip/build-wsl/CMakeFiles/edit_cache.dir
+/mnt/c/Users/pijon/Desktop/wip/build-wsl/CMakeFiles/rebuild_cache.dir
