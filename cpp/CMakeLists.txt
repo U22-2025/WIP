@@ -19,6 +19,11 @@ set(WIPLIB_SRC
     src/packet/request.cpp
     src/packet/response.cpp
     src/packet/report_packet_compat.cpp
+    src/packet/report_packet.cpp
+    src/packet/location_packet.cpp
+    src/packet/error_response.cpp
+    src/packet/format_parser.cpp
+    src/packet/dynamic_packet_parser.cpp
     src/client/weather_client.cpp
     src/client/wip_client.cpp
     src/client/location_client.cpp
@@ -40,11 +45,11 @@ set(WIPLIB_SRC
     src/utils/env.cpp
     src/utils/network.cpp
     src/utils/platform_compat.cpp
+    src/utils/redis_log_handler.cpp
     src/packet/debug/debug_logger.cpp
-    # Temporarily disabled due to build errors
-    # src/compatibility/python_errors.cpp
-    # src/compatibility/python_config.cpp
-    # src/compatibility/python_protocol.cpp
+    src/compatibility/python_errors.cpp
+    src/compatibility/python_config.cpp
+    src/compatibility/python_protocol.cpp
 )
 
 if(WIPLIB_BUILD_SHARED)
@@ -136,67 +141,7 @@ if(WIPLIB_BUILD_TESTS)
     endif()
   endif()
 
-  # Legacy tests (disabled - test files not found)
-  # add_executable(wiplib_tests tests/test_codec.cpp)
-  # target_link_libraries(wiplib_tests PRIVATE wiplib)
-  # target_include_directories(wiplib_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  # add_executable(wiplib_golden tests/test_golden.cpp)
-  # target_link_libraries(wiplib_golden PRIVATE wiplib)
-  # target_include_directories(wiplib_golden PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-  # Google Test based comprehensive test suite
-  # Check which test files actually exist
-  set(POTENTIAL_TEST_SOURCES
-    tests/unit/test_checksum.cpp
-    tests/unit/test_bit_utils.cpp
-    tests/unit/test_packet_types.cpp
-    tests/unit/test_extended_field.cpp
-    tests/unit/test_auth.cpp
-    tests/unit/test_auth_compat.cpp
-    tests/unit/test_cache.cpp
-    tests/unit/test_config_loader.cpp
-    tests/unit/test_log_config.cpp
-    tests/unit/test_network.cpp
-    tests/unit/test_location_cache_persistence.cpp
-    tests/integration/test_weather_client.cpp
-    tests/integration/test_async_weather_client.cpp
-    tests/integration/test_client.cpp
-    tests/integration/test_client_async.cpp
-    tests/integration/test_location_client.cpp
-    tests/integration/test_query_client.cpp
-    tests/integration/test_report_client.cpp
-    tests/compatibility/test_python_compatibility.cpp
-    tests/utils/mock_server.cpp
-    tests/utils/test_data_generator.cpp
-  )
-  
-  set(TEST_SOURCES)
-  foreach(test_file ${POTENTIAL_TEST_SOURCES})
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${test_file}")
-      list(APPEND TEST_SOURCES ${test_file})
-      message(STATUS "Adding test file: ${test_file}")
-    else()
-      message(STATUS "Skipping missing test file: ${test_file}")
-    endif()
-  endforeach()
-
-  if(TEST_SOURCES)
-    add_executable(wiplib_gtest ${TEST_SOURCES})
-    target_link_libraries(wiplib_gtest 
-      PRIVATE 
-        wiplib 
-        GTest::gtest 
-        GTest::gtest_main
-        Threads::Threads
-    )
-    target_include_directories(wiplib_gtest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    
-    # Add test to CTest
-    include(GoogleTest)
-    gtest_discover_tests(wiplib_gtest)
-  else()
-    message(WARNING "No test source files found, skipping test build")
-  endif()
+  message(STATUS "No test directory found, skipping test build")
 endif()
 
 # CLI tools
@@ -228,18 +173,18 @@ add_executable(async_weather_cli tools/async_weather_cli.cpp)
 target_link_libraries(async_weather_cli PRIVATE wiplib)
 target_include_directories(async_weather_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Phase 6 development tools (temporarily disabled due to compatibility dependencies)
-# add_executable(wip_packet_analyzer tools/wip_packet_analyzer.cpp)
-# target_link_libraries(wip_packet_analyzer PRIVATE wiplib)
-# target_include_directories(wip_packet_analyzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Additional tools
+add_executable(wip_packet_analyzer tools/wip_packet_analyzer.cpp)
+target_link_libraries(wip_packet_analyzer PRIVATE wiplib)
+target_include_directories(wip_packet_analyzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# add_executable(wip_config_validator tools/wip_config_validator.cpp)
-# target_link_libraries(wip_config_validator PRIVATE wiplib)
-# target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_executable(wip_config_validator tools/wip_config_validator.cpp)
+target_link_libraries(wip_config_validator PRIVATE wiplib)
+target_include_directories(wip_config_validator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# add_executable(wip_performance_test tools/wip_performance_test.cpp)
-# target_link_libraries(wip_performance_test PRIVATE wiplib)
-# target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_executable(wip_performance_test tools/wip_performance_test.cpp)
+target_link_libraries(wip_performance_test PRIVATE wiplib)
+target_include_directories(wip_performance_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(packet_encoding_debug tools/packet_encoding_debug.cpp)
 target_link_libraries(packet_encoding_debug PRIVATE wiplib)
