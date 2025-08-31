@@ -440,11 +440,29 @@ void RedisLogHandler::update_delivery_config(const LogDeliveryConfig& config) {
 }
 
 RedisLogStats RedisLogHandler::get_statistics() const {
-    return stats_;
+    RedisLogStats result;
+    result.messages_sent = stats_.messages_sent.load();
+    result.messages_failed = stats_.messages_failed.load();
+    result.messages_queued = stats_.messages_queued.load();
+    result.messages_dropped = stats_.messages_dropped.load();
+    result.reconnection_attempts = stats_.reconnection_attempts.load();
+    result.successful_reconnections = stats_.successful_reconnections.load();
+    result.total_bytes_sent = stats_.total_bytes_sent.load();
+    result.compression_savings = stats_.compression_savings.load();
+    result.start_time = stats_.start_time;
+    return result;
 }
 
 void RedisLogHandler::reset_statistics() {
-    stats_ = RedisLogStats{};
+    stats_.messages_sent = 0;
+    stats_.messages_failed = 0;
+    stats_.messages_queued = 0;
+    stats_.messages_dropped = 0;
+    stats_.reconnection_attempts = 0;
+    stats_.successful_reconnections = 0;
+    stats_.total_bytes_sent = 0;
+    stats_.compression_savings = 0;
+    stats_.start_time = std::chrono::steady_clock::now();
 }
 
 bool RedisLogHandler::is_connected() const {

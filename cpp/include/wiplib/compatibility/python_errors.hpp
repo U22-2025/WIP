@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <memory>
 
 namespace wiplib::compatibility {
 
