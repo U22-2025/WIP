@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Silence CMake warning CMP0167 about FindBoost behavior when available
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
 project(wiplib_cpp VERSION 0.1.0 LANGUAGES CXX)
 
 option(WIPLIB_BUILD_TESTS "Build tests" OFF)
@@ -45,7 +50,6 @@ set(WIPLIB_SRC
     src/utils/env.cpp
     src/utils/network.cpp
     src/utils/platform_compat.cpp
-    src/packet/debug/debug_logger.cpp
     # Temporarily disabled due to build errors
     # src/utils/redis_log_handler.cpp
     # src/compatibility/python_errors.cpp
