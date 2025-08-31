@@ -405,18 +405,8 @@ class WeatherRedisManager:
             "errors": error_count,
         }
 
-    def bulk_update_weather_data(
-        self, weather_data: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, int]:
-        """
-        気象データを一括更新（警報・災害情報フィールドを除く部分更新）
-
-        Args:
-            weather_data: {area_code: weather_data}の辞書
-
-        Returns:
-            更新結果 {'updated': 更新数, 'errors': エラー数}
-        """
+    def bulk_update_weather_data(self, weather_data: Dict[str, Dict[str, Any]]) -> Dict[str, int]:
+        """気象データを一括更新（警報・災害情報フィールドを除く部分更新）"""
         if not self.redis_client:
             return {"updated": 0, "errors": 0}
 
@@ -424,61 +414,55 @@ class WeatherRedisManager:
         error_count = 0
 
         try:
-            # パイプラインを使用して一括処理
+            # 既存データをまとめて取得
             pipe = self.redis_client.pipeline()
-
-            for area_code, data in weather_data.items():
-                weather_key = self._get_weather_key(area_code)
-
-                # 既存データがない場合は全体を作成
-                pipe.json().get(weather_key, ".")
-
-            # 既存データの存在確認
+            for area_code in weather_data.keys():
+                pipe.json().get(self._get_weather_key(area_code), ".")
             existing_results = pipe.execute()
 
-            # 更新用パイプライン
             update_pipe = self.redis_client.pipeline()
 
-            for i, (area_code, data) in enumerate(weather_data.items()):
-                weather_key = self._get_weather_key(area_code)
-                existing_data = existing_results[i]
+            def _merge_weekly(existing_list, new_list):
+                base = list(existing_list or [None] * 7)
+                if len(base) < 7:
+                    base.extend([None] * (7 - len(base)))
+                else:
+                    base = base[:7]
+                for idx, val in enumerate(new_list):
+                    if idx < 7:
+                        base[idx] = val
+                return base
 
+            for (area_code, data), existing_data in zip(weather_data.items(), existing_results):
+                weather_key = self._get_weather_key(area_code)
                 if existing_data:
-                    # 既存データがある場合は気象データフィールドのみ部分更新
-                    update_pipe.json().set(
-                        weather_key, ".area_name", data.get("area_name", "")
-                    )
-                    update_pipe.json().set(
-                        weather_key, ".weather", data.get("weather", [])
-                    )
-                    update_pipe.json().set(
-                        weather_key, ".temperature", data.get("temperature", [])
-                    )
-                    # precipitation_prob を使用（camelCaseからフォールバック）
-                    update_pipe.json().set(
-                        weather_key,
-                        ".precipitation_prob",
+                    # 既存データをベースに上書き
+                    weather_list = _merge_weekly(existing_data.get("weather"), data.get("weather", []))
+                    temp_list = _merge_weekly(existing_data.get("temperature"), data.get("temperature", []))
+                    precip_list = _merge_weekly(
+                        existing_data.get("precipitation_prob", existing_data.get("precipitationProbability")),
                         data.get("precipitation_prob", data.get("precipitationProbability", [])),
                     )
                     update_pipe.json().set(
-                        weather_key, ".parent_code", data["parent_code"]
+                        weather_key, ".area_name", data.get("area_name", existing_data.get("area_name", ""))
                     )
-
+                    update_pipe.json().set(weather_key, ".weather", weather_list)
+                    update_pipe.json().set(weather_key, ".temperature", temp_list)
+                    update_pipe.json().set(weather_key, ".precipitation_prob", precip_list)
+                    update_pipe.json().set(
+                        weather_key, ".parent_code", data.get("parent_code", existing_data.get("parent_code"))
+                    )
                     if self.debug:
                         print(f"部分更新: {weather_key}")
                 else:
-                    # 既存データがない場合は全体を新規作成（snake_caseで統一）
+                    # 新規作成: デフォルトデータに埋め込み
                     base = self._create_default_weather_data()
-                    # 上書き（必要フィールドのみマッピング）
-                    if "weather" in data:
-                        base["weather"] = data.get("weather", base["weather"])
-                    if "temperature" in data:
-                        base["temperature"] = data.get("temperature", base["temperature"])
-                    # 降水確率は precipitation_prob に正規化
-                    base["precipitation_prob"] = data.get(
-                        "precipitation_prob", data.get("precipitationProbability", base["precipitation_prob"])
+                    base["weather"] = _merge_weekly(base["weather"], data.get("weather", []))
+                    base["temperature"] = _merge_weekly(base["temperature"], data.get("temperature", []))
+                    base["precipitation_prob"] = _merge_weekly(
+                        base["precipitation_prob"],
+                        data.get("precipitation_prob", data.get("precipitationProbability", [])),
                     )
-                    # 任意フィールド（下位互換維持）
                     if "area_name" in data:
                         base["area_name"] = data.get("area_name")
                     if "parent_code" in data:
@@ -488,21 +472,17 @@ class WeatherRedisManager:
                     if "disaster" in data:
                         base["disaster"] = data.get("disaster") or []
                     update_pipe.json().set(weather_key, ".", base)
-
                     if self.debug:
                         print(f"新規作成: {weather_key}")
 
             update_pipe.execute()
             updated_count = len(weather_data)
-
             if self.debug:
                 print(f"一括更新完了: {updated_count}件")
-
         except Exception as e:
             if self.debug:
                 print(f"一括更新エラー: {e}")
             error_count = len(weather_data)
-
         return {"updated": updated_count, "errors": error_count}
 
     def update_timestamp(self, area_code: str, source_time: str, source_type: str) -> bool:
