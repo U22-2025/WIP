@@ -232,6 +232,7 @@ def main():
     servers = {}
     threads = []
     processes: List[Tuple[str, subprocess.Popen]] = []
+    processes_lock = threading.Lock()  # processes リストの同期用
 
     # デバッグモードの表示
     if args.debug:
@@ -296,16 +297,32 @@ def main():
         )
         processes.append(("api", proc))
 
-    # Scheduled Weather Reporterを起動（--noupdateが指定されていない場合のみ）
+    # JMA自動更新プロセスを起動（--noupdateが指定されていない場合のみ）
     if not args.noupdate and ("query" in servers_to_start or "report" in servers_to_start or args.all):
-        proc = _start_process(
-            "Scheduled Weather Reporter",
-            ["python/application/tools/scheduled_weather_reporter.py", "--mode", "schedule"],
-        )
-        processes.append(("scheduled_reporter", proc))
-        
-        # JMA自動更新プロセスを起動
         _start_jma_auto_update(args.debug)
+        
+        # Scheduled Weather Reporterを起動（APIサーバの起動を待つため遅延起動）
+        if start_api or start_map:
+            # APIサーバが起動するまで3秒待機
+            def delayed_reporter_start():
+                time.sleep(3)
+                print("Weather APIの起動完了を待って、Scheduled Weather Reporterを開始します...")
+                proc = _start_process(
+                    "Scheduled Weather Reporter",
+                    ["python/application/tools/scheduled_weather_reporter.py", "--mode", "schedule"],
+                )
+                with processes_lock:
+                    processes.append(("scheduled_reporter", proc))
+            
+            reporter_thread = threading.Thread(target=delayed_reporter_start, daemon=True)
+            reporter_thread.start()
+        else:
+            # APIサーバを起動しない場合は通常通り起動
+            proc = _start_process(
+                "Scheduled Weather Reporter",
+                ["python/application/tools/scheduled_weather_reporter.py", "--mode", "schedule"],
+            )
+            processes.append(("scheduled_reporter", proc))
 
     total_processes = len(processes)
     print(f"{len(threads)}個のサーバー、{total_processes}個のアプリを起動しました。")
@@ -326,7 +343,8 @@ def main():
         elif processes:
             # サーバーが無くアプリのみ起動の場合、プロセスが終了するまで待機
             while True:
-                alive = any(proc.poll() is None for _, proc in processes)
+                with processes_lock:
+                    alive = any(proc.poll() is None for _, proc in processes)
                 if not alive:
                     break
                 time.sleep(0.5)
@@ -334,7 +352,9 @@ def main():
         print("\nサーバー/アプリを停止しています...")
     finally:
         # サブプロセスを終了
-        for name, proc in processes:
+        with processes_lock:
+            processes_copy = list(processes)
+        for name, proc in processes_copy:
             if proc.poll() is None:
                 try:
                     print(f"{name} を終了しています...")
