@@ -24,14 +24,17 @@ load_dotenv()
 
 from WIPCommonPy.clients.report_client import ReportClient
 
+# .env を読み込む
+load_dotenv()
+
 
 class WeatherAPIReporter:
     """外部APIから気象データを取得してレポートサーバーに送信するクラス"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  api_key: str = None,
                  report_server_host: str = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl"),
-                 report_server_port: int = 9999,
+                 report_server_port: int = int(os.getenv("REPORT_SERVER_PORT", 4112)),
                  debug: bool = False):
         """
         初期化
