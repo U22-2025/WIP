@@ -15,7 +15,7 @@ def fetch_json_from_url() -> Optional[dict]:
     """
     try:
         url = "https://www.jma.go.jp/bosai/common/const/area.json"
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:

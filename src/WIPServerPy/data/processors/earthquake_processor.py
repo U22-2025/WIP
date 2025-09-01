@@ -199,7 +199,7 @@ class EarthquakeProcessor(XMLBaseProcessor):
 
     def process_multiple_urls(self, url_list: List[str]) -> Dict[str, Any]:
         """
-        複数のXMLファイルから地震情報を統合処理（並列化版）
+        複数のXMLファイルから地震情報を統合処理（並列化版・高速）
 
         Args:
             url_list: 処理するXMLファイルURLのリスト
@@ -210,9 +210,20 @@ class EarthquakeProcessor(XMLBaseProcessor):
         all_area_kind_mapping = defaultdict(list)
         all_area_report_times = {}
 
+        # 並列でXMLを全て取得
+        xml_results = self.fetch_xml_concurrent(url_list, max_workers=10)
+        
+        # 取得したXMLを並列で処理
+        successful_xmls = {url: content for url, content in xml_results.items() if content is not None}
+        print(f"Processing {len(successful_xmls)} earthquake XML files in parallel...")
+
         with ThreadPoolExecutor(max_workers=10) as executor:
-            # 各URLの処理を並列実行
-            results = executor.map(self._process_single_url, url_list)
+            # XMLパース・処理を並列実行
+            def process_xml_content(url_content_pair):
+                url, xml_content = url_content_pair
+                return self._process_xml_content(xml_content)
+                
+            results = executor.map(process_xml_content, successful_xmls.items())
 
             # 結果を統合
             for result in results:
@@ -243,6 +254,30 @@ class EarthquakeProcessor(XMLBaseProcessor):
             "disaster_pulldatetime": datetime.now().isoformat(timespec="seconds")
             + "+09:00",
         }
+
+    def _process_xml_content(self, xml_content: str) -> Optional[Dict[str, Any]]:
+        """
+        XMLコンテンツを処理（並列処理用）
+        
+        Args:
+            xml_content: XMLコンテンツ文字列
+            
+        Returns:
+            処理結果辞書、エラー時はNone
+        """
+        try:
+            # XMLのパースと処理時間の取得
+            base_result = self._parse_xml_get_report_time(xml_content)
+            if base_result is None or base_result["xml_data"] is None:
+                return None
+                
+            # XML データの処理
+            result = self.process_xml_data(base_result["xml_data"])
+            result["report_date_time"] = base_result["report_time"]
+            return result
+        except Exception as e:
+            print(f"Error processing earthquake XML content: {e}")
+            return None
 
     def _consolidate_duplicate_earthquakes(
         self, earthquake_list: List[str]
