@@ -170,6 +170,31 @@ class XMLBaseProcessor(ABC):
                 return report_dt_elem.text
         return ""
 
+    def _parse_xml_get_report_time(self, xml_content: str) -> Optional[Dict[str, Any]]:
+        """
+        XMLコンテンツをパースし、報告時刻と共に返す
+        
+        Args:
+            xml_content: XMLコンテンツ文字列
+            
+        Returns:
+            {'xml_data': パース後のXML文字列, 'report_time': 報告時刻} または None
+        """
+        try:
+            root = self.parse_xml(xml_content, "<Report")
+            if root is None:
+                return None
+                
+            report_time = self.get_report_time(root)
+            
+            return {
+                "xml_data": xml_content,
+                "report_time": report_time
+            }
+        except Exception as e:
+            print(f"Error parsing XML and getting report time: {e}")
+            return None
+
     def detect_xml_type(self, xml_data: str) -> str:
         """
         XMLの種類を判別
