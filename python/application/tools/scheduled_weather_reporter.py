@@ -21,6 +21,7 @@ import sys
 import signal
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
 
 # 近傍ユーティリティを利用
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -35,6 +36,8 @@ try:
 except Exception:
     pass
 
+load_dotenv()
+
 from push_api_to_report import fetch_api_weather  # API GET /weather 用
 from WIPCommonPy.clients.report_client import ReportClient
 
@@ -44,7 +47,7 @@ class ScheduledWeatherReporter:
     
     def __init__(self,
                  api_base_url: str = None,
-                 report_server_host: str = "wip.ncc.onl",
+                 report_server_host: str = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl"),
                  report_server_port: int = 4112,
                  debug: bool = False,
                  area_codes_path: str = None):
@@ -331,7 +334,7 @@ def main():
     parser = argparse.ArgumentParser(description="天気/災害データ定期レポーター")
     parser.add_argument("--mode", choices=["schedule", "once"], default="schedule",
                        help="実行モード: schedule(定期実行) または once(一回限り)")
-    parser.add_argument("--host", default="wip.ncc.onl", 
+    parser.add_argument("--host", default=os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl"),
                        help="レポートサーバーホスト")
     parser.add_argument("--port", type=int, default=4112,
                        help="レポートサーバーポート") 
