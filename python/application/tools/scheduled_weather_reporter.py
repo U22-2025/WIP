@@ -44,11 +44,11 @@ from WIPCommonPy.clients.report_client import ReportClient
 
 class ScheduledWeatherReporter:
     """定期実行天気レポーター"""
-    
+
     def __init__(self,
                  api_base_url: str = None,
                  report_server_host: str = os.getenv("REPORT_SERVER_HOST", "wip.ncc.onl"),
-                 report_server_port: int = 4112,
+                 report_server_port: int = int(os.getenv("REPORT_SERVER_PORT", 4112)),
                  debug: bool = False,
                  area_codes_path: str = None):
         """
@@ -61,6 +61,7 @@ class ScheduledWeatherReporter:
             debug: デバッグモード
             area_codes_path: エリアコード定義JSONのパス（docs/area_codes.json を既定）
         """
+        load_dotenv()
         self.running = True
         self.debug = debug
         
