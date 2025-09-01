@@ -16,8 +16,9 @@ import json
 import requests
 import time
 import threading
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class XMLBaseProcessor(ABC):
@@ -62,13 +63,70 @@ class XMLBaseProcessor(ABC):
                     time.sleep(sleep_time)
                 self.last_request_time = time.time()
 
-            response = requests.get(url)
+            response = requests.get(url, timeout=5)
             response.encoding = "utf-8"
             response.raise_for_status()
             return response.text
         except requests.RequestException as e:
             print(f"Error fetching XML from {url}: {e}")
             return None
+
+    def _fetch_single_xml(self, url: str) -> tuple[str, Optional[str]]:
+        """
+        単一XMLを取得（並列処理用）
+        
+        Args:
+            url: 取得するXMLのURL
+            
+        Returns:
+            (url, xml_content) のタプル
+        """
+        try:
+            # 並列処理では個別にレート制限を適用しない
+            response = requests.get(url, timeout=5)
+            response.encoding = "utf-8"
+            response.raise_for_status()
+            return url, response.text
+        except requests.RequestException as e:
+            print(f"Error fetching XML from {url}: {e}")
+            return url, None
+
+    def fetch_xml_concurrent(self, urls: List[str], max_workers: int = 5) -> Dict[str, Optional[str]]:
+        """
+        複数のXMLを並列で高速取得
+        
+        Args:
+            urls: 取得するXMLのURLリスト
+            max_workers: 最大並列処理数
+            
+        Returns:
+            {url: xml_content} の辞書
+        """
+        results = {}
+        
+        if not urls:
+            return results
+            
+        print(f"Fetching {len(urls)} XML files concurrently with {max_workers} workers...")
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 全てのタスクを開始
+            future_to_url = {executor.submit(self._fetch_single_xml, url): url for url in urls}
+            
+            # 結果を順次取得
+            completed = 0
+            for future in as_completed(future_to_url):
+                url, xml_content = future.result()
+                results[url] = xml_content
+                completed += 1
+                
+                if completed % 10 == 0 or completed == len(urls):
+                    print(f"Progress: {completed}/{len(urls)} XML files processed")
+        
+        success_count = sum(1 for content in results.values() if content is not None)
+        print(f"Concurrent fetch completed: {success_count}/{len(urls)} successful")
+        
+        return results
 
     def parse_xml(
         self, xml_data: str, clean_start_tag: Optional[str] = None
@@ -111,6 +169,31 @@ class XMLBaseProcessor(ABC):
             if report_dt_elem is not None and report_dt_elem.text:
                 return report_dt_elem.text
         return ""
+
+    def _parse_xml_get_report_time(self, xml_content: str) -> Optional[Dict[str, Any]]:
+        """
+        XMLコンテンツをパースし、報告時刻と共に返す
+        
+        Args:
+            xml_content: XMLコンテンツ文字列
+            
+        Returns:
+            {'xml_data': パース後のXML文字列, 'report_time': 報告時刻} または None
+        """
+        try:
+            root = self.parse_xml(xml_content, "<Report")
+            if root is None:
+                return None
+                
+            report_time = self.get_report_time(root)
+            
+            return {
+                "xml_data": xml_content,
+                "report_time": report_time
+            }
+        except Exception as e:
+            print(f"Error parsing XML and getting report time: {e}")
+            return None
 
     def detect_xml_type(self, xml_data: str) -> str:
         """

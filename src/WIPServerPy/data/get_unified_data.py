@@ -52,7 +52,8 @@ def main():
         print("\n=== Unified Data Processing Complete ===")
 
         # Step 3: エリアコードデータの読み込み
-        with open(JSON_DIR / "area_codes.json", "r", encoding="utf-8") as f:
+        area_codes_path = Path(__file__).resolve().parents[3] / "python" / "WIP_Server" / "json" / "area_codes.json"
+        with open(area_codes_path, "r", encoding="utf-8") as f:
             area_codes_data = json.load(f)
 
         # Step 4: 災害データの処理

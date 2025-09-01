@@ -1,6 +1,8 @@
 """Area code validation utilities."""
 
 from typing import Dict, Optional
+from WIPCommonPy.clients.location_client import LocationClient
+from WIPServerPy.data.processors.volcano_processor import VolcanoCoordinateProcessor
 
 
 class AreaCodeValidator:
@@ -56,4 +58,61 @@ class AreaCodeValidator:
             for area_code, children_codes in office_data.items():
                 if child_code in children_codes:
                     return area_code
+        return None
+
+    @staticmethod
+    def resolve_coordinate_to_area_code(
+        code: str, volcano_coordinates: Dict, debug: bool = False
+    ) -> Optional[str]:
+        """
+        3桁エリアコードの座標情報からclass10エリアコードに解決
+
+        Args:
+            code: 3桁エリアコード
+            volcano_coordinates: 火山座標データ
+            debug: デバッグモード
+
+        Returns:
+            解決されたclass10エリアコード、失敗時はNone
+        """
+        if len(code) != 3 or code not in volcano_coordinates:
+            return None
+
+        try:
+            coord_list = volcano_coordinates[code]
+            if not coord_list:
+                return None
+
+            # 最初の座標を使用
+            coord_str = coord_list[0]
+            processor = VolcanoCoordinateProcessor()
+            lat, lon = processor.parse_volcano_coordinates(coord_str)
+
+            if lat is None or lon is None:
+                if debug:
+                    print(f"Failed to parse coordinates for {code}: {coord_str}")
+                return None
+
+            if debug:
+                print(f"Resolving coordinates for {code}: lat={lat}, lon={lon}")
+
+            # LocationClientで座標解決
+            client = LocationClient(debug=debug)
+            try:
+                result = client.get_location_data(lat, lon)
+                if result and isinstance(result, tuple) and len(result) >= 1:
+                    location_response = result[0]
+                    if hasattr(location_response, 'area_code'):
+                        resolved_code = str(location_response.area_code).zfill(6)
+                        if debug:
+                            print(f"Resolved {code} -> {resolved_code}")
+                        return resolved_code
+            finally:
+                client.close()
+
+        except Exception as e:
+            if debug:
+                print(f"Error resolving coordinates for {code}: {e}")
+            return None
+
         return None

@@ -100,7 +100,7 @@ class WeatherDataManager:
         try:
             weather_data = rm.get_weather_data(area_code)
             if not weather_data:
-                None
+                return None
 
             # 必要なデータを抽出
             result = {}
@@ -143,7 +143,7 @@ class WeatherDataManager:
 
             # 警報
             if alert_flag and "warnings" in weather_data:
-                result["warnings"] = weather_data["warnings"]
+                result["alert"] = weather_data["warnings"]
 
             # 災害情報（存在する場合のみ取得）
             if disaster_flag and (

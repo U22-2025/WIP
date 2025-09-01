@@ -235,67 +235,116 @@ def update_weather_json(area_codes: List[str]) -> None:
 
 
 def update_hazard_json() -> None:
-    # Alerts
-    alert_proc = AlertDataProcessor()
-    alert_urls = alert_proc.xml_processor.get_alert_xml_list()
-    alert_result = alert_proc.get_alert_info(alert_urls)
+    """
+    災害情報・警報取得処理
+    
+    統合された処理で以下を実行:
+    1. AlertDataProcessorによる警報・注意報情報取得
+    2. UnifiedDataProcessorによる災害・地震情報取得
+    3. エリアコード変換とマージ処理
+    4. JSONファイルへの保存
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Alerts processing
+        logger.info("=== 警報・注意報情報取得開始 ===")
+        alert_proc = AlertDataProcessor()
+        alert_urls = alert_proc.xml_processor.get_alert_xml_list()
+        logger.info(f"Found {len(alert_urls)} alert URLs")
+        alert_result = alert_proc.get_alert_info(alert_urls)
+        logger.info("警報・注意報情報取得完了")
 
-    # Disasters/Earthquakes
-    unified = UnifiedDataProcessor()
-    url_list = unified.get_xml_list()
-    disaster_json, earthquake_json = unified.process_unified_data(url_list)
+        # Disasters/Earthquakes processing
+        logger.info("=== 統合災害・地震情報取得開始 ===")
+        unified = UnifiedDataProcessor()
+        url_list = unified.get_xml_list()
+        logger.info(f"Found {len(url_list)} disaster/earthquake URLs")
+        disaster_json, earthquake_json = unified.process_unified_data(url_list)
+        logger.info("統合災害・地震情報取得完了")
+    except Exception as e:
+        logger.error(f"災害・警報データ取得エラー: {e}")
+        return
 
     # convert to area codes and merge
-    script_dir = Path(__file__).resolve().parent.parent  # python/application
-    # area codes data: use JMA area.json via create_area_codes_json logic on the fly
     try:
-        area_json = requests.get("https://www.jma.go.jp/bosai/common/const/area.json", timeout=5).json()
-    except Exception:
-        area_json = {"offices": {}, "class10s": {}, "class15s": {}}
+        logger.info("=== エリアコード変換・統合処理開始 ===")
+        
+        # area codes data: use JMA area.json via create_area_codes_json logic on the fly
+        try:
+            area_json = requests.get("https://www.jma.go.jp/bosai/common/const/area.json", timeout=5).json()
+            logger.info("JMA area.json取得完了")
+        except Exception as e:
+            logger.warning(f"JMA area.json取得失敗、デフォルトを使用: {e}")
+            area_json = {"offices": {}, "class10s": {}, "class15s": {}}
 
-    # unify keys
-    try:
-        disaster_dict = json.loads(disaster_json) if isinstance(disaster_json, str) else disaster_json
-    except Exception:
-        disaster_dict = {}
-    try:
-        earthquake_dict = json.loads(earthquake_json) if isinstance(earthquake_json, str) else earthquake_json
-    except Exception:
-        earthquake_dict = {}
+        # unify keys
+        try:
+            disaster_dict = json.loads(disaster_json) if isinstance(disaster_json, str) else disaster_json
+        except Exception as e:
+            logger.warning(f"災害データ解析失敗: {e}")
+            disaster_dict = {}
+        try:
+            earthquake_dict = json.loads(earthquake_json) if isinstance(earthquake_json, str) else earthquake_json
+        except Exception as e:
+            logger.warning(f"地震データ解析失敗: {e}")
+            earthquake_dict = {}
 
-    disaster_converted, disaster_report_times = unified.convert_disaster_keys_to_area_codes(
-        disaster_dict, area_json
-    )
-    earthquake_converted, earthquake_report_times = unified.convert_earthquake_keys_to_area_codes(
-        earthquake_dict, area_json
-    )
+        # Process disaster data
+        disaster_converted, disaster_report_times = unified.convert_disaster_keys_to_area_codes(
+            disaster_dict, area_json
+        )
+        logger.info(f"災害データ処理: {len(disaster_converted)}エリア")
 
-    disaster_final = unified.format_to_alert_style(
-        disaster_converted, disaster_report_times, area_json, "disaster"
-    ) if disaster_converted else {}
-    earthquake_final = unified.format_to_alert_style(
-        earthquake_converted, earthquake_report_times, area_json, "earthquake"
-    ) if earthquake_converted else {}
+        # Process earthquake data  
+        earthquake_converted, earthquake_report_times = unified.convert_earthquake_keys_to_area_codes(
+            earthquake_dict, area_json
+        )
+        logger.info(f"地震データ処理: {len(earthquake_converted)}エリア")
 
-    merged_disaster = unified.merge_earthquake_into_disaster(disaster_final, earthquake_final)
+        disaster_final = unified.format_to_alert_style(
+            disaster_converted, disaster_report_times, area_json, "disaster"
+        ) if disaster_converted else {}
+        earthquake_final = unified.format_to_alert_style(
+            earthquake_converted, earthquake_report_times, area_json, "earthquake"
+        ) if earthquake_converted else {}
 
-    # hazard store: combine alerts and disaster by area_code
-    store: Dict[str, Any] = {}
-    if isinstance(alert_result, dict):
-        for k, v in alert_result.items():
-            store.setdefault(k, {})
-            if k == "alert_pulldatetime":
+        # Merge earthquake into disaster
+        merged_disaster = unified.merge_earthquake_into_disaster(disaster_final, earthquake_final)
+        logger.info(f"統合完了: {len(merged_disaster) - 1 if merged_disaster else 0}エリアの災害データ（地震データ含む）")
+
+        # hazard store: combine alerts and disaster by area_code
+        store: Dict[str, Any] = {}
+        alert_areas = 0
+        disaster_areas = 0
+        
+        if isinstance(alert_result, dict):
+            for k, v in alert_result.items():
+                store.setdefault(k, {})
+                if k == "alert_pulldatetime":
+                    store[k] = v
+                else:
+                    store[k]["warnings"] = v.get("alert_info", [])
+                    alert_areas += 1
+                    
+        for k, v in merged_disaster.items():
+            if k == "disaster_pulldatetime":
                 store[k] = v
             else:
-                store[k]["warnings"] = v.get("alert_info", [])
-    for k, v in merged_disaster.items():
-        if k == "disaster_pulldatetime":
-            store[k] = v
-        else:
-            store.setdefault(k, {})
-            store[k]["disaster"] = v.get("disaster", [])
+                store.setdefault(k, {})
+                store[k]["disaster"] = v.get("disaster", [])
+                disaster_areas += 1
 
-    _save_json(HAZARD_FILE, store)
+        logger.info(f"統合ストア作成: 警報{alert_areas}エリア, 災害{disaster_areas}エリア")
+        
+        _save_json(HAZARD_FILE, store)
+        logger.info("=== 災害・警報データ保存完了 ===")
+        
+    except Exception as e:
+        logger.error(f"エリアコード変換・統合処理エラー: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 
 def _resolve_target_offices() -> List[str]:
@@ -428,24 +477,82 @@ def update_weather() -> UpdateResponse:
 
 @app.post("/update/disaster", response_model=UpdateResponse)
 def update_disaster() -> UpdateResponse:
+    """
+    災害・警報データ手動更新エンドポイント
+    
+    スタンドアロンスクリプトupdate_alert_disaster_data.pyと同等の処理を実行
+    """
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("手動災害・警報更新開始")
+        
         update_hazard_json()
-        return UpdateResponse(ok=True, detail="disaster/alert updated")
+        
+        logger.info("手動災害・警報更新完了")
+        return UpdateResponse(ok=True, detail="災害・警報データ更新完了")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"災害・警報更新エラー: {str(e)}")
+
+
+@app.post("/update/all", response_model=UpdateResponse)
+def update_all() -> UpdateResponse:
+    """
+    全データ（天気+災害・警報）手動更新エンドポイント
+    """
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("手動全データ更新開始")
+        
+        # Weather data update
+        offices = _resolve_target_offices()
+        update_weather_json(offices)
+        logger.info(f"天気データ更新完了: {len(offices)}件")
+        
+        # Disaster/alert data update
+        update_hazard_json()
+        logger.info("災害・警報データ更新完了")
+        
+        return UpdateResponse(ok=True, detail=f"全データ更新完了: 天気{len(offices)}件, 災害・警報データ")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"全データ更新エラー: {str(e)}")
 
 
 def _hazard_interval_loop() -> None:
-    # Hazard/alert updates stay interval-based (minutes)
-    disaster_interval = int(os.getenv("WEATHER_API_DISASTER_INTERVAL_MIN", "10"))
+    """災害・警報情報の定期取得ループ（10分間隔）"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Check environment variable first, then config.ini, then default
+    env_interval = os.getenv("WEATHER_API_DISASTER_INTERVAL_MIN")
+    if env_interval:
+        disaster_interval = int(env_interval)
+    else:
+        # Read from config.ini
+        cfg = configparser.ConfigParser()
+        if CONFIG_INI.exists():
+            try:
+                cfg.read(CONFIG_INI, encoding="utf-8")
+                disaster_interval = int(cfg.get("schedule", "disaster_interval_min", fallback="10"))
+            except Exception:
+                disaster_interval = 10
+        else:
+            disaster_interval = 10
+    
+    logger.info(f"災害・警報情報定期取得開始: {disaster_interval}分間隔")
+    
     next_run = time.time()
     while True:
         now = time.time()
         if now >= next_run:
             try:
+                from datetime import datetime
+                logger.info(f"災害・警報更新実行: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                 update_hazard_json()
-            except Exception:
-                pass
+                logger.info("災害・警報更新完了")
+            except Exception as e:
+                logger.error(f"災害・警報更新エラー: {e}")
             next_run = now + disaster_interval * 60
         time.sleep(10)
 
@@ -497,14 +604,35 @@ def on_startup() -> None:
         # start hazard updater loop (interval-based)
         threading.Thread(target=_hazard_interval_loop, daemon=True).start()
 
-    # 初回更新（非同期）
+    # 初回更新（非同期・並列処理）
     def _initial_update():
-        try:
-            update_weather_json(_resolve_target_offices())
-        except Exception:
-            pass
-        try:
-            update_hazard_json()
-        except Exception:
-            pass
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info("=== サーバー起動時初期データ更新開始 ===")
+        
+        # 気象データと災害データを並列で更新
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # 気象データ更新
+            weather_future = executor.submit(lambda: update_weather_json(_resolve_target_offices()))
+            # 災害・警報データ更新  
+            hazard_future = executor.submit(update_hazard_json)
+            
+            # 気象データ更新結果
+            try:
+                weather_future.result()
+                logger.info("初回気象データ更新完了")
+            except Exception as e:
+                logger.error(f"初回気象データ更新エラー: {e}")
+                
+            # 災害データ更新結果
+            try:
+                hazard_future.result()
+                logger.info("初回災害・警報データ更新完了")
+            except Exception as e:
+                logger.error(f"初回災害・警報データ更新エラー: {e}")
+        
+        logger.info("=== サーバー起動時初期データ更新完了 ===")
+    
     threading.Thread(target=_initial_update, daemon=True).start()

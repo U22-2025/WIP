@@ -225,11 +225,11 @@ class QueryResponse(Response):
                 else:
                     pop = int(pop_value) if pop_value else 0
 
-            # 警報・災害情報を拡張フィールドに追加
-            if request.alert_flag and "alert" in weather_data:
+            # 警報・災害情報を拡張フィールドに追加（空リストは追加しない）
+            if request.alert_flag and "alert" in weather_data and weather_data["alert"]:
                 ex_field["alert"] = weather_data["alert"]
 
-            if request.disaster_flag and "disaster" in weather_data:
+            if request.disaster_flag and "disaster" in weather_data and weather_data["disaster"]:
                 ex_field["disaster"] = weather_data["disaster"]
 
         return cls(
@@ -309,7 +309,13 @@ class QueryResponse(Response):
         """
         if self.alert_flag and hasattr(self, "ex_field") and self.ex_field:
             alert = self.ex_field.alert if hasattr(self.ex_field, "alert") else []
-            return alert if isinstance(alert, list) else [alert] if alert else []
+            if isinstance(alert, list):
+                return alert
+            elif isinstance(alert, str) and alert:
+                # カンマ区切りの文字列を分割してリストに変換
+                return [item.strip() for item in alert.split(',') if item.strip()]
+            elif alert:
+                return [str(alert)]
         return []
 
     def get_disaster_info(self) -> List[str]:
@@ -323,11 +329,13 @@ class QueryResponse(Response):
             disaster = (
                 self.ex_field.disaster if hasattr(self.ex_field, "disaster") else []
             )
-            return (
-                disaster
-                if isinstance(disaster, list)
-                else [disaster] if disaster else []
-            )
+            if isinstance(disaster, list):
+                return disaster
+            elif isinstance(disaster, str) and disaster:
+                # カンマ区切りの文字列を分割してリストに変換
+                return [item.strip() for item in disaster.split(',') if item.strip()]
+            elif disaster:
+                return [str(disaster)]
         return []
 
     def get_weather_data(self) -> Dict[str, Any]:

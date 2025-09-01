@@ -150,10 +150,17 @@ class UnifiedDataProcessor:
                 print(f"Removing invalid area code: {disaster_key}")
                 continue
 
-            # 子コードから親コードへの変換試行
+            # 7桁コードから6桁コードへの変換試行
             found_area_code = self.validator.find_area_code_mapping(
                 disaster_key, area_codes_data
             )
+            
+            # 3桁コードの座標解決試行
+            if not found_area_code and len(disaster_key) == 3:
+                found_area_code = self.validator.resolve_coordinate_to_area_code(
+                    disaster_key, volcano_coordinates, debug=True
+                )
+                
             target_key = found_area_code if found_area_code else disaster_key
 
             # データの統合
