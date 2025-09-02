@@ -7,7 +7,7 @@ from WIPServerPy.data import get_alert, get_unified_data
 
 
 def main():
-    print("alert処理開始")
+    print("統合警報処理開始（従来警報 + 海上警報）")
     try:
         get_alert.main()
     except Exception as e:

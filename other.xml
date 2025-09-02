@@ -1,0 +1,282 @@
+<feed xmlns="http://www.w3.org/2005/Atom" lang="ja">
+<title>高頻度（その他）</title>
+<subtitle>JMAXML publishing feed</subtitle>
+<updated>2025-09-02T06:10:24+09:00</updated>
+<id>https://www.data.jma.go.jp/developer/xml/feed/other.xml#short_1756761024</id>
+<link rel="related" href="https://www.jma.go.jp/"/>
+<link rel="self" href="https://www.data.jma.go.jp/developer/xml/feed/other.xml"/>
+<link rel="hub" href="http://alert-hub.appspot.com/"/>
+<rights type="html">
+<![CDATA[ <a href="https://www.jma.go.jp/jma/kishou/info/coment.html">利用規約</a>, <a href="https://www.jma.go.jp/jma/en/copyright.html">Terms of Use</a> ]]>
+</rights>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211006_0_VPCY51_460100.xml</id>
+<updated>2025-09-01T21:10:06Z</updated>
+<author>
+<name>鹿児島地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211006_0_VPCY51_460100.xml"/>
+<content type="text">【鹿児島海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211006_0_VPCY51_471000.xml</id>
+<updated>2025-09-01T21:10:06Z</updated>
+<author>
+<name>沖縄気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211006_0_VPCY51_471000.xml"/>
+<content type="text">【沖縄海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211005_0_VPCY51_400000.xml</id>
+<updated>2025-09-01T21:10:05Z</updated>
+<author>
+<name>福岡管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211005_0_VPCY51_400000.xml"/>
+<content type="text">【福岡海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211005_0_VPCY51_260020.xml</id>
+<updated>2025-09-01T21:10:05Z</updated>
+<author>
+<name>大阪管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211005_0_VPCY51_260020.xml"/>
+<content type="text">【舞鶴海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211006_0_VPCY51_420000.xml</id>
+<updated>2025-09-01T21:10:05Z</updated>
+<author>
+<name>福岡管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211006_0_VPCY51_420000.xml"/>
+<content type="text">【長崎海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211004_0_VPCY51_230000.xml</id>
+<updated>2025-09-01T21:10:04Z</updated>
+<author>
+<name>名古屋地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211004_0_VPCY51_230000.xml"/>
+<content type="text">【名古屋海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211004_0_VPCY51_280000.xml</id>
+<updated>2025-09-01T21:10:04Z</updated>
+<author>
+<name>高松地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211004_0_VPCY51_280000.xml"/>
+<content type="text">【神戸海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211003_0_VPCY51_130000.xml</id>
+<updated>2025-09-01T21:10:03Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211003_0_VPCY51_130000.xml"/>
+<content type="text">【東京海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211004_0_VPCY51_150000.xml</id>
+<updated>2025-09-01T21:10:03Z</updated>
+<author>
+<name>新潟地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211004_0_VPCY51_150000.xml"/>
+<content type="text">【新潟海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211003_0_VPCY51_040000.xml</id>
+<updated>2025-09-01T21:10:02Z</updated>
+<author>
+<name>仙台管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211003_0_VPCY51_040000.xml"/>
+<content type="text">【仙台海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211002_0_VPCY51_017000.xml</id>
+<updated>2025-09-01T21:10:02Z</updated>
+<author>
+<name>札幌管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211002_0_VPCY51_017000.xml"/>
+<content type="text">【函館海上気象】</content>
+</entry>
+<entry>
+<title>地方海上予報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901211002_0_VPCY51_016000.xml</id>
+<updated>2025-09-01T21:10:01Z</updated>
+<author>
+<name>札幌管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901211002_0_VPCY51_016000.xml"/>
+<content type="text">【札幌海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203504_0_VPCU51_420000.xml</id>
+<updated>2025-09-01T20:35:04Z</updated>
+<author>
+<name>福岡管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203504_0_VPCU51_420000.xml"/>
+<content type="text">【長崎海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203503_0_VPCU51_280000.xml</id>
+<updated>2025-09-01T20:35:03Z</updated>
+<author>
+<name>高松地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203503_0_VPCU51_280000.xml"/>
+<content type="text">【神戸海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203503_0_VPCU51_260020.xml</id>
+<updated>2025-09-01T20:35:03Z</updated>
+<author>
+<name>大阪管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203503_0_VPCU51_260020.xml"/>
+<content type="text">【舞鶴海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203502_0_VPCU51_040000.xml</id>
+<updated>2025-09-01T20:35:02Z</updated>
+<author>
+<name>仙台管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203502_0_VPCU51_040000.xml"/>
+<content type="text">【仙台海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203503_0_VPCU51_150000.xml</id>
+<updated>2025-09-01T20:35:02Z</updated>
+<author>
+<name>新潟地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203503_0_VPCU51_150000.xml"/>
+<content type="text">【新潟海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203502_0_VPCU51_017000.xml</id>
+<updated>2025-09-01T20:35:01Z</updated>
+<author>
+<name>札幌管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203502_0_VPCU51_017000.xml"/>
+<content type="text">【函館海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203501_0_VPCU51_016000.xml</id>
+<updated>2025-09-01T20:35:01Z</updated>
+<author>
+<name>札幌管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203501_0_VPCU51_016000.xml"/>
+<content type="text">【札幌海上気象】</content>
+</entry>
+<entry>
+<title>全般海上警報（定時）（Ｈ２９）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901203057_0_VPZU52_010000.xml</id>
+<updated>2025-09-01T20:30:57Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901203057_0_VPZU52_010000.xml"/>
+<content type="text">【全般海上警報】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901144003_0_VPCU51_280000.xml</id>
+<updated>2025-09-01T14:40:03Z</updated>
+<author>
+<name>高松地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901144003_0_VPCU51_280000.xml"/>
+<content type="text">【神戸海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901144003_0_VPCU51_420000.xml</id>
+<updated>2025-09-01T14:40:03Z</updated>
+<author>
+<name>福岡管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901144003_0_VPCU51_420000.xml"/>
+<content type="text">【長崎海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901144002_0_VPCU51_040000.xml</id>
+<updated>2025-09-01T14:40:02Z</updated>
+<author>
+<name>仙台管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901144002_0_VPCU51_040000.xml"/>
+<content type="text">【仙台海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901144002_0_VPCU51_150000.xml</id>
+<updated>2025-09-01T14:40:02Z</updated>
+<author>
+<name>新潟地方気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901144002_0_VPCU51_150000.xml"/>
+<content type="text">【新潟海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901144001_0_VPCU51_016000.xml</id>
+<updated>2025-09-01T14:40:01Z</updated>
+<author>
+<name>札幌管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901144001_0_VPCU51_016000.xml"/>
+<content type="text">【札幌海上気象】</content>
+</entry>
+<entry>
+<title>地方海上警報（Ｈ２８）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901144002_0_VPCU51_017000.xml</id>
+<updated>2025-09-01T14:40:01Z</updated>
+<author>
+<name>札幌管区気象台</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901144002_0_VPCU51_017000.xml"/>
+<content type="text">【函館海上気象】</content>
+</entry>
+<entry>
+<title>全般海上警報（定時）（Ｈ２９）</title>
+<id>https://www.data.jma.go.jp/developer/xml/data/20250901142714_0_VPZU52_010000.xml</id>
+<updated>2025-09-01T14:27:13Z</updated>
+<author>
+<name>気象庁</name>
+</author>
+<link type="application/xml" href="https://www.data.jma.go.jp/developer/xml/data/20250901142714_0_VPZU52_010000.xml"/>
+<content type="text">【全般海上警報】</content>
+</entry>
+</feed>

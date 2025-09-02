@@ -295,6 +295,44 @@ class WeatherApp {
     return `<div class="disaster-alert" role="alert"><div class="disaster-header"><i class="fas fa-exclamation-triangle disaster-icon"></i><span>緊急災害情報</span></div><div class="disaster-items">${items}</div></div>`;
   }
 
+  generatePopupAlertHTML(alertArray) {
+    if (!alertArray || alertArray.length === 0) return '';
+    
+    // 警報の種類別にグループ化して重複を除去
+    const alertTypes = {};
+    alertArray.forEach(alert => {
+      const trimmed = alert.trim();
+      if (trimmed) {
+        alertTypes[trimmed] = (alertTypes[trimmed] || 0) + 1;
+      }
+    });
+
+    if (Object.keys(alertTypes).length === 0) return '';
+
+    // 警報の重要度でソート（警報 > 注意報）
+    const sortedAlerts = Object.entries(alertTypes).sort(([a], [b]) => {
+      const aIsWarning = a.includes('警報');
+      const bIsWarning = b.includes('警報');
+      if (aIsWarning && !bIsWarning) return -1;
+      if (!aIsWarning && bIsWarning) return 1;
+      return a.localeCompare(b);
+    });
+
+    // 表示数を制限（最大6個）
+    const displayAlerts = sortedAlerts.slice(0, 6);
+    const hiddenCount = sortedAlerts.length - displayAlerts.length;
+
+    const items = displayAlerts.map(([alert, count]) => {
+      const icon = alert.includes('警報') ? 'fas fa-exclamation-triangle' : 'fas fa-exclamation-circle';
+      const countDisplay = count > 1 ? ` (×${count})` : '';
+      return `<span class="alert-item"><i class="${icon} alert-item-icon"></i><span class="alert-text">${alert}${countDisplay}</span></span>`;
+    }).join('');
+
+    const hiddenText = hiddenCount > 0 ? `<span class="alert-hidden">他${hiddenCount}件</span>` : '';
+    
+    return `<div class="alert-warning" role="alert"><div class="alert-header"><i class="fas fa-triangle-exclamation alert-icon"></i><span>気象警報・注意報</span></div><div class="alert-items">${items}${hiddenText}</div></div>`;
+  }
+
   /* generateWeeklyDisasterHTML は不要になったため削除 */
 
   // ------------------------------------------------------------------
@@ -413,7 +451,8 @@ class WeatherApp {
             humidity: today.humidity || '--',
             uv_index: today.uv_index || '--'
           },
-          disaster: today.disaster || []
+          disaster: today.disaster || [],
+          alert: today.alert || []
         };
         this.displayWeatherInfo(current, lat, lng);
         if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
@@ -447,7 +486,7 @@ class WeatherApp {
     const weekly = document.getElementById('weekly-data');
     if (weekly) weekly.innerHTML = '';
     this.weeklyDataForChart = null;
-    const dummy = { status: 'ok', weather: { weather_code: '100', temperature: '--', precipitation_prob: '--' }, disaster: [] };
+    const dummy = { status: 'ok', weather: { weather_code: '100', temperature: '--', precipitation_prob: '--' }, disaster: [], alert: [] };
     if (this.currentMarker) this.currentMarker.bindPopup(this.createErrorPopupContent(msg, errorCode, lat, lng)).openPopup();
   }
 
@@ -480,9 +519,10 @@ class WeatherApp {
       if (data.weather.precipitation_prob !== undefined && data.weather.precipitation_prob !== null) precip = data.weather.precipitation_prob;
     }
     const disaster = this.generatePopupDisasterHTML(data.disaster);
+    const alert = this.generatePopupAlertHTML(data.alert);
     const iconClass = this.weatherIconMap[code] || 'fas fa-sun';
     const name = this.weatherCodeMap[code] || '天気情報不明';
-    return `<div class="popup-content"><div class="popup-weather-icon"><i class="${iconClass}"></i></div><div class="popup-description">${name}</div><div class="popup-weather-data"><div class="popup-temp-container"><div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div><div class="popup-temp-label">気温</div></div><div class="popup-precipitation_prob-container"><div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div><div class="popup-precipitation_prob-label">降水確率</div></div></div>${disaster}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
+    return `<div class="popup-content"><div class="popup-weather-icon"><i class="${iconClass}"></i></div><div class="popup-description">${name}</div><div class="popup-weather-data"><div class="popup-temp-container"><div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div><div class="popup-temp-label">気温</div></div><div class="popup-precipitation_prob-container"><div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div><div class="popup-precipitation_prob-label">降水確率</div></div></div>${alert}${disaster}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
   }
 
   createErrorPopupContent(message, errorCode, lat, lng) {

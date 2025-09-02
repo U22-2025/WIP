@@ -1,11 +1,11 @@
 """
-警報・注意報情報取得スクリプト
+統合警報・注意報情報取得スクリプト
 
-リファクタリング済みのAlertProcessorを使用して
-警報・注意報情報を取得・処理し、Redisに格納します。
+従来の警報・注意報処理（extra.xml）と新しい海上警報・注意報処理（other.xml）を
+統合して実行し、Redisに格納します。
 
 使用方法:
-    python get_alert.py
+    python get_combined_alerts.py
 """
 
 import sys
@@ -21,17 +21,15 @@ from WIPServerPy.data.alert_processor import AlertDataProcessor, AlertProcessor
 from WIPServerPy.data.maritime_alert_processor import MaritimeAlertProcessor
 from WIPServerPy.data.redis_manager import create_redis_manager
 
-# JSON_DIR references removed
-
 
 def main():
     """
-    警報・注意報処理のメイン関数
+    統合警報・注意報処理のメイン関数
 
-    AlertProcessorを使用して警報・注意報情報を取得し、
+    従来の警報・注意報と海上警報・注意報の両方を処理し、
     既存のRedis気象データに追加します。
     """
-    print("=== 警報・注意報情報取得開始 ===")
+    print("=== 統合警報・注意報情報取得開始 ===")
 
     # プロセッサのインスタンスを作成
     alert_processor = AlertDataProcessor()
@@ -42,12 +40,7 @@ def main():
         # Redis管理クラスのインスタンスを作成（最初に作成して使い回し）
         redis_manager = create_redis_manager(debug=True)
 
-        # 古い警報データを初期化
-        print("古い警報データを初期化中...")
-        clear_result = redis_manager.clear_alert_disaster_data(clear_alerts=True, clear_disasters=False)
-        print(f"警報初期化完了: {clear_result['cleared_areas']}エリア, エラー: {clear_result['errors']}件")
-
-        # ===== 従来の警報・注意報処理（extra.xml）=====
+        # ===== 従来の警報・注意報処理 =====
         print("\n=== Step 1: 従来の警報・注意報処理（extra.xml）===")
         
         try:
@@ -73,7 +66,7 @@ def main():
         except Exception as e:
             print(f"従来の警報・注意報処理でエラー: {e}")
 
-        # ===== 海上警報・注意報処理（other.xml）=====
+        # ===== 海上警報・注意報処理 =====
         print("\n=== Step 2: 海上警報・注意報処理（other.xml）===")
         
         try:
@@ -98,8 +91,10 @@ def main():
         print("\n=== 統合警報・注意報情報取得完了 ===")
 
     except Exception as e:
-        print(f"Error in alert processing: {e}")
+        print(f"Error in combined alert processing: {e}")
         import traceback
         traceback.print_exc()
 
 
+if __name__ == "__main__":
+    main()

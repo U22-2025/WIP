@@ -205,6 +205,76 @@ class WeatherRedisManager:
                     )
                 return False
 
+    def clear_alert_disaster_data(self, clear_alerts: bool = True, clear_disasters: bool = True) -> Dict[str, int]:
+        """
+        全エリアの警報・災害データを初期化（空配列にリセット）
+        
+        Args:
+            clear_alerts: 警報データ（warnings）をクリアするかどうか
+            clear_disasters: 災害データ（disaster）をクリアするかどうか
+            
+        Returns:
+            更新結果 {'cleared_areas': クリアしたエリア数, 'errors': エラー数}
+        """
+        if not self.redis_client:
+            return {"cleared_areas": 0, "errors": 0}
+        
+        cleared_count = 0
+        error_count = 0
+        
+        try:
+            # weather:* パターンのキーを取得
+            prefix = getattr(self, "key_prefix", "") or ""
+            pattern = f"{prefix}weather:*"
+            keys = self.redis_client.keys(pattern)
+            
+            if self.debug:
+                print(f"初期化対象: {len(keys)}個のエリアデータ")
+            
+            for key in keys:
+                try:
+                    # 既存データを取得
+                    existing_data = self.redis_client.json().get(key, ".")
+                    if existing_data is None:
+                        # Fallback: 通常キーの場合
+                        raw = self.redis_client.get(key)
+                        if raw:
+                            existing_data = json.loads(raw)
+                        else:
+                            continue
+                    
+                    modified = False
+                    if clear_alerts and "warnings" in existing_data:
+                        existing_data["warnings"] = []
+                        modified = True
+                    
+                    if clear_disasters and "disaster" in existing_data:
+                        existing_data["disaster"] = []
+                        modified = True
+                    
+                    if modified:
+                        # データを更新
+                        self.redis_client.json().set(key, ".", existing_data)
+                        cleared_count += 1
+                        if self.debug:
+                            area_code = key.replace(f"{prefix}weather:", "")
+                            print(f"初期化完了: {area_code}")
+                            
+                except Exception as e:
+                    if self.debug:
+                        print(f"エリア初期化エラー ({key}): {e}")
+                    error_count += 1
+                    
+        except Exception as e:
+            if self.debug:
+                print(f"初期化処理エラー: {e}")
+            error_count += 1
+        
+        if self.debug:
+            print(f"初期化完了: {cleared_count}エリア, エラー: {error_count}件")
+        
+        return {"cleared_areas": cleared_count, "errors": error_count}
+
     def update_alerts(self, alert_data: Union[str, Dict[str, Any]]) -> Dict[str, int]:
         """
         警報・注意報情報を更新
@@ -239,7 +309,11 @@ class WeatherRedisManager:
                     new_data = self._create_default_weather_data()
                     created_count += 1
 
-                new_data["warnings"] = alert_info.get("alert_info", [])
+                # 警報データを置換する（新規データのみを使用し、重複排除）
+                new_alerts = alert_info.get("alert_info", [])
+                # 重複排除
+                unique_alerts = list(dict.fromkeys(new_alerts))  # 順序を保持しつつ重複排除
+                new_data["warnings"] = unique_alerts
 
                 if self.update_weather_data(area_code, new_data):
                     if existing_data:
@@ -301,7 +375,7 @@ class WeatherRedisManager:
                     new_data = self._create_default_weather_data()
                     created_count += 1
 
-                # 災害情報を追加
+                # 災害情報を置換する（新規データのみを使用）
                 new_data["disaster"] = disaster_info.get("disaster", [])
 
                 if self.update_weather_data(area_code, new_data):
@@ -471,6 +545,8 @@ class WeatherRedisManager:
                         base["warnings"] = data.get("warnings") or []
                     if "disaster" in data:
                         base["disaster"] = data.get("disaster") or []
+                    if "maritime_alert" in data:
+                        base["maritime_alert"] = data.get("maritime_alert") or []
                     update_pipe.json().set(weather_key, ".", base)
                     if self.debug:
                         print(f"新規作成: {weather_key}")
@@ -594,6 +670,79 @@ class WeatherRedisManager:
             if self.debug:
                 print(f"タイムスタンプ取得エラー: {e}")
             return {}
+
+    def update_maritime_alerts(self, maritime_alert_data: Union[str, Dict[str, Any]]) -> Dict[str, int]:
+        """
+        海上警報・注意報情報を更新
+        Args:
+            maritime_alert_data: 海上警報・注意報データ（JSON文字列またはdict）
+        Returns:
+            更新結果 {'updated': 更新数, 'created': 新規作成数, 'errors': エラー数}
+        """
+        if not self.redis_client:
+            return {"updated": 0, "created": 0, "errors": 0}
+
+        # データの型チェック・変換
+        if isinstance(maritime_alert_data, str):
+            try:
+                import json
+                maritime_alert_data = json.loads(maritime_alert_data)
+            except json.JSONDecodeError as e:
+                if self.debug:
+                    print(f"JSON parse error in maritime alerts: {e}")
+                return {"updated": 0, "created": 0, "errors": 1}
+
+        updated_count = 0
+        created_count = 0
+        error_count = 0
+
+        for area_code, maritime_info in maritime_alert_data.items():
+            try:
+                # タイムスタンプ情報は別処理
+                if area_code == "maritime_alert_pulldatetime":
+                    self.update_weather_data(area_code, maritime_info)
+                    continue
+
+                # 既存の気象データを取得、なければデフォルトデータを作成
+                existing_data = self.get_weather_data(area_code)
+
+                if existing_data:
+                    new_data = existing_data
+                    updated_count += 1
+                else:
+                    new_data = self._create_default_weather_data()
+                    created_count += 1
+
+                # 海上警報・注意報情報を既存のwarningsフィールドに統合
+                existing_warnings = new_data.get("warnings", [])
+                maritime_alerts = maritime_info.get("maritime_alert", [])
+                new_data["warnings"] = existing_warnings + maritime_alerts
+
+                if self.update_weather_data(area_code, new_data):
+                    if self.debug:
+                        maritime_count = len(maritime_info.get("maritime_alert", []))
+                        if existing_data:
+                            print(
+                                f"海上警報更新: {area_code} - {maritime_count}件"
+                            )
+                        else:
+                            print(
+                                f"海上警報新規: {area_code} - {maritime_count}件"
+                            )
+                else:
+                    if self.debug:
+                        print(f"海上警報更新失敗: {area_code}")
+                    error_count += 1
+            except Exception as e:
+                if self.debug:
+                    print(f"海上警報処理エラー ({area_code}): {e}")
+                error_count += 1
+
+        return {
+            "updated": updated_count,
+            "created": created_count,
+            "errors": error_count,
+        }
 
     def close(self):
         """Redis接続を閉じる"""

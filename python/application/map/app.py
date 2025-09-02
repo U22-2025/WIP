@@ -84,7 +84,7 @@ def _create_fallback_weather_data(area_code, days_offset=0):
 def _get_today_weather(lat, lng):
     """今日の天気データを取得するヘルパー関数"""
     client.set_coordinates(lat, lng)
-    today_weather = client.get_weather(day=0)
+    today_weather = client.get_weather(day=0, alert=True, disaster=True)
 
     if (
         not today_weather
@@ -104,10 +104,10 @@ def _get_weekly_weather_parallel(area_code):
     weekly_data = {}
 
     with ThreadPoolExecutor(max_workers=6) as executor:
-        # dayとfutureのマップを作成
+        # dayとfutureのマップを作成（警報・災害情報も含める）
         future_to_day = {
             executor.submit(
-                client.get_weather_by_area_code, area_code=area_code, day=day
+                client.get_weather_by_area_code, area_code=area_code, day=day, alert=True, disaster=True
             ): day
             for day in range(1, 7)
         }
@@ -145,8 +145,8 @@ def weekly_forecast():
         # 座標を設定
         client.set_coordinates(lat, lng)
 
-        # 今日の天気データを取得してarea_codeを取得
-        today_weather = client.get_weather(day=0)
+        # 今日の天気データを取得してarea_codeを取得（警報・災害情報も含める）
+        today_weather = client.get_weather(day=0, alert=True, disaster=True)
         if (
             not today_weather
             or isinstance(today_weather, dict)
@@ -185,12 +185,12 @@ def weekly_forecast():
 
                 # 天気データを取得
                 if day == 0:
-                    # 今日のデータは既に取得済み
+                    # 今日のデータは既に取得済み（警報・災害情報も含む）
                     weather_data = today_weather.copy()
                 else:
-                    # 1日後以降はarea_codeで取得
+                    # 1日後以降はarea_codeで取得（警報・災害情報も含める）
                     weather_data = client.get_weather_by_area_code(
-                        area_code=area_code, day=day
+                        area_code=area_code, day=day, alert=True, disaster=True
                     )
 
                     if (

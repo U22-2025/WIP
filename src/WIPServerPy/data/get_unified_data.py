@@ -148,6 +148,11 @@ def main():
             # Redis管理クラスのインスタンスを作成
             redis_manager = create_redis_manager(debug=True)
 
+            # 古い災害データを初期化
+            print("古い災害データを初期化中...")
+            clear_result = redis_manager.clear_alert_disaster_data(clear_alerts=False, clear_disasters=True)
+            print(f"災害初期化完了: {clear_result['cleared_areas']}エリア, エラー: {clear_result['errors']}件")
+
             disaster_result = {"updated": 0, "created": 0, "errors": 0}
             earthquake_result = {"updated": 0, "created": 0, "errors": 0}
 
