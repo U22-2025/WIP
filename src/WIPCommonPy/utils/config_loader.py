@@ -58,7 +58,7 @@ class ConfigLoader:
 
                     def replace_env(match):
                         env_var = match.group(1)
-                        return os.getenv(env_var, match.group(0))
+                        return os.getenv(env_var, "")
 
                     expanded_value = re.sub(pattern, replace_env, value)
                     self.config.set(section, key, expanded_value)
