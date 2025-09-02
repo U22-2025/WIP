@@ -13,6 +13,7 @@ Redis管理クラス
 """
 
 import json
+import re
 import redis
 import os
 from datetime import datetime
@@ -95,6 +96,16 @@ class WeatherRedisManager:
             print("Redisサーバーが起動していることを確認してください")
             self.redis_client = None
             raise
+
+    def _normalize_alert_text(self, text: Any) -> str:
+        """警報テキストの正規化（括弧とその中身を除去、空白整形）"""
+        if not isinstance(text, str):
+            return ""
+        # 全角/半角の括弧とその中身を削除
+        cleaned = re.sub(r"[（(][^）)]*[）)]", "", text)
+        # 余分な空白を1つにまとめてトリム
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned
 
     def _get_weather_key(self, area_code: str) -> str:
         """気象データキーを生成"""
@@ -309,10 +320,19 @@ class WeatherRedisManager:
                     new_data = self._create_default_weather_data()
                     created_count += 1
 
-                # 警報データを置換する（新規データのみを使用し、重複排除）
-                new_alerts = alert_info.get("alert_info", [])
-                # 重複排除
-                unique_alerts = list(dict.fromkeys(new_alerts))  # 順序を保持しつつ重複排除
+                # 警報データを置換する（新規データのみを使用し、重複排除 + 再正規化）
+                raw_alerts = alert_info.get("alert_info", [])
+                if not isinstance(raw_alerts, list):
+                    # 想定外の型の場合はリスト化
+                    raw_alerts = [raw_alerts] if raw_alerts else []
+
+                # 正規化（括弧と中身を除去、空白整形）
+                normalized_alerts = [self._normalize_alert_text(a) for a in raw_alerts]
+                # 空要素を除去
+                normalized_alerts = [a for a in normalized_alerts if a]
+
+                # 重複排除（順序保持）
+                unique_alerts = list(dict.fromkeys(normalized_alerts))
                 new_data["warnings"] = unique_alerts
 
                 if self.update_weather_data(area_code, new_data):

@@ -27,6 +27,7 @@ sys.path.insert(
 )
 
 import xml.etree.ElementTree as ET
+import re
 from collections import defaultdict
 from typing import Dict, List, Any, Optional
 from WIPServerPy.data.xml_base import XMLBaseProcessor
@@ -97,8 +98,20 @@ class AlertProcessor(XMLBaseProcessor):
         kinds = []
         for kind in item.findall("ib:Kind", self.ns):
             name_elem = kind.find("ib:Name", self.ns)
-            if name_elem is not None and name_elem.text and name_elem.text != "解除":
-                kinds.append(name_elem.text)
+            if name_elem is None or not name_elem.text:
+                continue
+
+            # 正規化: 全角/半角の括弧とその中身を除去し、前後の空白をトリム
+            # 例: "大雨（注意）(テスト)" -> "大雨"
+            raw_name = name_elem.text
+            normalized = re.sub(r"[（(][^）)]*[）)]", "", raw_name)
+            normalized = re.sub(r"\s+", " ", normalized).strip()
+
+            # "解除" は種別として扱わない
+            if not normalized or normalized == "解除":
+                continue
+
+            kinds.append(normalized)
         return kinds
 
     def _extract_area_codes(self, item: ET.Element) -> List[str]:
@@ -275,5 +288,4 @@ def main():
         import traceback
 
         traceback.print_exc()
-
 
