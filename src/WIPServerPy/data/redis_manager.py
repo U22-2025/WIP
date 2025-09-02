@@ -18,6 +18,7 @@ import os
 from datetime import datetime
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
+import re
 
 
 @dataclass
@@ -69,6 +70,11 @@ class WeatherRedisManager:
             self.key_prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", ""))
         self.redis_client = None
         self._connect()
+
+    @staticmethod
+    def _normalize_alert_name(name: str) -> str:
+        """全角/半角の括弧を除去して正規化"""
+        return re.sub(r"[()（）]", "", name)
 
     def _connect(self):
         """Redis接続を確立"""
@@ -239,7 +245,16 @@ class WeatherRedisManager:
                     new_data = self._create_default_weather_data()
                     created_count += 1
 
-                new_data["warnings"] = alert_info.get("alert_info", [])
+                # 重複を除去しつつ再度正規化を確認
+                warnings = alert_info.get("alert_info", [])
+                normalized_warnings = []
+                seen = set()
+                for w in warnings:
+                    normalized = self._normalize_alert_name(w)
+                    if normalized not in seen:
+                        seen.add(normalized)
+                        normalized_warnings.append(normalized)
+                new_data["warnings"] = normalized_warnings
 
                 if self.update_weather_data(area_code, new_data):
                     if existing_data:

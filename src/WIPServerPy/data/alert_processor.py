@@ -33,6 +33,7 @@ from WIPServerPy.data.xml_base import XMLBaseProcessor
 
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+import re
 
 
 # JSON_DIRの定義を削除（logs/jsonフォルダは使用しない）
@@ -47,6 +48,11 @@ class AlertProcessor(XMLBaseProcessor):
     def __init__(self):
         super().__init__()
         self.target_type = "気象警報・注意報（一次細分区域等）"
+
+    @staticmethod
+    def _normalize_kind_name(name: str) -> str:
+        """全角/半角の括弧を除去して正規化"""
+        return re.sub(r"[()（）]", "", name)
 
     def process_xml_data(self, xml_data: str) -> Dict[str, Any]:
         """
@@ -77,10 +83,11 @@ class AlertProcessor(XMLBaseProcessor):
 
                 # エリアコード別に警報・注意報情報を格納
                 for area_code in area_codes:
-                    # 重複を避けて種別を追加
+                    # 重複を避けて種別を追加（正規化後の文字列を使用）
                     for kind in kinds:
-                        if kind not in area_alert_mapping[area_code]:
-                            area_alert_mapping[area_code].append(kind)
+                        normalized = self._normalize_kind_name(kind)
+                        if normalized not in area_alert_mapping[area_code]:
+                            area_alert_mapping[area_code].append(normalized)
 
         return area_alert_mapping
 
@@ -98,7 +105,9 @@ class AlertProcessor(XMLBaseProcessor):
         for kind in item.findall("ib:Kind", self.ns):
             name_elem = kind.find("ib:Name", self.ns)
             if name_elem is not None and name_elem.text and name_elem.text != "解除":
-                kinds.append(name_elem.text)
+                normalized = self._normalize_kind_name(name_elem.text)
+                if normalized:
+                    kinds.append(normalized)
         return kinds
 
     def _extract_area_codes(self, item: ET.Element) -> List[str]:
