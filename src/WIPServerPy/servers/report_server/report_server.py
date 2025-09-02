@@ -444,12 +444,14 @@ class ReportServer(BaseServer):
 
             # キープレフィックス（テスト検証用）を環境変数/設定から取得
             # 優先順位: REPORT_DB_KEY_PREFIX > [database].key_prefix > REDIS_KEY_PREFIX
-            key_prefix = (
+            key_prefix = ""
+            prefix_candidate = (
                 os.getenv("REPORT_DB_KEY_PREFIX")
-                or self.config.get("database", "key_prefix", None)
-                or os.getenv("REDIS_KEY_PREFIX")
-                or ""
+                or self.config.get("database", "key_prefix", "")
+                or os.getenv("REDIS_KEY_PREFIX", "")
             )
+            if prefix_candidate and prefix_candidate != "${REDIS_KEY_PREFIX}":
+                key_prefix = prefix_candidate
 
             rm = WeatherRedisManager(debug=self.debug, key_prefix=key_prefix)
 
