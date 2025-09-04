@@ -373,7 +373,9 @@ class WeatherApp {
       if (strength.includes('m/s')) {
         displayText = `${directionName} ${strength}`;
       } else if (strength !== '') {
-        displayText = `${directionName} ${strength}`;
+        // ポップアップでは簡潔に表示
+        const shortStrength = strength.replace('やや強く', '中').replace('強く', '強').replace('弱く', '弱');
+        displayText = `${directionName}${shortStrength}`;
       }
     }
     
@@ -794,7 +796,7 @@ class WeatherApp {
           <div class="popup-precipitation_prob-label">降水確率</div>
         </div>
         <div class="popup-wind-container">
-          <div class="popup-wind-display">
+          <div class="popup-wind-main">
             ${windDisplay.arrow}
             <div class="popup-wind-text">${windDisplay.text}</div>
           </div>

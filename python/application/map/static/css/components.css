@@ -68,7 +68,8 @@
 .popup-content {
     text-align: center;
     padding: var(--space-sm);
-    min-width: 200px;
+    min-width: 280px;
+    max-width: 350px;
     background: var(--surface-primary);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-lg);
@@ -111,8 +112,8 @@
 
 .popup-weather-data {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: var(--space-sm);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-md);
     margin: var(--space-md) 0;
 }
 
@@ -126,11 +127,14 @@
     box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.6);
     transition: all var(--transition-normal);
-    min-height: 70px;
+    min-height: 80px;
+    width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
+    gap: var(--space-xs);
 }
 
 .popup-temp-container:hover,
@@ -152,8 +156,8 @@
     font-size: var(--font-xl);
     font-weight: 700;
     color: var(--accent-color);
-    margin-bottom: var(--space-xs);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .popup-temp-label,
@@ -164,6 +168,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .popup-disaster {
@@ -1141,30 +1146,24 @@ button:focus,
 
 /* ポップアップ内の風データ表示は上部の共通スタイルで統一 */
 
-.popup-wind-display {
+.popup-wind-main {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 2px;
-    max-width: 100%;
-    overflow: hidden;
-    flex: 1;
     justify-content: center;
+    gap: var(--space-xs);
+    flex: 1;
+    min-height: 0;
 }
 
 .popup-wind-text {
     font-size: var(--font-sm);
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-primary);
-    text-align: center;
-    line-height: 1.3;
-    max-height: 2.6em;
+    white-space: nowrap;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    word-wrap: break-word;
-    hyphens: auto;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    text-align: center;
 }
 
 .popup-wind-value {
@@ -1281,25 +1280,28 @@ button:focus,
 
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
+    .popup-content {
+        min-width: 250px;
+        max-width: 320px;
+    }
+    
     .popup-weather-data {
         grid-template-columns: 1fr;
-        gap: var(--space-xs);
+        gap: var(--space-sm);
     }
     
     .popup-wind-container {
         min-width: unset;
     }
     
-    .popup-wind-display {
-        flex-direction: column;
-        gap: 2px;
+    .popup-wind-main {
+        flex-direction: row;
+        gap: 4px;
     }
     
     .popup-wind-text {
         font-size: var(--font-xs);
-        -webkit-line-clamp: 1;
-        max-height: 1.3em;
-        line-height: 1.3;
+        max-width: 70px;
     }
 }
 
