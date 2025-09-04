@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Optional, AsyncGenerator
 import uvicorn
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -33,6 +34,7 @@ app = FastAPI()
 script_dir = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(script_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(script_dir / "templates"))
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Health endpoint for compatibility when API is mounted under /api
 @app.get("/health")
@@ -231,6 +233,24 @@ class Coordinates(BaseModel):
 
     lat: float
     lng: float
+
+
+# 簡易TTLキャッシュ（週予報）。キーは area_code。値は {expires, weekly_forecast}
+_WEEKLY_CACHE: dict[str, dict] = {}
+_WEEKLY_TTL_SEC = int(os.getenv("WEEKLY_CACHE_TTL", "60"))
+
+def _get_cached_weekly(area_code: str):
+    now = time.time()
+    ent = _WEEKLY_CACHE.get(area_code)
+    if ent and ent.get("expires", 0) > now:
+        return ent.get("weekly_forecast")
+    return None
+
+def _set_cached_weekly(area_code: str, weekly_forecast_list: list):
+    _WEEKLY_CACHE[area_code] = {
+        "expires": time.time() + _WEEKLY_TTL_SEC,
+        "weekly_forecast": weekly_forecast_list,
+    }
 
 
 async def log_event(
@@ -659,15 +679,91 @@ async def weekly_forecast(
                     and ("error" in weather_data or "error_code" in weather_data)
                 ):
                     weather_data = _create_fallback_weather_data(area_code, day)
+                
+                # Redisから直接風速データを取得して追加
+                if "wind" not in weather_data or weather_data.get("wind") is None:
+                    try:
+                        import redis
+                        import json as json_lib
+                        _host = os.getenv("REDIS_HOST", "localhost")
+                        _port = int(os.getenv("REDIS_PORT", 6379))
+                        _db = int(os.getenv("REDIS_DB", 0))
+                        _prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")) or ""
+
+                        redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
+                        redis_key = f"{_prefix}weather:{area_code}"
+                        
+                        weather_info = None
+                        try:
+                            redis_data = redis_client.execute_command("JSON.GET", redis_key)
+                            if redis_data:
+                                weather_info = json_lib.loads(redis_data)
+                        except Exception:
+                            pass
+                        if weather_info is None:
+                            raw = redis_client.get(redis_key)
+                            if raw:
+                                try:
+                                    weather_info = json_lib.loads(raw)
+                                except Exception:
+                                    weather_info = None
+                        
+                        if weather_info:
+                            wind_list = weather_info.get("wind", [])
+                            if wind_list and len(wind_list) > day and wind_list[day]:
+                                weather_data["wind"] = wind_list[day]
+                    except Exception as e:
+                        logger.error(f"Error fetching wind data from Redis for day {day}: {e}")
             except Exception as e:  # pragma: no cover
                 logger.error(f"Error getting weather for day {day}: {e}")
                 weather_data = _create_fallback_weather_data(area_code, day)
             return _add_date_info(weather_data, day)
 
-        tasks = [fetch(day) for day in range(1, 7)]
-        results = await asyncio.gather(*tasks)
-        weekly_forecast_list = [_add_date_info(today_weather, 0)] + results
-        weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
+        # 週予報は area_code 単位で短期キャッシュ
+        weekly_forecast_list = _get_cached_weekly(area_code)
+        if not weekly_forecast_list:
+          tasks = [fetch(day) for day in range(1, 7)]
+          results = await asyncio.gather(*tasks)
+          
+          # today_weatherにも風速データを追加
+          today_with_wind = today_weather.copy()
+          if "wind" not in today_with_wind or today_with_wind.get("wind") is None:
+              try:
+                  import redis
+                  import json as json_lib
+                  _host = os.getenv("REDIS_HOST", "localhost")
+                  _port = int(os.getenv("REDIS_PORT", 6379))
+                  _db = int(os.getenv("REDIS_DB", 0))
+                  _prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")) or ""
+
+                  redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
+                  redis_key = f"{_prefix}weather:{area_code}"
+                  
+                  weather_info = None
+                  try:
+                      redis_data = redis_client.execute_command("JSON.GET", redis_key)
+                      if redis_data:
+                          weather_info = json_lib.loads(redis_data)
+                  except Exception:
+                      pass
+                  if weather_info is None:
+                      raw = redis_client.get(redis_key)
+                      if raw:
+                          try:
+                              weather_info = json_lib.loads(raw)
+                          except Exception:
+                              weather_info = None
+                  
+                  if weather_info:
+                      wind_list = weather_info.get("wind", [])
+                      if wind_list and len(wind_list) > 0 and wind_list[0]:
+                          today_with_wind["wind"] = wind_list[0]
+              except Exception as e:
+                  logger.error(f"Error fetching wind data from Redis for today: {e}")
+          
+          weekly_forecast_list = [_add_date_info(today_with_wind, 0)] + results
+          weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
+          _set_cached_weekly(area_code, weekly_forecast_list)
 
         # 追加: ランドマークを同梱して1リクエスト化
         area_name: str = "不明"
@@ -735,6 +831,10 @@ async def weekly_forecast(
                 landmarks_with_distance.sort(
                     key=lambda x: x.get("distance", float("inf"))
                 )
+                # 近傍上位N件のみを返却（転送/描画コストを抑制）
+                MAX_LANDMARKS = int(os.getenv("LANDMARKS_TOPN", "100"))
+                if len(landmarks_with_distance) > MAX_LANDMARKS:
+                    landmarks_with_distance = landmarks_with_distance[:MAX_LANDMARKS]
         except Exception as e:  # pragma: no cover
             logger.error(f"Error embedding landmarks in weekly_forecast: {e}")
 
@@ -748,10 +848,114 @@ async def weekly_forecast(
                 "landmarks": landmarks_with_distance,
             }
         )
+
     except Exception as e:  # pragma: no cover
         logger.error(f"Error in weekly_forecast: {e}")
         return JSONResponse(
             {"status": "error", "message": "週間予報の取得に失敗しました"},
+            status_code=500,
+        )
+
+
+@app.post("/current_weather")
+async def current_weather(
+    request: Request,
+    coords: Coordinates,
+    client: ClientAsync = Depends(get_wip_client),
+):
+    lat = coords.lat
+    lng = coords.lng
+    ip = getattr(request.state, "ip", None)
+    await log_event(
+        "POST /current_weather",
+        details={"endpoint": "/current_weather", "lat": lat, "lng": lng},
+    )
+
+    if lat is None or lng is None:
+        return JSONResponse(
+            {"status": "error", "message": "緯度と経度が必要です"}, status_code=400
+        )
+
+    try:
+        today_weather = await call_with_metrics(
+            client.get_weather_by_coordinates,
+            lat,
+            lng,
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            wind=True,
+            alert=True,
+            disaster=True,
+            day=0,
+            ip=ip,
+            context={"coords": f"{lat},{lng}", "purpose": "current"},
+        )
+
+        if not today_weather or (
+            isinstance(today_weather, dict)
+            and ("error" in today_weather or "error_code" in today_weather)
+        ):
+            return JSONResponse(
+                {"status": "error", "message": "天気情報の取得に失敗しました"},
+                status_code=500,
+            )
+
+        area_code = today_weather.get("area_code")
+        
+        # Redis から直接風速データを取得して追加
+        wind_data = None
+        try:
+            import redis
+            import json as json_lib
+            _host = os.getenv("REDIS_HOST", "localhost")
+            _port = int(os.getenv("REDIS_PORT", 6379))
+            _db = int(os.getenv("REDIS_DB", 0))
+            _prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")) or ""
+
+            redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
+            redis_key = f"{_prefix}weather:{area_code}"
+            
+            # RedisJSONまたは通常のキーからデータを取得
+            weather_info = None
+            try:
+                redis_data = redis_client.execute_command("JSON.GET", redis_key)
+                if redis_data:
+                    weather_info = json_lib.loads(redis_data)
+            except Exception:
+                pass
+            if weather_info is None:
+                raw = redis_client.get(redis_key)
+                if raw:
+                    try:
+                        weather_info = json_lib.loads(raw)
+                    except Exception:
+                        weather_info = None
+            
+            if weather_info:
+                wind_list = weather_info.get("wind", [])
+                if wind_list and len(wind_list) > 0:
+                    wind_data = wind_list[0]  # 今日の風速データ
+        except Exception as e:
+            logger.error(f"Error fetching wind data from Redis: {e}")
+        
+        # レスポンス作成
+        today_data = _add_date_info(today_weather, 0)
+        if wind_data:
+            today_data["wind"] = wind_data
+        
+        return JSONResponse(
+            {
+                "status": "ok",
+                "coordinates": {"lat": lat, "lng": lng},
+                "area_code": area_code,
+                "today": today_data,
+            }
+        )
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Error in current_weather: {e}")
+        return JSONResponse(
+            {"status": "error", "message": "現在の天気情報の取得に失敗しました"},
             status_code=500,
         )
 

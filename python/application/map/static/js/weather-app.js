@@ -14,8 +14,11 @@ class WeatherApp {
     this.landmarkMarker = null;
     this.landmarkLayer = null; // 複数ランドマーク表示用レイヤー
     this.autoFitLandmarks = false; // ピン表示時の自動ズーム調整を無効化（必要なら true に）
-    this.maxLandmarkPins = 200; // 一度に描画するピン数の上限
+    this.maxLandmarkPins = 100; // 一度に描画するピン数の上限（応答性優先）
     this.lastClickToken = 0; // 競合防止用トークン
+    this.weatherAbortCtl = null; // /weekly_forecast の中断用
+    this.currentAbortCtl = null; // /current_weather の中断用
+    this.pinRenderTimers = []; // ピン分割描画のタイマー保持
 
     // --- ステータス管理 ---
     this.weatherCodeMap = {};
@@ -66,6 +69,15 @@ class WeatherApp {
 
     // 実行開始
     this.init();
+  }
+
+  // シンプルなデバウンス
+  _debounce(fn, delay = 200) {
+    let t = null;
+    return (...args) => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), delay);
+    };
   }
 
   // ------------------------------------------------------------------
@@ -246,26 +258,90 @@ class WeatherApp {
   extractWindSpeed(windText) {
     if (!windText || windText === '--' || windText === null) return null;
     
-    // 風速の表現を抽出（"やや強く"、"強く"など）
-    if (windText.includes('強く')) {
-      if (windText.includes('やや強く')) return '中';
-      return '強';
-    } else if (windText.includes('弱く')) {
-      return '弱';
+    // 数値（アラビア数字）を優先的に抽出（単位と組み合わせの場合のみ）
+    const numberMatch = windText.match(/(\d+(?:\.\d+)?)\s*(?:メートル|m\/s|m|メ|㍍)/i);
+    if (numberMatch) {
+      return numberMatch[1] + 'm/s';
     }
     
-    // デフォルトは"弱"
-    return '弱';
+    // 漢数字を抽出（単位と組み合わせの場合のみ）
+    const kanjiNumbers = {
+      '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+      '１': 1, '２': 2, '３': 3, '４': 4, '５': 5, '６': 6, '７': 7, '８': 8, '９': 9
+    };
+    
+    for (const [kanji, value] of Object.entries(kanjiNumbers)) {
+      // 単位が必ず含まれている場合のみ数値として認識
+      if (windText.includes(kanji) && (windText.includes('メートル') || windText.includes('m/s') || windText.includes('m'))) {
+        // 地名（区、市、県など）の数字を除外
+        const kanjiIndex = windText.indexOf(kanji);
+        const afterKanji = windText.substring(kanjiIndex + 1, kanjiIndex + 3);
+        if (afterKanji.includes('区') || afterKanji.includes('市') || afterKanji.includes('県') || afterKanji.includes('町')) {
+          continue; // 地名の数字なのでスキップ
+        }
+        return value + 'm/s';
+      }
+    }
+    
+    // 数値が見つからない場合は強弱表現を抽出
+    // より多くの強弱表現を網羅的にチェック
+    const strengthPatterns = [
+      { pattern: /やや強く/, text: 'やや強く' },
+      { pattern: /強く/, text: '強く' },
+      { pattern: /弱く/, text: '弱く' },
+      { pattern: /非常に強く/, text: '非常に強く' },
+      { pattern: /極めて強く/, text: '極めて強く' },
+      { pattern: /猛烈に/, text: '猛烈' }
+    ];
+    
+    for (const strength of strengthPatterns) {
+      if (strength.pattern.test(windText)) {
+        return strength.text;
+      }
+    }
+    
+    // 風速に関する数値的表現をチェック（単位なしでも）
+    const speedPatterns = [
+      { pattern: /秒速\s*(\d+(?:\.\d+)?)\s*メートル/, replacement: '$1m/s' },
+      { pattern: /(\d+(?:\.\d+)?)\s*m\/s/, replacement: '$1m/s' },
+      { pattern: /(\d+(?:\.\d+)?)\s*ノット/, replacement: (match, p1) => (parseFloat(p1) * 0.514).toFixed(1) + 'm/s' },
+    ];
+    
+    for (const speed of speedPatterns) {
+      const match = windText.match(speed.pattern);
+      if (match) {
+        if (typeof speed.replacement === 'function') {
+          return speed.replacement(match[0], match[1]);
+        } else {
+          return windText.replace(speed.pattern, speed.replacement);
+        }
+      }
+    }
+    
+    // デフォルトは空文字（風向きのみ表示）
+    return '';
   }
 
   generateWindArrow(angle, strength = '弱') {
     if (angle === null) return '<span class="wind-no-data">--</span>';
     
-    const strengthClass = {
-      '弱': 'wind-weak',
-      '中': 'wind-medium', 
-      '強': 'wind-strong'
-    }[strength] || 'wind-weak';
+    let strengthClass = 'wind-weak';
+    
+    // 数値の場合はm/sの値で色を決定
+    if (strength && strength.includes('m/s')) {
+      const speedValue = parseFloat(strength);
+      if (speedValue >= 8) strengthClass = 'wind-strong';
+      else if (speedValue >= 4) strengthClass = 'wind-medium';
+      else strengthClass = 'wind-weak';
+    } else {
+      // 文字表現の場合
+      const strengthMap = {
+        '弱く': 'wind-weak',
+        'やや強く': 'wind-medium', 
+        '強く': 'wind-strong'
+      };
+      strengthClass = strengthMap[strength] || 'wind-weak';
+    }
     
     return `<div class="wind-arrow ${strengthClass}" style="transform: rotate(${angle}deg)">
       <i class="fas fa-long-arrow-alt-up"></i>
@@ -290,11 +366,20 @@ class WeatherApp {
     };
     
     const directionName = directionNames[angle] || '不明';
-    const strengthText = { '弱': '', '中': 'やや強', '強': '強' }[strength] || '';
+    
+    // 数値がある場合は数値を優先表示、なければ強弱表現を表示
+    let displayText = directionName;
+    if (strength) {
+      if (strength.includes('m/s')) {
+        displayText = `${directionName} ${strength}`;
+      } else if (strength !== '') {
+        displayText = `${directionName} ${strength}`;
+      }
+    }
     
     return {
       arrow: arrow,
-      text: strengthText ? `${directionName} ${strengthText}` : directionName
+      text: displayText
     };
   }
 
@@ -492,7 +577,9 @@ class WeatherApp {
   }
 
   setupMapEvents() {
-    this.map.on('click', (e) => this.handleMapClick(e.latlng.lat, e.latlng.lng));
+    // クリックはデバウンスして無駄な連続リクエストを抑制
+    const debounced = this._debounce((lat, lng) => this.handleMapClick(lat, lng), 200);
+    this.map.on('click', (e) => debounced(e.latlng.lat, e.latlng.lng));
     if (window.innerWidth <= 768) {
       this.map.on('click', () => {
         setTimeout(() => {
@@ -518,12 +605,64 @@ class WeatherApp {
       zIndexOffset: 1000
     }).addTo(this.map);
 
+    // 進行中のリクエストがあればキャンセル
+    try { if (this.weatherAbortCtl) this.weatherAbortCtl.abort(); } catch(_) {}
+    try { if (this.currentAbortCtl) this.currentAbortCtl.abort(); } catch(_) {}
+    this.weatherAbortCtl = new AbortController();
+    this.currentAbortCtl = new AbortController();
+
     this.showLoading();
+
+    // 先に現在の天気を素早く取得して即表示（レスポンス改善）
+    (async () => {
+      try {
+        const res = await fetch('/current_weather', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng }),
+          signal: this.currentAbortCtl.signal
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (this.lastClickToken !== clickToken) return; // 最新のみ反映
+        if (data.status === 'ok' && data.today) {
+          const t = data.today || {};
+          const current = {
+            status: 'ok',
+            weather: {
+              weather_code: t.weather_code,
+              temperature: t.temperature,
+              precipitation_prob: t.precipitation_prob,
+              visibility: t.visibility || '--',
+              wind_speed: t.wind_speed || '--',
+              wind: t.wind || '--',
+              pressure: t.pressure || '--',
+              humidity: t.humidity || '--',
+              uv_index: t.uv_index || '--'
+            },
+            disaster: t.disaster || [],
+            alert: t.alert || []
+          };
+          this.displayWeatherInfo(current, lat, lng);
+          if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
+          // 先にローディングを解除（週予報は後で更新）
+          this.hideLoading();
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          console.debug('current_weather aborted');
+        } else {
+          console.debug('current_weather error (fallback to weekly):', err);
+        }
+      }
+    })();
+
     try {
       const res = await fetch('/weekly_forecast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lng })
+        body: JSON.stringify({ lat, lng }),
+        signal: this.weatherAbortCtl.signal
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -572,7 +711,12 @@ class WeatherApp {
         throw new Error('無効な週間予報レスポンス');
       }
     } catch (err) {
-      console.error('週間予報取得エラー:', err);
+      if (err && err.name === 'AbortError') {
+        // 最新クリックにより中断されたリクエスト。ログだけして抜ける
+        console.debug('weekly_forecast aborted');
+      } else {
+        console.error('週間予報取得エラー:', err);
+      }
       if (this.lastClickToken === clickToken) this.handleAPIError(lat, lng);
     } finally {
       if (this.lastClickToken === clickToken) this.hideLoading();
@@ -900,6 +1044,7 @@ class WeatherApp {
       const windData = d.wind || '';
       const windDisplay = this.formatWindDisplay(windData);
       
+      console.log("LAYOUT UPDATE: Creating 4-column layout structure");
       html += `<div class="${i===0?'weekly-day today':'weekly-day'}">
         <div class="day-info">
           <div class="day-name">${i===0?'今日':dayName}</div>
@@ -909,12 +1054,14 @@ class WeatherApp {
           <i class="${icon}"></i>
         </div>
         <div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div>
-        <div class="day-precipitation_prob">
-          <i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}
-        </div>
-        <div class="day-wind">
-          ${windDisplay.arrow}
-          <span class="wind-text">${windDisplay.text}</span>
+        <div class="day-precip-wind">
+          <div class="day-precipitation_prob">
+            <i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}
+          </div>
+          <div class="day-wind">
+            ${windDisplay.arrow}
+            <span class="wind-text">${windDisplay.text}</span>
+          </div>
         </div>
       </div>`;
     });
@@ -1008,6 +1155,7 @@ class WeatherApp {
       const windData = d.wind || '';
       const windDisplay = this.formatWindDisplay(windData);
       
+    console.log("LAYOUT UPDATE 2: Creating 4-column layout structure in displayWeeklyForecast");
     html += `<div class="${i===0?'weekly-day today':'weekly-day'}">
       <div class="day-info">
         <div class="day-name">${i===0?'今日':dayName}</div>
@@ -1017,12 +1165,14 @@ class WeatherApp {
         <i class="${icon}"></i>
       </div>
       <div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div>
-      <div class="day-precipitation_prob">
-        <i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}
-      </div>
-      <div class="day-wind">
-        ${windDisplay.arrow}
-        <span class="wind-text">${windDisplay.text}</span>
+      <div class="day-precip-wind">
+        <div class="day-precipitation_prob">
+          <i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}
+        </div>
+        <div class="day-wind">
+          ${windDisplay.arrow}
+          <span class="wind-text">${windDisplay.text}</span>
+        </div>
       </div>
     </div>`;
     });
@@ -1309,6 +1459,11 @@ class WeatherApp {
     if (this.landmarkLayer && this.map) {
       this.landmarkLayer.clearLayers();
     }
+    // 進行中の分割描画を停止
+    if (this.pinRenderTimers && this.pinRenderTimers.length) {
+      this.pinRenderTimers.forEach(id => clearTimeout(id));
+      this.pinRenderTimers = [];
+    }
   }
 
   // 渡されたランドマーク配列を地図上にピンとして描画
@@ -1327,17 +1482,35 @@ class WeatherApp {
     if (hasDistance) {
       list.sort((a, b) => Number(a.distance ?? Infinity) - Number(b.distance ?? Infinity));
     }
-    list.slice(0, this.maxLandmarkPins).forEach(l => {
-      if (l && typeof l.latitude === 'number' && typeof l.longitude === 'number') {
-        const m = L.marker([l.latitude, l.longitude]);
-        m.bindPopup(`<div class="popup-content">
-            <div class="popup-area"><i class="fas fa-map-marker-alt"></i> ${l.name || '施設'}</div>
-            <div class="popup-coords">${l.latitude.toFixed(4)}, ${l.longitude.toFixed(4)}</div>
-          </div>`);
-        m.addTo(this.landmarkLayer);
-        bounds.push([l.latitude, l.longitude]);
+    const toRender = list.slice(0, this.maxLandmarkPins);
+
+    // 分割描画: 50件ずつ追加して体感速度を改善
+    const batchSize = 50;
+    let idx = 0;
+    const addBatch = () => {
+      const end = Math.min(idx + batchSize, toRender.length);
+      for (let i = idx; i < end; i++) {
+        const l = toRender[i];
+        if (l && typeof l.latitude === 'number' && typeof l.longitude === 'number') {
+          const m = L.marker([l.latitude, l.longitude]);
+          m.bindPopup(`<div class="popup-content">
+              <div class="popup-area"><i class="fas fa-map-marker-alt"></i> ${l.name || '施設'}</div>
+              <div class="popup-coords">${l.latitude.toFixed(4)}, ${l.longitude.toFixed(4)}</div>
+            </div>`);
+          m.addTo(this.landmarkLayer);
+          bounds.push([l.latitude, l.longitude]);
+        }
       }
-    });
+      idx = end;
+      if (idx < toRender.length) {
+        const id = setTimeout(addBatch, 0);
+        this.pinRenderTimers.push(id);
+      }
+    };
+    // 既存タイマー停止
+    this.pinRenderTimers.forEach(id => clearTimeout(id));
+    this.pinRenderTimers = [];
+    addBatch();
 
     // ピンが複数ある場合でもデフォルトでは自動ズームしない
     if (this.autoFitLandmarks && bounds.length >= 2) {
