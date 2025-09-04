@@ -248,6 +248,9 @@ class QueryResponse(Response):
             if request.disaster_flag and "disaster" in weather_data and weather_data["disaster"]:
                 ex_field["disaster"] = weather_data["disaster"]
 
+            if request.ex_field and "wind" in weather_data:
+                ex_field["wind"] = weather_data["wind"]
+
         return cls(
             version=version,
             packet_id=request.packet_id,
@@ -385,6 +388,9 @@ class QueryResponse(Response):
         disaster_info = self.get_disaster_info()
         if disaster_info:
             data["disaster"] = disaster_info
+
+        if hasattr(self, "ex_field") and getattr(self.ex_field, "wind", None) is not None:
+            data["wind"] = self.ex_field.wind
 
         return data
 
