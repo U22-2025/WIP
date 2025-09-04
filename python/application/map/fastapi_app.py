@@ -442,6 +442,7 @@ async def weekly_forecast(
             weather=True,
             temperature=True,
             precipitation_prob=True,
+            wind=True,
             alert=True,
             disaster=True,
             day=0,
@@ -470,6 +471,7 @@ async def weekly_forecast(
                     "weather": True,
                     "temperature": True,
                     "precipitation_prob": True,
+                    "wind": True,
                     "alert": True,
                     "disaster": True,
                 }

@@ -57,6 +57,7 @@ class ReportClient:
         self.weather_code: Optional[int] = None
         self.temperature: Optional[float] = None
         self.precipitation_prob: Optional[int] = None
+        self.wind: Optional[str] = None
         self.alert: Optional[List[str]] = None
         self.disaster: Optional[List[str]] = None
         self.day: Optional[int] = None
@@ -149,6 +150,7 @@ class ReportClient:
         weather_code: Optional[int] = None,
         temperature: Optional[float] = None,
         precipitation_prob: Optional[int] = None,
+        wind: Optional[str] = None,
         alert: Optional[List[str]] = None,
         disaster: Optional[List[str]] = None,
         day: Optional[int] = None,
@@ -158,6 +160,7 @@ class ReportClient:
         self.weather_code = weather_code
         self.temperature = temperature
         self.precipitation_prob = precipitation_prob
+        self.wind = wind
         self.alert = alert
         self.disaster = disaster
         self.day = day
@@ -165,7 +168,7 @@ class ReportClient:
         if self.debug:
             self.logger.debug(
                 f"センサーデータを設定: エリア={area_code}, 天気={weather_code}, "
-                f"気温={temperature}℃, 降水確率={precipitation_prob}%, day={day}"
+                f"気温={temperature}℃, 降水確率={precipitation_prob}%, 風={wind}, day={day}"
             )
 
     def set_area_code(self, area_code: Union[str, int]):
@@ -206,6 +209,7 @@ class ReportClient:
                 weather_code=self.weather_code,
                 temperature=self.temperature,
                 precipitation_prob=self.precipitation_prob,
+                wind=self.wind,
                 alert=self.alert,
                 disaster=self.disaster,
                 version=self.VERSION,
@@ -267,6 +271,8 @@ class ReportClient:
                         report_data["alert"] = self.alert
                     if self.disaster:
                         report_data["disaster"] = self.disaster
+                    if self.wind:
+                        report_data["wind"] = self.wind
 
                     self.debug_logger.log_unified_packet_received(
                         "Direct request", execution_time, report_data
@@ -318,6 +324,7 @@ class ReportClient:
                 weather_code=self.weather_code,
                 temperature=self.temperature,
                 precipitation_prob=self.precipitation_prob,
+                wind=self.wind,
                 alert=self.alert,
                 disaster=self.disaster,
                 version=self.VERSION,
@@ -381,6 +388,8 @@ class ReportClient:
                         report_data["alert"] = self.alert
                     if self.disaster:
                         report_data["disaster"] = self.disaster
+                    if self.wind:
+                        report_data["wind"] = self.wind
 
                     self.debug_logger.log_unified_packet_received(
                         "Direct request", execution_time, report_data

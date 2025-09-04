@@ -40,6 +40,7 @@ def _filter_weather_payload(
     weather_flag: bool,
     temperature_flag: bool,
     pop_flag: bool,
+    wind_flag: bool,
     alert_flag: bool,
     disaster_flag: bool,
     day: int,
@@ -60,6 +61,10 @@ def _filter_weather_payload(
     if pop_flag and "precipitation_prob" in payload:
         p = payload["precipitation_prob"]
         result["precipitation_prob"] = p[day] if isinstance(p, list) and len(p) > day else p
+    # wind
+    if wind_flag and "wind" in payload:
+        w = payload["wind"]
+        result["wind"] = w[day] if isinstance(w, list) and len(w) > day else w
     # alerts
     if alert_flag and "warnings" in payload:
         result["warnings"] = payload.get("warnings", [])
@@ -169,6 +174,9 @@ def update_weather_json(area_codes: List[str]) -> None:
             area_name = area["area"].get("name", "")
             code = area["area"].get("code")
             weather_codes = [c for i, c in enumerate(area.get("weatherCodes", [])) if i not in removed]
+            
+            # 風データを取得
+            winds = [w for i, w in enumerate(area.get("winds", [])) if i not in removed]
 
             # pick pops for same sub area code
             pop = []
@@ -208,7 +216,7 @@ def update_weather_json(area_codes: List[str]) -> None:
 
             # fallback fill from broader area if insufficient
             week_days = 7
-            if len(weather_codes) < week_days or len(pop) < week_days:
+            if len(weather_codes) < week_days or len(pop) < week_days or len(winds) < week_days:
                 if len(data) > 1 and "timeSeries" in data[1]:
                     ts = data[1]["timeSeries"]
                     for sub_area in ts[0]["areas"]:
@@ -219,6 +227,9 @@ def update_weather_json(area_codes: List[str]) -> None:
                             if len(pop) < week_days:
                                 add_pop = sub_area.get("pops", [])
                                 pop += add_pop[len(pop):week_days]
+                            if len(winds) < week_days:
+                                add_winds = sub_area.get("winds", [])
+                                winds += add_winds[len(winds):week_days]
                             break
 
             store[code] = {
@@ -227,6 +238,7 @@ def update_weather_json(area_codes: List[str]) -> None:
                 "weather": weather_codes,
                 "temperature": temps,
                 "precipitation_prob": pop,
+                "wind": winds,
             }
 
         store["weather_reportdatetime"][area_code] = reporttime
@@ -389,6 +401,7 @@ def get_weather(
     weather_flag: int = 1,
     temperature_flag: int = 1,
     pop_flag: int = 1,
+    wind_flag: int = 1,
     alert_flag: int = 1,
     disaster_flag: int = 1,
 ) -> dict:
@@ -411,6 +424,7 @@ def get_weather(
             weather_flag=bool(weather_flag),
             temperature_flag=bool(temperature_flag),
             pop_flag=bool(pop_flag),
+            wind_flag=bool(wind_flag),
             alert_flag=bool(alert_flag),
             disaster_flag=bool(disaster_flag),
             day=max(0, min(day, 6)),
@@ -427,6 +441,7 @@ def get_weather_api_alias(
     weather_flag: int = 1,
     temperature_flag: int = 1,
     pop_flag: int = 1,
+    wind_flag: int = 1,
     alert_flag: int = 1,
     disaster_flag: int = 1,
 ):
@@ -436,6 +451,7 @@ def get_weather_api_alias(
         weather_flag=weather_flag,
         temperature_flag=temperature_flag,
         pop_flag=pop_flag,
+        wind_flag=wind_flag,
         alert_flag=alert_flag,
         disaster_flag=disaster_flag,
     )

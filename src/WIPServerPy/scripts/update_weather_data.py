@@ -144,9 +144,18 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                     for i, code_ in enumerate(weather_codes)
                     if i not in removed_indices
                 ]
+                
+                # 風速・風向きデータを取得
+                winds = area.get("winds", [])
+                # 風データは通常2日分しかないため、removed_indicesによる除外は行わない
+                # winds = [
+                #     wind for i, wind in enumerate(winds)
+                #     if i not in removed_indices
+                # ]
 
                 if debug:
                     print(f"エリア {area_name}({code}) の天気コード: {weather_codes}")
+                    print(f"エリア {area_name}({code}) の風データ: {winds}")
 
                 pop = []
                 for p in pop_areas:
@@ -195,7 +204,7 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                 if debug:
                     print(f"エリア {area_name}({code}) の気温データ: {temps}")
 
-                if len(weather_codes) < week_days or len(pop) < week_days:
+                if len(weather_codes) < week_days or len(pop) < week_days or len(winds) < week_days:
                     if len(data) > 1 and "timeSeries" in data[1]:
                         ts = data[1]["timeSeries"]
                         for sub_area in ts[0]["areas"]:
@@ -208,16 +217,21 @@ def get_data(area_codes: list, debug=False, save_to_redis=False):
                                 if len(pop) < week_days:
                                     add_pop = sub_area.get("pops", [])
                                     pop += add_pop[len(pop) : week_days]
+                                if len(winds) < week_days:
+                                    add_winds = sub_area.get("winds", [])
+                                    winds += add_winds[len(winds) : week_days]
                                 break
                 weather_codes = pad_list(weather_codes)[:7]
                 pop = pad_list(pop)[:7]
                 temps = pad_list(temps)[:7]
+                winds = pad_list(winds)[:7]
                 area_data = {
                     "parent_code": parent_code,
                     "area_name": area_name,
                     "weather": weather_codes,
                     "temperature": temps,
                     "precipitation_prob": pop,
+                    "wind": winds,
                 }
 
                 area_output[code] = area_data

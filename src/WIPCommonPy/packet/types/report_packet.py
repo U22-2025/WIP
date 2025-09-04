@@ -44,6 +44,7 @@ class ReportRequest(Response):
         weather_code: Optional[int] = None,
         temperature: Optional[float] = None,
         precipitation_prob: Optional[int] = None,
+        wind: Optional[str] = None,
         alert: Optional[List[str]] = None,
         disaster: Optional[List[str]] = None,
         version: int = 1,
@@ -84,7 +85,7 @@ class ReportRequest(Response):
         else:
             area_code_str = str(area_code).zfill(6)
 
-        # 拡張フィールドの準備（警報・災害情報のみ）
+        # 拡張フィールドの準備（警報・災害情報・風データ）
         ex_field = {}
 
         # 警報・災害情報
@@ -92,6 +93,8 @@ class ReportRequest(Response):
             ex_field["alert"] = alert
         if disaster:
             ex_field["disaster"] = disaster
+        if wind:
+            ex_field["wind"] = wind
 
         # フラグの設定（データが提供されている場合のみ有効にする）
         weather_flag = 1 if weather_code is not None else 0

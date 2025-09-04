@@ -271,6 +271,7 @@ class ReportServer(BaseServer):
                 f"weather:{getattr(request, 'weather_flag', 'N')}",
                 f"temp:{getattr(request, 'temperature_flag', 'N')}",
                 f"pop:{getattr(request, 'pop_flag', 'N')}",
+                f"wind:{getattr(request, 'wind_flag', 'N')}",
                 f"alert:{getattr(request, 'alert_flag', 'N')}",
                 f"disaster:{getattr(request, 'disaster_flag', 'N')}",
             ]
@@ -319,6 +320,8 @@ class ReportServer(BaseServer):
                     fields.append(f"temp:{sensor_data['temperature']}℃")
                 if "precipitation_prob" in sensor_data:
                     fields.append(f"pop:{sensor_data['precipitation_prob']}%")
+                if "wind" in sensor_data:
+                    fields.append(f"wind:{sensor_data['wind']}")
                 print(f"  [デバッグ] 固定長: {' '.join(fields) if fields else 'なし'}")
 
         except Exception as e:
@@ -353,6 +356,10 @@ class ReportServer(BaseServer):
                     and "disaster" in ex_dict
                 ):
                     sensor_data["disaster"] = ex_dict["disaster"]
+
+                # 風データ
+                if "wind" in ex_dict:
+                    sensor_data["wind"] = ex_dict["wind"]
 
                 # 送信元情報
                 if "source" in ex_dict:
@@ -425,8 +432,8 @@ class ReportServer(BaseServer):
     # _log_report_data method removed
 
     def _ensure_weekly_lists(self, data):
-        """weather・temperature・precipitation_prob の配列長を7に揃える"""
-        for key in ("weather", "temperature", "precipitation_prob"):
+        """weather・temperature・precipitation_prob・wind の配列長を7に揃える"""
+        for key in ("weather", "temperature", "precipitation_prob", "wind"):
             items = data.get(key)
             if not isinstance(items, list):
                 items = []
@@ -495,6 +502,11 @@ class ReportServer(BaseServer):
                 new_data["precipitation_prob"][day_index] = sensor_data[
                     "precipitation_prob"
                 ]
+            if "wind" in sensor_data:
+                # 風データがない場合は空の7要素配列で初期化
+                if "wind" not in new_data or not isinstance(new_data["wind"], list):
+                    new_data["wind"] = [None] * 7
+                new_data["wind"][day_index] = sensor_data["wind"]
 
             # 警報・災害は配列をマージ（重複除去）
             if "alert" in sensor_data:

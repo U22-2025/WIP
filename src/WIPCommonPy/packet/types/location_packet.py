@@ -27,6 +27,7 @@ class LocationRequest(Request):
         weather: bool = True,
         temperature: bool = True,
         precipitation_prob: bool = True,
+        wind: bool = False,
         alert: bool = False,
         disaster: bool = False,
         source: Optional[tuple[str, int]] = None,
@@ -43,6 +44,7 @@ class LocationRequest(Request):
             weather: 天気データを取得するか
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
+            wind: 風データを取得するか
             alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             source: 送信元情報 (ip, port) のタプル
@@ -71,6 +73,10 @@ class LocationRequest(Request):
         # source情報があれば追加
         if source:
             ex_field["source"] = source
+        
+        # wind情報があれば追加
+        if wind:
+            ex_field["wind"] = "request"
 
         return cls(
             version=version,
@@ -114,6 +120,31 @@ class LocationRequest(Request):
             return self.ex_field.source
         return None
 
+    def get_requested_data_types(self) -> list[str]:
+        """
+        要求されたデータタイプのリストを取得
+
+        Returns:
+            データタイプのリスト
+        """
+        types = []
+        if self.weather_flag:
+            types.append("weather")
+        if self.temperature_flag:
+            types.append("temperature")
+        if self.pop_flag:
+            types.append("precipitation_prob")
+        # Check for wind request in extended fields
+        if hasattr(self, 'ex_field') and self.ex_field:
+            ex_dict = self.ex_field.to_dict()
+            if ex_dict.get('wind'):
+                types.append("wind")
+        if self.alert_flag:
+            types.append("alert")
+        if self.disaster_flag:
+            types.append("disaster")
+        return types
+
 
 class LocationResponse(Response):
     """
@@ -144,7 +175,7 @@ class LocationResponse(Response):
         else:
             area_code_int = int(area_code)
 
-        # 拡張フィールドの準備（sourceのみ引き継ぐ）
+        # 拡張フィールドの準備（source、wind情報も引き継ぐ）
         ex_field = {}
         source = request.get_source_info()
         latitude, longitude = request.get_coordinates()
@@ -154,6 +185,12 @@ class LocationResponse(Response):
             ex_field["latitude"] = latitude
         if longitude:
             ex_field["longitude"] = longitude
+        
+        # wind情報も引き継ぐ
+        if hasattr(request, 'ex_field') and request.ex_field:
+            request_ex_dict = request.ex_field.to_dict()
+            if request_ex_dict.get('wind'):
+                ex_field["wind"] = request_ex_dict['wind']
 
         return cls(
             version=version,

@@ -119,6 +119,7 @@ class WeatherRedisManager:
             "weather": [None] * 7,
             "temperature": [None] * 7,
             "precipitation_prob": [None] * 7,
+            "wind": [None] * 7,
             "warnings": [],
             "disaster": [],
         }
@@ -523,7 +524,7 @@ class WeatherRedisManager:
                 else:
                     base = base[:7]
                 for idx, val in enumerate(new_list):
-                    if idx < 7:
+                    if idx < 7 and val is not None:  # 新しい値がNoneでない場合のみ上書き
                         base[idx] = val
                 return base
 
@@ -543,6 +544,9 @@ class WeatherRedisManager:
                     update_pipe.json().set(weather_key, ".weather", weather_list)
                     update_pipe.json().set(weather_key, ".temperature", temp_list)
                     update_pipe.json().set(weather_key, ".precipitation_prob", precip_list)
+                    # 風データの処理を追加
+                    wind_list = _merge_weekly(existing_data.get("wind"), data.get("wind", []))
+                    update_pipe.json().set(weather_key, ".wind", wind_list)
                     update_pipe.json().set(
                         weather_key, ".parent_code", data.get("parent_code", existing_data.get("parent_code"))
                     )
@@ -567,6 +571,8 @@ class WeatherRedisManager:
                         base["disaster"] = data.get("disaster") or []
                     if "maritime_alert" in data:
                         base["maritime_alert"] = data.get("maritime_alert") or []
+                    if "wind" in data:
+                        base["wind"] = _merge_weekly(base["wind"], data.get("wind", []))
                     update_pipe.json().set(weather_key, ".", base)
                     if self.debug:
                         print(f"新規作成: {weather_key}")

@@ -1125,3 +1125,160 @@ button:focus,
     #log-panel { bottom: 50px; }
     #show-weekly-btn { display: none; }
 }
+
+/* 風データ表示用スタイル */
+
+/* ポップアップ内の風データ表示 */
+.popup-wind-container {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.popup-wind-display {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: 4px;
+}
+
+.popup-wind-text {
+    font-size: var(--font-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.popup-wind-label {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+/* 風向き矢印スタイル */
+.wind-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    transition: all var(--transition-fast);
+    transform-origin: center;
+}
+
+.wind-arrow i {
+    font-size: 16px;
+    transition: color var(--transition-fast);
+}
+
+/* 風速による色分け */
+.wind-weak {
+    background: rgba(52, 152, 219, 0.1);
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.wind-weak i {
+    color: #3498db;
+}
+
+.wind-medium {
+    background: rgba(230, 126, 34, 0.1);
+    border: 1px solid rgba(230, 126, 34, 0.3);
+}
+
+.wind-medium i {
+    color: #e67e22;
+}
+
+.wind-strong {
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.wind-strong i {
+    color: #e74c3c;
+}
+
+.wind-no-data {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
+/* 週間予報内の風データ表示 */
+.day-wind {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    justify-content: center;
+}
+
+.day-wind .wind-arrow {
+    width: 18px;
+    height: 18px;
+}
+
+.day-wind .wind-arrow i {
+    font-size: 12px;
+}
+
+.day-wind .wind-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
+}
+
+/* 今日の予報での風データ（白文字） */
+.weekly-day.today .day-wind {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.weekly-day.today .wind-arrow {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.weekly-day.today .wind-arrow i {
+    color: white !important;
+}
+
+.weekly-day.today .wind-text {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .popup-wind-container {
+        min-width: unset;
+    }
+    
+    .popup-wind-display {
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .popup-wind-text {
+        font-size: var(--font-xs);
+    }
+}
+
+@media (max-width: 480px) {
+    .day-wind {
+        grid-column: 1 / -1;
+        justify-self: center;
+        margin-top: var(--space-xs);
+        gap: var(--space-xs);
+    }
+    
+    .day-wind .wind-text {
+        max-width: 80px;
+    }
+    
+    .weekly-day {
+        grid-template-columns: 1fr auto auto;
+        grid-template-rows: auto auto auto;
+    }
+}

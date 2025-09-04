@@ -77,6 +77,7 @@ class WeatherDataManager:
         weather_flag=False,
         temperature_flag=False,
         pop_flag=False,
+        wind_flag=False,
         alert_flag=False,
         disaster_flag=False,
         day=0,
@@ -141,6 +142,18 @@ class WeatherDataManager:
                 if pval is None:
                     raise MissingDataError("precipitation_prob is null for requested day")
 
+            # 風速・風向き
+            if wind_flag:
+                wind_data = weather_data.get("wind")
+                wval = None
+                if isinstance(wind_data, list) and len(wind_data) > day:
+                    wval = wind_data[day]
+                elif not isinstance(wind_data, list):
+                    wval = wind_data
+                result["wind"] = wval
+                if wval is None:
+                    raise MissingDataError("wind is null for requested day")
+
             # 警報
             if alert_flag and "warnings" in weather_data:
                 result["alert"] = weather_data["warnings"]
@@ -172,6 +185,7 @@ class WeatherDataManager:
         weather_flag=False,
         temperature_flag=False,
         pop_flag=False,
+        wind_flag=False,
         alert_flag=False,
         disaster_flag=False,
         day=0,
@@ -191,6 +205,7 @@ class WeatherDataManager:
             weather_flag,
             temperature_flag,
             pop_flag,
+            wind_flag,
             alert_flag,
             disaster_flag,
             day,
@@ -206,6 +221,7 @@ class WeatherDataManager:
         weather_flag,
         temperature_flag,
         pop_flag,
+        wind_flag,
         alert_flag,
         disaster_flag,
         day,
@@ -218,6 +234,8 @@ class WeatherDataManager:
             flags.append("t")
         if pop_flag:
             flags.append("p")
+        if wind_flag:
+            flags.append("wind")
         if alert_flag:
             flags.append("a")
         if disaster_flag:

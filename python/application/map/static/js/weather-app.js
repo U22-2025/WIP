@@ -211,6 +211,88 @@ class WeatherApp {
   }
 
   // ------------------------------------------------------------------
+  // 風データ処理
+  // ------------------------------------------------------------------
+  parseWindDirection(windText) {
+    if (!windText || windText === '--' || windText === null) return null;
+    
+    // 風向きマッピング（度数）
+    const directionMap = {
+      '北': 0, '北北東': 22.5, '北東': 45, '東北東': 67.5,
+      '東': 90, '東南東': 112.5, '南東': 135, '南南東': 157.5,
+      '南': 180, '南南西': 202.5, '南西': 225, '西南西': 247.5,
+      '西': 270, '西北西': 292.5, '北西': 315, '北北西': 337.5
+    };
+    
+    // 複数の風向きがある場合（"南の風　後　北の風"など）は最初の風向きを使用
+    const firstDirection = windText.split(/[後時から]/)[0].trim();
+    
+    // 風向きを抽出
+    for (const [direction, angle] of Object.entries(directionMap)) {
+      if (firstDirection.includes(direction)) {
+        return angle;
+      }
+    }
+    
+    return null;
+  }
+
+  extractWindSpeed(windText) {
+    if (!windText || windText === '--' || windText === null) return null;
+    
+    // 風速の表現を抽出（"やや強く"、"強く"など）
+    if (windText.includes('強く')) {
+      if (windText.includes('やや強く')) return '中';
+      return '強';
+    } else if (windText.includes('弱く')) {
+      return '弱';
+    }
+    
+    // デフォルトは"弱"
+    return '弱';
+  }
+
+  generateWindArrow(angle, strength = '弱') {
+    if (angle === null) return '<span class="wind-no-data">--</span>';
+    
+    const strengthClass = {
+      '弱': 'wind-weak',
+      '中': 'wind-medium', 
+      '強': 'wind-strong'
+    }[strength] || 'wind-weak';
+    
+    return `<div class="wind-arrow ${strengthClass}" style="transform: rotate(${angle}deg)">
+      <i class="fas fa-long-arrow-alt-up"></i>
+    </div>`;
+  }
+
+  formatWindDisplay(windText) {
+    const angle = this.parseWindDirection(windText);
+    const strength = this.extractWindSpeed(windText);
+    const arrow = this.generateWindArrow(angle, strength);
+    
+    if (angle === null) {
+      return { arrow: arrow, text: windText || '--' };
+    }
+    
+    // 簡潔な風向き表示
+    const directionNames = {
+      0: '北', 22.5: '北北東', 45: '北東', 67.5: '東北東',
+      90: '東', 112.5: '東南東', 135: '南東', 157.5: '南南東',
+      180: '南', 202.5: '南南西', 225: '南西', 247.5: '西南西',
+      270: '西', 292.5: '西北西', 315: '北西', 337.5: '北北西'
+    };
+    
+    const directionName = directionNames[angle] || '不明';
+    const strengthText = { '弱': '', '中': 'やや強', '強': '強' }[strength] || '';
+    
+    return {
+      arrow: arrow,
+      text: strengthText ? `${directionName} ${strengthText}` : directionName
+    };
+  }
+
+  // ------------------------------------------------------------------
   // 災害情報フォーマット
   // ------------------------------------------------------------------
   formatDisasterList(list) {
@@ -447,6 +529,7 @@ class WeatherApp {
             precipitation_prob: today.precipitation_prob,
             visibility: today.visibility || '--',
             wind_speed: today.wind_speed || '--',
+            wind: today.wind || '--',
             pressure: today.pressure || '--',
             humidity: today.humidity || '--',
             uv_index: today.uv_index || '--'
@@ -512,17 +595,45 @@ class WeatherApp {
   }
 
   createPopupContent(data, lat, lng) {
-    let code = '100', temp = '--', precip = '--';
+    let code = '100', temp = '--', precip = '--', wind = '';
     if (data.weather) {
       if (data.weather.weather_code !== undefined) code = String(data.weather.weather_code);
       if (data.weather.temperature !== undefined) temp = data.weather.temperature;
       if (data.weather.precipitation_prob !== undefined && data.weather.precipitation_prob !== null) precip = data.weather.precipitation_prob;
+      if (data.weather.wind !== undefined) wind = data.weather.wind;
     }
+    
     const disaster = this.generatePopupDisasterHTML(data.disaster);
     const alert = this.generatePopupAlertHTML(data.alert);
     const iconClass = this.weatherIconMap[code] || 'fas fa-sun';
     const name = this.weatherCodeMap[code] || '天気情報不明';
-    return `<div class="popup-content"><div class="popup-weather-icon"><i class="${iconClass}"></i></div><div class="popup-description">${name}</div><div class="popup-weather-data"><div class="popup-temp-container"><div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div><div class="popup-temp-label">気温</div></div><div class="popup-precipitation_prob-container"><div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div><div class="popup-precipitation_prob-label">降水確率</div></div></div>${alert}${disaster}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
+    
+    // 風データの処理
+    const windDisplay = this.formatWindDisplay(wind);
+    
+    return `<div class="popup-content">
+      <div class="popup-weather-icon"><i class="${iconClass}"></i></div>
+      <div class="popup-description">${name}</div>
+      <div class="popup-weather-data">
+        <div class="popup-temp-container">
+          <div class="popup-temp">${temp !== '--' ? temp + '°C' : '--°C'}</div>
+          <div class="popup-temp-label">気温</div>
+        </div>
+        <div class="popup-precipitation_prob-container">
+          <div class="popup-precipitation_prob">${precip !== '--' ? precip + '%' : '--'}</div>
+          <div class="popup-precipitation_prob-label">降水確率</div>
+        </div>
+        <div class="popup-wind-container">
+          <div class="popup-wind-display">
+            ${windDisplay.arrow}
+            <div class="popup-wind-text">${windDisplay.text}</div>
+          </div>
+          <div class="popup-wind-label">風向・風速</div>
+        </div>
+      </div>
+      ${alert}${disaster}
+      <div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div>
+    </div>`;
   }
 
   createErrorPopupContent(message, errorCode, lat, lng) {
@@ -753,7 +864,28 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-      html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
+      
+      // 風データの処理
+      const windData = d.wind || '';
+      const windDisplay = this.formatWindDisplay(windData);
+      
+      html += `<div class="${i===0?'weekly-day today':'weekly-day'}">
+        <div class="day-info">
+          <div class="day-name">${i===0?'今日':dayName}</div>
+          <div class="day-date">${dateStr}</div>
+        </div>
+        <div class="day-weather">
+          <i class="${icon}"></i>
+        </div>
+        <div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div>
+        <div class="day-precipitation_prob">
+          <i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}
+        </div>
+        <div class="day-wind">
+          ${windDisplay.arrow}
+          <span class="wind-text">${windDisplay.text}</span>
+        </div>
+      </div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
@@ -812,7 +944,28 @@ class WeatherApp {
       const date = new Date(d.date);
       const dayName = dayNames[d.day_of_week] || d.day_of_week.slice(0,1);
       const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
-    html += `<div class="${i===0?'weekly-day today':'weekly-day'}"><div class="day-info"><div class="day-name">${i===0?'今日':dayName}</div><div class="day-date">${dateStr}</div></div><div class="day-weather"><i class="${icon}"></i></div><div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div><div class="day-precipitation_prob"><i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}</div></div>`;
+      
+      // 風データの処理
+      const windData = d.wind || '';
+      const windDisplay = this.formatWindDisplay(windData);
+      
+    html += `<div class="${i===0?'weekly-day today':'weekly-day'}">
+      <div class="day-info">
+        <div class="day-name">${i===0?'今日':dayName}</div>
+        <div class="day-date">${dateStr}</div>
+      </div>
+      <div class="day-weather">
+        <i class="${icon}"></i>
+      </div>
+      <div class="day-temp">${(d.temperature!==undefined&&d.temperature!=='--')?d.temperature+'°C':'--°C'}</div>
+      <div class="day-precipitation_prob">
+        <i class="fas fa-umbrella"></i>${(d.precipitation_prob!==undefined&&d.precipitation_prob!=='--'&&d.precipitation_prob!==null)?d.precipitation_prob+'%':'--'}
+      </div>
+      <div class="day-wind">
+        ${windDisplay.arrow}
+        <span class="wind-text">${windDisplay.text}</span>
+      </div>
+    </div>`;
     });
     wd.innerHTML = html;
     wd.style.display = 'block';
