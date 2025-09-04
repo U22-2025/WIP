@@ -62,15 +62,18 @@
                             </button>
                         </div>
 
-                        <!-- タブナビゲーション（スイッチ形式） -->
+                        <!-- タブナビゲーション（3つのタブ） -->
                         <div class="weekly-tabs">
-                            <div class="tab-switch">
-                                <input type="checkbox" id="viewSwitch" class="tab-switch-input">
-                                <label for="viewSwitch" class="tab-switch-label">
-                                    <span class="tab-switch-text">リスト</span>
-                                    <span class="tab-switch-text">グラフ</span>
-                                    <span class="tab-switch-slider"></span>
-                                </label>
+                            <div class="tab-nav">
+                                <button class="tab-btn active" data-tab="weekly-list-view">
+                                    <i class="fas fa-list"></i> リスト
+                                </button>
+                                <button class="tab-btn" data-tab="weekly-chart-view">
+                                    <i class="fas fa-chart-line"></i> グラフ
+                                </button>
+                                <button class="tab-btn" data-tab="landmarks-view">
+                                    <i class="fas fa-map-marker-alt"></i> 観光地
+                                </button>
                             </div>
                         </div>
 
@@ -92,6 +95,23 @@
                                 <div class="chart-container">
                                     <div class="chart-wrapper">
                                         <canvas id="weather-chart" width="300" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ランドマーク表示 -->
+                            <div id="landmarks-view" class="tab-content">
+                                <div id="landmarks-loading" class="landmarks-loading" style="display: none;">
+                                    <div class="loading-spinner-small"></div>
+                                    <span>観光地情報を取得中...</span>
+                                </div>
+                                <div id="landmarks-content" class="landmarks-content">
+                                    <div class="landmarks-empty" id="landmarks-empty">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        <p>地図をクリックしてエリアを選択すると<br>周辺の観光地が表示されます</p>
+                                    </div>
+                                    <div id="landmarks-list" class="landmarks-list" style="display: none;">
+                                        <!-- ランドマークリストがここに動的に挿入されます -->
                                     </div>
                                 </div>
                             </div>

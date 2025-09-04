@@ -415,6 +415,143 @@ except Exception as e:  # pragma: no cover
     logger.error(f"Failed to mount External Weather API at /api: {e}")
 
 
+@app.post("/landmarks")
+async def get_landmarks(
+    request: Request,
+    coords: Coordinates,
+    client: ClientAsync = Depends(get_wip_client),
+):
+    lat = coords.lat
+    lng = coords.lng
+    ip = getattr(request.state, "ip", None)
+    await log_event(
+        "POST /landmarks",
+        details={"endpoint": "/landmarks", "lat": lat, "lng": lng},
+    )
+
+    if lat is None or lng is None:
+        return JSONResponse(
+            {"status": "error", "message": "緯度と経度が必要です"}, status_code=400
+        )
+
+    try:
+        # 座標からエリアコードを取得（天気データも一緒に取得）
+        weather_data = await call_with_metrics(
+            client.get_weather_by_coordinates,
+            lat,
+            lng,
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            wind=True,
+            alert=True,
+            disaster=True,
+            day=0,
+            ip=ip,
+            context={"coords": f"{lat},{lng}", "purpose": "landmarks"},
+        )
+        
+        if not weather_data or isinstance(weather_data, dict) and ("error" in weather_data or "error_code" in weather_data):
+            return JSONResponse(
+                {"status": "error", "message": "エリアコードの取得に失敗しました"},
+                status_code=500,
+            )
+
+        area_code = weather_data.get("area_code")
+        if not area_code:
+            return JSONResponse(
+                {"status": "error", "message": "エリアコードの取得に失敗しました"},
+                status_code=500,
+            )
+
+        # RedisJSONから直接ランドマークデータを取得
+        try:
+            import redis
+            import json as json_lib
+            import math
+            
+            def calculate_distance(lat1, lng1, lat2, lng2):
+                """2つの座標間の距離をkmで計算（Haversine公式）"""
+                R = 6371  # 地球の半径（km）
+                
+                # 度をラジアンに変換
+                lat1_rad = math.radians(lat1)
+                lng1_rad = math.radians(lng1)
+                lat2_rad = math.radians(lat2)
+                lng2_rad = math.radians(lng2)
+                
+                # Haversine公式
+                dlat = lat2_rad - lat1_rad
+                dlng = lng2_rad - lng1_rad
+                
+                a = (math.sin(dlat/2) * math.sin(dlat/2) +
+                     math.cos(lat1_rad) * math.cos(lat2_rad) *
+                     math.sin(dlng/2) * math.sin(dlng/2))
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                distance = R * c
+                
+                return round(distance * 10) / 10  # 小数点第1位まで
+            
+            redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+            redis_key = f"weather:{area_code}"
+            
+            # RedisJSONからデータを取得
+            redis_data = redis_client.execute_command('JSON.GET', redis_key)
+            
+            if redis_data:
+                weather_info = json_lib.loads(redis_data)
+                raw_landmarks = weather_info.get("landmarks", [])
+                area_name = weather_info.get("area_name", "不明")
+                
+                # 各ランドマークに距離を計算して追加
+                landmarks_with_distance = []
+                for landmark in raw_landmarks:
+                    if 'latitude' in landmark and 'longitude' in landmark:
+                        distance = calculate_distance(
+                            lat, lng,
+                            landmark['latitude'], landmark['longitude']
+                        )
+                        landmark_with_distance = landmark.copy()
+                        landmark_with_distance['distance'] = distance
+                        landmarks_with_distance.append(landmark_with_distance)
+                
+                # 距離順でソート
+                landmarks_with_distance.sort(key=lambda x: x.get('distance', float('inf')))
+                
+                return JSONResponse({
+                    "status": "ok",
+                    "coordinates": {"lat": lat, "lng": lng},
+                    "area_code": area_code,
+                    "area_name": area_name,
+                    "landmarks": landmarks_with_distance,
+                })
+            else:
+                return JSONResponse({
+                    "status": "ok",
+                    "coordinates": {"lat": lat, "lng": lng},
+                    "area_code": area_code,
+                    "area_name": "不明",
+                    "landmarks": [],
+                })
+            
+        except Exception as e:
+            logger.error(f"Error getting landmarks from Redis: {e}")
+            return JSONResponse({
+                "status": "ok",
+                "coordinates": {"lat": lat, "lng": lng},
+                "area_code": area_code,
+                "area_name": "不明",
+                "landmarks": [],
+            })
+
+    except Exception as e:
+        logger.error(f"Error in get_landmarks: {e}")
+        return JSONResponse(
+            {"status": "error", "message": "ランドマークデータの取得に失敗しました"},
+            status_code=500,
+        )
+
+
 @app.post("/weekly_forecast")
 async def weekly_forecast(
     request: Request,

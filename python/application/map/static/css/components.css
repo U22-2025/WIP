@@ -743,7 +743,7 @@ button:focus,
 }
 
 
-/* タブナビゲーション（スイッチ形式） */
+/* タブナビゲーション（3つのタブ） */
 
 .weekly-tabs {
     display: flex;
@@ -751,71 +751,50 @@ button:focus,
     margin: var(--space-sm) var(--space-md);
 }
 
-.tab-switch {
-    position: relative;
-    display: inline-block;
-}
-
-.tab-switch-input {
-    display: none;
-}
-
-.tab-switch-label {
+.tab-nav {
     display: flex;
-    align-items: center;
     background: rgba(255, 255, 255, 0.3);
-    border-radius: 25px;
+    border-radius: var(--radius-lg);
     padding: 4px;
-    cursor: pointer;
-    position: relative;
     backdrop-filter: blur(15px) saturate(180%);
     border: 2px solid rgba(255, 255, 255, 0.4);
-    width: 180px;
-    height: 48px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
-.tab-switch-text {
+.tab-btn {
     flex: 1;
-    text-align: center;
-    font-size: var(--font-base);
-    font-weight: 700;
-    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    padding: var(--space-xs) var(--space-sm);
+    margin: 2px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
     transition: all var(--transition-normal);
-    z-index: 2;
-    position: relative;
-    padding: var(--space-xs);
-    text-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    min-width: 80px;
 }
 
-.tab-switch-slider {
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    width: calc(50% - 4px);
-    height: calc(100% - 8px);
+.tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.tab-btn.active {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
-    backdrop-filter: blur(20px) saturate(180%);
-    border-radius: 20px;
-    transition: all var(--transition-normal);
+    color: var(--text-primary);
+    font-weight: 700;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
-.tab-switch-input:checked+.tab-switch-label .tab-switch-slider {
-    transform: translateX(100%);
-}
-
-.tab-switch-input:not(:checked)+.tab-switch-label .tab-switch-text:first-of-type {
-    color: var(--text-primary);
-    font-weight: 800;
-    text-shadow: none;
-}
-
-.tab-switch-input:checked+.tab-switch-label .tab-switch-text:last-of-type {
-    color: var(--text-primary);
-    font-weight: 800;
-    text-shadow: none;
+.tab-btn i {
+    font-size: var(--font-sm);
 }
 
 
@@ -1280,5 +1259,166 @@ button:focus,
     .weekly-day {
         grid-template-columns: 1fr auto auto;
         grid-template-rows: auto auto auto;
+    }
+}
+
+/* ランドマーク表示スタイル */
+
+.landmarks-content {
+    min-height: 200px;
+}
+
+.landmarks-empty {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-secondary);
+    background: var(--surface-secondary);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--glass-border);
+}
+
+.landmarks-empty i {
+    font-size: var(--font-4xl);
+    margin-bottom: var(--space-sm);
+    color: var(--text-tertiary);
+    animation: float 3s ease-in-out infinite;
+}
+
+.landmarks-empty p {
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+.landmarks-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    color: var(--text-secondary);
+}
+
+.landmarks-list {
+    display: grid;
+    gap: var(--space-sm);
+}
+
+.landmark-item {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.05), inset -3px -3px 6px rgba(255, 255, 255, 0.8), 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.landmark-item:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1), inset -2px -2px 4px rgba(255, 255, 255, 0.9), 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.landmark-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: var(--font-lg);
+    flex-shrink: 0;
+}
+
+.landmark-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.landmark-name {
+    font-weight: 600;
+    font-size: var(--font-sm);
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.landmark-coords {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.landmark-distance {
+    font-size: var(--font-xs);
+    color: var(--text-tertiary);
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+}
+
+/* ランドマーク数表示 */
+.landmarks-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+    padding: var(--space-sm);
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(10px);
+}
+
+.landmarks-title {
+    font-weight: 600;
+    font-size: var(--font-base);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.landmarks-count {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.6);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+}
+
+/* モバイル対応 */
+@media (max-width: 480px) {
+    .landmark-item {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--space-xs);
+    }
+    
+    .landmark-icon {
+        width: 32px;
+        height: 32px;
+        font-size: var(--font-base);
+    }
+    
+    .landmark-name {
+        white-space: normal;
+        text-align: center;
+        line-height: 1.3;
+    }
+    
+    .landmarks-header {
+        flex-direction: column;
+        gap: var(--space-xs);
+        text-align: center;
     }
 }

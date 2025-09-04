@@ -11,6 +11,9 @@ class WeatherApp {
   constructor() {
     this.map = null;
     this.currentMarker = null;
+    this.landmarkMarker = null;
+    this.landmarkLayer = null; // 複数ランドマーク表示用レイヤー
+    this.autoFitLandmarks = false; // ピン表示時の自動ズーム調整を無効化（必要なら true に）
 
     // --- ステータス管理 ---
     this.weatherCodeMap = {};
@@ -550,6 +553,8 @@ class WeatherApp {
       this.handleAPIError(lat, lng);
     } finally {
       this.hideLoading();
+      // 地図クリックに応じてランドマークのピンを更新（サイドバーが開いていれば同時に更新）
+      this.updateLandmarkPinsAndSidebar();
     }
   }
 
@@ -750,8 +755,13 @@ class WeatherApp {
 
     window.addEventListener('resize', () => { if (this.map) this.map.invalidateSize(); });
 
-    const tabSwitch = document.getElementById('viewSwitch');
-    if (tabSwitch) tabSwitch.addEventListener('change', (e) => this.switchTab(e.target.checked ? 'chart' : 'list'));
+    // タブボタンのイベントリスナーを設定
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tab = e.target.closest('.tab-btn').dataset.tab;
+        this.switchTab(tab);
+      });
+    });
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -895,11 +905,34 @@ class WeatherApp {
   // タブ & チャート
   // ------------------------------------------------------------------
   switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(btn => { btn.classList.toggle('active', btn.dataset.tab === tab); });
+    document.querySelectorAll('.tab-btn').forEach(btn => { 
+      btn.classList.toggle('active', btn.dataset.tab === tab); 
+    });
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    const tgt = document.getElementById(`weekly-${tab}-view`);
+    
+    let targetId;
+    switch(tab) {
+      case 'weekly-list-view':
+        targetId = 'weekly-list-view';
+        break;
+      case 'weekly-chart-view':
+        targetId = 'weekly-chart-view';
+        break;
+      case 'landmarks-view':
+        targetId = 'landmarks-view';
+        this.loadLandmarks(); // ランドマークタブが選択されたときにランドマークを読み込み
+        break;
+      default:
+        targetId = 'weekly-list-view';
+        break;
+    }
+    
+    const tgt = document.getElementById(targetId);
     if (tgt) tgt.classList.add('active');
-    if (tab === 'chart' && this.weeklyDataForChart) setTimeout(()=>this.drawChart('combined'),100);
+    
+    if (tab === 'weekly-chart-view' && this.weeklyDataForChart) {
+      setTimeout(() => this.drawChart('combined'), 100);
+    }
   }
 
   switchChartType(type) {
@@ -1054,6 +1087,230 @@ class WeatherApp {
       this.ws.onerror = (e) => console.error('WebSocket エラー:', e);
     };
     connect();
+  }
+
+  // ------------------------------------------------------------------
+  // ランドマーク機能
+  // ------------------------------------------------------------------
+  async loadLandmarks() {
+    if (!this.currentLat || !this.currentLng) {
+      this.showLandmarksEmpty();
+      return;
+    }
+
+    const landmarksLoading = document.getElementById('landmarks-loading');
+    const landmarksContent = document.getElementById('landmarks-content');
+    const landmarksEmpty = document.getElementById('landmarks-empty');
+    const landmarksList = document.getElementById('landmarks-list');
+
+    // ローディング表示
+    if (landmarksLoading) landmarksLoading.style.display = 'flex';
+    if (landmarksEmpty) landmarksEmpty.style.display = 'none';
+    if (landmarksList) landmarksList.style.display = 'none';
+
+    try {
+      const response = await fetch('/landmarks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lat: this.currentLat,
+          lng: this.currentLng
+        })
+      });
+
+      const data = await response.json();
+      
+      if (landmarksLoading) landmarksLoading.style.display = 'none';
+
+      if (data.status === 'ok' && data.landmarks && data.landmarks.length > 0) {
+        this.displayLandmarks(data.landmarks, data.area_name);
+      } else {
+        this.showLandmarksEmpty('このエリアには観光地情報がありません');
+      }
+    } catch (error) {
+      console.error('ランドマーク取得エラー:', error);
+      if (landmarksLoading) landmarksLoading.style.display = 'none';
+      this.showLandmarksEmpty('観光地情報の取得に失敗しました');
+    }
+  }
+
+  displayLandmarks(landmarks, areaName = '不明') {
+    const landmarksEmpty = document.getElementById('landmarks-empty');
+    const landmarksList = document.getElementById('landmarks-list');
+
+    if (landmarksEmpty) landmarksEmpty.style.display = 'none';
+    if (!landmarksList) return;
+
+    // 表示用に距離を付与して昇順ソート
+    const currentLat = this.currentLat;
+    const currentLng = this.currentLng;
+    const sortedLandmarks = (landmarks || []).map(l => {
+      const dist = (l && l.distance !== undefined)
+        ? Number(l.distance)
+        : this.calculateDistance(currentLat, currentLng, l.latitude, l.longitude);
+      return { ...l, distance: dist };
+    }).sort((a, b) => {
+      const da = (a.distance !== undefined) ? Number(a.distance) : Number.POSITIVE_INFINITY;
+      const db = (b.distance !== undefined) ? Number(b.distance) : Number.POSITIVE_INFINITY;
+      return da - db; // 距離の昇順
+    });
+
+    // ヘッダーを追加
+    let html = `
+      <div class="landmarks-header">
+        <div class="landmarks-title">
+          <i class="fas fa-map-marker-alt"></i>
+          ${areaName} の観光地
+        </div>
+        <div class="landmarks-count">${landmarks.length}件</div>
+      </div>
+    `;
+
+    // ランドマークリストを生成
+    sortedLandmarks.forEach((landmark, index) => {
+      // APIから提供された距離 or 計算距離を使用（既に昇順にソート済み）
+      const distance = landmark.distance;
+
+      html += `
+        <div class="landmark-item" onclick="weatherApp.focusLandmark(${landmark.latitude}, ${landmark.longitude}, '${landmark.name.replace(/'/g, "\\'")}')">
+          <div class="landmark-icon">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <div class="landmark-info">
+            <div class="landmark-name" title="${landmark.name}">${landmark.name}</div>
+            <div class="landmark-coords">${landmark.latitude.toFixed(4)}, ${landmark.longitude.toFixed(4)}</div>
+          </div>
+          <div class="landmark-distance">${distance}km</div>
+        </div>
+      `;
+    });
+
+    landmarksList.innerHTML = html;
+    landmarksList.style.display = 'block';
+  }
+
+  showLandmarksEmpty(message = '地図をクリックしてエリアを選択すると<br>周辺の観光地が表示されます') {
+    const landmarksEmpty = document.getElementById('landmarks-empty');
+    const landmarksList = document.getElementById('landmarks-list');
+    
+    if (landmarksList) landmarksList.style.display = 'none';
+    if (landmarksEmpty) {
+      landmarksEmpty.innerHTML = `
+        <i class="fas fa-map-marker-alt"></i>
+        <p>${message}</p>
+      `;
+      landmarksEmpty.style.display = 'block';
+    }
+  }
+
+  calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // 地球の半径（km）
+    const dLat = this.toRad(lat2 - lat1);
+    const dLng = this.toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    return Math.round(distance * 10) / 10; // 小数点第1位まで
+  }
+
+  toRad(value) {
+    return value * Math.PI / 180;
+  }
+
+  focusLandmark(lat, lng, name) {
+    if (this.map) {
+      this.map.setView([lat, lng], 15);
+      
+      // 既存のランドマーカーマーカーがあれば削除
+      if (this.landmarkMarker) {
+        this.map.removeLayer(this.landmarkMarker);
+        this.landmarkMarker = null;
+      }
+
+      // 該当施設の位置を示すマーカーを表示（保持）
+      this.landmarkMarker = L.marker([lat, lng]).addTo(this.map);
+      this.landmarkMarker.bindPopup(`
+        <div class="popup-content">
+          <div class="popup-area"><i class="fas fa-map-marker-alt"></i> ${name}</div>
+          <div class="popup-coords">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+        </div>
+      `).openPopup();
+    }
+  }
+
+  // 現在位置に対するランドマーク一覧を取得
+  async fetchLandmarksForCurrent() {
+    if (!this.currentLat || !this.currentLng) return null;
+    try {
+      const response = await fetch('/landmarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: this.currentLat, lng: this.currentLng })
+      });
+      const data = await response.json();
+      if (data && data.status === 'ok' && Array.isArray(data.landmarks)) {
+        return data;
+      }
+    } catch (e) {
+      console.error('ランドマーク取得エラー(fetchLandmarksForCurrent):', e);
+    }
+    return null;
+  }
+
+  // 地図上のランドマークピンを更新し、必要ならサイドバーも更新
+  async updateLandmarkPinsAndSidebar() {
+    const data = await this.fetchLandmarksForCurrent();
+    if (!data) {
+      // 取得失敗時は既存ピンをクリア
+      this.clearLandmarkPins();
+      return;
+    }
+    this.renderLandmarkPins(data.landmarks);
+
+    // サイドバーのランドマークタブがアクティブなら同時にリストも更新
+    const landmarksView = document.getElementById('landmarks-view');
+    if (landmarksView && landmarksView.classList.contains('active')) {
+      this.displayLandmarks(data.landmarks, data.area_name);
+    }
+  }
+
+  // 既存のランドマークピンを全削除
+  clearLandmarkPins() {
+    if (this.landmarkLayer && this.map) {
+      this.landmarkLayer.clearLayers();
+    }
+  }
+
+  // 渡されたランドマーク配列を地図上にピンとして描画
+  renderLandmarkPins(landmarks) {
+    if (!this.map) return;
+    if (!this.landmarkLayer) {
+      this.landmarkLayer = L.layerGroup().addTo(this.map);
+    } else {
+      this.landmarkLayer.clearLayers();
+    }
+
+    const bounds = [];
+    (landmarks || []).forEach(l => {
+      if (l && typeof l.latitude === 'number' && typeof l.longitude === 'number') {
+        const m = L.marker([l.latitude, l.longitude]);
+        m.bindPopup(`<div class="popup-content">
+            <div class="popup-area"><i class="fas fa-map-marker-alt"></i> ${l.name || '施設'}</div>
+            <div class="popup-coords">${l.latitude.toFixed(4)}, ${l.longitude.toFixed(4)}</div>
+          </div>`);
+        m.addTo(this.landmarkLayer);
+        bounds.push([l.latitude, l.longitude]);
+      }
+    });
+
+    // ピンが複数ある場合でもデフォルトでは自動ズームしない
+    if (this.autoFitLandmarks && bounds.length >= 2) {
+      try { this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 }); } catch (_) {}
+    }
   }
 }
 
