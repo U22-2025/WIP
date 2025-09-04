@@ -14,6 +14,8 @@ class WeatherApp {
     this.landmarkMarker = null;
     this.landmarkLayer = null; // 複数ランドマーク表示用レイヤー
     this.autoFitLandmarks = false; // ピン表示時の自動ズーム調整を無効化（必要なら true に）
+    this.maxLandmarkPins = 200; // 一度に描画するピン数の上限
+    this.lastClickToken = 0; // 競合防止用トークン
 
     // --- ステータス管理 ---
     this.weatherCodeMap = {};
@@ -35,6 +37,7 @@ class WeatherApp {
     this.currentChart = null;
     this.currentChartType = 'temperature';
     this.weeklyDataForChart = null;
+    this.lastLandmarks = null; // 直近のランドマークデータを保持
 
     // --- WebSocket ---
     this.ws = null;
@@ -506,10 +509,13 @@ class WeatherApp {
   async handleMapClick(lat, lng) {
     this.currentLat = lat;
     this.currentLng = lng;
+    const clickToken = Date.now();
+    this.lastClickToken = clickToken;
 
     if (this.currentMarker) this.map.removeLayer(this.currentMarker);
     this.currentMarker = L.marker([lat, lng], {
-      icon: L.divIcon({ className: 'custom-marker', html: '<div style="background: var(--primary-color); width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.4);"></div>', iconSize: [24, 24], iconAnchor: [12, 12] })
+      icon: L.divIcon({ className: 'custom-marker', html: '<div style="background: var(--primary-color); width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.4);"></div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+      zIndexOffset: 1000
     }).addTo(this.map);
 
     this.showLoading();
@@ -540,21 +546,36 @@ class WeatherApp {
           disaster: today.disaster || [],
           alert: today.alert || []
         };
-        this.displayWeatherInfo(current, lat, lng);
-        if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
-        this.displayWeeklyForecastData(array);
+        // 最新のクリックであれば UI 更新
+        if (this.lastClickToken === clickToken) {
+          this.displayWeatherInfo(current, lat, lng);
+          if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
+          this.displayWeeklyForecastData(array);
+          // 1リクエスト化: 受け取ったランドマークを描画・サイドバー反映
+          if (Array.isArray(data.landmarks)) {
+            this.lastLandmarks = { landmarks: data.landmarks, area_name: data.area_name };
+            this.renderLandmarkPins(data.landmarks);
+            const landmarksView = document.getElementById('landmarks-view');
+            if (landmarksView && landmarksView.classList.contains('active')) {
+              this.displayLandmarks(data.landmarks, data.area_name);
+            }
+          } else {
+            this.lastLandmarks = null;
+            this.clearLandmarkPins();
+            // フォールバック: サーバーが未統合の場合、従来のエンドポイントで取得
+            this.updateLandmarkPinsAndSidebar();
+          }
+        }
       } else if (data.status === 'error') {
-        this.handleAPIError(lat, lng, data.error_code);
+        if (this.lastClickToken === clickToken) this.handleAPIError(lat, lng, data.error_code);
       } else {
         throw new Error('無効な週間予報レスポンス');
       }
     } catch (err) {
       console.error('週間予報取得エラー:', err);
-      this.handleAPIError(lat, lng);
+      if (this.lastClickToken === clickToken) this.handleAPIError(lat, lng);
     } finally {
-      this.hideLoading();
-      // 地図クリックに応じてランドマークのピンを更新（サイドバーが開いていれば同時に更新）
-      this.updateLandmarkPinsAndSidebar();
+      if (this.lastClickToken === clickToken) this.hideLoading();
     }
   }
 
@@ -920,7 +941,12 @@ class WeatherApp {
         break;
       case 'landmarks-view':
         targetId = 'landmarks-view';
-        this.loadLandmarks(); // ランドマークタブが選択されたときにランドマークを読み込み
+        // 直近の取得結果があればそれを利用。なければ取得
+        if (this.lastLandmarks && Array.isArray(this.lastLandmarks.landmarks)) {
+          this.displayLandmarks(this.lastLandmarks.landmarks, this.lastLandmarks.area_name || '不明');
+        } else {
+          this.loadLandmarks();
+        }
         break;
       default:
         targetId = 'weekly-list-view';
@@ -1295,7 +1321,13 @@ class WeatherApp {
     }
 
     const bounds = [];
-    (landmarks || []).forEach(l => {
+    // 距離の昇順に近いものから上限まで描画（distance がなければ順序そのまま）
+    let list = Array.isArray(landmarks) ? landmarks.slice() : [];
+    const hasDistance = list.length > 0 && list.some(l => l && l.distance !== undefined);
+    if (hasDistance) {
+      list.sort((a, b) => Number(a.distance ?? Infinity) - Number(b.distance ?? Infinity));
+    }
+    list.slice(0, this.maxLandmarkPins).forEach(l => {
       if (l && typeof l.latitude === 'number' && typeof l.longitude === 'number') {
         const m = L.marker([l.latitude, l.longitude]);
         m.bindPopup(`<div class="popup-content">

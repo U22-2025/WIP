@@ -45,13 +45,24 @@ LOG_REDIS_PORT = int(os.getenv("LOG_REDIS_PORT", 6380))
 LOG_REDIS_DB = int(os.getenv("LOG_REDIS_DB", 0))
 
 logger = logging.getLogger("fastapi_app")
-logging.basicConfig(level=logging.INFO)
-redis_log_handler = RedisLogHandler(
-    host=LOG_REDIS_HOST,
-    port=LOG_REDIS_PORT,
-    db=LOG_REDIS_DB,
+# ルートロガーにハンドラが未設定の場合のみ基本設定を行う
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
+
+# 重複ハンドラ追加を防止し、二重送信を抑止
+has_redis_handler = any(
+    isinstance(h, RedisLogHandler) for h in logger.handlers
 )
-logger.addHandler(redis_log_handler)
+if not has_redis_handler:
+    redis_log_handler = RedisLogHandler(
+        host=LOG_REDIS_HOST,
+        port=LOG_REDIS_PORT,
+        db=LOG_REDIS_DB,
+    )
+    logger.addHandler(redis_log_handler)
+
+# 上位ロガーへの伝播を止め、重複出力を回避
+logger.propagate = False
 
 config_loader = ConfigLoader()
 LOG_LIMIT = config_loader.getint("logging", "log_limit", default=100)
@@ -469,7 +480,7 @@ async def get_landmarks(
             import redis
             import json as json_lib
             import math
-            
+
             def calculate_distance(lat1, lng1, lat2, lng2):
                 """2つの座標間の距離をkmで計算（Haversine公式）"""
                 R = 6371  # 地球の半径（km）
@@ -492,14 +503,33 @@ async def get_landmarks(
                 
                 return round(distance * 10) / 10  # 小数点第1位まで
             
-            redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
-            redis_key = f"weather:{area_code}"
-            
-            # RedisJSONからデータを取得
-            redis_data = redis_client.execute_command('JSON.GET', redis_key)
-            
-            if redis_data:
-                weather_info = json_lib.loads(redis_data)
+            # 環境変数から接続設定・キー接頭辞を取得
+            import os as _os
+            _host = _os.getenv("REDIS_HOST", "localhost")
+            _port = int(_os.getenv("REDIS_PORT", 6379))
+            _db = int(_os.getenv("REDIS_DB", 0))
+            _prefix = _os.getenv("REPORT_DB_KEY_PREFIX", _os.getenv("REDIS_KEY_PREFIX", "")) or ""
+
+            redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
+            redis_key = f"{_prefix}weather:{area_code}"
+
+            # RedisJSON もしくは通常キーの両対応で取得
+            weather_info = None
+            try:
+                redis_data = redis_client.execute_command('JSON.GET', redis_key)
+                if redis_data:
+                    weather_info = json_lib.loads(redis_data)
+            except Exception:
+                pass
+            if weather_info is None:
+                raw = redis_client.get(redis_key)
+                if raw:
+                    try:
+                        weather_info = json_lib.loads(raw)
+                    except Exception:
+                        weather_info = None
+
+            if weather_info:
                 raw_landmarks = weather_info.get("landmarks", [])
                 area_name = weather_info.get("area_name", "不明")
                 
@@ -639,12 +669,83 @@ async def weekly_forecast(
         weekly_forecast_list = [_add_date_info(today_weather, 0)] + results
         weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
 
+        # 追加: ランドマークを同梱して1リクエスト化
+        area_name: str = "不明"
+        landmarks_with_distance = []
+        try:
+            import redis
+            import json as json_lib
+            import math
+            import os as _os
+
+            def calculate_distance(lat1, lng1, lat2, lng2):
+                R = 6371
+                lat1_rad = math.radians(lat1)
+                lng1_rad = math.radians(lng1)
+                lat2_rad = math.radians(lat2)
+                lng2_rad = math.radians(lng2)
+                dlat = lat2_rad - lat1_rad
+                dlng = lng2_rad - lng1_rad
+                a = (
+                    math.sin(dlat / 2) * math.sin(dlat / 2)
+                    + math.cos(lat1_rad)
+                    * math.cos(lat2_rad)
+                    * math.sin(dlng / 2)
+                    * math.sin(dlng / 2)
+                )
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+                return round((R * c) * 10) / 10
+
+            _host = _os.getenv("REDIS_HOST", "localhost")
+            _port = int(_os.getenv("REDIS_PORT", 6379))
+            _db = int(_os.getenv("REDIS_DB", 0))
+            _prefix = _os.getenv("REPORT_DB_KEY_PREFIX", _os.getenv("REDIS_KEY_PREFIX", "")) or ""
+
+            redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
+            redis_key = f"{_prefix}weather:{area_code}"
+
+            weather_info = None
+            try:
+                redis_data = redis_client.execute_command("JSON.GET", redis_key)
+                if redis_data:
+                    weather_info = json_lib.loads(redis_data)
+            except Exception:
+                pass
+            if weather_info is None:
+                raw = redis_client.get(redis_key)
+                if raw:
+                    try:
+                        weather_info = json_lib.loads(raw)
+                    except Exception:
+                        weather_info = None
+
+            if weather_info:
+                raw_landmarks = weather_info.get("landmarks", [])
+                area_name = weather_info.get("area_name", "不明")
+
+                for landmark in raw_landmarks:
+                    if "latitude" in landmark and "longitude" in landmark:
+                        distance = calculate_distance(
+                            lat, lng, landmark["latitude"], landmark["longitude"]
+                        )
+                        item = landmark.copy()
+                        item["distance"] = distance
+                        landmarks_with_distance.append(item)
+
+                landmarks_with_distance.sort(
+                    key=lambda x: x.get("distance", float("inf"))
+                )
+        except Exception as e:  # pragma: no cover
+            logger.error(f"Error embedding landmarks in weekly_forecast: {e}")
+
         return JSONResponse(
             {
                 "status": "ok",
                 "coordinates": {"lat": lat, "lng": lng},
                 "area_code": area_code,
+                "area_name": area_name,
                 "weekly_forecast": weekly_forecast_list,
+                "landmarks": landmarks_with_distance,
             }
         )
     except Exception as e:  # pragma: no cover
