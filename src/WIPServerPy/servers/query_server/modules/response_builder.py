@@ -172,7 +172,7 @@ class ResponseBuilder:
                     landmarks_json = json.dumps(best, ensure_ascii=False)
                     if self.debug:
                         print(f"Setting landmarks in ex_field: {len(landmarks_json)} bytes")
-                    response.ex_field.set("landmarks", landmarks_json)
+                    response.ex_field.landmarks = landmarks_json
         except Exception:
             # サイレントにスキップ（デバッグ時のみ標準出力）
             if self.debug:
