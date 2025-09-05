@@ -5,5 +5,6 @@
     "longitude": {"id": 34, "type": "float"},
     "source": {"id": 40, "type": "str"},
     "auth_hash": {"id": 4, "type":"str"},
-    "wind": {"id": 5, "type": "str"}
+    "wind": {"id": 5, "type": "str"},
+    "landmarks": {"id": 6, "type": "str"}
 }

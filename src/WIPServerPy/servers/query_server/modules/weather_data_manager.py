@@ -167,6 +167,16 @@ class WeatherDataManager:
                 )
                 if disaster_data:
                     result["disaster"] = disaster_data
+                    
+            # landmarkデータを外部JSONファイルから取得（WIP拡張フィールド用）
+            landmarks = self._load_landmarks_for_area(area_code)
+            if landmarks:
+                # WIP拡張フィールドのサイズ制限に合わせて制限（暫定的に50件まで）
+                max_landmarks_count = 50
+                if len(landmarks) > max_landmarks_count:
+                    landmarks = landmarks[:max_landmarks_count]
+                result["landmarks"] = landmarks
+                
             return result
 
         except Exception as e:
@@ -272,6 +282,52 @@ class WeatherDataManager:
         except Exception as e:
             if self.debug:
                 print(f"Cache save error: {e}")
+
+    def _load_landmarks_for_area(self, area_code):
+        """
+        指定されたエリアコードのランドマークデータを外部JSONファイルから読み込み
+        
+        Args:
+            area_code: エリアコード（例: "150010"）
+            
+        Returns:
+            list: ランドマークデータのリスト、データが無い場合は空リスト
+        """
+        try:
+            import os
+            from pathlib import Path
+            
+            # JSONファイルのパスを取得（プロジェクトルートディレクトリ）
+            landmarks_file = Path(__file__).parent.parent.parent.parent.parent.parent / "landmarks_with_coords_full.json"
+            
+            if not landmarks_file.exists():
+                if self.debug:
+                    print(f"Landmarks file not found: {landmarks_file}")
+                return []
+            
+            # JSONファイルを読み込み（キャッシュ使用）
+            if not hasattr(self, '_landmarks_cache'):
+                with open(landmarks_file, 'r', encoding='utf-8') as f:
+                    self._landmarks_cache = json.load(f)
+                if self.debug:
+                    print(f"Loaded landmarks data from {landmarks_file}")
+            
+            # エリアコードに対応するランドマークデータを取得
+            weather_key = f"weather:{area_code}"
+            if weather_key in self._landmarks_cache:
+                landmarks = self._landmarks_cache[weather_key].get('landmarks', [])
+                if self.debug:
+                    print(f"Found {len(landmarks)} landmarks for area {area_code}")
+                return landmarks
+            else:
+                if self.debug:
+                    print(f"No landmarks found for area {area_code}")
+                return []
+                
+        except Exception as e:
+            if self.debug:
+                print(f"Error loading landmarks for area {area_code}: {e}")
+            return []
 
     def close(self):
         """リソースをクリーンアップ"""

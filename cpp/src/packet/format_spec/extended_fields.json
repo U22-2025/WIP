@@ -61,6 +61,13 @@
       "type": "json",
       "description": "JSON metadata",
       "encoding": "utf8"
+    },
+    {
+      "key": 8,
+      "name": "landmarks",
+      "type": "json",
+      "description": "Landmark data",
+      "encoding": "utf8"
     }
   ],
   "validation": {

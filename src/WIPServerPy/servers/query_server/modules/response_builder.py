@@ -116,6 +116,11 @@ class ResponseBuilder:
         # 災害情報
         if request.disaster_flag and weather_data and "disaster" in weather_data:
             response.ex_field.set("disaster", weather_data["disaster"])
+        
+        # landmarkデータ
+        if weather_data and "landmarks" in weather_data:
+            import json
+            response.ex_field.set("landmarks", json.dumps(weather_data["landmarks"], ensure_ascii=False))
 
     def build_error_response(self, request, error_code, error_message):
         """
