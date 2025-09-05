@@ -396,15 +396,22 @@ class QueryClient:
         use_cache=True,
         day=0,
         force_refresh=False,
+        raw_packet: bool = False,
     ):
-        """非同期版 get_weather_data"""
+        """
+        非同期版 get_weather_data
+
+        Args:
+            area_code: エリアコード
+            raw_packet: True の場合は QueryResponse をそのまま返す
+        """
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setblocking(False)
 
         try:
             start_time = datetime.now()
 
-            if use_cache and not force_refresh:
+            if use_cache and not force_refresh and not raw_packet:
                 cache_key = self._get_cache_key(
                     area_code,
                     weather,
@@ -478,6 +485,9 @@ class QueryClient:
                 self.logger.error("Response authentication verification failed")
                 return None
 
+            if raw_packet:
+                return response
+
             if response.is_success():
                 result = response.get_weather_data()
 
@@ -518,7 +528,7 @@ class QueryClient:
                 return result
             else:
                 self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
-                return {"error": "Query request failed", "response_type": response.type}
+                return response if raw_packet else {"error": "Query request failed", "response_type": response.type}
 
         except asyncio.TimeoutError:
             self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
