@@ -641,15 +641,28 @@ async def weekly_forecast(
             packet = await call_with_metrics(
                 client.get_weather_by_area_code,
                 area_code=area_code,
-                alert=True,  # ex_field送出のため
+                # フラグは付けず（警報/災害フラグは不要）、
+                # サーバ側で常にlandmarksをex_fieldへ格納する実装に依存する
+                weather=True,  # 妥当性チェック上、最低1つはTrue
+                temperature=False,
+                precipitation_prob=False,
+                alert=False,
+                disaster=False,
                 day=0,
                 raw_packet=True,
                 ip=ip,
                 context={"area_code": area_code, "purpose": "landmarks"},
             )
-            if hasattr(packet, 'ex_field') and packet.ex_field and packet.ex_field.landmarks:
+            logger.info(f"Packet type: {type(packet)}, has ex_field: {hasattr(packet, 'ex_field')}")
+            if hasattr(packet, 'ex_field'):
+                logger.info(f"ex_field type: {type(packet.ex_field)}, has landmarks: {hasattr(packet.ex_field, 'landmarks') if packet.ex_field else False}")
+                if packet.ex_field and hasattr(packet.ex_field, 'landmarks'):
+                    logger.info(f"landmarks content: {packet.ex_field.landmarks}")
+            
+            if hasattr(packet, 'ex_field') and packet.ex_field and hasattr(packet.ex_field, 'landmarks') and packet.ex_field.landmarks:
                 try:
                     raw_landmarks = json_lib.loads(packet.ex_field.landmarks)
+                    logger.info(f"Successfully parsed landmarks: {len(raw_landmarks)} items")
                     for landmark in raw_landmarks:
                         if "latitude" in landmark and "longitude" in landmark:
                             distance = calculate_distance(
@@ -702,6 +715,11 @@ async def weekly_forecast(
         except Exception as e:  # pragma: no cover
             logger.error(f"Error embedding landmarks in weekly_forecast: {e}")
 
+        # landmarksを各weekly_forecast項目に移動（alertと同レベル）
+        for forecast_item in weekly_forecast_list:
+            if forecast_item.get("day") == 0:  # 今日の予報にのみランドマークを追加
+                forecast_item["landmarks"] = landmarks_with_distance
+        
         return JSONResponse(
             {
                 "status": "ok",
@@ -709,6 +727,7 @@ async def weekly_forecast(
                 "area_code": area_code,
                 "area_name": area_name,
                 "weekly_forecast": weekly_forecast_list,
+                # 互換性のためトップレベルにもlandmarksを含める
                 "landmarks": landmarks_with_distance,
             }
         )

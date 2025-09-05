@@ -87,8 +87,9 @@ class ResponseBuilder:
             self._set_weather_data(response, request, weather_data)
 
         # 拡張フィールドを設定
-        if request.ex_flag or request.alert_flag or request.disaster_flag:
-            self._set_extended_fields(response, request, weather_data)
+        # 要件: フラグ有無に関わらず、常にlandmarksを拡張フィールドへ格納する。
+        # そのため、ex_flag/alert_flag/disaster_flagに依存せず毎回実行する。
+        self._set_extended_fields(response, request, weather_data)
 
         return response
 
@@ -140,7 +141,11 @@ class ResponseBuilder:
         
         # landmarkデータ（外部JSONから読み込み、ex_fieldにのみ格納）
         try:
+            if self.debug:
+                print(f"Loading landmarks for area: {request.area_code}")
             landmarks = self._load_landmarks_for_area(request.area_code)
+            if self.debug:
+                print(f"Found {len(landmarks)} landmarks")
             if landmarks:
                 # まず件数上限を適用
                 max_landmarks_count = 50
@@ -164,7 +169,10 @@ class ResponseBuilder:
                         hi = mid - 1
 
                 if best:
-                    response.ex_field.set("landmarks", json.dumps(best, ensure_ascii=False))
+                    landmarks_json = json.dumps(best, ensure_ascii=False)
+                    if self.debug:
+                        print(f"Setting landmarks in ex_field: {len(landmarks_json)} bytes")
+                    response.ex_field.set("landmarks", landmarks_json)
         except Exception:
             # サイレントにスキップ（デバッグ時のみ標準出力）
             if self.debug:

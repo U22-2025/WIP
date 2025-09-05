@@ -246,10 +246,8 @@ class QueryServer(BaseServer):
 
         # レスポンス作成と拡張フィールド付与（その他の例外は520として扱う）
         try:
-            # QueryResponseクラスのcreate_query_responseメソッドを使用
-            response = QueryResponse.create_query_response(
-                request=request, weather_data=weather_data, version=self.version
-            )
+            # ResponseBuilderを用いて拡張フィールド（landmarks含む）を常時付与
+            response = self.response_builder.build_response(request, weather_data)
 
             # 座標情報がある場合は拡張フィールドに追加
             if hasattr(request, "get_coordinates"):
@@ -357,7 +355,6 @@ class QueryServer(BaseServer):
         # WeatherDataManagerのクリーンアップ
         if hasattr(self, "weather_manager"):
             self.weather_manager.close()
-
 
 
 
