@@ -9,7 +9,12 @@ import os
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from WIPCommonPy.packet import QueryRequest, QueryResponse
+from WIPCommonPy.packet import (
+    QueryRequest,
+    QueryResponse,
+    Response,
+    ErrorResponse,
+)
 from WIPCommonPy.packet.debug import create_debug_logger
 from WIPCommonPy.clients.utils.packet_id_generator import PacketIDGenerator12Bit
 from WIPCommonPy.clients.utils import receive_with_id, receive_with_id_async, safe_sock_sendto
@@ -311,6 +316,16 @@ class QueryClient:
 
             # レスポンス解析（専用クラス使用）
             parse_start = datetime.now()
+            base_response = Response.from_bytes(response_data)
+            if base_response.type == 7:
+                error_response = ErrorResponse.from_bytes(response_data)
+                parse_time = datetime.now() - parse_start
+                self.debug_logger.log_response(error_response, "ERROR RESPONSE")
+                self.logger.error(
+                    f"Server returned error code: {error_response.error_code}"
+                )
+                return {"error_code": error_response.error_code}
+
             response = QueryResponse.from_bytes(response_data)
             parse_time = datetime.now() - parse_start
 
@@ -366,19 +381,19 @@ class QueryClient:
 
                 return result
             else:
-                self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
+                self.logger.error(
+                    f"Query request failed, response type: {response.type}"
+                )
                 return {"error": "Query request failed", "response_type": response.type}
 
         except socket.timeout:
-            self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
+            self.logger.error("Client error: Query server connection timeout")
             return {"error": "Request timeout", "timeout": timeout}
         except Exception as e:
             if self.debug:
                 self.logger.exception("Traceback:")
-            self.logger.error(
-                f"420: クライアントエラー: クエリサーバが見つからない: {e}"
-            )
-            return {"420": str(e)}
+            self.logger.error(f"Client error: {e}")
+            return {"error": str(e)}
         finally:
             sock.close()
 
@@ -475,6 +490,16 @@ class QueryClient:
             network_time = datetime.now() - network_start
 
             parse_start = datetime.now()
+            base_response = Response.from_bytes(response_data)
+            if base_response.type == 7:
+                error_response = ErrorResponse.from_bytes(response_data)
+                parse_time = datetime.now() - parse_start
+                self.debug_logger.log_response(error_response, "ERROR RESPONSE")
+                self.logger.error(
+                    f"Server returned error code: {error_response.error_code}"
+                )
+                return {"error_code": error_response.error_code}
+
             response = QueryResponse.from_bytes(response_data)
             parse_time = datetime.now() - parse_start
 
@@ -527,19 +552,19 @@ class QueryClient:
 
                 return result
             else:
-                self.logger.error("420: クライアントエラー: クエリサーバが見つからない")
+                self.logger.error(
+                    f"Query request failed, response type: {response.type}"
+                )
                 return response if raw_packet else {"error": "Query request failed", "response_type": response.type}
 
         except asyncio.TimeoutError:
-            self.logger.error("421: クライアントエラー: クエリサーバ接続タイムアウト")
+            self.logger.error("Client error: Query server connection timeout")
             return {"error": "Request timeout", "timeout": timeout}
         except Exception as e:
             if self.debug:
                 self.logger.exception("Traceback:")
-            self.logger.error(
-                f"420: クライアントエラー: クエリサーバが見つからない: {e}"
-            )
-            return {"420": str(e)}
+            self.logger.error(f"Client error: {e}")
+            return {"error": str(e)}
         finally:
             sock.close()
 
