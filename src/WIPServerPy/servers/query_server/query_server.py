@@ -109,7 +109,14 @@ class QueryServer(BaseServer):
         self.weather_manager = WeatherDataManager(weather_config)
 
         # レスポンスビルダー
-        response_config = {"debug": self.debug, "version": self.version}
+        response_config = {
+            "debug": self.debug,
+            "version": self.version,
+            "redis_host": self.config.get("redis", "host", "localhost"),
+            "redis_port": self.config.getint("redis", "port", 6379),
+            "redis_db": self.config.getint("redis", "db", 0),
+            "redis_prefix": os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")),
+        }
         self.response_builder = ResponseBuilder(response_config)
 
     def parse_request(self, data):
