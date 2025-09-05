@@ -20,7 +20,7 @@ sys.path.insert(
 
 from WIPCommonPy.packet import Response
 import json
-from WIPServerPy.data.redis_manager import WeatherRedisManager
+from WIPServerPy.data.redis_manager import WeatherRedisManager, RedisConfig
 
 
 class ResponseBuilder:
@@ -31,12 +31,25 @@ class ResponseBuilder:
         初期化
 
         Args:
-            config: 設定辞書（debug, version）
+            config: 設定辞書（debug, version, redis_host, redis_port, redis_db, redis_prefix）
         """
         self.debug = config.get("debug", False)
         self.version = config.get("version", 1)
+
+        # Redis設定を保持
+        self._redis_config = RedisConfig(
+            host=config.get("redis_host", "localhost"),
+            port=config.get("redis_port", 6379),
+            db=config.get("redis_db", 0),
+        )
+        self._redis_key_prefix = config.get("redis_prefix")
+
         try:
-            self._redis_manager = WeatherRedisManager(debug=self.debug)
+            self._redis_manager = WeatherRedisManager(
+                config=self._redis_config,
+                debug=self.debug,
+                key_prefix=self._redis_key_prefix,
+            )
         except Exception:
             self._redis_manager = None
             if self.debug:
@@ -74,8 +87,9 @@ class ResponseBuilder:
             self._set_weather_data(response, request, weather_data)
 
         # 拡張フィールドを設定
-        if request.ex_flag or request.alert_flag or request.disaster_flag:
-            self._set_extended_fields(response, request, weather_data)
+        # 要件: フラグ有無に関わらず、常にlandmarksを拡張フィールドへ格納する。
+        # そのため、ex_flag/alert_flag/disaster_flagに依存せず毎回実行する。
+        self._set_extended_fields(response, request, weather_data)
 
         return response
 
@@ -113,21 +127,25 @@ class ResponseBuilder:
 
         # sourceを引き継ぐ
         if hasattr(request, "ex_field") and request.ex_field:
-            source = request.ex_field.get("source")
+            source = getattr(request.ex_field, "source", None)
             if source:
-                response.ex_field.set("source", source)
+                response.ex_field.source = source
 
         # 警報情報
         if request.alert_flag and weather_data and "warnings" in weather_data:
-            response.ex_field.set("alert", weather_data["warnings"])
+            response.ex_field.alert = weather_data["warnings"]
 
         # 災害情報
         if request.disaster_flag and weather_data and "disaster" in weather_data:
-            response.ex_field.set("disaster", weather_data["disaster"])
+            response.ex_field.disaster = weather_data["disaster"]
         
         # landmarkデータ（外部JSONから読み込み、ex_fieldにのみ格納）
         try:
+            if self.debug:
+                print(f"Loading landmarks for area: {request.area_code}")
             landmarks = self._load_landmarks_for_area(request.area_code)
+            if self.debug:
+                print(f"Found {len(landmarks)} landmarks")
             if landmarks:
                 # まず件数上限を適用
                 max_landmarks_count = 50
@@ -151,7 +169,10 @@ class ResponseBuilder:
                         hi = mid - 1
 
                 if best:
-                    response.ex_field.set("landmarks", json.dumps(best, ensure_ascii=False))
+                    landmarks_json = json.dumps(best, ensure_ascii=False)
+                    if self.debug:
+                        print(f"Setting landmarks in ex_field: {len(landmarks_json)} bytes")
+                    response.ex_field.landmarks = landmarks_json
         except Exception:
             # サイレントにスキップ（デバッグ時のみ標準出力）
             if self.debug:
@@ -159,21 +180,37 @@ class ResponseBuilder:
 
     def _load_landmarks_for_area(self, area_code):
         """Redisからランドマークを取得"""
-        try:
-            if not self._redis_manager:
-                return []
-            data = self._redis_manager.get_weather_data(area_code)
-            if data and isinstance(data, dict):
-                landmarks = data.get("landmarks")
-                if isinstance(landmarks, list):
-                    return landmarks
+        if not self._redis_manager:
             if self.debug:
-                print(f"No landmarks found for area {area_code}")
+                print("Redis manager not initialized")
             return []
+
+        try:
+            data = self._redis_manager.get_weather_data(area_code)
         except Exception as e:
             if self.debug:
-                print(f"Error loading landmarks for area {area_code}: {e}")
-            return []
+                print(
+                    f"Error loading landmarks for area {area_code}: {e}. Trying to reconnect..."
+                )
+            try:
+                self._redis_manager = WeatherRedisManager(
+                    config=self._redis_config,
+                    debug=self.debug,
+                    key_prefix=self._redis_key_prefix,
+                )
+                data = self._redis_manager.get_weather_data(area_code)
+            except Exception as e2:
+                if self.debug:
+                    print(f"Reconnection failed: {e2}")
+                return []
+
+        if data and isinstance(data, dict):
+            landmarks = data.get("landmarks")
+            if isinstance(landmarks, list):
+                return landmarks
+        if self.debug:
+            print(f"No landmarks found for area {area_code}")
+        return []
 
     def build_error_response(self, request, error_code, error_message):
         """

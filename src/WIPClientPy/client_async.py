@@ -273,10 +273,12 @@ class ClientAsync:
         self,
         area_code: str | int,
         *,
+        wind: bool = True,
         proxy: bool = False,
         raw_packet: bool = False,
         **kwargs,
     ) -> Optional[Dict | QueryResponse]:
+        kwargs.setdefault("wind", wind)
         if proxy:
             request = QueryRequest.create_query_request(
                 area_code=area_code,
