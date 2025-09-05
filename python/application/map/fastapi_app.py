@@ -643,33 +643,31 @@ async def weekly_forecast(
                 area_code=area_code,
                 alert=True,  # ex_field送出のため
                 day=0,
-                proxy=True,
+                raw_packet=True,
                 ip=ip,
                 context={"area_code": area_code, "purpose": "landmarks"},
             )
-            if hasattr(packet, 'ex_field') and packet.ex_field and not packet.ex_field.is_empty():
-                landmarks_json = packet.ex_field._get_internal('landmarks')
-                if landmarks_json:
-                    try:
-                        raw_landmarks = json_lib.loads(landmarks_json)
-                        for landmark in raw_landmarks:
-                            if "latitude" in landmark and "longitude" in landmark:
-                                distance = calculate_distance(
-                                    lat, lng, landmark["latitude"], landmark["longitude"]
-                                )
-                                item = landmark.copy()
-                                item["distance"] = distance
-                                landmarks_with_distance.append(item)
+            if hasattr(packet, 'ex_field') and packet.ex_field and packet.ex_field.landmarks:
+                try:
+                    raw_landmarks = json_lib.loads(packet.ex_field.landmarks)
+                    for landmark in raw_landmarks:
+                        if "latitude" in landmark and "longitude" in landmark:
+                            distance = calculate_distance(
+                                lat, lng, landmark["latitude"], landmark["longitude"]
+                            )
+                            item = landmark.copy()
+                            item["distance"] = distance
+                            landmarks_with_distance.append(item)
 
-                        landmarks_with_distance.sort(
-                            key=lambda x: x.get("distance", float("inf"))
-                        )
-                        # 近傍上位N件のみを返却（転送/描画コストを抑制）
-                        MAX_LANDMARKS = int(_os.getenv("LANDMARKS_TOPN", "100"))
-                        if len(landmarks_with_distance) > MAX_LANDMARKS:
-                            landmarks_with_distance = landmarks_with_distance[:MAX_LANDMARKS]
-                    except (json_lib.JSONDecodeError, KeyError) as e:
-                        logger.error(f"Error parsing landmarks from WIP packet: {e}")
+                    landmarks_with_distance.sort(
+                        key=lambda x: x.get("distance", float("inf"))
+                    )
+                    # 近傍上位N件のみを返却（転送/描画コストを抑制）
+                    MAX_LANDMARKS = int(_os.getenv("LANDMARKS_TOPN", "100"))
+                    if len(landmarks_with_distance) > MAX_LANDMARKS:
+                        landmarks_with_distance = landmarks_with_distance[:MAX_LANDMARKS]
+                except (json_lib.JSONDecodeError, KeyError) as e:
+                    logger.error(f"Error parsing landmarks from WIP packet: {e}")
 
             # エリア名を取得するためにRedisから基本情報を取得（landmarkは使わない）
             try:
