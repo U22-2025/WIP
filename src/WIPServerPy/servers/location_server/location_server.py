@@ -309,6 +309,13 @@ class LocationServer(BaseServer):
                     response.ex_field.longitude = longitude
                     if self.debug:
                         print("座標解決レスポンスに座標を追加しました")
+                
+                # wind情報があれば転送（landmarks取得のため）
+                wind_info = request.ex_field.get("wind")
+                if wind_info:
+                    response.ex_field.wind = wind_info
+                    if self.debug:
+                        print(f"座標解決レスポンスにwind情報を追加しました: {wind_info}")
 
             # 統一されたデバッグ出力を追加
             execution_time = time.time() - start_time

@@ -251,26 +251,7 @@ class QueryResponse(Response):
             if request.ex_field and "wind" in weather_data:
                 ex_field["wind"] = weather_data["wind"]
 
-            # landmarksデータを拡張フィールドに追加（サイズ制限考慮）
-            if "landmarks" in weather_data and weather_data["landmarks"]:
-                import json
-                landmarks = weather_data["landmarks"]
-                
-                # 拡張フィールドの最大サイズは1023バイト
-                MAX_EXTENDED_SIZE = 1023
-                
-                # landmarkデータを段階的に制限
-                for max_landmarks in [50, 30, 20, 10, 5]:
-                    limited_landmarks = landmarks[:max_landmarks] if len(landmarks) > max_landmarks else landmarks
-                    landmarks_json = json.dumps(limited_landmarks, ensure_ascii=False)
-                    
-                    if len(landmarks_json.encode('utf-8')) <= MAX_EXTENDED_SIZE:
-                        ex_field["landmarks"] = landmarks_json
-                        break
-                else:
-                    # それでも大きい場合は空にする
-                    # プロトコル制限により格納不可能
-                    pass
+            # landmarks は辞書では扱わない（サーバ側で ex_field にのみ格納）
 
         return cls(
             version=version,
@@ -413,16 +394,7 @@ class QueryResponse(Response):
         if hasattr(self, "ex_field") and getattr(self.ex_field, "wind", None) is not None:
             data["wind"] = self.ex_field.wind
 
-        # landmarksデータを辞書に追加
-        if hasattr(self, "ex_field") and self.ex_field and not self.ex_field.is_empty():
-            landmarks_json = self.ex_field._get_internal("landmarks")
-            if landmarks_json:
-                try:
-                    import json
-                    data["landmarks"] = json.loads(landmarks_json)
-                except (json.JSONDecodeError, KeyError):
-                    # JSON解析に失敗した場合はlandmarksを含めない
-                    pass
+        # landmarks は ex_field のみで扱う（辞書には含めない）
 
         return data
 

@@ -19,6 +19,8 @@ sys.path.insert(
 )
 
 from WIPCommonPy.packet import Response
+import json
+from pathlib import Path
 
 
 class ResponseBuilder:
@@ -117,10 +119,63 @@ class ResponseBuilder:
         if request.disaster_flag and weather_data and "disaster" in weather_data:
             response.ex_field.set("disaster", weather_data["disaster"])
         
-        # landmarkデータ
-        if weather_data and "landmarks" in weather_data:
-            import json
-            response.ex_field.set("landmarks", json.dumps(weather_data["landmarks"], ensure_ascii=False))
+        # landmarkデータ（外部JSONから読み込み、ex_fieldにのみ格納）
+        try:
+            landmarks = self._load_landmarks_for_area(request.area_code)
+            if landmarks:
+                # まず件数上限を適用
+                max_landmarks_count = 50
+                if len(landmarks) > max_landmarks_count:
+                    landmarks = landmarks[:max_landmarks_count]
+
+                # ExtendedField の1要素あたりの最大サイズは1023バイト
+                MAX_EXTENDED_SIZE = 1023
+
+                # 文字列サイズが超える場合に件数を段階的に減らす
+                lo, hi = 1, len(landmarks)
+                best = []
+                while lo <= hi:
+                    mid = (lo + hi) // 2
+                    cand = landmarks[:mid]
+                    s = json.dumps(cand, ensure_ascii=False)
+                    if len(s.encode('utf-8')) <= MAX_EXTENDED_SIZE:
+                        best = cand
+                        lo = mid + 1
+                    else:
+                        hi = mid - 1
+
+                if best:
+                    response.ex_field.set("landmarks", json.dumps(best, ensure_ascii=False))
+        except Exception:
+            # サイレントにスキップ（デバッグ時のみ標準出力）
+            if self.debug:
+                print("Failed to embed landmarks into ex_field")
+
+    def _load_landmarks_for_area(self, area_code):
+        """指定エリアのランドマークを外部JSONから読み込む（簡易版）"""
+        try:
+            # プロジェクトルートのJSONファイル
+            landmarks_file = Path(__file__).parent.parent.parent.parent.parent.parent / "landmarks_with_coords_full.json"
+            if not landmarks_file.exists():
+                if self.debug:
+                    print(f"Landmarks file not found: {landmarks_file}")
+                return []
+            # キャッシュ
+            if not hasattr(self, "_landmarks_cache"):
+                with open(landmarks_file, "r", encoding="utf-8") as f:
+                    self._landmarks_cache = json.load(f)
+                if self.debug:
+                    print(f"Loaded landmarks data from {landmarks_file}")
+            key = f"weather:{area_code}"
+            if key in self._landmarks_cache:
+                return self._landmarks_cache[key].get("landmarks", [])
+            if self.debug:
+                print(f"No landmarks found for area {area_code}")
+            return []
+        except Exception as e:
+            if self.debug:
+                print(f"Error loading landmarks for area {area_code}: {e}")
+            return []
 
     def build_error_response(self, request, error_code, error_message):
         """

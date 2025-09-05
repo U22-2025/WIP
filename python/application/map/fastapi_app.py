@@ -478,6 +478,7 @@ async def get_landmarks(
             alert=True,
             disaster=True,
             day=0,
+            proxy=True,  # ex_field を取得するためプロキシ経由でパケットを受け取る
             ip=ip,
             context={"coords": f"{lat},{lng}", "purpose": "landmarks"},
         )
@@ -488,7 +489,9 @@ async def get_landmarks(
                 status_code=500,
             )
 
-        area_code = weather_data.get("area_code")
+        area_code = (
+            weather_data.get("area_code") if isinstance(weather_data, dict) else getattr(weather_data, "area_code", None)
+        )
         if not area_code:
             return JSONResponse(
                 {"status": "error", "message": "エリアコードの取得に失敗しました"},
@@ -522,17 +525,16 @@ async def get_landmarks(
                 
                 return round(distance * 10) / 10  # 小数点第1位まで
 
-            # WIPパケットの拡張フィールドからlandmarkデータを取得
+            # ランドマークデータを取得（ex_field のみ対応）
             landmarks_with_distance = []
             area_name = "不明"
-            
-            # 拡張フィールドが存在するか確認
+
             if hasattr(weather_data, 'ex_field') and weather_data.ex_field and not weather_data.ex_field.is_empty():
                 landmarks_json = weather_data.ex_field._get_internal('landmarks')
                 if landmarks_json:
                     try:
-                        landmarks = json_lib.loads(landmarks_json)
-                        for landmark in landmarks:
+                        landmarks_list = json_lib.loads(landmarks_json)
+                        for landmark in landmarks_list:
                             if 'latitude' in landmark and 'longitude' in landmark:
                                 distance = calculate_distance(
                                     lat, lng,
@@ -541,8 +543,6 @@ async def get_landmarks(
                                 landmark_with_distance = landmark.copy()
                                 landmark_with_distance['distance'] = distance
                                 landmarks_with_distance.append(landmark_with_distance)
-                        
-                        # 距離順でソート
                         landmarks_with_distance.sort(key=lambda x: x.get('distance', float('inf')))
                     except (json_lib.JSONDecodeError, KeyError) as e:
                         logger.error(f"Error parsing landmarks from WIP packet: {e}")
@@ -768,7 +768,7 @@ async def weekly_forecast(
           weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
           _set_cached_weekly(area_code, weekly_forecast_list)
 
-        # 追加: WIPパケットからランドマーク情報を取得して同梱
+        # 追加: ランドマーク情報を取得して同梱（ex_field のみ対応）
         area_name: str = "不明"
         landmarks_with_distance = []
         try:
@@ -794,9 +794,18 @@ async def weekly_forecast(
                 c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
                 return round((R * c) * 10) / 10
 
-            # WIPパケットの拡張フィールドからlandmarkデータを取得
-            if hasattr(today_weather, 'ex_field') and today_weather.ex_field and not today_weather.ex_field.is_empty():
-                landmarks_json = today_weather.ex_field._get_internal('landmarks')
+            # ランドマークデータ（ex_field のみ）: today_weather は辞書のため、パケットを別リクエストで取得
+            packet = await call_with_metrics(
+                client.get_weather_by_area_code,
+                area_code=area_code,
+                alert=True,  # ex_field送出のため
+                day=0,
+                proxy=True,
+                ip=ip,
+                context={"area_code": area_code, "purpose": "landmarks"},
+            )
+            if hasattr(packet, 'ex_field') and packet.ex_field and not packet.ex_field.is_empty():
+                landmarks_json = packet.ex_field._get_internal('landmarks')
                 if landmarks_json:
                     try:
                         raw_landmarks = json_lib.loads(landmarks_json)
@@ -813,7 +822,7 @@ async def weekly_forecast(
                             key=lambda x: x.get("distance", float("inf"))
                         )
                         # 近傍上位N件のみを返却（転送/描画コストを抑制）
-                        MAX_LANDMARKS = int(os.getenv("LANDMARKS_TOPN", "100"))
+                        MAX_LANDMARKS = int(_os.getenv("LANDMARKS_TOPN", "100"))
                         if len(landmarks_with_distance) > MAX_LANDMARKS:
                             landmarks_with_distance = landmarks_with_distance[:MAX_LANDMARKS]
                     except (json_lib.JSONDecodeError, KeyError) as e:

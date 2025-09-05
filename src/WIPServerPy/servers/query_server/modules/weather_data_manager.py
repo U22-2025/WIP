@@ -168,15 +168,8 @@ class WeatherDataManager:
                 if disaster_data:
                     result["disaster"] = disaster_data
                     
-            # landmarkデータを外部JSONファイルから取得（WIP拡張フィールド用）
-            landmarks = self._load_landmarks_for_area(area_code)
-            if landmarks:
-                # WIP拡張フィールドのサイズ制限に合わせて制限（暫定的に50件まで）
-                max_landmarks_count = 50
-                if len(landmarks) > max_landmarks_count:
-                    landmarks = landmarks[:max_landmarks_count]
-                result["landmarks"] = landmarks
-                
+            # landmarks は ex_field で送るため、辞書には含めない
+
             return result
 
         except Exception as e:
