@@ -641,9 +641,9 @@ async def weekly_forecast(
             packet = await call_with_metrics(
                 client.get_weather_by_area_code,
                 area_code=area_code,
-                # フラグは付けず（警報/災害フラグは不要）、
-                # サーバ側で常にlandmarksをex_fieldへ格納する実装に依存する
+                # フラグは警報/災害のみ不要。landmarks取得のためwindを明示
                 weather=True,  # 妥当性チェック上、最低1つはTrue
+                wind=True,
                 temperature=False,
                 precipitation_prob=False,
                 alert=False,
