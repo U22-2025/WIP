@@ -1,6 +1,10 @@
+import os
 import socket
 import time
 import asyncio
+
+
+UDP_BUFFER_SIZE = int(os.getenv("UDP_BUFFER_SIZE", 1024))
 
 
 def receive_with_id(sock: socket.socket, expected_id: int, timeout: float):
@@ -32,7 +36,7 @@ def receive_with_id(sock: socket.socket, expected_id: int, timeout: float):
         if remaining <= 0:
             raise socket.timeout("receive timeout")
         sock.settimeout(remaining)
-        data, addr = sock.recvfrom(1024)
+        data, addr = sock.recvfrom(UDP_BUFFER_SIZE)
         if len(data) >= 2:
             value = int.from_bytes(data[:2], byteorder="little")
             packet_id = (value >> 4) & 0x0FFF
@@ -74,11 +78,11 @@ async def receive_with_id_async(
         try:
             if hasattr(loop, "sock_recvfrom"):
                 data, addr = await asyncio.wait_for(
-                    loop.sock_recvfrom(sock, 1024), remaining
+                    loop.sock_recvfrom(sock, UDP_BUFFER_SIZE), remaining
                 )
             else:
                 data, addr = await asyncio.wait_for(
-                    loop.run_in_executor(None, sock.recvfrom, 1024), remaining
+                    loop.run_in_executor(None, sock.recvfrom, UDP_BUFFER_SIZE), remaining
                 )
         except (asyncio.TimeoutError, BlockingIOError) as e:
             if isinstance(e, BlockingIOError):
