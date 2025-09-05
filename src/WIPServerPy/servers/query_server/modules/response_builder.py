@@ -127,17 +127,17 @@ class ResponseBuilder:
 
         # sourceを引き継ぐ
         if hasattr(request, "ex_field") and request.ex_field:
-            source = request.ex_field.get("source")
+            source = getattr(request.ex_field, "source", None)
             if source:
-                response.ex_field.set("source", source)
+                response.ex_field.source = source
 
         # 警報情報
         if request.alert_flag and weather_data and "warnings" in weather_data:
-            response.ex_field.set("alert", weather_data["warnings"])
+            response.ex_field.alert = weather_data["warnings"]
 
         # 災害情報
         if request.disaster_flag and weather_data and "disaster" in weather_data:
-            response.ex_field.set("disaster", weather_data["disaster"])
+            response.ex_field.disaster = weather_data["disaster"]
         
         # landmarkデータ（外部JSONから読み込み、ex_fieldにのみ格納）
         try:
@@ -172,7 +172,7 @@ class ResponseBuilder:
                     landmarks_json = json.dumps(best, ensure_ascii=False)
                     if self.debug:
                         print(f"Setting landmarks in ex_field: {len(landmarks_json)} bytes")
-                    response.ex_field.set("landmarks", landmarks_json)
+                    response.ex_field.landmarks = landmarks_json
         except Exception:
             # サイレントにスキップ（デバッグ時のみ標準出力）
             if self.debug:
