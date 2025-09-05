@@ -20,7 +20,7 @@ sys.path.insert(
 
 from WIPCommonPy.packet import Response
 import json
-from pathlib import Path
+from WIPServerPy.data.redis_manager import WeatherRedisManager
 
 
 class ResponseBuilder:
@@ -35,6 +35,12 @@ class ResponseBuilder:
         """
         self.debug = config.get("debug", False)
         self.version = config.get("version", 1)
+        try:
+            self._redis_manager = WeatherRedisManager(debug=self.debug)
+        except Exception:
+            self._redis_manager = None
+            if self.debug:
+                print("Failed to initialize WeatherRedisManager for landmarks")
 
     def build_response(self, request, weather_data):
         """
@@ -152,23 +158,15 @@ class ResponseBuilder:
                 print("Failed to embed landmarks into ex_field")
 
     def _load_landmarks_for_area(self, area_code):
-        """指定エリアのランドマークを外部JSONから読み込む（簡易版）"""
+        """Redisからランドマークを取得"""
         try:
-            # プロジェクトルートのJSONファイル
-            landmarks_file = Path(__file__).parent.parent.parent.parent.parent.parent / "landmarks_with_coords_full.json"
-            if not landmarks_file.exists():
-                if self.debug:
-                    print(f"Landmarks file not found: {landmarks_file}")
+            if not self._redis_manager:
                 return []
-            # キャッシュ
-            if not hasattr(self, "_landmarks_cache"):
-                with open(landmarks_file, "r", encoding="utf-8") as f:
-                    self._landmarks_cache = json.load(f)
-                if self.debug:
-                    print(f"Loaded landmarks data from {landmarks_file}")
-            key = f"weather:{area_code}"
-            if key in self._landmarks_cache:
-                return self._landmarks_cache[key].get("landmarks", [])
+            data = self._redis_manager.get_weather_data(area_code)
+            if data and isinstance(data, dict):
+                landmarks = data.get("landmarks")
+                if isinstance(landmarks, list):
+                    return landmarks
             if self.debug:
                 print(f"No landmarks found for area {area_code}")
             return []
