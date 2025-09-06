@@ -70,10 +70,161 @@
     padding: var(--space-sm);
     min-width: 280px;
     max-width: 350px;
+    max-height: 80vh; /* 画面の80%を上限に設定 */
     background: var(--surface-primary);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-lg);
     border: 1px solid var(--glass-border);
+    overflow-y: auto; /* 全体をスクロール可能に */
+    -webkit-overflow-scrolling: touch; /* iOSでのスムーズスクロール */
+}
+
+/* ポップアップ全体のスクロールバー - 新潟モチーフ */
+.popup-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+    background: rgba(225, 242, 232, 0.3);
+    border-radius: 3px;
+    margin: 8px 0; /* 上下に余白 */
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #7cb342 0%, #5d8a66 100%);
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+}
+
+.popup-content::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #8bc34a 0%, #6b9973 100%);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+}
+
+/* ポップアップ内のコンテンツ間隔調整 */
+.popup-content > * {
+    margin-bottom: var(--space-sm);
+}
+
+.popup-content > *:last-child {
+    margin-bottom: 0;
+}
+
+/* Leafletポップアップのカスタマイズ - 新潟モチーフ */
+.leaflet-popup {
+    /* ポップアップ全体の最大高さを制限 */
+    max-height: 80vh !important;
+    /* Leafletの自動位置調整を無効化 */
+    pointer-events: auto !important;
+    position: fixed !important;
+}
+
+/* Leafletポップアップの自動調整を無効化 */
+.leaflet-popup-pane {
+    pointer-events: none !important;
+}
+
+.leaflet-popup {
+    pointer-events: auto !important;
+}
+
+/* マップコンテナのドラッグを常に有効に */
+.leaflet-container {
+    cursor: grab !important;
+}
+
+.leaflet-container:active {
+    cursor: grabbing !important;
+}
+
+.leaflet-dragging .leaflet-container {
+    cursor: grabbing !important;
+}
+
+.leaflet-popup-content-wrapper {
+    /* 新潟テーマの背景 */
+    background: linear-gradient(145deg, 
+        rgba(245, 250, 240, 0.98) 0%, 
+        rgba(237, 247, 238, 0.95) 50%, 
+        rgba(230, 244, 237, 0.9) 100%) !important;
+    border: 2px solid rgba(139, 195, 74, 0.3) !important;
+    box-shadow: 
+        0 12px 32px rgba(76, 175, 80, 0.15),
+        0 6px 16px rgba(129, 199, 132, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--radius-lg) !important;
+    padding: 0 !important; /* popup-contentで制御するため */
+    overflow: hidden !important;
+}
+
+.leaflet-popup-content {
+    margin: 0 !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+.leaflet-popup-tip {
+    background: rgba(245, 250, 240, 0.95) !important;
+    border-left: 2px solid rgba(139, 195, 74, 0.3) !important;
+    border-bottom: 2px solid rgba(139, 195, 74, 0.3) !important;
+    box-shadow: -2px 2px 4px rgba(76, 175, 80, 0.1) !important;
+}
+
+.leaflet-popup-close-button {
+    color: #4a7c59 !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    border-radius: 50% !important;
+    width: 24px !important;
+    height: 24px !important;
+    line-height: 22px !important;
+    text-align: center !important;
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2) !important;
+    transition: all var(--transition-fast) !important;
+    right: 8px !important;
+    top: 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #2d5016 !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3) !important;
+}
+
+/* ポップアップが画面上部にあるときのマップ操作を改善 */
+.leaflet-container {
+    cursor: grab;
+}
+
+.leaflet-container:active {
+    cursor: grabbing;
+}
+
+/* マップのタッチ操作を最適化 */
+.leaflet-container.leaflet-touch-drag {
+    -ms-touch-action: pinch-zoom !important;
+    touch-action: pinch-zoom !important;
+}
+
+/* ポップアップ表示中でもマップのドラッグを維持 */
+.leaflet-popup-content-wrapper {
+    pointer-events: auto !important;
+    /* ポップアップの位置を固定して自動調整を防ぐ */
+    transform-origin: center bottom !important;
+}
+
+/* ポップアップの自動調整を禁止 */
+.leaflet-popup.leaflet-zoom-animated {
+    transition: none !important;
+}
+
+.leaflet-popup-content-wrapper.leaflet-zoom-animated {
+    transition: none !important;
 }
 
 .popup-weather-icon {
@@ -1257,13 +1408,13 @@ button:focus,
   }
 }
 
-/* 災害情報カード新デザイン */
+/* 災害情報カード新デザイン - ポップアップ内でのスクロール対応 */
 .disaster-alert {
     background: linear-gradient(135deg, rgba(231,76,60,0.05), rgba(231,76,60,0.1));
     border: 1px solid rgba(231,76,60,0.2);
     border-radius: var(--radius-md);
     padding: var(--space-sm);
-    margin-top: var(--space-sm);
+    margin: var(--space-sm) 0; /* 上下マージンを調整 */
     position: relative;
     overflow: hidden;
 }
@@ -1326,13 +1477,13 @@ button:focus,
     margin-top: 1px;
 }
 
-/* 警報・注意報カード */
+/* 警報・注意報カード - ポップアップ内でのスクロール対応 */
 .alert-warning {
     background: linear-gradient(135deg, rgba(231,76,60,0.05), rgba(231,76,60,0.1));
     border: 1px solid rgba(231,76,60,0.2);
     border-radius: var(--radius-md);
     padding: var(--space-sm);
-    margin-top: var(--space-sm);
+    margin: var(--space-sm) 0; /* 上下マージンを調整 */
     position: relative;
     overflow: hidden;
 }
@@ -1617,6 +1768,14 @@ button:focus,
     .popup-content {
         min-width: 250px;
         max-width: 320px;
+    }
+    
+    .leaflet-popup {
+        max-height: 90vh !important;
+    }
+    
+    .leaflet-popup-content {
+        max-height: 80vh !important;
     }
     
     .popup-weather-data {
