@@ -80,6 +80,7 @@ class WeatherDataManager:
         wind_flag=False,
         alert_flag=False,
         disaster_flag=False,
+        landmark_flag=False,
         day=0,
     ):
         """
@@ -167,6 +168,10 @@ class WeatherDataManager:
                 )
                 if disaster_data:
                     result["disaster"] = disaster_data
+
+            # ランドマーク
+            if landmark_flag and "landmarks" in weather_data:
+                result["landmarks"] = weather_data["landmarks"]
             return result
 
         except Exception as e:

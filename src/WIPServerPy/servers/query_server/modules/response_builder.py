@@ -7,6 +7,7 @@ import time
 import sys
 import os
 import datetime
+import json
 
 # プロジェクトルートをパスに追加
 sys.path.insert(
@@ -116,6 +117,10 @@ class ResponseBuilder:
         # 災害情報
         if request.disaster_flag and weather_data and "disaster" in weather_data:
             response.ex_field.set("disaster", weather_data["disaster"])
+
+        # ランドマーク
+        if weather_data and "landmarks" in weather_data:
+            response.ex_field.set("landmarks", json.dumps(weather_data["landmarks"]))
 
     def build_error_response(self, request, error_code, error_message):
         """
