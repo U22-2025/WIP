@@ -528,40 +528,7 @@ async def weekly_forecast(
                 ):
                     weather_data = _create_fallback_weather_data(area_code, day)
                 
-                # Redisから直接風速データを取得して追加
-                if "wind" not in weather_data or weather_data.get("wind") is None:
-                    try:
-                        import redis
-                        import json as json_lib
-                        _host = os.getenv("REDIS_HOST", "localhost")
-                        _port = int(os.getenv("REDIS_PORT", 6379))
-                        _db = int(os.getenv("REDIS_DB", 0))
-                        _prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")) or ""
-
-                        redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
-                        redis_key = f"{_prefix}weather:{area_code}"
-                        
-                        weather_info = None
-                        try:
-                            redis_data = redis_client.execute_command("JSON.GET", redis_key)
-                            if redis_data:
-                                weather_info = json_lib.loads(redis_data)
-                        except Exception:
-                            pass
-                        if weather_info is None:
-                            raw = redis_client.get(redis_key)
-                            if raw:
-                                try:
-                                    weather_info = json_lib.loads(raw)
-                                except Exception:
-                                    weather_info = None
-                        
-                        if weather_info:
-                            wind_list = weather_info.get("wind", [])
-                            if wind_list and len(wind_list) > day and wind_list[day]:
-                                weather_data["wind"] = wind_list[day]
-                    except Exception as e:
-                        logger.error(f"Error fetching wind data from Redis for day {day}: {e}")
+                # wind は拡張フィールド経由で転送される想定。Redis フォールバックは行わない。
             except Exception as e:  # pragma: no cover
                 logger.error(f"Error getting weather for day {day}: {e}")
                 weather_data = _create_fallback_weather_data(area_code, day)
@@ -573,43 +540,8 @@ async def weekly_forecast(
           tasks = [fetch(day) for day in range(1, 7)]
           results = await asyncio.gather(*tasks)
           
-          # today_weatherにも風速データを追加
-          today_with_wind = today_weather.copy()
-          if "wind" not in today_with_wind or today_with_wind.get("wind") is None:
-              try:
-                  import redis
-                  import json as json_lib
-                  _host = os.getenv("REDIS_HOST", "localhost")
-                  _port = int(os.getenv("REDIS_PORT", 6379))
-                  _db = int(os.getenv("REDIS_DB", 0))
-                  _prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")) or ""
-
-                  redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
-                  redis_key = f"{_prefix}weather:{area_code}"
-                  
-                  weather_info = None
-                  try:
-                      redis_data = redis_client.execute_command("JSON.GET", redis_key)
-                      if redis_data:
-                          weather_info = json_lib.loads(redis_data)
-                  except Exception:
-                      pass
-                  if weather_info is None:
-                      raw = redis_client.get(redis_key)
-                      if raw:
-                          try:
-                              weather_info = json_lib.loads(raw)
-                          except Exception:
-                              weather_info = None
-                  
-                  if weather_info:
-                      wind_list = weather_info.get("wind", [])
-                      if wind_list and len(wind_list) > 0 and wind_list[0]:
-                          today_with_wind["wind"] = wind_list[0]
-              except Exception as e:
-                  logger.error(f"Error fetching wind data from Redis for today: {e}")
-          
-          weekly_forecast_list = [_add_date_info(today_with_wind, 0)] + results
+          # wind は拡張フィールド経由で転送される想定。Redis フォールバックは行わない。
+          weekly_forecast_list = [_add_date_info(today_weather.copy(), 0)] + results
         weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
         _set_cached_weekly(area_code, weekly_forecast_list)
 
@@ -806,47 +738,9 @@ async def current_weather(
             )
 
         area_code = today_weather.get("area_code")
-        
-        # Redis から直接風速データを取得して追加
-        wind_data = None
-        try:
-            import redis
-            import json as json_lib
-            _host = os.getenv("REDIS_HOST", "localhost")
-            _port = int(os.getenv("REDIS_PORT", 6379))
-            _db = int(os.getenv("REDIS_DB", 0))
-            _prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")) or ""
 
-            redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
-            redis_key = f"{_prefix}weather:{area_code}"
-            
-            # RedisJSONまたは通常のキーからデータを取得
-            weather_info = None
-            try:
-                redis_data = redis_client.execute_command("JSON.GET", redis_key)
-                if redis_data:
-                    weather_info = json_lib.loads(redis_data)
-            except Exception:
-                pass
-            if weather_info is None:
-                raw = redis_client.get(redis_key)
-                if raw:
-                    try:
-                        weather_info = json_lib.loads(raw)
-                    except Exception:
-                        weather_info = None
-            
-            if weather_info:
-                wind_list = weather_info.get("wind", [])
-                if wind_list and len(wind_list) > 0:
-                    wind_data = wind_list[0]  # 今日の風速データ
-        except Exception as e:
-            logger.error(f"Error fetching wind data from Redis: {e}")
-        
-        # レスポンス作成
+        # レスポンス作成（wind は拡張フィールド経由で転送。フォールバックは行わない）
         today_data = _add_date_info(today_weather, 0)
-        if wind_data:
-            today_data["wind"] = wind_data
         
         return JSONResponse(
             {

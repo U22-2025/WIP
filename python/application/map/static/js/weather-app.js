@@ -231,8 +231,34 @@ class WeatherApp {
   // ------------------------------------------------------------------
   // 風データ処理
   // ------------------------------------------------------------------
-  parseWindDirection(windText) {
-    if (!windText || windText === '--' || windText === null) return null;
+  // 風文字列の正規化（配列/オブジェクト/数値を想定）
+  normalizeWindText(w) {
+    if (w === null || w === undefined) return '';
+    // 文字列そのまま
+    if (typeof w === 'string') return w.trim();
+    // 配列→最初の有効な要素
+    if (Array.isArray(w)) {
+      for (const v of w) {
+        if (v && typeof v === 'string' && v.trim() !== '') return v.trim();
+      }
+      return '';
+    }
+    // オブジェクト→代表的なキーを探索
+    if (typeof w === 'object') {
+      const candidate = w.text || w.value || w.desc || w.description || w.wind || '';
+      if (typeof candidate === 'string') return candidate.trim();
+      if (typeof candidate === 'number') return String(candidate);
+      return '';
+    }
+    // 数値
+    if (typeof w === 'number' && !isNaN(w)) return `${w}`;
+    // その他は文字列化
+    try { return String(w); } catch { return ''; }
+  }
+
+  parseWindDirection(windTextRaw) {
+    const windText = this.normalizeWindText(windTextRaw);
+    if (!windText || windText === '--') return null;
     
     // 風向きマッピング（度数）
     const directionMap = {
@@ -243,7 +269,8 @@ class WeatherApp {
     };
     
     // 複数の風向きがある場合（"南の風　後　北の風"など）は最初の風向きを使用
-    const firstDirection = windText.split(/[後時から]/)[0].trim();
+    // 「のち」「後」「時」「から」などの区切り以前を採用
+    const firstDirection = windText.split(/(?:のち|後|時|から)/)[0].trim();
     
     // 風向きを抽出
     for (const [direction, angle] of Object.entries(directionMap)) {
@@ -255,8 +282,9 @@ class WeatherApp {
     return null;
   }
 
-  extractWindSpeed(windText) {
-    if (!windText || windText === '--' || windText === null) return null;
+  extractWindSpeed(windTextRaw) {
+    const windText = this.normalizeWindText(windTextRaw);
+    if (!windText || windText === '--') return null;
     
     // 数値（アラビア数字）を優先的に抽出（単位と組み合わせの場合のみ）
     const numberMatch = windText.match(/(\d+(?:\.\d+)?)\s*(?:メートル|m\/s|m|メ|㍍)/i);
@@ -348,7 +376,8 @@ class WeatherApp {
     </div>`;
   }
 
-  formatWindDisplay(windText) {
+  formatWindDisplay(windTextRaw) {
+    const windText = this.normalizeWindText(windTextRaw);
     const angle = this.parseWindDirection(windText);
     const strength = this.extractWindSpeed(windText);
     const arrow = this.generateWindArrow(angle, strength);
