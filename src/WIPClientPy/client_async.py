@@ -139,6 +139,7 @@ class ClientAsync:
         temperature: bool = True,
         precipitation_prob: bool = True,
         wind: bool = False,
+        landmarks: bool = False,
         alert: bool = False,
         disaster: bool = False,
         day: int = 0,
@@ -162,6 +163,7 @@ class ClientAsync:
                     weather=weather,
                     temperature=temperature,
                     precipitation_prob=precipitation_prob,
+                    landmarks=landmarks,
                     alert=alert,
                     disaster=disaster,
                     day=day,
@@ -179,6 +181,7 @@ class ClientAsync:
                     weather=weather,
                     temperature=temperature,
                     precipitation_prob=precipitation_prob,
+                    landmarks=landmarks,
                     alert=alert,
                     disaster=disaster,
                     day=day,
@@ -197,6 +200,7 @@ class ClientAsync:
                         temperature=temperature,
                         precipitation_prob=precipitation_prob,
                         wind=wind,
+                        landmarks=landmarks,
                         alert=alert,
                         disaster=disaster,
                         day=day,
@@ -210,6 +214,7 @@ class ClientAsync:
                         temperature=temperature,
                         precipitation_prob=precipitation_prob,
                         wind=wind,
+                        landmarks=landmarks,
                         alert=alert,
                         disaster=disaster,
                         day=day,
@@ -224,6 +229,7 @@ class ClientAsync:
                         temperature=temperature,
                         precipitation_prob=precipitation_prob,
                         wind=wind,
+                        landmarks=landmarks,
                         alert=alert,
                         disaster=disaster,
                         day=day,
@@ -239,6 +245,7 @@ class ClientAsync:
         longitude: float,
         *,
         proxy: bool = False,
+        landmarks: bool = False,
         **kwargs,
     ) -> Optional[Dict]:
         if proxy:
@@ -247,6 +254,7 @@ class ClientAsync:
                 longitude=longitude,
                 packet_id=self._weather_client.PIDG.next_id(),
                 version=self._weather_client.VERSION,
+                landmarks=landmarks,
                 **kwargs,
             )
             async with self._lock:
@@ -257,6 +265,7 @@ class ClientAsync:
             loc_resp, _ = await self._location_client.get_location_data_async(
                 latitude=latitude,
                 longitude=longitude,
+                landmarks=landmarks,
             )
         if not loc_resp or not loc_resp.is_valid():
             return None
@@ -264,6 +273,7 @@ class ClientAsync:
         async with self._lock:
             return await self._query_client.get_weather_data_async(
                 area_code=area_code,
+                landmarks=landmarks,
                 **kwargs,
             )
 
@@ -272,6 +282,7 @@ class ClientAsync:
         area_code: str | int,
         *,
         proxy: bool = False,
+        landmarks: bool = False,
         **kwargs,
     ) -> Optional[Dict]:
         if proxy:
@@ -279,6 +290,7 @@ class ClientAsync:
                 area_code=area_code,
                 packet_id=self._weather_client.PIDG.next_id(),
                 version=self._weather_client.VERSION,
+                landmarks=landmarks,
                 **kwargs,
             )
             async with self._lock:
@@ -288,6 +300,7 @@ class ClientAsync:
         async with self._lock:
             return await self._query_client.get_weather_data_async(
                 area_code=area_code,
+                landmarks=landmarks,
                 **kwargs,
             )
 

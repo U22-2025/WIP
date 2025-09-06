@@ -160,6 +160,7 @@ class QueryClient:
         precipitation_prob,
         alert,
         disaster,
+        landmarks,
         day=0,
     ):
         """
@@ -172,13 +173,17 @@ class QueryClient:
             precipitation_prob: 降水確率データフラグ
             alert: 警報データフラグ
             disaster: 災害データフラグ
+            landmarks: ランドマークデータフラグ
             day: 日数
 
         Returns:
             str: キャッシュキー
         """
         # 各フラグを文字列化してキーに含める
-        flags = f"w{int(weather)}t{int(temperature)}p{int(precipitation_prob)}a{int(alert)}d{int(disaster)}"
+        flags = (
+            f"w{int(weather)}t{int(temperature)}p{int(precipitation_prob)}"
+            f"a{int(alert)}d{int(disaster)}l{int(landmarks)}"
+        )
         return f"query:{area_code}:{flags}:d{day}"
 
     def _create_cached_response(self, cached_data, area_code):
@@ -212,6 +217,7 @@ class QueryClient:
         wind=False,
         alert=False,
         disaster=False,
+        landmarks=False,
         source=None,
         timeout=5.0,
         use_cache=True,
@@ -228,6 +234,7 @@ class QueryClient:
             precipitation_prob: 降水確率データを取得するか
             alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
+            landmarks: ランドマークデータを取得するか
             source: 送信元情報 (ip, port) のタプル
             timeout: タイムアウト時間（秒）
             use_cache: キャッシュを使用するかどうか
@@ -252,6 +259,7 @@ class QueryClient:
                     precipitation_prob,
                     alert,
                     disaster,
+                    landmarks,
                     day,
                 )
                 cached_data = self.cache.get(cache_key)
@@ -278,6 +286,7 @@ class QueryClient:
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
                 wind=wind,
+                landmarks=landmarks,
                 alert=alert,
                 disaster=disaster,
                 source=source,
@@ -334,6 +343,7 @@ class QueryClient:
                         precipitation_prob,
                         alert,
                         disaster,
+                        landmarks,
                         day,
                     )
                     # タイミング情報を除いてキャッシュに保存
@@ -391,6 +401,7 @@ class QueryClient:
         wind=False,
         alert=False,
         disaster=False,
+        landmarks=False,
         source=None,
         timeout=5.0,
         use_cache=True,
@@ -412,6 +423,7 @@ class QueryClient:
                     precipitation_prob,
                     alert,
                     disaster,
+                    landmarks,
                     day,
                 )
                 cached_data = self.cache.get(cache_key)
@@ -438,6 +450,7 @@ class QueryClient:
                 temperature=temperature,
                 precipitation_prob=precipitation_prob,
                 wind=wind,
+                landmarks=landmarks,
                 alert=alert,
                 disaster=disaster,
                 source=source,
@@ -489,6 +502,7 @@ class QueryClient:
                         precipitation_prob,
                         alert,
                         disaster,
+                        landmarks,
                         day,
                     )
                     cache_data = {k: v for k, v in result.items() if k != "timing"}
