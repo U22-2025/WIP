@@ -447,7 +447,6 @@ except Exception as e:  # pragma: no cover
 
 
 
-
 @app.post("/weekly_forecast")
 async def weekly_forecast(
     request: Request,
@@ -478,6 +477,7 @@ async def weekly_forecast(
             wind=True,
             alert=True,
             disaster=True,
+            landmarks=True,
             day=0,
             ip=ip,
             context={"coords": f"{lat},{lng}", "day": 0},
@@ -507,6 +507,7 @@ async def weekly_forecast(
                     "wind": True,
                     "alert": True,
                     "disaster": True,
+                    "landmarks": False,
                 }
                 weather_data = await call_with_metrics(
                     client.get_weather_by_area_code,
@@ -608,8 +609,8 @@ async def weekly_forecast(
                   logger.error(f"Error fetching wind data from Redis for today: {e}")
           
           weekly_forecast_list = [_add_date_info(today_with_wind, 0)] + results
-          weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
-          _set_cached_weekly(area_code, weekly_forecast_list)
+        weekly_forecast_list = sorted(weekly_forecast_list, key=lambda x: x["day"])
+        _set_cached_weekly(area_code, weekly_forecast_list)
 
         # 追加: ランドマーク情報を取得して同梱（ex_field のみ対応）
         area_name: str = "不明"
@@ -617,7 +618,6 @@ async def weekly_forecast(
         try:
             import json as json_lib
             import math
-            import os as _os
 
             def calculate_distance(lat1, lng1, lat2, lng2):
                 R = 6371
