@@ -617,6 +617,7 @@ async def weekly_forecast(
         try:
             import json as json_lib
             import math
+            import os
 
             def calculate_distance(lat1, lng1, lat2, lng2):
                 R = 6371
@@ -675,7 +676,7 @@ async def weekly_forecast(
                         key=lambda x: x.get("distance", float("inf"))
                     )
                     # 近傍上位N件のみを返却（転送/描画コストを抑制）
-                    MAX_LANDMARKS = int(_os.getenv("LANDMARKS_TOPN", "100"))
+                    MAX_LANDMARKS = int(os.getenv("LANDMARKS_TOPN", "100"))
                     if len(landmarks_with_distance) > MAX_LANDMARKS:
                         landmarks_with_distance = landmarks_with_distance[:MAX_LANDMARKS]
                 except (json_lib.JSONDecodeError, KeyError) as e:
@@ -684,10 +685,10 @@ async def weekly_forecast(
             # エリア名を取得するためにRedisから基本情報を取得（landmarkは使わない）
             try:
                 import redis
-                _host = _os.getenv("REDIS_HOST", "localhost")
-                _port = int(_os.getenv("REDIS_PORT", 6379))
-                _db = int(_os.getenv("REDIS_DB", 0))
-                _prefix = _os.getenv("REPORT_DB_KEY_PREFIX", _os.getenv("REDIS_KEY_PREFIX", "")) or ""
+                _host = os.getenv("REDIS_HOST", "localhost")
+                _port = int(os.getenv("REDIS_PORT", 6379))
+                _db = int(os.getenv("REDIS_DB", 0))
+                _prefix = os.getenv("REPORT_DB_KEY_PREFIX", os.getenv("REDIS_KEY_PREFIX", "")) or ""
 
                 redis_client = redis.Redis(host=_host, port=_port, db=_db, decode_responses=True)
                 redis_key = f"{_prefix}weather:{area_code}"
