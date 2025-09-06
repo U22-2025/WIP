@@ -446,7 +446,6 @@ except Exception as e:  # pragma: no cover
     logger.error(f"Failed to mount External Weather API at /api: {e}")
 
 
-
 @app.post("/weekly_forecast")
 async def weekly_forecast(
     request: Request,

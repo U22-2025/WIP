@@ -703,8 +703,6 @@ class WeatherApp {
           } else {
             this.lastLandmarks = null;
             this.clearLandmarkPins();
-            // フォールバック: サーバーが未統合の場合、従来のエンドポイントで取得
-            this.updateLandmarkPinsAndSidebar();
           }
         }
       } else if (data.status === 'error') {
@@ -1090,12 +1088,7 @@ class WeatherApp {
         break;
       case 'landmarks-view':
         targetId = 'landmarks-view';
-        // 直近の取得結果があればそれを利用。なければ取得
-        if (this.lastLandmarks && Array.isArray(this.lastLandmarks.landmarks)) {
-          this.displayLandmarks(this.lastLandmarks.landmarks, this.lastLandmarks.area_name || '不明');
-        } else {
-          this.loadLandmarks();
-        }
+        this.loadLandmarks();
         break;
       default:
         targetId = 'weekly-list-view';
