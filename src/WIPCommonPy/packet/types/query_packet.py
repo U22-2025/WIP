@@ -260,6 +260,8 @@ class QueryResponse(Response):
             if request.ex_field and "wind" in weather_data:
                 ex_field["wind"] = weather_data["wind"]
 
+            # landmarks は辞書では扱わない（サーバ側で ex_field にのみ格納）
+
         return cls(
             version=version,
             packet_id=request.packet_id,
@@ -400,6 +402,8 @@ class QueryResponse(Response):
 
         if hasattr(self, "ex_field") and getattr(self.ex_field, "wind", None) is not None:
             data["wind"] = self.ex_field.wind
+
+        # landmarks は ex_field のみで扱う（辞書には含めない）
 
         return data
 

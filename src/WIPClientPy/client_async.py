@@ -10,7 +10,7 @@ from WIPCommonPy.utils.log_config import LoggerConfig, UnifiedLogFormatter
 from WIPCommonPy.clients.weather_client import WeatherClient
 from WIPCommonPy.clients.location_client import LocationClient
 from WIPCommonPy.clients.query_client import QueryClient
-from WIPCommonPy.packet import LocationRequest, QueryRequest
+from WIPCommonPy.packet import LocationRequest, QueryRequest, QueryResponse
 
 load_dotenv()
 
@@ -138,7 +138,7 @@ class ClientAsync:
         weather: bool = True,
         temperature: bool = True,
         precipitation_prob: bool = True,
-        wind: bool = False,
+        wind: bool = True,  # landmarks取得のためwindを常に有効化
         landmarks: bool = False,
         alert: bool = False,
         disaster: bool = False,
@@ -163,6 +163,7 @@ class ClientAsync:
                     weather=weather,
                     temperature=temperature,
                     precipitation_prob=precipitation_prob,
+                    wind=wind,
                     landmarks=landmarks,
                     alert=alert,
                     disaster=disaster,
@@ -181,6 +182,7 @@ class ClientAsync:
                     weather=weather,
                     temperature=temperature,
                     precipitation_prob=precipitation_prob,
+                    wind=wind,
                     landmarks=landmarks,
                     alert=alert,
                     disaster=disaster,
@@ -281,10 +283,13 @@ class ClientAsync:
         self,
         area_code: str | int,
         *,
+        wind: bool = True,
         proxy: bool = False,
         landmarks: bool = False,
+        raw_packet: bool = False,
         **kwargs,
-    ) -> Optional[Dict]:
+    ) -> Optional[Dict | QueryResponse]:
+        kwargs.setdefault("wind", wind)
         if proxy:
             request = QueryRequest.create_query_request(
                 area_code=area_code,
@@ -295,12 +300,13 @@ class ClientAsync:
             )
             async with self._lock:
                 return await self._weather_client._execute_query_request_async(
-                    request=request
+                    request=request, raw_packet=raw_packet
                 )
         async with self._lock:
             return await self._query_client.get_weather_data_async(
                 area_code=area_code,
                 landmarks=landmarks,
+                raw_packet=raw_packet,
                 **kwargs,
             )
 

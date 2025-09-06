@@ -274,8 +274,16 @@ class WeatherClient:
                 self.logger.exception("Traceback:")
             return None
 
-    async def _execute_query_request_async(self, request: QueryRequest):
-        """非同期版 _execute_query_request"""
+    async def _execute_query_request_async(
+        self, request: QueryRequest, *, raw_packet: bool = False
+    ):
+        """
+        非同期版 _execute_query_request
+
+        Args:
+            request: 送信するQueryRequest
+            raw_packet: Trueの場合はパースせずにQueryResponse/ErrorResponseをそのまま返す
+        """
         try:
             start_time = time.time()
 
@@ -305,6 +313,9 @@ class WeatherClient:
                     self.logger.error("Response authentication verification failed")
                     return None
 
+                if raw_packet:
+                    return response
+
                 if response.is_success():
                     result = response.get_weather_data()
 
@@ -329,7 +340,7 @@ class WeatherClient:
                     self.logger.error(f"Error Code: {response.error_code}")
                     self.logger.error("=====================\n")
 
-                return {"type": "error", "error_code": response.error_code}
+                return response if raw_packet else {"type": "error", "error_code": response.error_code}
             else:
                 if self.debug:
                     self.logger.error(f"不明なパケットタイプ: {response_type}")

@@ -1271,46 +1271,18 @@ class WeatherApp {
   // ランドマーク機能
   // ------------------------------------------------------------------
   async loadLandmarks() {
-    if (!this.currentLat || !this.currentLng) {
-      this.showLandmarksEmpty();
-      return;
-    }
-
     const landmarksLoading = document.getElementById('landmarks-loading');
-    const landmarksContent = document.getElementById('landmarks-content');
     const landmarksEmpty = document.getElementById('landmarks-empty');
     const landmarksList = document.getElementById('landmarks-list');
-
-    // ローディング表示
     if (landmarksLoading) landmarksLoading.style.display = 'flex';
     if (landmarksEmpty) landmarksEmpty.style.display = 'none';
     if (landmarksList) landmarksList.style.display = 'none';
-
-    try {
-      const response = await fetch('/landmarks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          lat: this.currentLat,
-          lng: this.currentLng
-        })
-      });
-
-      const data = await response.json();
-      
+    if (this.lastLandmarks && Array.isArray(this.lastLandmarks.landmarks)) {
       if (landmarksLoading) landmarksLoading.style.display = 'none';
-
-      if (data.status === 'ok' && data.landmarks && data.landmarks.length > 0) {
-        this.displayLandmarks(data.landmarks, data.area_name);
-      } else {
-        this.showLandmarksEmpty('このエリアには観光地情報がありません');
-      }
-    } catch (error) {
-      console.error('ランドマーク取得エラー:', error);
+      this.displayLandmarks(this.lastLandmarks.landmarks, this.lastLandmarks.area_name || '不明');
+    } else {
       if (landmarksLoading) landmarksLoading.style.display = 'none';
-      this.showLandmarksEmpty('観光地情報の取得に失敗しました');
+      this.showLandmarksEmpty('このエリアには観光地情報がありません');
     }
   }
 
@@ -1422,34 +1394,15 @@ class WeatherApp {
 
   // 現在位置に対するランドマーク一覧を取得
   async fetchLandmarksForCurrent() {
-    if (!this.currentLat || !this.currentLng) return null;
-    try {
-      const response = await fetch('/landmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: this.currentLat, lng: this.currentLng })
-      });
-      const data = await response.json();
-      if (data && data.status === 'ok' && Array.isArray(data.landmarks)) {
-        return data;
-      }
-    } catch (e) {
-      console.error('ランドマーク取得エラー(fetchLandmarksForCurrent):', e);
-    }
-    return null;
+    // 廃止: weekly_forecast の結果のみ利用
+    return this.lastLandmarks || null;
   }
 
   // 地図上のランドマークピンを更新し、必要ならサイドバーも更新
   async updateLandmarkPinsAndSidebar() {
     const data = await this.fetchLandmarksForCurrent();
-    if (!data) {
-      // 取得失敗時は既存ピンをクリア
-      this.clearLandmarkPins();
-      return;
-    }
+    if (!data) { this.clearLandmarkPins(); return; }
     this.renderLandmarkPins(data.landmarks);
-
-    // サイドバーのランドマークタブがアクティブなら同時にリストも更新
     const landmarksView = document.getElementById('landmarks-view');
     if (landmarksView && landmarksView.classList.contains('active')) {
       this.displayLandmarks(data.landmarks, data.area_name);

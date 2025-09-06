@@ -5,9 +5,11 @@ Redisキャッシュを管理
 
 import json
 import redis
-from WIPServerPy.servers.query_server.modules.weather_constants import RedisConstants, CacheConstants
+from WIPServerPy.servers.query_server.modules.weather_constants import (
+    RedisConstants,
+    CacheConstants,
+)
 from WIPServerPy.data import redis_manager
-import dateutil.parser
 
 
 class MissingDataError(Exception):
@@ -128,8 +130,7 @@ class WeatherDataManager:
                 elif not isinstance(temperatures, list):
                     tval = temperatures
                 result["temperature"] = tval
-                if tval is None:
-                    raise MissingDataError("temperature is null for requested day")
+                # 温度がnullでも他の項目が取得できる場合はエラーにしない
 
             # 降水確率（snake_caseで統一）
             if pop_flag:
@@ -140,8 +141,7 @@ class WeatherDataManager:
                 elif not isinstance(precipitation_prob, list):
                     pval = precipitation_prob
                 result["precipitation_prob"] = pval
-                if pval is None:
-                    raise MissingDataError("precipitation_prob is null for requested day")
+                # 降水確率がnullでも他の項目が取得できる場合はエラーにしない
 
             # 風速・風向き
             if wind_flag:
@@ -152,8 +152,9 @@ class WeatherDataManager:
                 elif not isinstance(wind_data, list):
                     wval = wind_data
                 result["wind"] = wval
-                if wval is None:
-                    raise MissingDataError("wind is null for requested day")
+                # 風データがnullでもエラーにしない（他のデータは返す）
+                # if wval is None:
+                #     raise MissingDataError("wind is null for requested day")
 
             # 警報
             if alert_flag and "warnings" in weather_data:
@@ -168,10 +169,8 @@ class WeatherDataManager:
                 )
                 if disaster_data:
                     result["disaster"] = disaster_data
-
-            # ランドマーク
-            if landmark_flag and "landmarks" in weather_data:
-                result["landmarks"] = weather_data["landmarks"]
+                    
+            # landmarks は ex_field で送るため、辞書には含めない
             return result
 
         except Exception as e:
