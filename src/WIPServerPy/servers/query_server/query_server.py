@@ -155,11 +155,13 @@ class QueryServer(BaseServer):
         if not request.area_code or request.area_code == "000000":
             return False, "402", "エリアコードが未設定"
 
-        # wind情報を拡張フィールドから取得
+        # wind情報やランドマーク情報を拡張フィールドから取得
         wind_requested = False
+        landmark_requested = bool(getattr(request, 'landmark_flag', 0))
         if hasattr(request, 'ex_field') and request.ex_field:
             ex_dict = request.ex_field.to_dict()
             wind_requested = bool(ex_dict.get('wind'))
+            landmark_requested = landmark_requested or bool(ex_dict.get('landmarks'))
         
         # フラグのチェック（少なくとも1つは必要）
         if not any(
@@ -170,6 +172,7 @@ class QueryServer(BaseServer):
                 request.alert_flag,
                 request.disaster_flag,
                 wind_requested,
+                landmark_requested,
             ]
         ):
             return False, "400", "不正なパケット"
@@ -205,12 +208,14 @@ class QueryServer(BaseServer):
 
         # 気象データの取得（MissingDataErrorは個別に扱う）
         weather_start = time.time()
-        
-        # wind情報を拡張フィールドから取得
+
+        # wind情報やランドマーク情報を拡張フィールドから取得
         wind_flag = False
+        landmark_flag = bool(getattr(request, 'landmark_flag', 0))
         if hasattr(request, 'ex_field') and request.ex_field:
             ex_dict = request.ex_field.to_dict()
             wind_flag = bool(ex_dict.get('wind'))
+            landmark_flag = landmark_flag or bool(ex_dict.get('landmarks'))
         
         try:
             weather_data = self.weather_manager.get_weather_data(
@@ -221,6 +226,7 @@ class QueryServer(BaseServer):
                 alert_flag=request.alert_flag,
                 disaster_flag=request.disaster_flag,
                 wind_flag=wind_flag,
+                landmark_flag=landmark_flag,
                 day=request.day,
             )
         except MissingDataError:
