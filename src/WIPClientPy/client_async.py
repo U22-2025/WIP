@@ -263,10 +263,10 @@ class ClientAsync:
                 return await self._weather_client._execute_location_request_async(
                     request=request
                 )
-        # location_client compatible parameters
-        location_kwargs = {k: v for k, v in kwargs.items() 
-                          if k in ['weather', 'temperature', 'precipitation_prob', 
-                                   'wind', 'alert', 'disaster', 'day']}
+        # location_client compatible parameters (LocationClient does NOT accept 'wind')
+        location_kwargs = {k: v for k, v in kwargs.items()
+                           if k in ['weather', 'temperature', 'precipitation_prob',
+                                    'alert', 'disaster', 'day']}
         async with self._lock:
             loc_resp, _ = await self._location_client.get_location_data_async(
                 latitude=latitude,
@@ -291,6 +291,8 @@ class ClientAsync:
         proxy: bool = False,
         landmarks: bool = False,
         raw_packet: bool = False,
+        landmarks_offset: int | None = None,
+        landmarks_limit: int | None = None,
         **kwargs,
     ) -> Optional[Dict | QueryResponse]:
         kwargs.setdefault("wind", wind)
@@ -300,6 +302,8 @@ class ClientAsync:
                 packet_id=self._weather_client.PIDG.next_id(),
                 version=self._weather_client.VERSION,
                 landmarks=landmarks,
+                landmarks_offset=landmarks_offset,
+                landmarks_limit=landmarks_limit,
                 **kwargs,
             )
             async with self._lock:
@@ -311,6 +315,8 @@ class ClientAsync:
                 area_code=area_code,
                 landmarks=landmarks,
                 raw_packet=raw_packet,
+                landmarks_offset=landmarks_offset,
+                landmarks_limit=landmarks_limit,
                 **kwargs,
             )
 

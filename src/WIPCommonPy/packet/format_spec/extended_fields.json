@@ -6,5 +6,8 @@
     "source": {"id": 40, "type": "str"},
     "auth_hash": {"id": 4, "type":"str"},
     "wind": {"id": 5, "type": "str"},
-    "landmarks": {"id": 6, "type": "str"}
+    "landmarks": {"id": 6, "type": "str"},
+    "landmarks_total": {"id": 7, "type": "int"},
+    "landmarks_offset": {"id": 8, "type": "int"},
+    "landmarks_limit": {"id": 9, "type": "int"}
 }

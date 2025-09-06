@@ -6,7 +6,7 @@
 import time
 import sys
 import os
-import datetime
+from datetime import datetime
 import json
 
 # プロジェクトルートをパスに追加
@@ -145,39 +145,75 @@ class ResponseBuilder:
             if self.debug:
                 print(f"Loading landmarks for area: {request.area_code}")
             landmarks = self._load_landmarks_for_area(request.area_code)
+            total = len(landmarks) if landmarks else 0
             if self.debug:
-                print(f"Found {len(landmarks)} landmarks")
-            if landmarks:
-                # まず件数上限を適用
-                max_landmarks_count = 50
-                if len(landmarks) > max_landmarks_count:
-                    landmarks = landmarks[:max_landmarks_count]
+                print(f"Found {total} landmarks")
 
-                # ExtendedField の1要素あたりの最大サイズは1023バイト
-                MAX_EXTENDED_SIZE = 1023
+            # ページング指定（ex_field）を取得
+            req_offset = 0
+            req_limit = None
+            try:
+                if hasattr(request, 'ex_field') and request.ex_field:
+                    ex = request.ex_field.to_dict()
+                    if ex.get('landmarks_offset') is not None:
+                        req_offset = max(0, int(ex['landmarks_offset']))
+                    if ex.get('landmarks_limit') is not None:
+                        req_limit = max(1, int(ex['landmarks_limit']))
+            except Exception:
+                pass
 
-                # 文字列サイズが超える場合に件数を段階的に減らす
-                lo, hi = 1, len(landmarks)
+            # 既定の件数制限は設けない（残件数すべてを対象）。
+            # 実際の送信サイズは後段の予算(budget)で安全に絞り込む。
+            if req_limit is None:
+                req_limit = max(0, total - req_offset)
+
+            # 範囲を切り出し
+            start = min(req_offset, total)
+            end = min(start + req_limit, total)
+            page_items = landmarks[start:end] if landmarks else []
+
+            # 送信バジェット（UDPバッファ - 固定オーバーヘッド）
+            # ExtendedField 1要素の上限は1023バイトなので、それ以下にも制限
+            try:
+                import os
+                udp_buf = int(os.getenv('UDP_BUFFER_SIZE', '4096'))
+            except Exception:
+                udp_buf = 4096
+            MAX_EXTENDED_SIZE = 1023
+            # 固定フィールド等のオーバーヘッドに余裕を持たせる
+            # ここでは安全側に 1024 バイトを確保
+            budget = max(256, min(MAX_EXTENDED_SIZE, udp_buf - 1024))
+
+            # JSONバイト長が予算を超える場合は二分探索で件数を減らす
+            def fit_page(items):
+                lo, hi = 0, len(items)
                 best = []
                 while lo <= hi:
                     mid = (lo + hi) // 2
-                    cand = landmarks[:mid]
+                    cand = items[:mid]
                     s = json.dumps(cand, ensure_ascii=False)
-                    if len(s.encode('utf-8')) <= MAX_EXTENDED_SIZE:
+                    if len(s.encode('utf-8')) <= budget:
                         best = cand
                         lo = mid + 1
                     else:
                         hi = mid - 1
+                return best
 
-                if best:
-                    landmarks_json = json.dumps(best, ensure_ascii=False)
-                    if self.debug:
-                        print(f"Setting landmarks in ex_field: {len(landmarks_json)} bytes")
-                    response.ex_field.landmarks = landmarks_json
-        except Exception:
-            # サイレントにスキップ（デバッグ時のみ標準出力）
+            safe_items = fit_page(page_items)
+            landmarks_json = json.dumps(safe_items, ensure_ascii=False) if safe_items else "[]"
+
+            # ex_field に設定（合計件数・オフセット・リミットも返す）
+            response.ex_field.landmarks = landmarks_json
+            response.ex_field.landmarks_total = total
+            response.ex_field.landmarks_offset = start
+            response.ex_field.landmarks_limit = len(safe_items)
             if self.debug:
-                print("Failed to embed landmarks into ex_field")
+                print(
+                    f"Set landmarks chunk: offset={start}, size={len(safe_items)}, total={total}, bytes={len(landmarks_json.encode('utf-8'))}, budget={budget}"
+                )
+        except Exception:
+            if self.debug:
+                print("Failed to embed landmarks into ex_field (pagination)")
 
     def _load_landmarks_for_area(self, area_code):
         """Redisからランドマークを取得"""

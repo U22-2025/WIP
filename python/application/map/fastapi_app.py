@@ -637,50 +637,69 @@ async def weekly_forecast(
                 c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
                 return round((R * c) * 10) / 10
 
-            # ランドマークデータ（ex_field のみ）: today_weather は辞書のため、パケットを別リクエストで取得
-            packet = await call_with_metrics(
-                client.get_weather_by_area_code,
-                area_code=area_code,
-                # フラグは警報/災害のみ不要。landmarks取得のためwindを明示
-                weather=True,  # 妥当性チェック上、最低1つはTrue
-                wind=True,
-                temperature=False,
-                precipitation_prob=False,
-                alert=False,
-                disaster=False,
-                day=0,
-                raw_packet=True,
-                ip=ip,
-                context={"area_code": area_code, "purpose": "landmarks"},
-            )
-            logger.info(f"Packet type: {type(packet)}, has ex_field: {hasattr(packet, 'ex_field')}")
-            if hasattr(packet, 'ex_field'):
-                logger.info(f"ex_field type: {type(packet.ex_field)}, has landmarks: {hasattr(packet.ex_field, 'landmarks') if packet.ex_field else False}")
-                if packet.ex_field and hasattr(packet.ex_field, 'landmarks'):
-                    logger.info(f"landmarks content: {packet.ex_field.landmarks}")
-            
-            if hasattr(packet, 'ex_field') and packet.ex_field and hasattr(packet.ex_field, 'landmarks') and packet.ex_field.landmarks:
+            # ランドマークデータ（ex_field のみ）: ページング対応で複数回取得して結合（総件数の上限なし）
+            CHUNK = int(os.getenv("LANDMARKS_CHUNK", "50"))
+            received = 0
+            offset = 0
+            total = None
+            while True:
+                packet = await call_with_metrics(
+                    client.get_weather_by_area_code,
+                    area_code=area_code,
+                    # フラグは警報/災害のみ不要。landmarks取得のためwindを明示
+                    weather=True,  # 妥当性チェック上、最低1つはTrue
+                    wind=True,
+                    temperature=False,
+                    precipitation_prob=False,
+                    alert=False,
+                    disaster=False,
+                    day=0,
+                    raw_packet=True,
+                    landmarks=True,
+                    landmarks_offset=offset,
+                    landmarks_limit=CHUNK if CHUNK > 0 else None,
+                    ip=ip,
+                    context={"area_code": area_code, "purpose": "landmarks", "offset": offset},
+                )
+                if not hasattr(packet, 'ex_field') or not packet.ex_field:
+                    break
+                # 受信メタ
                 try:
-                    raw_landmarks = json_lib.loads(packet.ex_field.landmarks)
-                    logger.info(f"Successfully parsed landmarks: {len(raw_landmarks)} items")
-                    for landmark in raw_landmarks:
-                        if "latitude" in landmark and "longitude" in landmark:
-                            distance = calculate_distance(
-                                lat, lng, landmark["latitude"], landmark["longitude"]
-                            )
-                            item = landmark.copy()
-                            item["distance"] = distance
-                            landmarks_with_distance.append(item)
+                    if hasattr(packet.ex_field, 'landmarks_total'):
+                        total = int(packet.ex_field.landmarks_total)
+                    if hasattr(packet.ex_field, 'landmarks_limit'):
+                        this_limit = int(packet.ex_field.landmarks_limit)
+                    else:
+                        this_limit = 0
+                except Exception:
+                    this_limit = 0
 
-                    landmarks_with_distance.sort(
-                        key=lambda x: x.get("distance", float("inf"))
-                    )
-                    # 近傍上位N件のみを返却（転送/描画コストを抑制）
-                    MAX_LANDMARKS = int(os.getenv("LANDMARKS_TOPN", "100"))
-                    if len(landmarks_with_distance) > MAX_LANDMARKS:
-                        landmarks_with_distance = landmarks_with_distance[:MAX_LANDMARKS]
-                except (json_lib.JSONDecodeError, KeyError) as e:
-                    logger.error(f"Error parsing landmarks from WIP packet: {e}")
+                # チャンクを結合
+                if hasattr(packet.ex_field, 'landmarks') and packet.ex_field.landmarks:
+                    try:
+                        raw_landmarks = json_lib.loads(packet.ex_field.landmarks)
+                        for landmark in raw_landmarks:
+                            if "latitude" in landmark and "longitude" in landmark:
+                                distance = calculate_distance(
+                                    lat, lng, landmark["latitude"], landmark["longitude"]
+                                )
+                                item = landmark.copy()
+                                item["distance"] = distance
+                                landmarks_with_distance.append(item)
+                        received += len(raw_landmarks)
+                    except Exception:
+                        pass
+
+                # 打ち切り条件（総件数に到達 or 今回何も返らない）
+                if this_limit <= 0:
+                    break
+                offset += this_limit
+                # total が分かっており、既に最後まで取得したら終了
+                if total is not None and offset >= total:
+                    break
+
+            # 近傍順にソートのみ（件数制限なし）
+            landmarks_with_distance.sort(key=lambda x: x.get("distance", float("inf")))
 
             # エリア名を取得するためにRedisから基本情報を取得（landmarkは使わない）
             try:
@@ -733,7 +752,7 @@ async def weekly_forecast(
         )
 
     except Exception as e:  # pragma: no cover
-        logger.error(f"Error in weekly_forecast: {e}")
+        logger.exception(f"Error in weekly_forecast: {e}")
         return JSONResponse(
             {"status": "error", "message": "週間予報の取得に失敗しました"},
             status_code=500,
@@ -836,7 +855,7 @@ async def current_weather(
             }
         )
     except Exception as e:  # pragma: no cover
-        logger.error(f"Error in current_weather: {e}")
+        logger.exception(f"Error in current_weather: {e}")
         return JSONResponse(
             {"status": "error", "message": "現在の天気情報の取得に失敗しました"},
             status_code=500,

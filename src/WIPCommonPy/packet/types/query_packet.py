@@ -28,6 +28,8 @@ class QueryRequest(Request):
         precipitation_prob: bool = True,
         wind: bool = False,
         landmarks: bool = False,
+        landmarks_offset: Optional[int] = None,
+        landmarks_limit: Optional[int] = None,
         alert: bool = False,
         disaster: bool = False,
         day: int = 0,
@@ -78,6 +80,17 @@ class QueryRequest(Request):
             ex_field["wind"] = "request"
         if landmarks:
             ex_field["landmarks"] = "request"
+        # pagination parameters for landmarks (optional)
+        if landmarks_offset is not None:
+            try:
+                ex_field["landmarks_offset"] = int(landmarks_offset)
+            except Exception:
+                pass
+        if landmarks_limit is not None:
+            try:
+                ex_field["landmarks_limit"] = int(landmarks_limit)
+            except Exception:
+                pass
 
         return cls(
             version=version,

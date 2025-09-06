@@ -223,6 +223,8 @@ class QueryClient:
         alert=False,
         disaster=False,
         landmarks=False,
+        landmarks_offset: int | None = None,
+        landmarks_limit: int | None = None,
         source=None,
         timeout=5.0,
         use_cache=True,
@@ -292,6 +294,8 @@ class QueryClient:
                 precipitation_prob=precipitation_prob,
                 wind=wind,
                 landmarks=landmarks,
+                landmarks_offset=landmarks_offset,
+                landmarks_limit=landmarks_limit,
                 alert=alert,
                 disaster=disaster,
                 source=source,
@@ -417,6 +421,8 @@ class QueryClient:
         alert=False,
         disaster=False,
         landmarks=False,
+        landmarks_offset: int | None = None,
+        landmarks_limit: int | None = None,
         source=None,
         timeout=5.0,
         use_cache=True,
@@ -473,6 +479,8 @@ class QueryClient:
                 precipitation_prob=precipitation_prob,
                 wind=wind,
                 landmarks=landmarks,
+                landmarks_offset=landmarks_offset,
+                landmarks_limit=landmarks_limit,
                 alert=alert,
                 disaster=disaster,
                 source=source,
@@ -827,5 +835,4 @@ def main():
     logger.info("✓ Using specialized packet classes for improved usability")
     logger.info("✓ Simplified API with better error handling")
     logger.info("✓ Automatic data conversion and validation")
-
 

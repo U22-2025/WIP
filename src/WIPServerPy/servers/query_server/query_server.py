@@ -168,7 +168,13 @@ class QueryServer(BaseServer):
         if hasattr(request, 'ex_field') and request.ex_field:
             ex_dict = request.ex_field.to_dict()
             wind_requested = bool(ex_dict.get('wind'))
-            landmark_requested = landmark_requested or bool(ex_dict.get('landmarks'))
+            # treat any pagination hints as a landmarks request as well
+            landmark_requested = (
+                landmark_requested
+                or bool(ex_dict.get('landmarks'))
+                or (ex_dict.get('landmarks_limit') is not None)
+                or (ex_dict.get('landmarks_offset') is not None)
+            )
         
         # フラグのチェック（少なくとも1つは必要）
         if not any(
@@ -222,7 +228,12 @@ class QueryServer(BaseServer):
         if hasattr(request, 'ex_field') and request.ex_field:
             ex_dict = request.ex_field.to_dict()
             wind_flag = bool(ex_dict.get('wind'))
-            landmark_flag = landmark_flag or bool(ex_dict.get('landmarks'))
+            landmark_flag = (
+                landmark_flag
+                or bool(ex_dict.get('landmarks'))
+                or (ex_dict.get('landmarks_limit') is not None)
+                or (ex_dict.get('landmarks_offset') is not None)
+            )
         
         try:
             weather_data = self.weather_manager.get_weather_data(
@@ -361,7 +372,6 @@ class QueryServer(BaseServer):
         # WeatherDataManagerのクリーンアップ
         if hasattr(self, "weather_manager"):
             self.weather_manager.close()
-
 
 
 
