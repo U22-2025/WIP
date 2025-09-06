@@ -225,8 +225,8 @@ ExtendedDataType ExtendedFieldProcessor::key_to_data_type(ExtendedFieldKey key) 
             return ExtendedDataType::Source;
         case ExtendedFieldKey::CustomData:
             return ExtendedDataType::Binary;
-        case ExtendedFieldKey::SensorReading:
-            return ExtendedDataType::Float32;
+        case ExtendedFieldKey::Landmarks:
+            return ExtendedDataType::Json;
         case ExtendedFieldKey::Metadata:
             return ExtendedDataType::Json;
         default:

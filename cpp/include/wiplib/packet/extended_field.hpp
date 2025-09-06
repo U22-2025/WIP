@@ -21,7 +21,7 @@ enum class ExtendedFieldKey : uint8_t {
     Coordinate = 3,
     AuthHash = 4,
     CustomData = 5,
-    SensorReading = 6,
+    Landmarks = 6,
     Metadata = 7,
     SourceInfo = 40,
     // 8-39 and 41-63 are reserved for future use

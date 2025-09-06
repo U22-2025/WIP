@@ -51,9 +51,10 @@
     },
     {
       "key": 6,
-      "name": "sensor_reading",
-      "type": "float32",
-      "description": "Sensor measurement value"
+      "name": "landmarks",
+      "type": "json",
+      "description": "Landmark information",
+      "encoding": "utf8"
     },
     {
       "key": 7,
