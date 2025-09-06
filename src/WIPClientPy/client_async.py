@@ -183,7 +183,6 @@ class ClientAsync:
                     temperature=temperature,
                     precipitation_prob=precipitation_prob,
                     wind=wind,
-                    landmarks=landmarks,
                     alert=alert,
                     disaster=disaster,
                     day=day,
@@ -216,7 +215,6 @@ class ClientAsync:
                         temperature=temperature,
                         precipitation_prob=precipitation_prob,
                         wind=wind,
-                        landmarks=landmarks,
                         alert=alert,
                         disaster=disaster,
                         day=day,
@@ -251,23 +249,29 @@ class ClientAsync:
         **kwargs,
     ) -> Optional[Dict]:
         if proxy:
+            # LocationRequest does not support landmarks parameter
+            location_kwargs = {k: v for k, v in kwargs.items() 
+                              if k not in ['landmarks']}
             request = LocationRequest.create_coordinate_lookup(
                 latitude=latitude,
                 longitude=longitude,
                 packet_id=self._weather_client.PIDG.next_id(),
                 version=self._weather_client.VERSION,
-                landmarks=landmarks,
-                **kwargs,
+                **location_kwargs,
             )
             async with self._lock:
                 return await self._weather_client._execute_location_request_async(
                     request=request
                 )
+        # location_client compatible parameters
+        location_kwargs = {k: v for k, v in kwargs.items() 
+                          if k in ['weather', 'temperature', 'precipitation_prob', 
+                                   'wind', 'alert', 'disaster', 'day']}
         async with self._lock:
             loc_resp, _ = await self._location_client.get_location_data_async(
                 latitude=latitude,
                 longitude=longitude,
-                landmarks=landmarks,
+                **location_kwargs
             )
         if not loc_resp or not loc_resp.is_valid():
             return None
