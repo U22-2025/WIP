@@ -353,7 +353,9 @@ def _add_date_info(weather_data: dict, day_offset: int = 0) -> dict:
     target_date = base_date + timedelta(days=day_offset)
     weather_data["date"] = target_date.strftime("%Y-%m-%d")
     weather_data["day_of_week"] = target_date.strftime("%A")
+    # Frontend expects both 'day' and legacy 'day_number'
     weather_data["day"] = day_offset
+    weather_data["day_number"] = day_offset
     return weather_data
 
 

@@ -669,7 +669,15 @@ class WeatherApp {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.status === 'ok' && data.weekly_forecast) {
-        const array = Object.values(data.weekly_forecast).sort((a, b) => a.day_number - b.day_number);
+        const weekly = Array.isArray(data.weekly_forecast)
+          ? data.weekly_forecast.slice()
+          : Object.values(data.weekly_forecast || {});
+        weekly.sort((a, b) => {
+          const ka = (a && (a.day ?? a.day_number)) ?? 0;
+          const kb = (b && (b.day ?? b.day_number)) ?? 0;
+          return ka - kb;
+        });
+        const array = weekly;
         const today = array[0];
         const current = {
           status: 'ok',
@@ -1005,7 +1013,15 @@ class WeatherApp {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.status === 'ok' && data.weekly_forecast) {
-        const array = Object.values(data.weekly_forecast).sort((a, b) => a.day_number - b.day_number);
+        const weekly = Array.isArray(data.weekly_forecast)
+          ? data.weekly_forecast.slice()
+          : Object.values(data.weekly_forecast || {});
+        weekly.sort((a, b) => {
+          const ka = (a && (a.day ?? a.day_number)) ?? 0;
+          const kb = (b && (b.day ?? b.day_number)) ?? 0;
+          return ka - kb;
+        });
+        const array = weekly;
         this.displayWeeklyForecast(array);
       } else if (data.status === 'error') {
         this.handleWeeklyForecastError(data.error_code);

@@ -323,7 +323,7 @@
 }
 
 
-/* モバイル対応 */
+/* モバイル対応 - 新潟モチーフ */
 
 .mobile-toggle {
     display: none;
@@ -331,22 +331,35 @@
     top: var(--space-sm);
     left: var(--space-sm);
     z-index: 10001;
-    background: var(--surface-primary);
+    background: linear-gradient(145deg, 
+        rgba(245, 250, 240, 0.95) 0%, 
+        rgba(237, 247, 238, 0.9) 100%);
     backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid var(--glass-border);
+    border: 2px solid rgba(139, 195, 74, 0.3);
     border-radius: var(--radius-full);
     width: 50px;
     height: 50px;
-    box-shadow: var(--shadow-md);
+    box-shadow: 
+        0 8px 20px rgba(76, 175, 80, 0.15),
+        0 4px 10px rgba(129, 199, 132, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
     font-size: var(--font-lg);
-    color: var(--primary-color);
+    color: #4a7c59;
     cursor: pointer;
     transition: all var(--transition-normal);
 }
 
 .mobile-toggle:hover {
     transform: scale(1.1);
-    box-shadow: var(--shadow-lg);
+    background: linear-gradient(145deg, 
+        rgba(250, 253, 247, 0.98) 0%, 
+        rgba(242, 249, 243, 0.93) 100%);
+    border-color: rgba(139, 195, 74, 0.4);
+    box-shadow: 
+        0 12px 28px rgba(76, 175, 80, 0.2),
+        0 6px 14px rgba(129, 199, 132, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    color: #2d5016;
 }
 
 .mobile-toggle:active {
@@ -417,24 +430,53 @@
 }
 
 
-/* データなし表示 */
+/* データなし表示 - 新潟の自然な空白状態 */
 
 .no-data {
     text-align: center;
     padding: var(--space-xl);
     color: var(--text-secondary);
-    background: var(--surface-secondary);
+    background: linear-gradient(145deg, 
+        rgba(240, 248, 235, 0.9) 0%, 
+        rgba(232, 245, 233, 0.8) 50%, 
+        rgba(225, 242, 232, 0.7) 100%);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-xl);
-    border: 1px solid var(--glass-border);
+    border: 2px solid rgba(139, 195, 74, 0.2);
     margin-bottom: var(--space-lg);
+    box-shadow: 
+        0 8px 24px rgba(76, 175, 80, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 0 20px rgba(139, 195, 74, 0.03);
+    position: relative;
+    overflow: hidden;
+}
+
+.no-data::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, 
+        rgba(139, 195, 74, 0.1) 0%, 
+        rgba(102, 187, 106, 0.05) 25%, 
+        rgba(76, 175, 80, 0.08) 50%, 
+        rgba(129, 199, 132, 0.04) 75%, 
+        rgba(139, 195, 74, 0.1) 100%);
+    border-radius: var(--radius-xl);
+    z-index: -1;
 }
 
 .no-data i {
     font-size: var(--font-4xl);
     margin-bottom: var(--space-sm);
-    color: var(--text-tertiary);
+    color: rgba(76, 175, 80, 0.6);
     animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(139, 195, 74, 0.2));
+    position: relative;
+    z-index: 1;
 }
 
 @keyframes float {
@@ -505,7 +547,7 @@ button:focus,
 }
 
 
-/* 週間予報スタイル */
+/* 週間予報スタイル - 新潟モチーフの緑豊かなデザイン */
 
 .forecast-toggle {
     margin-top: var(--space-xs);
@@ -514,7 +556,7 @@ button:focus,
 }
 
 .weekly-toggle-btn {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    background: linear-gradient(135deg, #2d5016 0%, #4a7c59 50%, #5d8a66 100%);
     color: white;
     border: none;
     padding: var(--space-sm) var(--space-md);
@@ -523,30 +565,57 @@ button:focus,
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-normal);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 15px rgba(45, 80, 22, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
     width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.weekly-toggle-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.8s ease;
+}
+
+.weekly-toggle-btn:hover::before {
+    left: 100%;
 }
 
 .weekly-toggle-btn:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    background: linear-gradient(135deg, #365218 0%, #558062 50%, #6b9973 100%);
+    box-shadow: 0 8px 25px rgba(45, 80, 22, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .weekly-toggle-btn:active {
     transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(45, 80, 22, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .weekly-forecast {
     margin-top: var(--space-md);
-    background: var(--surface-primary);
+    background: linear-gradient(145deg, 
+        rgba(139, 195, 74, 0.1) 0%, 
+        rgba(102, 187, 106, 0.15) 30%, 
+        rgba(76, 175, 80, 0.1) 60%, 
+        rgba(56, 142, 60, 0.05) 100%);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-xl);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--shadow-glass);
+    border: 2px solid rgba(139, 195, 74, 0.3);
+    box-shadow: 
+        0 8px 32px rgba(76, 175, 80, 0.15),
+        0 4px 16px rgba(139, 195, 74, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 0 20px rgba(139, 195, 74, 0.05);
     overflow: hidden;
     transform: translateY(20px);
     opacity: 0;
@@ -554,15 +623,65 @@ button:focus,
     max-height: 80vh;
     display: flex;
     flex-direction: column;
+    position: relative;
+}
+
+.weekly-forecast::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(129, 199, 132, 0.08) 0%, transparent 30%),
+        radial-gradient(circle at 80% 20%, rgba(102, 187, 106, 0.06) 0%, transparent 30%),
+        radial-gradient(circle at 40% 40%, rgba(76, 175, 80, 0.04) 0%, transparent 20%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.weekly-forecast > * {
+    position: relative;
+    z-index: 1;
 }
 
 .weekly-header {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    background: linear-gradient(135deg, 
+        #2d5016 0%, 
+        #4a7c59 25%, 
+        #5d8a66 50%, 
+        #6b9973 75%, 
+        #7cb342 100%);
     color: white;
     padding: var(--space-md);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.weekly-header::before {
+    content: '🌾';
+    position: absolute;
+    top: 50%;
+    left: -20px;
+    transform: translateY(-50%);
+    font-size: 2rem;
+    opacity: 0.15;
+    animation: float 4s ease-in-out infinite;
+}
+
+.weekly-header::after {
+    content: '⛰️';
+    position: absolute;
+    top: 50%;
+    right: -20px;
+    transform: translateY(-50%);
+    font-size: 1.8rem;
+    opacity: 0.12;
+    animation: float 4s ease-in-out infinite 2s;
 }
 
 .weekly-header h3 {
@@ -576,7 +695,7 @@ button:focus,
 
 .weekly-close-btn {
     background: rgba(255, 255, 255, 0.2);
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     color: white;
     width: 32px;
     height: 32px;
@@ -586,18 +705,28 @@ button:focus,
     display: flex;
     align-items: center;
     justify-content: center;
+    backdrop-filter: blur(10px);
 }
 
 .weekly-close-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.35);
+    border-color: rgba(255, 255, 255, 0.5);
     transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .weekly-content {
     padding: var(--space-md);
     overflow-y: auto;
     flex: 1;
-    max-height: calc(80vh - 80px);
+    max-height: calc(80vh - 120px); /* ヘッダーとタブ分を考慮して増加 */
+    background: 
+        radial-gradient(circle at 25% 75%, rgba(129, 199, 132, 0.03) 0%, transparent 25%),
+        radial-gradient(circle at 75% 25%, rgba(102, 187, 106, 0.02) 0%, transparent 25%);
+    /* Flex 子要素でスクロールを有効にするため */
+    min-height: 0;
+    /* 下部に十分な余白を確保 */
+    padding-bottom: calc(var(--space-md) + var(--space-lg));
 }
 
 .weekly-content::-webkit-scrollbar {
@@ -648,10 +777,32 @@ button:focus,
 .weekly-data {
     display: grid;
     gap: var(--space-sm);
+    position: relative;
+}
+
+.weekly-data::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 195, 74, 0.6), 
+        rgba(102, 187, 106, 0.8), 
+        rgba(139, 195, 74, 0.6), 
+        transparent);
+    border-radius: 2px;
 }
 
 .weekly-day {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+    background: linear-gradient(145deg, 
+        rgba(240, 248, 235, 0.95) 0%, 
+        rgba(232, 245, 233, 0.9) 30%, 
+        rgba(225, 242, 232, 0.85) 70%, 
+        rgba(220, 237, 228, 0.8) 100%);
     border-radius: var(--radius-md);
     padding: var(--space-sm);
     display: grid;
@@ -662,17 +813,76 @@ button:focus,
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.05), inset -3px -3px 6px rgba(255, 255, 255, 0.8), 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1.5px solid rgba(139, 195, 74, 0.2);
+    box-shadow: 
+        inset 3px 3px 8px rgba(139, 195, 74, 0.08), 
+        inset -3px -3px 8px rgba(255, 255, 255, 0.9), 
+        0 3px 6px rgba(76, 175, 80, 0.1),
+        0 1px 3px rgba(129, 199, 132, 0.05);
+}
+
+.weekly-day::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 195, 74, 0.1), 
+        rgba(102, 187, 106, 0.15), 
+        rgba(76, 175, 80, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+
+.weekly-day:hover::before {
+    left: 100%;
 }
 
 .weekly-day:hover {
-    transform: translateY(-2px);
-    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1), inset -2px -2px 4px rgba(255, 255, 255, 0.9), 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-3px);
+    background: linear-gradient(145deg, 
+        rgba(245, 250, 240, 0.98) 0%, 
+        rgba(237, 247, 238, 0.93) 30%, 
+        rgba(230, 244, 237, 0.88) 70%, 
+        rgba(225, 241, 232, 0.83) 100%);
+    border-color: rgba(139, 195, 74, 0.35);
+    box-shadow: 
+        inset 2px 2px 6px rgba(139, 195, 74, 0.12), 
+        inset -2px -2px 6px rgba(255, 255, 255, 0.95), 
+        0 6px 12px rgba(76, 175, 80, 0.15),
+        0 3px 6px rgba(129, 199, 132, 0.1),
+        0 1px 3px rgba(102, 187, 106, 0.05);
 }
 
 .weekly-day.today {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    background: linear-gradient(135deg, 
+        #2d5016 0%, 
+        #4a7c59 25%, 
+        #5d8a66 50%, 
+        #6b9973 75%, 
+        #7cb342 100%);
     color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 
+        inset 3px 3px 8px rgba(255, 255, 255, 0.1), 
+        inset -3px -3px 8px rgba(0, 0, 0, 0.2), 
+        0 4px 16px rgba(76, 175, 80, 0.3),
+        0 2px 8px rgba(45, 80, 22, 0.2);
+    position: relative;
+}
+
+.weekly-day.today::after {
+    content: '🌱';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    animation: pulse 2s ease-in-out infinite;
 }
 
 .weekly-day.today .day-name,
@@ -785,14 +995,34 @@ button:focus,
 
 .tab-nav {
     display: flex;
-    background: rgba(255, 255, 255, 0.3);
+    background: linear-gradient(145deg, 
+        rgba(232, 245, 233, 0.4) 0%, 
+        rgba(225, 242, 232, 0.3) 100%);
     border-radius: var(--radius-lg);
     padding: 4px;
     backdrop-filter: blur(15px) saturate(180%);
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(139, 195, 74, 0.3);
+    box-shadow: 
+        0 6px 20px rgba(76, 175, 80, 0.15),
+        0 2px 8px rgba(129, 199, 132, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
     width: 100%;
     max-width: 320px;
+    position: relative;
+    overflow: hidden;
+}
+
+.tab-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(139, 195, 74, 0.05) 0%, transparent 25%),
+        radial-gradient(circle at 80% 50%, rgba(102, 187, 106, 0.03) 0%, transparent 25%);
+    pointer-events: none;
 }
 
 .tab-btn {
@@ -823,11 +1053,31 @@ button:focus,
 }
 
 .tab-btn.active {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
-    color: var(--text-primary);
+    background: linear-gradient(135deg, 
+        rgba(245, 250, 240, 0.95) 0%, 
+        rgba(237, 247, 238, 0.9) 50%, 
+        rgba(230, 244, 237, 0.85) 100%);
+    color: #2d5016;
     font-weight: 700;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 
+        0 4px 12px rgba(76, 175, 80, 0.25), 
+        0 2px 6px rgba(129, 199, 132, 0.15),
+        inset 0 1px 2px rgba(255, 255, 255, 0.9),
+        inset 0 -1px 1px rgba(139, 195, 74, 0.1);
+    border: 1px solid rgba(139, 195, 74, 0.4);
+    position: relative;
+}
+
+.tab-btn.active::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #7cb342, transparent);
+    border-radius: 1px;
 }
 
 .tab-btn i {
@@ -844,6 +1094,23 @@ button:focus,
 
 .tab-content.active {
     display: block;
+}
+
+/* モバイルで7日目が隠れないようにスクロール領域を確保 */
+@media (max-width: 768px) {
+    .weekly-forecast {
+        /* モバイルの固定ボトムナビ(50px)ぶんを差し引いて高さを確保 */
+        max-height: calc(100vh - 80px); /* 少し余裕を持たせる */
+        min-height: 0;
+    }
+    .weekly-content {
+        /* ヘッダー/タブを考慮して内部スクロール領域を設定 */
+        max-height: calc(100vh - 180px); /* ヘッダー+タブ+ナビ分を差し引く */
+        padding-bottom: calc(var(--space-lg) + 80px); /* ボトムナビ+余白 */
+        min-height: 0;
+        overflow-y: auto; /* 確実にスクロールを有効化 */
+        -webkit-overflow-scrolling: touch; /* iOS でのスムーズスクロール */
+    }
 }
 
 @keyframes fadeIn {
@@ -868,12 +1135,19 @@ button:focus,
 /* グラフラッパー */
 
 .chart-wrapper {
-    background: var(--surface-primary);
+    background: linear-gradient(145deg, 
+        rgba(240, 248, 235, 0.9) 0%, 
+        rgba(232, 245, 233, 0.85) 50%, 
+        rgba(225, 242, 232, 0.8) 100%);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-lg);
     padding: var(--space-md);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--shadow-glass);
+    border: 2px solid rgba(139, 195, 74, 0.25);
+    box-shadow: 
+        0 8px 24px rgba(76, 175, 80, 0.12),
+        0 4px 12px rgba(129, 199, 132, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 0 20px rgba(139, 195, 74, 0.03);
     position: relative;
     overflow: hidden;
 }
@@ -885,7 +1159,10 @@ button:focus,
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
+    background: 
+        radial-gradient(circle at 30% 70%, rgba(129, 199, 132, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 70% 30%, rgba(102, 187, 106, 0.06) 0%, transparent 40%),
+        linear-gradient(45deg, rgba(255, 255, 255, 0.15) 0%, rgba(245, 250, 240, 0.1) 100%);
     border-radius: var(--radius-lg);
     z-index: -1;
 }
@@ -938,10 +1215,24 @@ button:focus,
 /* 週間予報のモバイル対応 */
 
 @media (max-width: 480px) {
+    .weekly-forecast {
+        /* 小画面でも確実にスクロール領域を確保 */
+        max-height: calc(100vh - 100px);
+    }
+    .weekly-content {
+        /* 小画面用のスクロール設定 */
+        max-height: calc(100vh - 200px);
+        padding-bottom: calc(var(--space-lg) + 100px);
+    }
     .weekly-day {
         grid-template-columns: 1fr auto auto;
         grid-template-rows: auto auto;
         gap: var(--space-xs);
+        /* 最後のカードに特別な下マージンを追加 */
+        margin-bottom: var(--space-sm);
+    }
+    .weekly-day:last-child {
+        margin-bottom: calc(var(--space-lg) + var(--space-xl));
     }
     .day-info {
         grid-column: 1 / -1;
@@ -1106,7 +1397,7 @@ button:focus,
     opacity: 0.8;
 }
 
-/* モバイルボトムナビ */
+/* モバイルボトムナビ - 新潟の稲穂ライン */
 .mobile-bottom-nav {
     display: none;
     position: fixed;
@@ -1114,10 +1405,31 @@ button:focus,
     left: 0;
     right: 0;
     height: 50px;
-    background: var(--surface-primary);
-    border-top: 1px solid var(--glass-border);
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    background: linear-gradient(180deg, 
+        rgba(232, 245, 233, 0.95) 0%, 
+        rgba(225, 242, 232, 0.9) 100%);
+    border-top: 2px solid rgba(139, 195, 74, 0.3);
+    box-shadow: 
+        0 -4px 16px rgba(76, 175, 80, 0.1),
+        0 -2px 8px rgba(129, 199, 132, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
     z-index: 10001;
+    backdrop-filter: blur(20px) saturate(180%);
+}
+
+.mobile-bottom-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 195, 74, 0.4), 
+        rgba(102, 187, 106, 0.5), 
+        rgba(76, 175, 80, 0.4), 
+        transparent);
 }
 
 .mobile-bottom-nav .nav-btn {
@@ -1125,15 +1437,37 @@ button:focus,
     border: none;
     background: transparent;
     font-size: var(--font-base);
-    color: var(--text-primary);
+    color: #4a7c59;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-bottom-nav .nav-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(145deg, 
+        rgba(139, 195, 74, 0.05) 0%, 
+        rgba(102, 187, 106, 0.03) 100%);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.mobile-bottom-nav .nav-btn:hover::before {
+    opacity: 1;
 }
 
 .mobile-bottom-nav .nav-btn:active {
-    background: rgba(0,0,0,0.05);
+    background: rgba(139, 195, 74, 0.1);
+    color: #2d5016;
 }
 
 @media (max-width: 768px) and (any-pointer: coarse) {
@@ -1323,27 +1657,64 @@ button:focus,
     }
 }
 
-/* ランドマーク表示スタイル */
+/* ランドマーク表示スタイル - 新潟の観光地 */
 
 .landmarks-content {
     min-height: 200px;
+    position: relative;
+}
+
+.landmarks-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 195, 74, 0.6), 
+        transparent);
+    border-radius: 1px;
 }
 
 .landmarks-empty {
     text-align: center;
     padding: var(--space-xl);
     color: var(--text-secondary);
-    background: var(--surface-secondary);
+    background: linear-gradient(145deg, 
+        rgba(240, 248, 235, 0.9) 0%, 
+        rgba(232, 245, 233, 0.8) 50%, 
+        rgba(225, 242, 232, 0.7) 100%);
     backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--radius-xl);
-    border: 1px solid var(--glass-border);
+    border: 2px solid rgba(139, 195, 74, 0.2);
+    box-shadow: 
+        0 8px 24px rgba(76, 175, 80, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.landmarks-empty::before {
+    content: '🏔️';
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.2rem;
+    opacity: 0.2;
+    animation: float 4s ease-in-out infinite;
 }
 
 .landmarks-empty i {
     font-size: var(--font-4xl);
     margin-bottom: var(--space-sm);
-    color: var(--text-tertiary);
+    color: rgba(76, 175, 80, 0.6);
     animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(139, 195, 74, 0.2));
+    position: relative;
+    z-index: 1;
 }
 
 .landmarks-empty p {
@@ -1366,28 +1737,70 @@ button:focus,
 }
 
 .landmark-item {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+    background: linear-gradient(145deg, 
+        rgba(250, 253, 247, 0.95) 0%, 
+        rgba(242, 249, 243, 0.9) 30%, 
+        rgba(237, 247, 238, 0.85) 70%, 
+        rgba(232, 245, 233, 0.8) 100%);
     border-radius: var(--radius-md);
     padding: var(--space-sm);
     transition: all var(--transition-normal);
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.05), inset -3px -3px 6px rgba(255, 255, 255, 0.8), 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(139, 195, 74, 0.2);
+    box-shadow: 
+        inset 3px 3px 8px rgba(139, 195, 74, 0.05), 
+        inset -3px -3px 8px rgba(255, 255, 255, 0.9), 
+        0 3px 6px rgba(76, 175, 80, 0.08);
     display: flex;
     align-items: center;
     gap: var(--space-sm);
 }
 
+.landmark-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 195, 74, 0.08), 
+        rgba(255, 255, 255, 0.3), 
+        rgba(102, 187, 106, 0.06), 
+        transparent);
+    transition: left 0.6s ease;
+}
+
+.landmark-item:hover::before {
+    left: 100%;
+}
+
 .landmark-item:hover {
-    transform: translateY(-2px);
-    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1), inset -2px -2px 4px rgba(255, 255, 255, 0.9), 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-3px);
+    background: linear-gradient(145deg, 
+        rgba(252, 254, 249, 0.98) 0%, 
+        rgba(245, 251, 246, 0.93) 30%, 
+        rgba(240, 248, 241, 0.88) 70%, 
+        rgba(235, 246, 236, 0.83) 100%);
+    border-color: rgba(139, 195, 74, 0.3);
+    box-shadow: 
+        inset 2px 2px 6px rgba(139, 195, 74, 0.08), 
+        inset -2px -2px 6px rgba(255, 255, 255, 0.95), 
+        0 6px 12px rgba(76, 175, 80, 0.12),
+        0 3px 6px rgba(129, 199, 132, 0.08);
 }
 
 .landmark-icon {
     width: 40px;
     height: 40px;
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    background: linear-gradient(135deg, 
+        #2d5016 0%, 
+        #4a7c59 25%, 
+        #5d8a66 50%, 
+        #7cb342 100%);
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
@@ -1395,6 +1808,11 @@ button:focus,
     color: white;
     font-size: var(--font-lg);
     flex-shrink: 0;
+    box-shadow: 
+        0 4px 12px rgba(76, 175, 80, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .landmark-info {
@@ -1434,9 +1852,28 @@ button:focus,
     justify-content: space-between;
     margin-bottom: var(--space-sm);
     padding: var(--space-sm);
-    background: rgba(255, 255, 255, 0.3);
+    background: linear-gradient(145deg, 
+        rgba(232, 245, 233, 0.4) 0%, 
+        rgba(225, 242, 232, 0.3) 100%);
     border-radius: var(--radius-md);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(15px) saturate(180%);
+    border: 1px solid rgba(139, 195, 74, 0.2);
+    box-shadow: 
+        0 4px 12px rgba(76, 175, 80, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.landmarks-header::before {
+    content: '🌾';
+    position: absolute;
+    top: 50%;
+    left: 8px;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    opacity: 0.3;
+    animation: sway 4s ease-in-out infinite;
 }
 
 .landmarks-title {
@@ -1450,11 +1887,17 @@ button:focus,
 
 .landmarks-count {
     font-size: var(--font-xs);
-    color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.6);
+    color: #2d5016;
+    background: linear-gradient(135deg, 
+        rgba(245, 250, 240, 0.9) 0%, 
+        rgba(237, 247, 238, 0.8) 100%);
     padding: 2px 8px;
     border-radius: var(--radius-full);
     font-weight: 600;
+    border: 1px solid rgba(139, 195, 74, 0.3);
+    box-shadow: 
+        0 2px 4px rgba(76, 175, 80, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* モバイル対応 */
