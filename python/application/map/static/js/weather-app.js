@@ -675,7 +675,27 @@ class WeatherApp {
             alert: t.alert || []
           };
           this.displayWeatherInfo(current, lat, lng);
-          if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
+          if (this.currentMarker) {
+            const popup = this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng), {
+              closeOnEscapeKey: true,
+              autoClose: true,
+              closeOnClick: false,
+              autoPan: false, // 手動で調整するため無効化
+              autoPanPadding: [0, 0], // パディングを無効化
+              maxHeight: Math.min(window.innerHeight * 0.75, 500),
+              className: 'custom-popup',
+              offset: [0, -10],
+              keepInView: false // 自動調整を完全に無効化
+            });
+            
+            // ポップアップを開いてから遅延調整
+            popup.openPopup();
+            
+            // 段階的に調整してLeafletの内蔵機能との競合を防ぐ
+            setTimeout(() => this.adjustPopupPositionWithRetry(), 100);
+            setTimeout(() => this.adjustPopupPositionWithRetry(), 300);
+            setTimeout(() => this.adjustPopupPositionWithRetry(), 600);
+          }
           // 先にローディングを解除（週予報は後で更新）
           this.hideLoading();
         }
@@ -727,7 +747,26 @@ class WeatherApp {
         // 最新のクリックであれば UI 更新
         if (this.lastClickToken === clickToken) {
           this.displayWeatherInfo(current, lat, lng);
-          if (this.currentMarker) this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng)).openPopup();
+          if (this.currentMarker) {
+            const popup = this.currentMarker.bindPopup(this.createPopupContent(current, lat, lng), {
+              closeOnEscapeKey: true,
+              autoClose: true,
+              closeOnClick: false,
+              autoPan: false, // 手動で調整するため無効化
+              autoPanPadding: [0, 0], // パディングを無効化
+              maxHeight: Math.min(window.innerHeight * 0.75, 500),
+              className: 'custom-popup',
+              offset: [0, -10],
+              keepInView: false // 自動調整を完全に無効化
+            });
+            
+            popup.openPopup();
+            
+            // 段階的に調整してLeafletの内蔵機能との競合を防ぐ
+            setTimeout(() => this.adjustPopupPositionWithRetry(), 100);
+            setTimeout(() => this.adjustPopupPositionWithRetry(), 300);
+            setTimeout(() => this.adjustPopupPositionWithRetry(), 600);
+          }
           this.displayWeeklyForecastData(array);
           // 1リクエスト化: 受け取ったランドマークを描画・サイドバー反映
           if (Array.isArray(data.landmarks)) {
@@ -777,7 +816,25 @@ class WeatherApp {
     if (weekly) weekly.innerHTML = '';
     this.weeklyDataForChart = null;
     const dummy = { status: 'ok', weather: { weather_code: '100', temperature: '--', precipitation_prob: '--' }, disaster: [], alert: [] };
-    if (this.currentMarker) this.currentMarker.bindPopup(this.createErrorPopupContent(msg, errorCode, lat, lng)).openPopup();
+    if (this.currentMarker) {
+      const popup = this.currentMarker.bindPopup(this.createErrorPopupContent(msg, errorCode, lat, lng), {
+        closeOnEscapeKey: true,
+        autoClose: true,
+        closeOnClick: false,
+        autoPan: false, // 手動で調整するため無効化
+        autoPanPadding: [0, 0], // パディングを無効化
+        maxHeight: Math.min(window.innerHeight * 0.75, 500),
+        className: 'custom-popup',
+        offset: [0, -10],
+        keepInView: false // 自動調整を完全に無効化
+      });
+      popup.openPopup();
+      
+      // 段階的に調整してLeafletの内蔵機能との競合を防ぐ
+      setTimeout(() => this.adjustPopupPositionWithRetry(), 100);
+      setTimeout(() => this.adjustPopupPositionWithRetry(), 300);
+      setTimeout(() => this.adjustPopupPositionWithRetry(), 600);
+    }
   }
 
   // ------------------------------------------------------------------
@@ -873,6 +930,69 @@ class WeatherApp {
     }
     
     return `<div class="popup-content popup-error"><div class="popup-weather-icon"><i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i></div><div class="popup-description error-message">${message}</div>${errorCodeDisplay}${detailsHTML}<div class="popup-coords">緯度: ${lat.toFixed(4)}, 経度: ${lng.toFixed(4)}</div></div>`;
+  }
+
+  // ポップアップの位置を調整して完全に画面内に収まるようにする（旧版、互換性のため保持）
+  adjustPopupPosition() {
+    this.adjustPopupPositionWithRetry(0);
+  }
+
+  // 競合を防ぐためのリトライ付き調整メソッド
+  adjustPopupPositionWithRetry(retryCount = 0) {
+    const popupElement = document.querySelector('.leaflet-popup');
+    if (!popupElement) return;
+
+    const rect = popupElement.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+    const sidebarWidth = document.querySelector('.sidebar')?.offsetWidth || 0;
+    
+    const padding = 20;
+    let needsAdjustment = false;
+    let panX = 0;
+    let panY = 0;
+    
+    // 見切れをチェック
+    if (rect.top < padding) {
+      panY = rect.top - padding;
+      needsAdjustment = true;
+    } else if (rect.bottom > windowHeight - padding) {
+      panY = rect.bottom - (windowHeight - padding);
+      needsAdjustment = true;
+    }
+    
+    if (rect.left < sidebarWidth + padding) {
+      panX = rect.left - (sidebarWidth + padding);
+      needsAdjustment = true;
+    } else if (rect.right > windowWidth - padding) {
+      panX = rect.right - (windowWidth - padding);
+      needsAdjustment = true;
+    }
+    
+    // 特に高いポップアップの特別処理
+    if (rect.height > windowHeight - 2 * padding) {
+      if (rect.top > padding) {
+        panY = rect.top - padding;
+        needsAdjustment = true;
+      }
+    }
+    
+    if (needsAdjustment) {
+      // 即座にパンを実行（アニメーションなし）
+      this.map.panBy([panX, panY], {
+        animate: retryCount === 0, // 最初の調整のみアニメーション
+        duration: 0.2,
+        easeLinearity: 0.05,
+        noMoveStart: true // movestartイベントを発生させない
+      });
+      
+      // 最大リトライ回数を制限
+      if (retryCount < 2) {
+        setTimeout(() => {
+          this.adjustPopupPositionWithRetry(retryCount + 1);
+        }, 250);
+      }
+    }
   }
 
   // ------------------------------------------------------------------

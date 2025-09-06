@@ -124,22 +124,39 @@ class ResponseBuilder:
 
     def _set_extended_fields(self, response, request, weather_data):
         """拡張フィールドを設定"""
-        response.ex_flag = 1
+        has_extended = False
 
         # sourceを引き継ぐ
         if hasattr(request, "ex_field") and request.ex_field:
             source = getattr(request.ex_field, "source", None)
             if source:
                 response.ex_field.source = source
+                has_extended = True
 
         # 警報情報
         if request.alert_flag and weather_data and "warnings" in weather_data:
             response.ex_field.alert = weather_data["warnings"]
+            has_extended = True
 
         # 災害情報
         if request.disaster_flag and weather_data and "disaster" in weather_data:
             response.ex_field.disaster = weather_data["disaster"]
-        
+            has_extended = True
+
+        # 風情報
+        wind_flag = False
+        if hasattr(request, "ex_field") and request.ex_field:
+            try:
+                ex_dict = request.ex_field.to_dict()
+                wind_flag = bool(ex_dict.get("wind"))
+            except Exception:
+                wind_flag = False
+        if wind_flag and weather_data and "wind" in weather_data:
+            wind_value = weather_data.get("wind")
+            if wind_value is not None:
+                response.ex_field.wind = wind_value
+                has_extended = True
+
         # landmarkデータ（外部JSONから読み込み、ex_fieldにのみ格納）
         try:
             if self.debug:
@@ -207,6 +224,7 @@ class ResponseBuilder:
             response.ex_field.landmarks_total = total
             response.ex_field.landmarks_offset = start
             response.ex_field.landmarks_limit = len(safe_items)
+            has_extended = True
             if self.debug:
                 print(
                     f"Set landmarks chunk: offset={start}, size={len(safe_items)}, total={total}, bytes={len(landmarks_json.encode('utf-8'))}, budget={budget}"
@@ -214,6 +232,9 @@ class ResponseBuilder:
         except Exception:
             if self.debug:
                 print("Failed to embed landmarks into ex_field (pagination)")
+
+        if has_extended:
+            response.ex_flag = 1
 
     def _load_landmarks_for_area(self, area_code):
         """Redisからランドマークを取得"""
