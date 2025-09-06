@@ -27,6 +27,7 @@ class QueryRequest(Request):
         temperature: bool = True,
         precipitation_prob: bool = True,
         wind: bool = False,
+        landmarks: bool = False,
         alert: bool = False,
         disaster: bool = False,
         day: int = 0,
@@ -43,6 +44,7 @@ class QueryRequest(Request):
             temperature: 気温データを取得するか
             precipitation_prob: 降水確率データを取得するか
             wind: 風データを取得するか
+            landmarks: ランドマークデータを取得するか
             alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
             day: 予報日
@@ -74,6 +76,8 @@ class QueryRequest(Request):
             ex_field["source"] = source
         if wind:
             ex_field["wind"] = "request"
+        if landmarks:
+            ex_field["landmarks"] = "request"
 
         return cls(
             version=version,
@@ -108,11 +112,13 @@ class QueryRequest(Request):
         # source情報を取得（引数優先）
         final_source = source or location_response.get_source_info()
 
-        # Check if wind data was requested in extended fields
+        # Check if wind or landmarks data was requested in extended fields
         wind_requested = False
+        landmarks_requested = False
         if hasattr(location_response, 'ex_field') and location_response.ex_field:
             ex_dict = location_response.ex_field.to_dict()
             wind_requested = bool(ex_dict.get('wind'))
+            landmarks_requested = bool(ex_dict.get('landmarks'))
 
         return cls.create_query_request(
             area_code=location_response.area_code,
@@ -121,6 +127,7 @@ class QueryRequest(Request):
             temperature=bool(location_response.temperature_flag),
             precipitation_prob=bool(location_response.pop_flag),
             wind=wind_requested,
+            landmarks=landmarks_requested,
             alert=bool(location_response.alert_flag),
             disaster=bool(location_response.disaster_flag),
             day=location_response.day,
@@ -153,11 +160,13 @@ class QueryRequest(Request):
             types.append("temperature")
         if self.pop_flag:
             types.append("precipitation_prob")
-        # Check for wind request in extended fields
+        # Check for wind and landmarks request in extended fields
         if hasattr(self, 'ex_field') and self.ex_field:
             ex_dict = self.ex_field.to_dict()
             if ex_dict.get('wind'):
                 types.append("wind")
+            if ex_dict.get('landmarks'):
+                types.append("landmarks")
         if self.alert_flag:
             types.append("alert")
         if self.disaster_flag:
