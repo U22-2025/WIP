@@ -159,12 +159,10 @@ class ResponseBuilder:
 
         # landmarkデータ（外部JSONから読み込み、ex_fieldにのみ格納）
         try:
-            if self.debug:
-                print(f"Loading landmarks for area: {request.area_code}")
+            print(f"[DEBUG] Loading landmarks for area: {request.area_code}")
             landmarks = self._load_landmarks_for_area(request.area_code)
             total = len(landmarks) if landmarks else 0
-            if self.debug:
-                print(f"Found {total} landmarks")
+            print(f"[DEBUG] Found {total} landmarks")
 
             # ページング指定（ex_field）を取得
             req_offset = 0
@@ -225,13 +223,13 @@ class ResponseBuilder:
             response.ex_field.landmarks_offset = start
             response.ex_field.landmarks_limit = len(safe_items)
             has_extended = True
-            if self.debug:
-                print(
-                    f"Set landmarks chunk: offset={start}, size={len(safe_items)}, total={total}, bytes={len(landmarks_json.encode('utf-8'))}, budget={budget}"
-                )
-        except Exception:
-            if self.debug:
-                print("Failed to embed landmarks into ex_field (pagination)")
+            print(
+                f"[DEBUG] Set landmarks chunk: offset={start}, size={len(safe_items)}, total={total}, bytes={len(landmarks_json.encode('utf-8'))}, budget={budget}"
+            )
+        except Exception as e:
+            print(f"[DEBUG] Failed to embed landmarks into ex_field (pagination): {e}")
+            import traceback
+            traceback.print_exc()
 
         if has_extended:
             response.ex_flag = 1
@@ -266,8 +264,7 @@ class ResponseBuilder:
             landmarks = data.get("landmarks")
             if isinstance(landmarks, list):
                 return landmarks
-        if self.debug:
-            print(f"No landmarks found for area {area_code}")
+        print(f"[DEBUG] No landmarks found for area {area_code}")
         return []
 
         # ランドマーク

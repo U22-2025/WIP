@@ -151,6 +151,9 @@ class WeatherClient:
         precipitation_prob=True,
         alert=False,
         disaster=False,
+        landmarks=False,
+        landmarks_offset=None,
+        landmarks_limit=None,
         day=0,
     ):
         """
@@ -163,10 +166,13 @@ class WeatherClient:
             precipitation_prob: 降水確率データを取得するか
             alert: 警報データを取得するか
             disaster: 災害情報データを取得するか
+            landmarks: ランドマークデータを取得するか
+            landmarks_offset: ランドマークデータの開始オフセット
+            landmarks_limit: ランドマークデータの取得件数制限
             day: 予報日（0: 今日, 1: 明日, ...）
 
         Returns:
-            dict: 気象データ
+            dict: 気象データ（ランドマークデータを含む）
         """
         # QueryRequestインスタンスを作成
         request = QueryRequest.create_query_request(
@@ -177,6 +183,9 @@ class WeatherClient:
             precipitation_prob=precipitation_prob,
             alert=alert,
             disaster=disaster,
+            landmarks=landmarks,
+            landmarks_offset=landmarks_offset,
+            landmarks_limit=landmarks_limit,
             day=day,
             version=self.VERSION,
         )
@@ -616,13 +625,14 @@ class WeatherClient:
                 self.logger.exception("Traceback:")
             return None
 
-    def get_weather_simple(self, area_code, include_all=False, day=0):
+    def get_weather_simple(self, area_code, include_all=False, include_landmarks=False, day=0):
         """
         基本的な気象データを一括取得する簡便メソッド（統一命名規則版）
 
         Args:
             area_code: エリアコード
             include_all: すべてのデータを取得するか（警報・災害情報も含む）
+            include_landmarks: ランドマークデータを取得するか
             day: 予報日（0: 今日, 1: 明日, ...）
 
         Returns:
@@ -635,6 +645,31 @@ class WeatherClient:
             precipitation_prob=True,
             alert=include_all,
             disaster=include_all,
+            landmarks=include_landmarks,
+            day=day,
+        )
+
+    def get_weather_with_landmarks(self, area_code, landmarks_limit=10, landmarks_offset=0, day=0):
+        """
+        エリアコードから天気情報とランドマークデータを取得する専用メソッド
+
+        Args:
+            area_code: エリアコード（文字列または数値、例: "011000" または 11000）
+            landmarks_limit: ランドマークデータの取得件数制限（デフォルト: 10）
+            landmarks_offset: ランドマークデータの開始オフセット（デフォルト: 0）
+            day: 予報日（0: 今日, 1: 明日, ...）
+
+        Returns:
+            dict: 気象データ（ランドマークデータを含む）
+        """
+        return self.get_weather_data(
+            area_code=area_code,
+            weather=True,
+            temperature=True,
+            precipitation_prob=True,
+            landmarks=True,
+            landmarks_limit=landmarks_limit,
+            landmarks_offset=landmarks_offset,
             day=day,
         )
 
@@ -659,108 +694,303 @@ class WeatherClient:
         self.sock.close()
 
 
-def main():
-    """メイン関数 - 使用例（専用パケットクラス版）"""
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-    logger.info("Weather Client Example (Enhanced with Specialized Packet Classes)")
-    logger.info("=" * 70)
+def weather_code_to_description(weather_code):
+    """天気コードから説明文字列に変換"""
+    weather_descriptions = {
+        100: "晴れ",
+        101: "晴れ時々曇り", 
+        102: "晴れ一時雨",
+        103: "晴れ時々雨",
+        104: "晴れ一時雪",
+        105: "晴れ時々雪",
+        106: "晴れ一時雨か雪",
+        107: "晴れ時々雨か雪",
+        108: "晴れ一時雨か雷雨",
+        110: "晴れ後時々曇り",
+        111: "晴れ後曇り",
+        112: "晴れ後一時雨",
+        113: "晴れ後時々雨",
+        114: "晴れ後雨",
+        115: "晴れ後一時雪",
+        116: "晴れ後時々雪",
+        117: "晴れ後雪",
+        118: "晴れ後雨か雪",
+        119: "晴れ後雨か雷雨",
+        120: "晴れ朝夕一時雨",
+        121: "晴れ朝の内一時雨",
+        122: "晴れ夕方一時雨",
+        123: "晴れ山沿い雷雨",
+        124: "晴れ山沿い雪",
+        125: "晴れ午後は雷雨",
+        126: "晴れ昼頃から雨",
+        127: "晴れ夕方から雨",
+        128: "晴れ夜は雨",
+        130: "朝の内霧後晴れ",
+        131: "晴れ明け方霧",
+        132: "晴れ朝夕曇り",
+        140: "晴れ時々雨で雷を伴う",
+        160: "晴れ一時雪か雨",
+        170: "晴れ時々雪か雨",
+        181: "晴れ後雪か雨",
+        200: "曇り",
+        201: "曇り時々晴れ",
+        202: "曇り一時雨",
+        203: "曇り時々雨",
+        204: "曇り一時雪",
+        205: "曇り時々雪",
+        206: "曇り一時雨か雪",
+        207: "曇り時々雨か雪",
+        208: "曇り一時雨か雷雨",
+        209: "霧",
+        210: "曇り後時々晴れ",
+        211: "曇り後晴れ",
+        212: "曇り後一時雨",
+        213: "曇り後時々雨",
+        214: "曇り後雨",
+        215: "曇り後一時雪",
+        216: "曇り後時々雪",
+        217: "曇り後雪",
+        218: "曇り後雨か雪",
+        219: "曇り後雨か雷雨",
+        220: "曇り朝夕一時雨",
+        221: "曇り朝の内一時雨",
+        222: "曇り夕方一時雨",
+        223: "曇り日中時々晴れ",
+        224: "曇り昼頃から雨",
+        225: "曇り夕方から雨",
+        226: "曇り夜は雨",
+        228: "曇り昼頃から雪",
+        229: "曇り夕方から雪",
+        230: "曇り夜は雪",
+        231: "曇り海上海岸は霧か霧雨",
+        240: "曇り時々雨で雷を伴う",
+        250: "曇り時々雪で雷を伴う",
+        260: "曇り一時雪か雨",
+        270: "曇り時々雪か雨",
+        281: "曇り後雪か雨",
+        300: "雨",
+        301: "雨時々晴れ",
+        302: "雨時々止む",
+        303: "雨時々雪",
+        304: "雨か雪",
+        306: "大雨",
+        308: "雨で暴風を伴う",
+        309: "雨一時雪",
+        311: "雨後晴れ",
+        313: "雨後曇り",
+        314: "雨後時々雪",
+        315: "雨後雪",
+        316: "雨か雪後晴れ",
+        317: "雨か雪後曇り",
+        320: "朝の内雨後晴れ",
+        321: "朝の内雨後曇り",
+        322: "雨朝晩一時雪",
+        323: "雨昼頃から晴れ",
+        324: "雨夕方から晴れ",
+        325: "雨夜は晴",
+        326: "雨夕方から雪",
+        327: "雨夜は雪",
+        328: "雨一時強く降る",
+        329: "雨一時みぞれ",
+        340: "雪か雨",
+        350: "雨で雷を伴う",
+        361: "雪か雨後晴れ",
+        371: "雪か雨後曇り",
+        400: "雪",
+        401: "雪時々晴れ",
+        402: "雪時々止む",
+        403: "雪時々雨",
+        405: "大雪",
+        406: "風雪強い",
+        407: "暴風雪",
+        409: "雪一時雨",
+        411: "雪後晴れ",
+        413: "雪後曇り",
+        414: "雪後雨",
+        420: "朝の内雪後晴れ",
+        421: "朝の内雪後曇り",
+        422: "雪昼頃から晴れ",
+        423: "雪夕方から晴れ",
+        424: "雪夜は晴れ",
+        425: "雪一時強く降る",
+        426: "雪後みぞれ",
+        427: "雪一時みぞれ",
+        450: "雪で雷を伴う",
+    }
+    return weather_descriptions.get(weather_code, f"天気コード {weather_code}")
 
-    client = WeatherClient(debug=True)
+def main():
+    """CLI メイン関数 - エリアコード指定で気象データとランドマークデータを取得"""
+    import argparse
+    import json
+    
+    parser = argparse.ArgumentParser(
+        description="Weather Client - 気象データとランドマークデータの取得"
+    )
+    parser.add_argument(
+        "--area-code", "-a",
+        type=str,
+        help="エリアコード (例: 011000, 130010)"
+    )
+    parser.add_argument(
+        "--landmarks", "-l",
+        action="store_true",
+        help="ランドマークデータを含めて取得"
+    )
+    parser.add_argument(
+        "--landmarks-limit",
+        type=int,
+        default=10,
+        help="ランドマークデータの取得件数制限 (デフォルト: 10)"
+    )
+    parser.add_argument(
+        "--landmarks-offset",
+        type=int,
+        default=0,
+        help="ランドマークデータの開始オフセット (デフォルト: 0)"
+    )
+    parser.add_argument(
+        "--include-all", "-A",
+        action="store_true",
+        help="警報・災害情報も含めてすべてのデータを取得"
+    )
+    parser.add_argument(
+        "--day", "-d",
+        type=int,
+        default=0,
+        help="予報日 (0: 今日, 1: 明日, ..., デフォルト: 0)"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="デバッグモードで実行"
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="結果をJSON形式で出力"
+    )
+
+    args = parser.parse_args()
+
+    # エリアコードが指定されていない場合はヘルプを表示
+    if not args.area_code:
+        parser.print_help()
+        print("\n例:")
+        print("  python -m WIPCommonPy.clients.weather_client --area-code 011000")
+        print("  python -m WIPCommonPy.clients.weather_client --area-code 130010 --landmarks")
+        print("  python -m WIPCommonPy.clients.weather_client -a 011000 -l --landmarks-limit 20")
+        return
+
+    # ロギング設定
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
+    if not args.json:
+        print(f"Weather Client - エリアコード: {args.area_code}")
+        if args.landmarks:
+            print(f"ランドマークデータ取得: 有効 (limit: {args.landmarks_limit}, offset: {args.landmarks_offset})")
+        print("=" * 60)
+
+    client = WeatherClient(debug=args.debug)
 
     try:
-        # 例1: 座標から天気情報を取得（従来の方法）
-        logger.info("\n1. Getting weather by coordinates (Tokyo) - Traditional method")
-        logger.info("-" * 55)
-
-        request = LocationRequest.create_coordinate_lookup(
-            latitude=35.6895,
-            longitude=139.6917,
-            packet_id=client.PIDG.next_id(),
-            weather=True,
-            temperature=True,
-            precipitation_prob=True,
-            version=client.VERSION,
-        )
-        result = client._execute_location_request(request=request)
+        # ランドマークデータが必要な場合は専用メソッドを使用
+        if args.landmarks:
+            result = client.get_weather_with_landmarks(
+                area_code=args.area_code,
+                landmarks_limit=args.landmarks_limit,
+                landmarks_offset=args.landmarks_offset,
+                day=args.day,
+            )
+        else:
+            # 通常の天気データを取得
+            result = client.get_weather_simple(
+                area_code=args.area_code,
+                include_all=args.include_all,
+                day=args.day,
+            )
 
         if result:
-            client.debug_logger.log_success_result(result, "COORDINATE WEATHER REQUEST")
+            if args.json:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print("\n✓ 取得成功:")
+                print("-" * 40)
+                
+                # 基本的な気象情報を表示
+                if "weather_code" in result:
+                    weather_desc = weather_code_to_description(result['weather_code'])
+                    print(f"天気: {weather_desc}")
+                elif "weather" in result:
+                    print(f"天気: {result['weather']}")
+                if "temperature" in result:
+                    print(f"気温: {result['temperature']}℃")
+                if "precipitation_prob" in result:
+                    print(f"降水確率: {result['precipitation_prob']}%")
+                
+                # 警報・災害情報を表示
+                if args.include_all:
+                    if "alert" in result and result["alert"]:
+                        print(f"警報: {', '.join(result['alert'])}")
+                    if "disaster" in result and result["disaster"]:
+                        print(f"災害情報: {', '.join(result['disaster'])}")
+                
+                # ランドマーク情報を表示
+                if args.landmarks and "landmarks" in result:
+                    landmarks_data = result["landmarks"]
+                    print(f"\nランドマーク情報:")
+                    
+                    if isinstance(landmarks_data, str):
+                        try:
+                            landmarks_json = json.loads(landmarks_data)
+                            if isinstance(landmarks_json, list):
+                                for i, landmark in enumerate(landmarks_json, 1):
+                                    if isinstance(landmark, dict):
+                                        name = landmark.get("name", "不明")
+                                        lat = landmark.get("latitude", "N/A")
+                                        lon = landmark.get("longitude", "N/A")
+                                        print(f"  {i}. {name} (緯度: {lat}, 経度: {lon})")
+                                    else:
+                                        print(f"  {i}. {landmark}")
+                            else:
+                                print(f"  データ: {landmarks_json}")
+                        except json.JSONDecodeError:
+                            print(f"  データ: {landmarks_data}")
+                    else:
+                        print(f"  データ: {landmarks_data}")
+                    
+                    # ランドマークの総数とページング情報
+                    if "landmarks_total" in result:
+                        print(f"  総数: {result['landmarks_total']}")
+                    if "landmarks_offset" in result:
+                        print(f"  オフセット: {result['landmarks_offset']}")
+                        
+                print("-" * 40)
         else:
-            logger.error("\n✗ Failed to get weather data")
+            if args.json:
+                print('{"error": "データの取得に失敗しました"}')
+            else:
+                print("\n✗ データの取得に失敗しました")
 
-        # 例2: LocationRequestインスタンスを使用する方法
-        logger.info("\n2. Getting weather with LocationRequest instance")
-        logger.info("-" * 45)
-
-        # LocationRequestインスタンスを事前作成
-        location_request = LocationRequest.create_coordinate_lookup(
-            latitude=35.6895,
-            longitude=139.6917,
-            packet_id=client.PIDG.next_id(),
-            weather=True,
-            temperature=True,
-            precipitation_prob=True,
-            alert=True,
-            disaster=True,
-            version=client.VERSION,
-        )
-
-        # インスタンスを使用して実行
-        result = client._execute_location_request(location_request)
-
-        if result:
-            client.debug_logger.log_success_result(result, "LOCATION REQUEST INSTANCE")
+    except Exception as e:
+        if args.json:
+            print(f'{{"error": "エラーが発生しました: {str(e)}"}}')
         else:
-            logger.error("\n✗ Failed to get weather data")
-
-        # 例3: QueryRequestインスタンスを使用する方法
-        logger.info("\n3. Getting weather with QueryRequest instance")
-        logger.info("-" * 45)
-
-        # QueryRequestインスタンスを事前作成
-        query_request = QueryRequest.create_query_request(
-            area_code="011000",
-            packet_id=client.PIDG.next_id(),
-            weather=True,
-            temperature=True,
-            precipitation_prob=True,
-            alert=True,
-            disaster=True,
-            version=client.VERSION,
-        )
-
-        # インスタンスを使用して実行
-        result = client._execute_query_request(query_request)
-
-        if result:
-            client.debug_logger.log_success_result(result, "QUERY REQUEST INSTANCE")
-        else:
-            logger.error("\n✗ Failed to get weather data")
-
-        # 例4: 従来の方法でエリアコードから天気情報を取得
-        logger.info("\n4. Getting weather by area code - Traditional method")
-        logger.info("-" * 55)
-
-        result = client.get_weather_data(
-            area_code="011000",
-            weather=True,
-            temperature=True,
-            precipitation_prob=True,
-            alert=True,
-            disaster=True,
-        )
-
-        if result:
-            client.debug_logger.log_success_result(result, "AREA CODE WEATHER REQUEST")
-        else:
-            logger.error("\n✗ Failed to get weather data")
-
+            print(f"\n✗ エラーが発生しました: {e}")
+            if args.debug:
+                import traceback
+                traceback.print_exc()
     finally:
         client.close()
 
-    logger.info("\n" + "=" * 70)
-    logger.info("Enhanced Weather Client Example completed")
-    logger.info("✓ Using specialized packet classes for improved usability")
+    if not args.json:
+        print("=" * 60)
 
 
+if __name__ == "__main__":
+    main()

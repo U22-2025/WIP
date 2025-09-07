@@ -453,6 +453,27 @@ class WeatherRequestHandlers:
         try:
             source_info = (addr[0], addr[1])  # タプル形式で保持
 
+            # 拡張フィールドからランドマーク要求を読み取り
+            landmarks = False
+            landmarks_offset = None
+            landmarks_limit = None
+            wind = False
+            
+            if hasattr(request, 'ex_field') and request.ex_field:
+                try:
+                    ex_dict = request.ex_field.to_dict()
+                    landmarks = bool(ex_dict.get('landmarks'))
+                    if ex_dict.get('landmarks_offset') is not None:
+                        landmarks_offset = int(ex_dict['landmarks_offset'])
+                    if ex_dict.get('landmarks_limit') is not None:
+                        landmarks_limit = int(ex_dict['landmarks_limit'])
+                    wind = bool(ex_dict.get('wind'))
+                    if self.debug:
+                        print(f"[DEBUG] Extended fields: landmarks={landmarks}, limit={landmarks_limit}, offset={landmarks_offset}, wind={wind}")
+                except Exception as e:
+                    if self.debug:
+                        print(f"[DEBUG] Error parsing extended fields: {e}")
+
             # query_clientのキャッシュを使用してクエリを実行
             try:
                 weather_data = self.query_client.get_weather_data(
@@ -462,6 +483,10 @@ class WeatherRequestHandlers:
                     precipitation_prob=bool(request.pop_flag),
                     alert=bool(request.alert_flag),
                     disaster=bool(request.disaster_flag),
+                    landmarks=landmarks,
+                    landmarks_offset=landmarks_offset,
+                    landmarks_limit=landmarks_limit,
+                    wind=wind,
                     day=request.day,
                     use_cache=True,
                     timeout=10.0,
@@ -489,6 +514,16 @@ class WeatherRequestHandlers:
                         ex_field_data["alert"] = weather_data["alert"]
                     if request.disaster_flag and "disaster" in weather_data:
                         ex_field_data["disaster"] = weather_data["disaster"]
+                    
+                    # ランドマークデータを拡張フィールドに追加
+                    if "landmarks" in weather_data:
+                        ex_field_data["landmarks"] = weather_data["landmarks"]
+                    if "landmarks_total" in weather_data:
+                        ex_field_data["landmarks_total"] = weather_data["landmarks_total"]
+                    if "landmarks_offset" in weather_data:
+                        ex_field_data["landmarks_offset"] = weather_data["landmarks_offset"]
+                    if "landmarks_limit" in weather_data:
+                        ex_field_data["landmarks_limit"] = weather_data["landmarks_limit"]
 
                     # QueryResponseを作成
                     query_response = QueryResponse(

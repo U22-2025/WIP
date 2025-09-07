@@ -273,7 +273,15 @@ class QueryResponse(Response):
             if request.ex_field and "wind" in weather_data:
                 ex_field["wind"] = weather_data["wind"]
 
-            # landmarks は辞書では扱わない（サーバ側で ex_field にのみ格納）
+            # landmarksデータを拡張フィールドに設定
+            if "landmarks" in weather_data:
+                ex_field["landmarks"] = weather_data["landmarks"]
+            if "landmarks_total" in weather_data:
+                ex_field["landmarks_total"] = weather_data["landmarks_total"]
+            if "landmarks_offset" in weather_data:
+                ex_field["landmarks_offset"] = weather_data["landmarks_offset"]
+            if "landmarks_limit" in weather_data:
+                ex_field["landmarks_limit"] = weather_data["landmarks_limit"]
 
         return cls(
             version=version,
@@ -416,7 +424,19 @@ class QueryResponse(Response):
         if hasattr(self, "ex_field") and getattr(self.ex_field, "wind", None) is not None:
             data["wind"] = self.ex_field.wind
 
-        # landmarks は ex_field のみで扱う（辞書には含めない）
+        # landmarks データを含める
+        if hasattr(self, "ex_field") and hasattr(self.ex_field, "landmarks") and getattr(self.ex_field, "landmarks", None) is not None:
+            data["landmarks"] = self.ex_field.landmarks
+            
+        # landmarks の総数とページング情報も含める
+        if hasattr(self, "ex_field") and hasattr(self.ex_field, "landmarks_total") and getattr(self.ex_field, "landmarks_total", None) is not None:
+            data["landmarks_total"] = self.ex_field.landmarks_total
+            
+        if hasattr(self, "ex_field") and hasattr(self.ex_field, "landmarks_offset") and getattr(self.ex_field, "landmarks_offset", None) is not None:
+            data["landmarks_offset"] = self.ex_field.landmarks_offset
+            
+        if hasattr(self, "ex_field") and hasattr(self.ex_field, "landmarks_limit") and getattr(self.ex_field, "landmarks_limit", None) is not None:
+            data["landmarks_limit"] = self.ex_field.landmarks_limit
 
         return data
 
