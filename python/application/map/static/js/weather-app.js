@@ -593,7 +593,7 @@ class WeatherApp {
   // 地図
   // ------------------------------------------------------------------
   async initializeMap() {
-    const japanBounds = L.latLngBounds([20, 122], [46, 154]);
+    const japanBounds = L.latLngBounds([20, 122], [60, 154]);
     this.map = L.map('map', {
       zoomControl: true,
       attributionControl: true,
